@@ -27,9 +27,6 @@ export async function POST(request: Request) {
     // ============================================================
     // 1. SÉCURITÉ : VÉRIFICATION CAPTCHA
     // ============================================================
-    // On ne vérifie le captcha que si ce n'est PAS un override staff.
-    // Le staff (via le dashboard) n'envoie pas de captcha, le public (via le widget) en envoie un.
-    
     if (!isStaffOverride) {
         if (!captchaToken) {
             return NextResponse.json({ error: "Veuillez valider le captcha." }, { status: 400 })
@@ -147,7 +144,7 @@ export async function POST(request: Request) {
       }
     })
 
-    // Log : on précise si c'était un override
+    // Log
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
 
@@ -158,7 +155,9 @@ export async function POST(request: Request) {
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userDetails.email],
             subject: 'Confirmation de votre tour en barque 🛶',
-            react: BookingTemplate({
+            // 👇 MODIFICATION ICI : Ajout de 'await' devant BookingTemplate
+            // Cela permet de résoudre la Promesse si le composant est considéré comme async par Vercel
+            react: await BookingTemplate({
               firstName: userDetails.firstName,
               date: date,
               time: time,
