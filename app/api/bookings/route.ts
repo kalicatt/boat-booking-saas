@@ -42,13 +42,7 @@ export async function POST(request: Request) {
     }
 
     // --- CORRECTION TIMEZONE ---
-    // On construit la date en UTC explicitement pour éviter le décalage
-    // L'astuce est de créer la date "telle quelle" en concaténant la chaîne ISO
-    const isoDateTime = `${date}T${time}:00.000Z`; // On force le Z pour dire "C'est cette heure là en UTC"
-    // ATTENTION : Cela suppose que le front-end envoie l'heure locale souhaitée.
-    // Si je veux réserver à 14h00, j'envoie "14:00". Le serveur va stocker 14:00 UTC.
-    // Comme tout le système (admin, client) se basera sur cette convention, l'affichage sera cohérent.
-    
+    const isoDateTime = `${date}T${time}:00.000Z`;
     const myStart = new Date(isoDateTime);
     const myEnd = addMinutes(myStart, TOUR_DURATION)
     const myTotalEnd = addMinutes(myEnd, BUFFER_TIME)
@@ -67,8 +61,7 @@ export async function POST(request: Request) {
     const startMinRef = parseInt(OPEN_TIME.split(':')[1])
     const startTimeInMinutes = startHourRef * 60 + startMinRef
 
-    // Pour le calcul de rotation, on utilise l'heure "virtuelle" UTC qu'on vient de créer
-    const currentHours = myStart.getUTCHours() // On utilise UTC Hours pour être cohérent avec notre forçage
+    const currentHours = myStart.getUTCHours()
     const currentMinutes = myStart.getUTCMinutes()
     const minutesTotal = currentHours * 60 + currentMinutes
     
@@ -127,7 +120,7 @@ export async function POST(request: Request) {
     // --- ENREGISTREMENT ---
     const newBooking = await prisma.booking.create({
       data: {
-        date: parseISO(date), // La date seule (sans heure) est gérée correctement par Prisma
+        date: parseISO(date),
         startTime: myStart,
         endTime: myEnd,
         numberOfPeople: people,

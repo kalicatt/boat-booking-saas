@@ -1,188 +1,204 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { addMinutes, parseISO, getHours, getMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
-import { Resend } from 'resend'
-import { BookingTemplate } from '@/components/emails/BookingTemplate'
-import { createLog } from '@/lib/logger'
+'use client'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+import { useState } from 'react';
+import { format } from 'date-fns';
 
-// --- CONFIGURATION ---
-const TOUR_DURATION = 25
-const BUFFER_TIME = 5
-const OPEN_TIME = "09:00"
+interface QuickBookingModalProps {
+    slotStart: Date;     // L'heure sur laquelle on a cliqué
+    boatId: number;      // Le bateau (colonne) sur lequel on a cliqué
+    resources: any[];    // Liste des bateaux pour afficher le nom
+    onClose: () => void;
+    onSuccess: () => void;
+}
 
-// TARIFS
-const PRICE_ADULT = 9
-const PRICE_CHILD = 4
-const PRICE_BABY = 0
+const PRICE_ADULT = 9;
+const PRICE_CHILD = 4;
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json()
+export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess }: QuickBookingModalProps) {
+    const [isLoading, setIsLoading] = useState(false);
     
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken } = body
-
-    // ============================================================
-    // 1. SÉCURITÉ : VÉRIFICATION CAPTCHA
-    // ============================================================
-    if (!isStaffOverride) {
-        if (!captchaToken) {
-            return NextResponse.json({ error: "Veuillez valider le captcha." }, { status: 400 })
-        }
-
-        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
-        
-        const captchaRes = await fetch(verifyUrl, { method: 'POST' })
-        const captchaData = await captchaRes.json()
-
-        if (!captchaData.success) {
-            return NextResponse.json({ error: "Échec de la validation Captcha. Êtes-vous un robot ?" }, { status: 400 })
-        }
-    }
-
-    // --- CORRECTION TIMEZONE ---
-    // On construit la date en UTC explicitement pour éviter le décalage
-    // L'astuce est de créer la date "telle quelle" en concaténant la chaîne ISO
-    const isoDateTime = `${date}T${time}:00.000Z`; // On force le Z pour dire "C'est cette heure là en UTC"
-    // ATTENTION : Cela suppose que le front-end envoie l'heure locale souhaitée.
-    // Si je veux réserver à 14h00, j'envoie "14:00". Le serveur va stocker 14:00 UTC.
-    // Comme tout le système (admin, client) se basera sur cette convention, l'affichage sera cohérent.
+    // États du formulaire
+    const [time, setTime] = useState(format(slotStart, 'HH:mm')); // Pré-rempli avec le clic
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     
-    const myStart = new Date(isoDateTime);
-    const myEnd = addMinutes(myStart, TOUR_DURATION)
-    const myTotalEnd = addMinutes(myEnd, BUFFER_TIME)
+    // Détail passagers
+    const [adults, setAdults] = useState(2);
+    const [children, setChildren] = useState(0);
+    const [babies, setBabies] = useState(0);
 
-    const people = adults + children + babies
-    const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
+    // Infos calculées
+    const totalPeople = adults + children + babies;
+    const totalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD);
+    const targetBoat = resources.find(r => r.id === boatId);
 
-    // 2. Charger les barques
-    const boats = await prisma.boat.findMany({ 
-        where: { status: 'ACTIVE' },
-        orderBy: { id: 'asc' }
-    })
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (totalPeople === 0) return alert("Il faut au moins 1 passager.");
 
-    // 3. CALCUL ROTATION
-    const startHourRef = parseInt(OPEN_TIME.split(':')[0])
-    const startMinRef = parseInt(OPEN_TIME.split(':')[1])
-    const startTimeInMinutes = startHourRef * 60 + startMinRef
+        setIsLoading(true);
 
-    // Pour le calcul de rotation, on utilise l'heure "virtuelle" UTC qu'on vient de créer
-    const currentHours = myStart.getUTCHours() // On utilise UTC Hours pour être cohérent avec notre forçage
-    const currentMinutes = myStart.getUTCMinutes()
-    const minutesTotal = currentHours * 60 + currentMinutes
-    
-    const slotsElapsed = (minutesTotal - startTimeInMinutes) / 10
-    const boatIndex = slotsElapsed % boats.length 
-    
-    const targetBoat = boats[boatIndex]
+        // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
+        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
+        const [hours, minutes] = time.split(':').map(Number);
+        const selectedDate = new Date(slotStart);
+        selectedDate.setHours(hours);
+        selectedDate.setMinutes(minutes);
+        selectedDate.setSeconds(0);
 
-    if (!targetBoat) {
-        return NextResponse.json({ error: "Aucune barque assignée à ce créneau." }, { status: 409 })
-    }
+        // On convertit en UTC pour l'envoi au serveur
+        // Exemple : Si je choisis 10:00 en France, toISOString() donnera "...T09:00:00.000Z"
+        // Le serveur recevra 09:00 UTC et stockera ça.
+        // À l'affichage, 09:00 UTC redeviendra 10:00 France. C'est gagné !
+        const isoString = selectedDate.toISOString();
+        const dateUTC = isoString.split('T')[0];
+        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
 
-    // 4. VÉRIFICATION CONFLITS
-    const conflicts = await prisma.booking.findMany({
-      where: {
-        boatId: targetBoat.id,
-        status: { not: 'CANCELLED' },
-        AND: [
-             { startTime: { lt: myTotalEnd } },
-             { endTime: { gt: myStart } }
-        ]
-      }
-    })
+        const bookingData = {
+            date: dateUTC, // Date UTC
+            time: timeUTC, // Heure UTC
+            adults, 
+            children, 
+            babies,
+            people: totalPeople,
+            language: 'FR', 
+            userDetails: {
+                firstName: firstName || 'Client',
+                lastName: lastName || 'Guichet',
+                email: 'guichet@sweet-narcisse.com', 
+                phone: ''
+            },
+            forcedBoatId: boatId 
+        };
 
-    const realConflicts = conflicts.filter(b => {
-        const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
-        return areIntervalsOverlapping(
-            { start: myStart, end: myTotalEnd },
-            { start: b.startTime, end: busyEnd }
-        )
-    })
+        try {
+            const res = await fetch('/api/bookings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...bookingData, isStaffOverride: true })
+            });
 
-    let canBook = false
-
-    if (realConflicts.length === 0) {
-        canBook = true 
-    } else {
-        const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
-        const isSameLang = realConflicts.every(b => b.language === language)
-        const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-        const hasCapacity = (totalPeople + people <= targetBoat.capacity) || isStaffOverride === true
-
-        if (isExactStart && isSameLang && hasCapacity) {
-            canBook = true
-        }
-    }
-
-    if (!canBook) {
-         const errorMsg = isStaffOverride 
-            ? `Impossible de forcer : Langue ou horaire incompatible sur ${targetBoat.name}.`
-            : `Le créneau est complet sur la barque ${targetBoat.name}.`
-
-         return NextResponse.json({ error: errorMsg }, { status: 409 })
-    }
-
-    // --- ENREGISTREMENT ---
-    const newBooking = await prisma.booking.create({
-      data: {
-        date: parseISO(date), // La date seule (sans heure) est gérée correctement par Prisma
-        startTime: myStart,
-        endTime: myEnd,
-        numberOfPeople: people,
-        adults: adults,
-        children: children,
-        babies: babies,
-        language: language,
-        totalPrice: finalPrice,
-        status: 'CONFIRMED',
-        boat: { connect: { id: targetBoat.id } },
-        user: {
-          connectOrCreate: {
-            where: { email: userDetails.email },
-            create: { 
-                firstName: userDetails.firstName,
-                lastName: userDetails.lastName,
-                email: userDetails.email,
-                phone: userDetails.phone || null,
+            if (res.ok) {
+                onSuccess(); // Ferme et rafraîchit
+            } else {
+                const err = await res.json();
+                alert(`Erreur: ${err.error}`);
             }
-          }
+        } catch (e) {
+            alert("Erreur de connexion.");
+        } finally {
+            setIsLoading(false);
         }
-      }
-    })
+    };
 
-    const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
-    await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
+    return (
+        <div className="fixed inset-0 bg-black/60 z-[99] flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                
+                {/* Header */}
+                <div className="bg-blue-900 p-4 flex justify-between items-center">
+                    <div>
+                        <h3 className="text-white font-bold text-lg">Ajout Rapide</h3>
+                        <p className="text-blue-200 text-xs">Sur {targetBoat?.title || 'Bateau inconnu'}</p>
+                    </div>
+                    <button onClick={onClose} className="text-white/70 hover:text-white text-2xl font-bold">×</button>
+                </div>
 
-    // --- ENVOI EMAIL ---
-    try {
-      if (userDetails.email && userDetails.email.includes('@')) {
-          await resend.emails.send({
-            from: 'Sweet Narcisse <onboarding@resend.dev>',
-            to: [userDetails.email],
-            subject: 'Confirmation de votre tour en barque 🛶',
-            react: await BookingTemplate({
-              firstName: userDetails.firstName,
-              date: date,
-              time: time,
-              people: people,
-              adults: adults,
-              children: children,
-              babies: babies,
-              totalPrice: finalPrice,
-              bookingId: newBooking.id
-            })
-          })
-      }
-    } catch (e) { 
-        console.error("Erreur email:", e) 
-    }
+                <form onSubmit={handleSubmit} className="p-5 space-y-5">
+                    
+                    {/* 1. HORAIRE */}
+                    <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">HORAIRE DE DÉPART</label>
+                            <input 
+                                type="time" 
+                                value={time} 
+                                onChange={(e) => setTime(e.target.value)}
+                                className="w-full text-xl font-bold text-blue-900 border-b-2 border-blue-200 focus:border-blue-600 outline-none p-1"
+                            />
+                        </div>
+                        <div className="text-right">
+                            <span className="block text-xs font-bold text-slate-500">DATE</span>
+                            <span className="font-bold text-slate-700">{format(slotStart, 'dd/MM/yyyy')}</span>
+                        </div>
+                    </div>
 
-    return NextResponse.json({ success: true, bookingId: newBooking.id })
+                    {/* 2. CLIENT */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">NOM</label>
+                            <input 
+                                type="text" 
+                                required 
+                                placeholder="Nom"
+                                value={lastName}
+                                onChange={(e) => setLastName(e.target.value)}
+                                className="w-full border rounded p-2 bg-slate-50"
+                                autoFocus
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">PRÉNOM</label>
+                            <input 
+                                type="text" 
+                                placeholder="Prénom"
+                                value={firstName}
+                                onChange={(e) => setFirstName(e.target.value)}
+                                className="w-full border rounded p-2 bg-slate-50"
+                            />
+                        </div>
+                    </div>
 
-  } catch (error) {
-    console.error(error)
-    return NextResponse.json({ error: "Erreur technique" }, { status: 500 })
-  }
+                    {/* 3. PASSAGERS (Compteurs) */}
+                    <div className="bg-slate-100 rounded-lg p-3 space-y-2">
+                        {/* ADULTES */}
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-700">Adultes (9€)</span>
+                            <div className="flex items-center bg-white rounded border">
+                                <button type="button" onClick={() => setAdults(Math.max(0, adults - 1))} className="px-3 py-1 hover:bg-slate-100">-</button>
+                                <span className="w-8 text-center font-bold">{adults}</span>
+                                <button type="button" onClick={() => setAdults(adults + 1)} className="px-3 py-1 hover:bg-slate-100">+</button>
+                            </div>
+                        </div>
+
+                        {/* ENFANTS */}
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-700">Enfants (4€)</span>
+                            <div className="flex items-center bg-white rounded border">
+                                <button type="button" onClick={() => setChildren(Math.max(0, children - 1))} className="px-3 py-1 hover:bg-slate-100">-</button>
+                                <span className="w-8 text-center font-bold">{children}</span>
+                                <button type="button" onClick={() => setChildren(children + 1)} className="px-3 py-1 hover:bg-slate-100">+</button>
+                            </div>
+                        </div>
+
+                        {/* BÉBÉS */}
+                        <div className="flex justify-between items-center">
+                            <span className="text-sm font-bold text-slate-700">Bébés (Gratuit)</span>
+                            <div className="flex items-center bg-white rounded border">
+                                <button type="button" onClick={() => setBabies(Math.max(0, babies - 1))} className="px-3 py-1 hover:bg-slate-100">-</button>
+                                <span className="w-8 text-center font-bold">{babies}</span>
+                                <button type="button" onClick={() => setBabies(babies + 1)} className="px-3 py-1 hover:bg-slate-100">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 4. FOOTER & PRIX */}
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-4">
+                        <div className="flex flex-col">
+                            <span className="text-xs text-slate-500 uppercase font-bold">À Encaisser</span>
+                            <span className="text-2xl font-bold text-green-600">{totalPrice} €</span>
+                        </div>
+                        <button 
+                            type="submit" 
+                            disabled={isLoading || totalPeople === 0}
+                            className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 transition transform active:scale-95"
+                        >
+                            {isLoading ? "..." : "VALIDER ✅"}
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    );
 }
