@@ -126,28 +126,6 @@ export default function StatsPage() {
                 </div>
               </div>
 
-              {/* 3. PERFORMANCE BARQUES */}
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h3 className="text-lg font-bold text-slate-800 mb-6">Performance par Barque 🛶</h3>
-                <div className="space-y-4">
-                  {(data.byBoat || []).map((boat: any) => {
-                    const maxPeople = Math.max(...(data.byBoat || []).map((b:any) => b.people)) || 1;
-                    const width = (boat.people / maxPeople) * 100;
-                    return (
-                      <div key={boat.name}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className="font-bold text-slate-700">{boat.name}</span>
-                          <span className="text-slate-500">{boat.people} passagers</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2.5">
-                          <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${width}%` }}></div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {(!data.byBoat || data.byBoat.length === 0) && <div className="text-slate-400 text-sm text-center italic">Aucune donnée barque.</div>}
-                </div>
-              </div>
 
             </div>
           </>
