@@ -1,0 +1,119 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- LES TABLES ---
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String?   // Optionnel car peut-être pas de mot de passe si "Guest"
+  firstName String
+  address   String?   
+  image     String?
+  lastName  String
+  phone     String?
+  role      Role      @default(CLIENT)
+  createdAt DateTime  @default(now())
+  bookings  Booking[]
+  workShifts WorkShift[]
+  log Log[] 
+}
+
+model Boat {
+  id          Int       @id @default(autoincrement())
+  name        String    // Ex: "Barque 1"
+  capacity    Int       @default(12)
+  status      BoatStatus @default(ACTIVE)
+  bookings    Booking[]
+}
+
+model Booking {
+  id          String    @id @default(uuid())
+  createdAt   DateTime  @default(now())
+  
+  // ... (champs date, user, etc. inchangés) ...
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+
+  // DÉTAIL DES PASSAGERS
+  numberOfPeople Int      // Total (pour la capacité)
+  adults         Int      @default(0) // <--- NOUVEAU
+  children       Int      @default(0) // <--- NOUVEAU (4-10 ans)
+  babies         Int      @default(0) // <--- NOUVEAU (0-3 ans)
+
+  language    String
+  totalPrice  Float
+  status      BookingStatus @default(PENDING)
+  checkinStatus   CheckinStatus   @default(CONFIRMED) 
+  isPaid          Boolean         @default(true)
+
+  // ... (relations inchangées) ...
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  boat        Boat      @relation(fields: [boatId], references: [id])
+  boatId      Int
+}
+
+model WorkShift {
+  id           String   @id @default(uuid())
+  startTime    DateTime
+  endTime      DateTime
+  breakMinutes Int      @default(0) // <--- NOUVEAU : Temps de pause en minutes
+  note         String?
+  
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  createdAt    DateTime @default(now())
+}
+
+model Log {
+  id        String   @id @default(uuid())
+  action    String   // Ex: "DELETE_BOOKING", "ADD_SHIFT"
+  details   String?  // Ex: "Réservation de Dupont supprimée"
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+}
+
+// --- ENUMS (Listes de choix fixes) ---
+
+enum Role {
+  CLIENT
+  EMPLOYEE
+  ADMIN
+  SUPERADMIN
+}
+
+enum BoatStatus {
+  ACTIVE
+  MAINTENANCE
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum Language {
+  FR // Français
+  EN // Anglais
+  DE // Allemand
+  ES // Espagnol
+}
+
+enum CheckinStatus {
+  CONFIRMED  // Réservation normale (par défaut)
+  EMBARQUED  // Personnes arrivées
+  NO_SHOW    // Personnes non présentées
+}

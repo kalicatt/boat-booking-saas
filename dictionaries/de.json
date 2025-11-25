@@ -1,0 +1,62 @@
+{
+  "nav": {
+    "experience": "DAS ERLEBNIS",
+    "contact": "KONTAKT",
+    "book": "RESERVIEREN 🎟️"
+  },
+  "hero": {
+    "title": "Colmar zu Wasser",
+    "subtitle": "Entdecken Sie den Zauber von Klein-Venedig an Bord unserer traditionellen Kähne. Ein zeitloses Erlebnis.",
+    "cta": "ABENTEUER STARTEN"
+  },
+  "presentation": {
+    "title": "Das Elsässische Venedig ganz neu entdecken.",
+    "text": "Lassen Sie sich vom Plätschern der Lauch wiegen. Unsere passionierten Bootsführer begleiten Sie durch die historischen Viertel der Gerber und Fischhändler. Genießen Sie einen einzigartigen Blick auf die bunten Fachwerkhäuser, fernab der Massen.",
+    "points": ["Mehrsprachige Führer (FR, EN, DE)", "Traditionelle Flachboote", "25-minütige Fahrt im Stadtzentrum"]
+  },
+  "booking": {
+    "title": "Abfahrt Buchen",
+    "subtitle": "Wählen Sie Ihren Termin unten. Zahlung vor Ort oder online.",
+    "widget": {
+      "date": "DATUM",
+      "passengers": "PERSONEN",
+      "language": "GEWÜNSCHTE SPRACHE",
+      "choose": "Zeit wählen",
+      "reserve": "Buchen",
+      "no_slot": "Keine Abfahrt für diese Kriterien verfügbar.",
+      "form_title": "Ihre Daten",
+      "confirm": "RESERVIERUNG BESTÄTIGEN",
+      "adults": "Erwachsene (9,00 €)",
+      "children": "Kinder (4-10 Jahre)",
+      "babies": "Kleinkinder (-3 Jahre)",
+      "free": "Kostenlos (0,00 €)"
+      
+    }
+  },
+  "group_form": {
+    "title": "Gruppenanfrage (+{people} Pers.)",
+    "subtitle": "Für große Gruppen organisieren wir private Abfahrten. Füllen Sie dieses Formular aus, um kontaktiert zu werden.",
+    "placeholder_firstname": "Vorname",
+    "placeholder_lastname": "Nachname",
+    "placeholder_email": "E-Mail",
+    "placeholder_phone": "Telefon",
+    "placeholder_message": "Geben Sie Ihre Wünsche an (Uhrzeit, Bedürfnisse...)",
+    "button_send": "ANFRAGE SENDEN",
+    "sent_title": "Anfrage gesendet!",
+    "sent_message": "Wir werden Sie innerhalb von 24 Stunden kontaktieren.",
+    "sent_button": "Neue Anfrage"
+  },
+  "footer": {
+    "hours_title": "Öffnungszeiten",
+    "open_days": "Täglich geöffnet",
+    "morning_label": "Morgens:",
+    "morning_hours": "08:00 - 12:15",
+    "afternoon_label": "Nachmittags:",
+    "afternoon_hours": "13:30 - 18:15",
+    "infos": "Informationen",
+    "legal": "Impressum",
+    "cgv": "AGB",
+    "employee_access": "Mitarbeiter-Login 🔒",
+    "rights": "© 2025 Sweet Narcisse. Alle Rechte vorbehalten."
+  }
+}

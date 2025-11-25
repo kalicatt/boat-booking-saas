@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15
+    container_name: sweet_narcisse_db
+    restart: always
+    environment:
+      POSTGRES_USER: sweet_admin
+      POSTGRES_PASSWORD: 2b2hEmWrpD2Y5aCqUbzvmYj2jKVG3ne8
+      POSTGRES_DB: sweet_narcisse
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

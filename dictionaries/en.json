@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "experience": "THE EXPERIENCE",
+    "contact": "CONTACT",
+    "book": "BOOK NOW 🎟️"
+  },
+  "hero": {
+    "title": "Colmar on the Water",
+    "subtitle": "Discover the magic of Little Venice aboard our traditional boats. A timeless experience.",
+    "cta": "START THE ADVENTURE"
+  },
+  "presentation": {
+    "title": "Alsatian Venice as you have never seen it before.",
+    "text": "Let yourself be rocked by the lapping of the Lauch river. Our passionate boatmen will guide you through the historic districts of the tanners and the fishmongers. Enjoy a unique view of the colorful half-timbered houses, away from the crowds.",
+    "points": ["Multilingual Guides (FR, EN, DE)", "Traditional flat-bottom boats", "25-minute journey in the city center"]
+  },
+  "booking": {
+    "title": "Book Your Departure",
+    "subtitle": "Choose your time slot below. Payment on site or online.",
+    "widget": {
+      "date": "DATE",
+      "passengers": "PASSENGERS",
+      "language": "GUIDE LANGUAGE",
+      "choose": "Choose Time",
+      "reserve": "BOOK",
+      "no_slot": "No departures available for these criteria.",
+      "form_title": "Contact Information",
+      "confirm": "CONFIRM BOOKING",
+      "adults": "Adultes",
+      "children": "Enfants (4-10 ans)",
+      "babies": "Bébés (-3 ans)",
+      "free": "Gratuit (0,00 €)"
+    }
+  },
+  "group_form": {
+    "title": "Group Request (+{people} people)",
+    "subtitle": "For large groups, we organize private departures. Fill out this form to be contacted.",
+    "placeholder_firstname": "First Name",
+    "placeholder_lastname": "Last Name",
+    "placeholder_email": "Email",
+    "placeholder_phone": "Phone",
+    "placeholder_message": "Specify your request (time, needs...)",
+    "button_send": "SEND REQUEST",
+    "sent_title": "Request Sent!",
+    "sent_message": "We will contact you within 24 hours.",
+    "sent_button": "New Request"
+  },
+  "footer": {
+    "hours_title": "Opening Hours",
+    "open_days": "Open every day",
+    "morning_label": "Morning:",
+    "morning_hours": "08:00 AM - 12:15 PM",
+    "afternoon_label": "Afternoon:",
+    "afternoon_hours": "01:30 PM - 06:15 PM",
+    "infos": "Information",
+    "legal": "Legal Notice",
+    "cgv": "Terms & Conditions",
+    "employee_access": "Employee Login 🔒",
+    "rights": "© 2025 Sweet Narcisse. All rights reserved."
+  }
+}
