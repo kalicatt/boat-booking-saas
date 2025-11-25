@@ -100,7 +100,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.role = token.role
         session.user.firstName = token.firstName
         session.user.lastName = token.lastName
-        session.user.id = token.id
+        // FIX: On force le type string pour l'ID
+        session.user.id = token.id as string
         session.user.image = token.image as string | null | undefined
       }
       return session
