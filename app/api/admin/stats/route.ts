@@ -20,7 +20,8 @@ export async function GET(request: Request) {
   // Filtre commun : Dans la plage de date ET non annulé
   const whereClause = {
     startTime: { gte: startDate, lte: endDate },
-    status: { not: 'CANCELLED' } 
+    // 👇 CORRECTION IMPORTANTE : "as const" pour le typage strict Prisma
+    status: { not: 'CANCELLED' as const } 
   }
 
   try {
