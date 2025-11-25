@@ -98,7 +98,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     
     setIsSubmitting(true)
     try {
-        const res = await fetch('/api/booking', {
+        // 👇 CORRECTION ICI : '/api/bookings' (pluriel) au lieu de '/api/booking'
+        const res = await fetch('/api/bookings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -117,7 +118,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             recaptchaRef.current?.reset()
         }
     } catch (e) {
-        alert("Erreur de connexion")
+        console.error(e)
+        alert("Erreur de connexion (Vérifiez votre réseau ou contactez le support)")
     } finally {
         setIsSubmitting(false)
     }
@@ -262,7 +264,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
             <div className="mt-8 text-xs text-slate-500 border-t border-slate-800 pt-4">
                 <p>{dict.booking.widget.help_text}</p>
-                <p className="text-slate-400 mt-1">📞+33 3 89 20 68 92 </p>
+                <p className="text-slate-400 mt-1">📞 +33 3 89 20 68 92</p>
             </div>
         </div>
 
