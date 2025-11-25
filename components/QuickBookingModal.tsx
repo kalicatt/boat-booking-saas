@@ -34,12 +34,8 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     // Recherche du bateau cible
     const targetBoat = resources.find(r => r.id === boatId);
 
-    // Debugging: Vérifier si le bateau est trouvé
-    useEffect(() => {
-        console.log("QuickBookingModal - boatId:", boatId);
-        console.log("QuickBookingModal - resources:", resources);
-        console.log("QuickBookingModal - targetBoat:", targetBoat);
-    }, [boatId, resources, targetBoat]);
+    // Nom affiché par défaut si l'employé ne rentre rien
+    const defaultName = 'Client Guichet'; 
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,17 +44,19 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setIsLoading(true);
 
         // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
-        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
         const [hours, minutes] = time.split(':').map(Number);
         const selectedDate = new Date(slotStart);
         selectedDate.setHours(hours);
         selectedDate.setMinutes(minutes);
         selectedDate.setSeconds(0);
 
-        // On convertit en UTC pour l'envoi au serveur
         const isoString = selectedDate.toISOString();
         const dateUTC = isoString.split('T')[0];
-        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
+        const timeUTC = isoString.split('T')[1].substring(0, 5); 
+
+        // Nom exact à envoyer à la base de données
+        const finalFirstName = firstName.trim() || 'Client';
+        const finalLastName = lastName.trim() || 'Guichet';
 
         const bookingData = {
             date: dateUTC, // Date UTC
@@ -69,8 +67,9 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             people: totalPeople,
             language: 'FR', 
             userDetails: {
-                firstName: firstName || 'Client',
-                lastName: lastName || 'Guichet',
+                // On s'assure d'envoyer la bonne valeur
+                firstName: finalFirstName, 
+                lastName: finalLastName,
                 email: 'guichet@sweet-narcisse.com', 
                 phone: ''
             },
