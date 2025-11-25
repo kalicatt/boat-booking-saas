@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { auth } from '@/auth'
 import { logout } from '@/lib/actions'
+import { redirect } from 'next/navigation'
 
 // 1. On définit le type complet de l'utilisateur pour TypeScript
 interface ExtendedUser {
@@ -18,12 +19,15 @@ export default async function AdminDashboard() {
   // 2. On "force" le type ici pour dire à TS : "T'inquiète, ces champs existent"
   const user = session?.user as ExtendedUser | undefined
 
-  if (!user) return null 
+  // 3. REDIRECTION SI NON CONNECTÉ (Au lieu d'une page blanche)
+  if (!user) {
+    redirect('/login')
+  }
 
   // Calcul des initiales (avec fallback de sécurité)
   const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || user.name?.[0]?.toUpperCase() || '?'
 
-  // 3. DÉFINITION DES COULEURS SELON LE RÔLE
+  // 4. DÉFINITION DES COULEURS SELON LE RÔLE
   const getRoleStyles = (role: string) => {
     switch (role) {
       case 'SUPERADMIN':
