@@ -59,7 +59,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             const res = await fetch('/api/bookings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bookingData)
+                body: JSON.stringify({ ...bookingData, isStaffOverride: true })
             });
 
             if (res.ok) {
