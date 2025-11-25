@@ -1,15 +1,22 @@
 import "../globals.css";
-// ... imports de fonts ...
+import { ReactNode } from 'react';
 
-export default function LangLayout({
+// 1. Définition du type avec Promise pour params (Spécifique Next.js 15)
+interface LangLayoutProps {
+  children: ReactNode;
+  params: Promise<{ lang: string }>; 
+}
+
+// 2. Le composant doit être async
+export default async function LangLayout({
   children,
-  params // On garde params même si on ne l'utilise plus pour le <html>
-}: {
-  children: React.ReactNode
-  params: { lang: string }
-}) {
+  params
+}: LangLayoutProps) {
+
+  // 3. On await les params pour satisfaire Next.js, même si on n'utilise pas 'lang' ici
+  await params; 
+
   return (
-    // PLUS DE <html> NI <body> ICI NON PLUS
     // On retourne juste le contenu (la structure globale est gérée par src/app/layout.tsx)
     <div className="antialiased bg-slate-50 text-slate-900">
         {children}
