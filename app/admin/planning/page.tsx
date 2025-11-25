@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
-import fr from 'date-fns/locale/fr'
+// 👇 CORRECTION ICI : Import nommé depuis 'date-fns/locale'
+import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import Link from 'next/link'
 import QuickBookingModal from '@/components/QuickBookingModal'
-import useSWR from 'swr' // <--- IMPORT SWR
+import useSWR from 'swr'
 
 // --- CONFIGURATION ---
 const locales = { 'fr': fr }
@@ -45,9 +46,6 @@ const fetcher = (url: string) => fetch(url).then((res) => {
 })
 
 export default function AdminPlanning() {
-  // On retire 'events' du state local, car ils viendront de SWR via useMemo
-  // const [events, setEvents] = useState<BookingDetails[]>([]) <-- SUPPRIMÉ
-  
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
   
@@ -63,31 +61,25 @@ export default function AdminPlanning() {
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date, boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
   
-  // On retire refreshKey et les Refs de polling <-- SUPPRIMÉ
-
-  // --- 1. SWR HOOK (REMPLACE LE FETCH MANUEL ET LE POLLING) ---
-  
-  // Construction de l'URL dynamique basée sur la vue actuelle
+  // --- 1. SWR HOOK ---
   const apiUrl = `/api/admin/all-bookings?start=${currentRange.start.toISOString()}&end=${currentRange.end.toISOString()}`
 
   const { data: rawBookings, error, mutate } = useSWR(apiUrl, fetcher, {
-      refreshInterval: 10000, // Actualise toutes les 10 secondes automatiquement
-      revalidateOnFocus: true, // Actualise quand on clique sur la fenêtre
-      keepPreviousData: true, // Garde les données affichées pendant le chargement de la semaine suivante
+      refreshInterval: 10000,
+      revalidateOnFocus: true,
+      keepPreviousData: true,
   })
 
-  // --- 2. TRANSFORMATION DES DONNÉES (Memoized) ---
+  // --- 2. TRANSFORMATION DES DONNÉES ---
   const events = useMemo(() => {
       if (!rawBookings || !Array.isArray(rawBookings)) return []
 
-      // Calcul de la charge par créneau
       const loadMap: Record<string, number> = {}
       rawBookings.forEach((b: any) => {
         const key = `${b.startTime}_${b.boatId}`
         loadMap[key] = (loadMap[key] || 0) + b.numberOfPeople
       })
 
-      // Mapping JSON -> BookingDetails (Conversion des Dates)
       return rawBookings.map((b: any) => {
         const fullName = `${b.user.firstName} ${b.user.lastName}`
         const startDate = new Date(b.startTime)
@@ -103,10 +95,10 @@ export default function AdminPlanning() {
           checkinStatus: b.checkinStatus, isPaid: b.isPaid, status: b.status,
         }
       }).filter((event: any) => event !== null) as BookingDetails[]
-  }, [rawBookings]) // Se recalcule uniquement quand SWR renvoie de nouvelles données
+  }, [rawBookings]) 
 
 
-  // --- 3. CHARGEMENT DES RESSOURCES (BARQUES) ---
+  // --- 3. CHARGEMENT DES RESSOURCES ---
   const fetchBoats = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/boats')
@@ -120,8 +112,7 @@ export default function AdminPlanning() {
   useEffect(() => { fetchBoats() }, [fetchBoats])
 
 
-  // --- 4. HANDLERS (NAVIGATION & CLICS) ---
-
+  // --- 4. HANDLERS ---
   const handleNavigate = (date: Date) => setCurrentDate(date)
   const handleViewChange = (view: any) => setCurrentView(view)
 
@@ -161,17 +152,16 @@ export default function AdminPlanning() {
 
   const handleQuickBookingSuccess = () => {
       setShowQuickBookModal(false)
-      mutate() // <--- APPEL SWR : Actualisation immédiate
+      mutate()
   }
 
 
   // --- 5. ACTIONS CRUD ---
-
   const handleRenameBoat = async (boatId: number, currentName: string) => {
     const newName = prompt(`Nom du batelier pour la barque ${boatId} ?`, currentName)
     if (newName && newName !== currentName) {
       await fetch('/api/admin/boats', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: boatId, name: newName }) })
-      fetchBoats() // On recharge les barques (pas géré par SWR ici car ressources statiques)
+      fetchBoats()
     }
   }
 
@@ -180,7 +170,6 @@ export default function AdminPlanning() {
     if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
     if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
     
-    // Mise à jour optimiste locale (Optionnel mais recommandé pour UX fluide)
     if(selectedBooking) {
         setSelectedBooking({
              ...selectedBooking,
@@ -191,19 +180,16 @@ export default function AdminPlanning() {
 
     const res = await fetch(`/api/bookings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
     
-    if (res.ok) {
-        mutate() // <--- APPEL SWR : Actualisation immédiate des données serveur
-    } else { alert("Erreur mise à jour") }
+    if (res.ok) mutate() 
+    else alert("Erreur mise à jour")
   }
 
   const handleDelete = async (id: string, title: string) => {
     if(!confirm(`ANNULER la réservation de ${title} ?`)) return
-    
     const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
-    
     if (res.status === 401) { alert("Session expirée."); await logout(); return; }
     if (res.ok) {
-        mutate() // <--- APPEL SWR : Actualisation immédiate
+        mutate()
         setShowDetailsModal(false)
     } else { alert("Erreur suppression") }
   }
@@ -214,16 +200,14 @@ export default function AdminPlanning() {
     if (newTime && newTime !== currentHour) {
         const [h, m] = newTime.split(':')
         const newDate = new Date(event.start); newDate.setHours(parseInt(h), parseInt(m))
-        
         const res = await fetch(`/api/bookings/${event.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newDate.toISOString() }) })
-        if (res.ok) mutate() // <--- APPEL SWR
+        if (res.ok) mutate() 
         else alert("Erreur (Conflit ?)")
     }
   }
 
 
-  // --- 6. COMPOSANTS VISUELS (INCHANGÉS) ---
-
+  // --- 6. COMPOSANTS VISUELS ---
   const AddButtonWrapper = ({ children }: any) => {
       return (
           <div className="h-full w-full relative group cursor-pointer hover:bg-blue-50/50 transition-colors flex items-center justify-center">
@@ -280,7 +264,6 @@ export default function AdminPlanning() {
     return {}
   }
 
-  // --- RENDU (DÉTAILS MODALE INCHANGÉE) ---
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails, onClose: () => void }) => {
     if (!booking) return null
     return (
@@ -291,19 +274,16 @@ export default function AdminPlanning() {
                     <button onClick={onClose} className="text-xl text-slate-500 hover:text-black">✕</button>
                 </div>
                 <div className="p-5 space-y-5">
-                    {/* Grille Info */}
                     <div className="grid grid-cols-3 gap-4 pt-2 text-center text-sm">
                         <div><p className="font-bold text-slate-800">{format(booking.start, 'dd/MM')}</p><p className="text-xs text-slate-500">Date</p></div>
                         <div><p className="font-bold text-blue-600">{format(booking.start, 'HH:mm')}</p><p className="text-xs text-slate-500">Départ</p></div>
                         <div><p className="font-bold text-slate-800">{booking.peopleCount}p</p><p className="text-xs text-slate-500">({booking.language})</p></div>
                     </div>
-                    {/* Client */}
                     <div className="border p-3 rounded bg-slate-50">
                         <p className="font-bold text-lg text-slate-800">{booking.clientName}</p>
                         <p className="text-sm text-slate-600">📧 {booking.user.email}</p>
                         <p className="text-sm text-slate-600">📞 {booking.user.phone || 'N/A'}</p>
                     </div>
-                    {/* Status */}
                     <div className="grid grid-cols-2 gap-4 text-center">
                         <div className={`p-2 rounded border ${booking.isPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
                             <p className="text-xs font-bold uppercase">Paiement</p>
@@ -315,7 +295,6 @@ export default function AdminPlanning() {
                         </div>
                     </div>
                 </div>
-                {/* Actions */}
                 <div className="p-5 flex flex-wrap justify-end gap-2 border-t bg-gray-50 rounded-b-xl">
                     <button onClick={() => handleStatusUpdate(booking.id, undefined, !booking.isPaid)} className="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700">
                         {booking.isPaid ? 'Marquer Non Payé' : 'Marquer Payé'}
@@ -329,7 +308,6 @@ export default function AdminPlanning() {
                     {(booking.checkinStatus === 'EMBARQUED' || booking.checkinStatus === 'NO_SHOW') && (
                         <button onClick={() => handleStatusUpdate(booking.id, 'CONFIRMED')} className="bg-slate-500 text-white px-3 py-2 rounded font-bold text-sm hover:bg-slate-600">Annuler Statut</button>
                     )}
-
                     <button onClick={() => handleEditTime(booking)} className="bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded font-bold text-sm hover:bg-slate-50">Heure</button>
                     <button onClick={() => handleDelete(booking.id, booking.clientName)} className="bg-red-100 text-red-600 px-3 py-2 rounded font-bold text-sm hover:bg-red-200">Supprimer</button>
                 </div>
@@ -349,7 +327,6 @@ export default function AdminPlanning() {
                   {loadingBoats ? "Chargement des barques..." : "Cliquez sur une case vide pour ajouter une réservation."}
                 </p>
             </div>
-            {/* Indicateur de chargement SWR */}
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${!rawBookings && !error ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-green-100 text-green-700 border-green-200'}`}>
                 {!rawBookings && !error ? (
                      <>⏳ Chargement...</>
@@ -370,7 +347,7 @@ export default function AdminPlanning() {
         ) : (
             <Calendar
             localizer={localizer}
-            events={events} // <-- Utilise la variable memoized
+            events={events}
             startAccessor="start"
             endAccessor="end"
             date={currentDate} 
