@@ -2,17 +2,28 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { logout } from '@/lib/actions'
 
+// 1. On définit le type complet de l'utilisateur pour TypeScript
+interface ExtendedUser {
+  name?: string | null
+  email?: string | null
+  image?: string | null
+  firstName?: string | null
+  lastName?: string | null
+  role?: string
+}
+
 export default async function AdminDashboard() {
-  // 1. Récupérer l'utilisateur connecté
   const session = await auth()
-  const user = session?.user
+  
+  // 2. On "force" le type ici pour dire à TS : "T'inquiète, ces champs existent"
+  const user = session?.user as ExtendedUser | undefined
 
   if (!user) return null 
 
-  // Calcul des initiales
-  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase()
+  // Calcul des initiales (avec fallback de sécurité)
+  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || user.name?.[0]?.toUpperCase() || '?'
 
-  // 2. DÉFINITION DES COULEURS SELON LE RÔLE
+  // 3. DÉFINITION DES COULEURS SELON LE RÔLE
   const getRoleStyles = (role: string) => {
     switch (role) {
       case 'SUPERADMIN':
@@ -54,14 +65,14 @@ export default async function AdminDashboard() {
           {/* CARTE PROFIL & DÉCONNEXION */}
           <div className={`flex items-center gap-4 bg-white p-2 pr-4 rounded-full shadow-sm border border-slate-200 ring-4 ${styles.ring}`}>
             
-          {/* Avatar : Image OU Initiales */}
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm tracking-wider shadow-inner overflow-hidden ${!user.image ? styles.avatar : 'bg-white'}`}>
-          {user.image ? (
-              <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-            <span className="text-white">{initials}</span>
-            )}
-          </div>
+            {/* Avatar : Image OU Initiales */}
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm tracking-wider shadow-inner overflow-hidden ${!user.image ? styles.avatar : 'bg-white'}`}>
+              {user.image ? (
+                <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-white">{initials}</span>
+              )}
+            </div>
 
             {/* Infos Texte */}
             <div className="flex flex-col mr-4">
@@ -170,16 +181,16 @@ export default async function AdminDashboard() {
 
           {/* CARTE 7 : MON PROFIL */}
           <Link href="/admin/profile" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-slate-500 transition-all cursor-pointer transform hover:-translate-y-1">
-          <div className="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
-            👤
-          </div>
-          <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-slate-600">
-            Mon Profil
-          </h2>
-          <p className="text-slate-500 text-sm leading-relaxed">
-            Modifier mon mot de passe personnel.
-          </p>
-</Link>
+            <div className="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
+              👤
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-slate-600">
+              Mon Profil
+            </h2>
+            <p className="text-slate-500 text-sm leading-relaxed">
+              Modifier mon mot de passe personnel.
+            </p>
+          </Link>
         </div>
       </div>
     </div>
