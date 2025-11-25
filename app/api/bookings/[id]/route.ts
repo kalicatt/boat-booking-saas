@@ -7,22 +7,33 @@ import { createLog } from '@/lib/logger'
 const TOUR_DURATION = 25
 const BUFFER_TIME = 5
 
+// 1. FIX: Interface pour dire à TypeScript que firstName existe
+interface ExtendedUser {
+  firstName?: string | null
+  lastName?: string | null
+}
+
 // --- DELETE : Supprimer une réservation ---
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> } // Next.js 15
 ) {
-  const { id } = await params  // ⚠ Important : await params
+  const { id } = await params 
 
   const session = await auth()
-  if (!session) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
   }
+
+  // 2. FIX: Casting de l'utilisateur
+  const user = session.user as ExtendedUser
 
   try {
     await prisma.booking.delete({ where: { id } })
 
-    await createLog('DELETE_BOOKING', `Réservation ${id} supprimée par ${session.user.firstName}`)
+    // Utilisation sécurisée du prénom avec fallback
+    const userName = user.firstName || 'Admin'
+    await createLog('DELETE_BOOKING', `Réservation ${id} supprimée par ${userName}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -34,27 +45,31 @@ export async function DELETE(
 // --- PATCH : Mettre à jour une réservation ---
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } | Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
 
   const session = await auth()
-  if (!session) {
+  if (!session || !session.user) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
   }
+
+  // 2. FIX: Casting de l'utilisateur
+  const user = session.user as ExtendedUser
 
   try {
     const body = await request.json()
     const { start, newCheckinStatus, newIsPaid } = body
 
     const dataToUpdate: any = {}
-    let logMessage = `Admin ${session.user.firstName} met à jour réservation ${id}: `
+    const userName = user.firstName || 'Admin'
+    let logMessage = `Admin ${userName} met à jour réservation ${id}: `
 
     if (start) {
       const startTime = new Date(start)
       const endTime = addMinutes(startTime, TOUR_DURATION)
-      const endWithBuffer = addMinutes(endTime, BUFFER_TIME)
-
+      // On ne stocke pas endWithBuffer en DB, juste pour info ou calcul si besoin
+      
       dataToUpdate.startTime = startTime
       dataToUpdate.endTime = endTime
       logMessage += `Nouvelle heure → ${format(startTime, 'HH:mm')}. `
