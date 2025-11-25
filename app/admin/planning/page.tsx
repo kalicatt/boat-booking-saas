@@ -1,32 +1,30 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, addMinutes, areIntervalsOverlapping } from 'date-fns'
+import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
 import fr from 'date-fns/locale/fr'
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import Link from 'next/link'
-import QuickBookingModal from '@/components/QuickBookingModal'; 
+import QuickBookingModal from '@/components/QuickBookingModal'
 
-// --- CONFIGURATION DE BASE ---
+// --- CONFIGURATION ---
 const locales = { 'fr': fr }
 const localizer = dateFnsLocalizer({
   format, parse, startOfWeek, getDay, locales
 })
-const TOUR_DURATION = 25; 
-const BUFFER_TIME = 5;
 
-// --- TYPES & INTERFACES ---
+// --- TYPES ---
 interface BoatResource { id: number; title: string; capacity: number }
-interface UserData { firstName: string; lastName: string; email: string; phone: string; role: string; }
+interface UserData { firstName: string; lastName: string; email: string; phone: string; role: string }
 
 interface BookingDetails {
     id: string;
     title: string;
     start: Date;
     end: Date;
-    resourceId: number; 
+    resourceId: number;
     clientName: string;
     peopleCount: number;
     totalOnBoat: number;
@@ -34,28 +32,33 @@ interface BookingDetails {
     user: UserData;
     language: string;
     totalPrice: number;
-    checkinStatus: 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW';
+    checkinStatus: 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
     isPaid: boolean;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED';
+    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
 }
 
 export default function AdminPlanning() {
   const [events, setEvents] = useState<BookingDetails[]>([])
   const [resources, setResources] = useState<BoatResource[]>([])
-  const [loadingBoats, setLoadingBoots] = useState(true)
+  const [loadingBoats, setLoadingBoats] = useState(true)
   
-  // États de la Modale et de la navigation
+  // Navigation & Vue
+  const [currentDate, setCurrentDate] = useState(startOfDay(new Date())) 
+  const [currentView, setCurrentView] = useState(Views.DAY as ('day' | 'week' | 'month' | 'work_week'))
+  const [currentRange, setCurrentRange] = useState({ start: startOfDay(new Date()), end: endOfDay(new Date()) })
+  
+  // Réf pour le polling (Fix du bug de disparition)
+  const currentRangeRef = useRef(currentRange)
+
+  // Modales
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [currentDate, setCurrentDate] = useState(startOfDay(new Date())) 
-  const [currentRange, setCurrentRange] = useState({ start: startOfDay(new Date()), end: endOfDay(new Date()) })
-  const [currentView, setCurrentView] = useState(Views.DAY as ('day' | 'week' | 'month' | 'work_week')); 
   
-  // États pour la Réservation Rapide
-  const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date, boatId: number } | null>(null);
-  const [showQuickBookModal, setShowQuickBookModal] = useState(false);
+  const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date, boatId: number } | null>(null)
+  const [showQuickBookModal, setShowQuickBookModal] = useState(false)
   
-  const [refreshKey, setRefreshKey] = useState(0); 
+  // Clé de rafraîchissement manuel
+  const [refreshKey, setRefreshKey] = useState(0)
 
 
   // --- 1. CHARGEMENT DES DONNÉES ---
@@ -66,8 +69,8 @@ export default function AdminPlanning() {
       if (!res.ok) throw new Error("Erreur API")
       const data = await res.json()
       setResources(data)
-    } catch (e) { console.error("Erreur chargement barques", e); alert("Impossible de charger les barques.") } 
-    finally { setLoadingBoots(false) }
+    } catch (e) { console.error("Erreur chargement barques", e) } 
+    finally { setLoadingBoats(false) }
   }, [])
 
   const fetchBookings = async (start: Date, end: Date) => {
@@ -82,16 +85,14 @@ export default function AdminPlanning() {
       rawData.forEach((b: any) => {
         const key = `${b.startTime}_${b.boatId}`
         loadMap[key] = (loadMap[key] || 0) + b.numberOfPeople
-        
       })
 
       const formattedEvents = rawData.map((b: any) => {
         const fullName = `${b.user.firstName} ${b.user.lastName}`
-        
-        const startDate = new Date(b.startTime);
-        const endDate = new Date(b.endTime);
+        const startDate = new Date(b.startTime)
+        const endDate = new Date(b.endTime)
 
-        if (isNaN(startDate.getTime())) return null; 
+        if (isNaN(startDate.getTime())) return null
 
         return {
           id: b.id, title: fullName, start: startDate, end: endDate,     
@@ -103,185 +104,153 @@ export default function AdminPlanning() {
       }).filter((event: any) => event !== null) as BookingDetails[]
       
       setEvents(formattedEvents)
-    } catch (e) { console.error("Erreur auto-refresh", e) }
+    } catch (e) { console.error("Erreur fetch réservations", e) }
+  }
+
+  // --- 2. GESTION DES EFFETS (POLLING STABILISÉ) ---
+
+  // Initialisation
+  useEffect(() => { fetchBoats() }, [fetchBoats])
+
+  // Mise à jour de la Ref quand le range change
+  useEffect(() => {
+    currentRangeRef.current = currentRange
+    fetchBookings(currentRange.start, currentRange.end)
+  }, [currentRange])
+
+  // Intervalle de rafraîchissement (utilise la Ref)
+  useEffect(() => {
+      const autoRefresh = () => {
+          const { start, end } = currentRangeRef.current
+          fetchBookings(start, end)
+      }
+      const intervalId = setInterval(autoRefresh, 10000) 
+      return () => clearInterval(intervalId)
+  }, [refreshKey]) // Se relance si on fait une action CRUD
+
+
+  // --- 3. HANDLERS (NAVIGATION & CLICS) ---
+
+  const handleNavigate = (date: Date) => setCurrentDate(date)
+  const handleViewChange = (view: any) => setCurrentView(view)
+
+  const handleRangeChange = (range: Date[] | { start: Date; end: Date }) => {
+    let start: Date, end: Date
+    if (Array.isArray(range)) {
+      start = startOfDay(range[0])
+      end = endOfDay(range[range.length - 1])
+    } else {
+      start = startOfDay(range.start)
+      end = endOfDay(range.end)
+    }
+    setCurrentRange({ start, end })
+  }
+  
+  // Clic sur réservation existante
+  const handleSelectBooking = (event: BookingDetails) => {
+    setSelectedBooking(event)
+    setShowDetailsModal(true)
+  }
+
+  // Clic sur créneau vide (Réservation Rapide)
+  const handleSlotSelect = (slotInfo: any) => {
+    // Bloquer si sélection multiple (glisser-déposer > 5 min)
+    const duration = new Date(slotInfo.end).getTime() - new Date(slotInfo.start).getTime();
+    if (duration > 5 * 60 * 1000) {
+        return; 
+    }
+
+    const startTime = slotInfo.start
+    const boatId = slotInfo.resourceId
+
+    // Vérifier conflit exact
+    const conflicts = events.some(e => 
+        e.resourceId === boatId && isSameMinute(e.start, startTime)
+    )
+    
+    if (!conflicts) {
+        setSelectedSlotDetails({ start: startTime, boatId: boatId || 1 })
+        setShowQuickBookModal(true)
+    }
+  }
+
+  const handleQuickBookingSuccess = () => {
+      setShowQuickBookModal(false)
+      setRefreshKey(prev => prev + 1) // Force refresh
   }
 
 
-  // Chargement initial & Polling
-  useEffect(() => {
-    fetchBoats()
-    const intervalId = setInterval(() => { fetchBookings(currentRange.start, currentRange.end) }, 10000)
-    return () => clearInterval(intervalId)
-  }, [fetchBoats]) 
-
-  // Dépendance du Fetch (sur range change ou refreshKey)
-  useEffect(() => {
-      fetchBookings(currentRange.start, currentRange.end);
-  }, [currentRange, refreshKey]);
-
-
-  // --- 2. ACTIONS CRUD (Définies ici pour être passées à la modale) ---
+  // --- 4. ACTIONS CRUD ---
 
   const handleRenameBoat = async (boatId: number, currentName: string) => {
     const newName = prompt(`Nom du batelier pour la barque ${boatId} ?`, currentName)
     if (newName && newName !== currentName) {
-      try {
-        const res = await fetch('/api/admin/boats', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: boatId, name: newName }) })
-        if (res.ok) fetchBoats()
-      } catch (e) { alert("Erreur technique") }
+      await fetch('/api/admin/boats', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: boatId, name: newName }) })
+      fetchBoats()
     }
   }
 
-  // Mise à jour du statut Check-in / Paiement
   const handleStatusUpdate = async (id: string, newCheckinStatus?: string, newIsPaid?: boolean) => {
-    const body: any = {};
-    if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus;
-    if (newIsPaid !== undefined) body.newIsPaid = newIsPaid;
+    const body: any = {}
+    if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
+    if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
     
-    try {
-        const res = await fetch(`/api/bookings/${id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
-
-        // NOUVELLE GESTION DE LA SÉCURITÉ/SESSION
-        if (res.status === 401 || res.status === 403) {
-             alert("Erreur de sécurité. Votre session a expiré. Veuillez vous reconnecter.");
-             await logout();
-             return; 
-        }
-
-        if (res.ok) {
-            setRefreshKey(prev => prev + 1); // Force refresh
-            setSelectedBooking(prev => {
-                if (!prev) return null;
-                return { 
-                    ...prev, 
-                    checkinStatus: newCheckinStatus !== undefined ? newCheckinStatus as any : prev.checkinStatus,
-                    isPaid: newIsPaid !== undefined ? newIsPaid : prev.isPaid 
-                }
-            });
-        } else {
-            alert("Erreur de mise à jour du statut.");
-        }
-    } catch (e) {
-        alert("Échec de la connexion API.");
-    }
-  };
-
-  const handleEditTime = async (event: BookingDetails) => {
-    const currentHour = format(event.start, 'HH:mm')
-    const newTime = prompt(`Déplacer ${event.clientName} ? (HH:mm)`, currentHour)
-    if (newTime && newTime !== currentHour) {
-      const [hours, minutes] = newTime.split(':')
-      const newStartDate = new Date(event.start)
-      newStartDate.setHours(parseInt(hours), parseInt(minutes))
-      try {
-        const res = await fetch(`/api/bookings/${event.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ start: newStartDate.toISOString() })
-        })
-        if (res.ok) setRefreshKey(prev => prev + 1); // Force refresh
-        else {
-            const err = await res.json()
-            alert("Erreur : " + (err.error || "Impossible"))
-        }
-      } catch (e) { alert("Erreur technique") }
-    }
+    const res = await fetch(`/api/bookings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    if (res.ok) {
+        setRefreshKey(prev => prev + 1)
+        // Mise à jour optimiste de la modale
+        setSelectedBooking(prev => prev ? ({ 
+            ...prev, 
+            checkinStatus: newCheckinStatus !== undefined ? newCheckinStatus as any : prev.checkinStatus,
+            isPaid: newIsPaid !== undefined ? newIsPaid : prev.isPaid 
+        }) : null)
+    } else { alert("Erreur mise à jour") }
   }
 
   const handleDelete = async (id: string, title: string) => {
     if(!confirm(`ANNULER la réservation de ${title} ?`)) return
-    try {
-        const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
+    
+    if (res.status === 401) { alert("Session expirée."); await logout(); return; }
+    if (res.ok) {
+        setRefreshKey(prev => prev + 1)
+        setShowDetailsModal(false)
+    } else { alert("Erreur suppression") }
+  }
+
+  const handleEditTime = async (event: BookingDetails) => {
+    const currentHour = format(event.start, 'HH:mm')
+    const newTime = prompt(`Nouvelle heure (HH:mm) ?`, currentHour)
+    if (newTime && newTime !== currentHour) {
+        const [h, m] = newTime.split(':')
+        const newDate = new Date(event.start); newDate.setHours(parseInt(h), parseInt(m))
         
-        if (res.status === 401 || res.status === 403) {
-             alert("Erreur de sécurité. Votre session a expiré. Veuillez vous reconnecter.");
-             await logout();
-             return; 
-        }
-
-        if (res.ok) {
-            setRefreshKey(prev => prev + 1); // Force refresh
-            setShowDetailsModal(false);
-        } else {
-            alert("Erreur de suppression: L'API a retourné une erreur interne.");
-        }
-    } catch (e) { alert("Erreur suppression") }
+        const res = await fetch(`/api/bookings/${event.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newDate.toISOString() }) })
+        if (res.ok) setRefreshKey(prev => prev + 1)
+        else alert("Erreur (Conflit ?)")
+    }
   }
 
 
-  // --- 3. GESTION NAVIGATION & MODALE D'OUVERTURE ---
+  // --- 5. COMPOSANTS VISUELS ---
 
-  const handleNavigate = (newDate: Date) => {
-    setCurrentDate(newDate);
-  };
-
-  const handleViewChange = (newView: any) => {
-      setCurrentView(newView);
+  // Wrapper pour le bouton "+" au survol
+  const AddButtonWrapper = ({ children }: any) => {
+      return (
+          <div className="h-full w-full relative group cursor-pointer hover:bg-blue-50/50 transition-colors flex items-center justify-center">
+              {children}
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                  <span className="text-blue-400 text-lg font-bold select-none">+</span>
+              </div>
+          </div>
+      )
   }
-
-  const handleRangeChange = (range: Date[] | { start: Date; end: Date }) => {
-    let startDate: Date, endDate: Date
-    if (Array.isArray(range)) {
-      startDate = startOfDay(range[0])
-      endDate = endOfDay(range[range.length - 1])
-    } else {
-      startDate = startOfDay(range.start)
-      endDate = endOfDay(range.end)
-    }
-    // Mise à jour de l'état currentRange -> Déclenchement de l'useEffect (polling)
-    setCurrentRange({ start: startDate, end: endDate })
-  }
-  
-  const handleSelectBooking = (event: BookingDetails) => {
-    setSelectedBooking(event);
-    setShowDetailsModal(true);
-  };
-
-  const handleSlotSelect = (slotInfo: any) => {
-    const startTime = slotInfo.start;
-    const boatId = slotInfo.resourceId; 
-
-    // BLOQUE SI GLISSER-DÉPOSER
-    if (slotInfo.slots.length > 1) {
-        return; 
-    }
-    
-    // Vérifie si le slot est déjà pris
-    const conflicts = events.some(e => 
-        isSameMinute(e.start, startTime)
-    );
-    
-    if (!conflicts) {
-        setSelectedSlotDetails({
-            start: startTime,
-            boatId: 1 
-        });
-        setShowQuickBookModal(true);
-    }
-  };
-
-  /**
-   * Fonction passée à QuickBookingModal pour forcer le rafraîchissement
-   */
-  const handleQuickBookingSuccess = () => {
-      setShowQuickBookModal(false);
-      // Incrémente la clé pour forcer le useEffect (polling) à se re-fetch immédiatement
-      setRefreshKey(prev => prev + 1); 
-  };
-
-
-  // --- 4. COMPOSANTS VISUELS ---
 
   const ResourceHeader = ({ label }: { label: string }) => {
     const resource = resources.find(r => r.title === label)
     return (
       <div className="text-center py-2 group cursor-pointer hover:bg-blue-50 transition rounded"
-           onClick={() => resource && handleRenameBoat(resource.id, resource.title)}
-           title="Cliquez pour changer le nom">
+           onClick={() => resource && handleRenameBoat(resource.id, resource.title)} title="Changer le nom">
         <div className="font-bold text-blue-900 text-lg flex justify-center items-center gap-2">
            {label} <span className="text-[10px] opacity-0 group-hover:opacity-100 text-slate-400">✏️</span>
         </div>
@@ -294,181 +263,103 @@ export default function AdminPlanning() {
 
   const EventComponent = ({ event }: { event: BookingDetails }) => {
     const isFull = event.totalOnBoat >= event.boatCapacity
-    const isEmbarked = event.checkinStatus === 'EMBARQUED';
-    const isNoShow = event.checkinStatus === 'NO_SHOW';
-    
-    const paymentDotColor = event.isPaid ? 'bg-green-500' : 'bg-red-500';
+    const isEmbarked = event.checkinStatus === 'EMBARQUED'
+    const isNoShow = event.checkinStatus === 'NO_SHOW'
+    const paymentDotColor = event.isPaid ? 'bg-green-500' : 'bg-red-500'
 
     return (
-      <div className={`relative flex justify-between items-start h-full px-1 overflow-hidden 
-          ${isFull ? 'bg-red-500/10' : ''}`}
-          style={{ backgroundColor: isEmbarked ? '#1f4068' : isNoShow ? '#e69900' : undefined}} 
-      >
+      <div className={`relative flex justify-between items-start h-full px-1 overflow-hidden ${isFull ? 'bg-red-500/10' : ''}`}
+          style={{ backgroundColor: isEmbarked ? '#1f4068' : isNoShow ? '#e69900' : undefined }}>
+          
           <div className={`absolute top-1 left-1 w-2.5 h-2.5 rounded-full shadow ${paymentDotColor}`}></div>
-
-          <div className="flex flex-col leading-tight overflow-hidden pt-1">
-              <span className="text-xs font-bold truncate" title={event.title} style={{marginLeft: '10px', color: isNoShow ? 'black' : 'white'}}>{event.title}</span>
+          <div className="flex flex-col leading-tight overflow-hidden pt-1 pl-3">
+              <span className="text-xs font-bold truncate" style={{color: isNoShow ? 'black' : 'white'}}>{event.title}</span>
               <span className="text-[10px] opacity-90" style={{color: isNoShow ? 'black' : 'white'}}>({event.peopleCount}p)</span>
-              <span className={`text-[9px] font-bold mt-0.5 ${isEmbarked || isNoShow ? 'text-white' : 'opacity-70'}`} style={{color: isNoShow ? 'black' : 'white'}}>
-                 ⚓ {event.totalOnBoat}/{event.boatCapacity}
-              </span>
+              <span className={`text-[9px] font-bold mt-0.5 ${isEmbarked || isNoShow ? 'text-white' : 'opacity-70'}`} style={{color: isNoShow ? 'black' : 'white'}}>⚓ {event.totalOnBoat}/{event.boatCapacity}</span>
           </div>
-          <button 
-              onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.clientName) }}
-              className="text-white hover:text-red-300 font-bold px-1.5 ml-1 text-sm bg-black/10 rounded hover:bg-black/30 transition"
-          >✕</button>
+          <button onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.clientName) }}
+              className="text-white hover:text-red-300 font-bold px-1.5 ml-1 text-sm bg-black/10 rounded hover:bg-black/30 transition">✕</button>
       </div>
     )
   }
 
   const slotPropGetter = (date: Date) => {
-    const minutesOfDay = date.getHours() * 60 + date.getMinutes()
-    const LUNCH_START = 12 * 60 + 15 
-    const LUNCH_END = 13 * 60 + 30   
-    if (minutesOfDay > LUNCH_START && minutesOfDay < LUNCH_END) {
+    const m = date.getHours() * 60 + date.getMinutes()
+    if (m > 12 * 60 + 15 && m < 13 * 60 + 30) { 
       return { style: { backgroundColor: '#f3f4f6', backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', backgroundSize: '10px 10px', opacity: 0.5, pointerEvents: 'none' as 'none' } }
     }
     return {}
   }
 
-
-  // Le composant Modale complet est inchangé.
-
+  // --- MODALE DÉTAILS ---
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails, onClose: () => void }) => {
-    if (!booking) return null;
+    if (!booking) return null
     
-    const userRole = booking.user?.role || 'CLIENT';
-    
-    const handleStatus = (status: 'EMBARQUED' | 'NO_SHOW' | 'CONFIRMED') => {
-        handleStatusUpdate(booking.id, status, undefined);
-    };
-
-    const handlePaymentToggle = () => {
-        handleStatusUpdate(booking.id, undefined, !booking.isPaid);
-    };
-    
-    const handleCancellation = () => {
-        handleDelete(booking.id, booking.clientName);
-        onClose();
-    };
-
-    const handleTimeChangeClick = () => {
-        onClose();
-        handleEditTime(booking);
-    };
-
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300">
-                
-                {/* Header Modale */}
                 <div className="p-5 border-b flex justify-between items-center bg-blue-50 rounded-t-xl">
-                    <h3 className="text-xl font-bold text-blue-900">Détails Réservation {format(booking.start, 'HH:mm')}</h3>
+                    <h3 className="text-xl font-bold text-blue-900">Détails {format(booking.start, 'HH:mm')}</h3>
                     <button onClick={onClose} className="text-xl text-slate-500 hover:text-black">✕</button>
                 </div>
-                
-                {/* Corps de la Modale */}
                 <div className="p-5 space-y-5">
-                    <div className="grid grid-cols-3 gap-4 pt-4 text-center">
-                        <div className="text-sm">
-                            <p className="text-xl font-extrabold text-slate-800">{format(booking.start, 'EEEE d MMMM')}</p>
-                            <p className="text-xs text-slate-500">Date</p>
-                        </div>
-                        <div className="text-sm">
-                            <p className="text-xl font-extrabold text-blue-600">{format(booking.start, 'HH:mm')}</p>
-                            <p className="text-xs text-slate-500">Heure Départ</p>
-                        </div>
-                        <div className="text-sm">
-                            <p className="text-xl font-extrabold text-slate-800">{booking.peopleCount}</p>
-                            <p className="text-xs text-slate-500">Passagers ({booking.language})</p>
-                        </div>
+                    {/* Grille Info */}
+                    <div className="grid grid-cols-3 gap-4 pt-2 text-center text-sm">
+                        <div><p className="font-bold text-slate-800">{format(booking.start, 'dd/MM')}</p><p className="text-xs text-slate-500">Date</p></div>
+                        <div><p className="font-bold text-blue-600">{format(booking.start, 'HH:mm')}</p><p className="text-xs text-slate-500">Départ</p></div>
+                        <div><p className="font-bold text-slate-800">{booking.peopleCount}p</p><p className="text-xs text-slate-500">({booking.language})</p></div>
                     </div>
-
-                    {/* Infos Client */}
-                    <div className="border p-3 rounded space-y-1">
+                    {/* Client */}
+                    <div className="border p-3 rounded bg-slate-50">
                         <p className="font-bold text-lg text-slate-800">{booking.clientName}</p>
                         <p className="text-sm text-slate-600">📧 {booking.user.email}</p>
                         <p className="text-sm text-slate-600">📞 {booking.user.phone || 'N/A'}</p>
-                        <p className="text-xs text-slate-400">Rôle Compte: {userRole}</p>
                     </div>
-
-                    {/* Facture rapide */}
-                    <div className="p-3 bg-yellow-50 rounded text-sm flex justify-between">
-                        <span>💰 Total Réservation :</span>
-                        <span className="font-bold text-lg text-red-700">{booking.totalPrice.toFixed(2)} €</span>
-                    </div>
-
-                    {/* Statuts Opérationnels */}
-                    <div className="grid grid-cols-3 gap-4 pt-4 text-center">
-                        <div className="flex flex-col items-center">
-                            <p className="text-xs text-slate-500 font-bold uppercase mb-1">Paiement</p>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${booking.isPaid ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                                {booking.isPaid ? 'RÉGLÉ' : 'NON PAYÉ'}
-                            </span>
+                    {/* Status */}
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                        <div className={`p-2 rounded border ${booking.isPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                            <p className="text-xs font-bold uppercase">Paiement</p>
+                            <p className="font-bold">{booking.isPaid ? 'RÉGLÉ' : 'NON PAYÉ'} ({booking.totalPrice}€)</p>
                         </div>
-                        <div>
-                            <p className="text-xs text-slate-500 font-bold uppercase mb-1">Check-in</p>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold 
-                                ${booking.checkinStatus === 'EMBARQUED' ? 'bg-green-600 text-white' : 
-                                  booking.checkinStatus === 'NO_SHOW' ? 'bg-gray-600 text-white' : 'bg-orange-100 text-orange-600'}`}>
-                                {booking.checkinStatus}
-                            </span>
+                        <div className={`p-2 rounded border ${booking.checkinStatus === 'EMBARQUED' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                            <p className="text-xs font-bold uppercase">Statut</p>
+                            <p className="font-bold">{booking.checkinStatus}</p>
                         </div>
                     </div>
-
                 </div>
-
-                {/* Footer / Actions */}
-                <div className="p-5 flex flex-wrap justify-end gap-3 border-t">
+                {/* Actions */}
+                <div className="p-5 flex flex-wrap justify-end gap-2 border-t bg-gray-50 rounded-b-xl">
+                    <button onClick={() => handleStatusUpdate(booking.id, undefined, !booking.isPaid)} className="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700">
+                        {booking.isPaid ? 'Marquer Non Payé' : 'Marquer Payé'}
+                    </button>
                     
-                    {/* ACTIONS SUR STATUT DE L'ARRIVÉE */}
                     {booking.checkinStatus === 'CONFIRMED' && (
                         <>
-                            <button onClick={() => handleStatus('EMBARQUED')} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 transition shadow">
-                                ✅ Embarqué
-                            </button>
-                            <button onClick={() => handleStatus('NO_SHOW')} className="bg-gray-600 text-white px-4 py-2 rounded font-bold hover:bg-gray-700 transition shadow">
-                                ❌ Non Show
-                            </button>
+                            <button onClick={() => handleStatusUpdate(booking.id, 'EMBARQUED')} className="bg-green-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-green-700">Embarquer</button>
+                            <button onClick={() => handleStatusUpdate(booking.id, 'NO_SHOW')} className="bg-orange-500 text-white px-3 py-2 rounded font-bold text-sm hover:bg-orange-600">Non Show</button>
                         </>
                     )}
-                    {/* Revenir à CONFIRMED */}
                     {(booking.checkinStatus === 'EMBARQUED' || booking.checkinStatus === 'NO_SHOW') && (
-                         <button onClick={() => handleStatus('CONFIRMED')} className="bg-slate-500 text-white px-4 py-2 rounded font-bold hover:bg-slate-600 transition shadow">
-                            Revert (Confirmer)
-                        </button>
+                        <button onClick={() => handleStatusUpdate(booking.id, 'CONFIRMED')} className="bg-slate-500 text-white px-3 py-2 rounded font-bold text-sm hover:bg-slate-600">Annuler Statut</button>
                     )}
-                    
-                    {/* BOUTON TOGGLE PAIEMENT */}
-                    <button onClick={handlePaymentToggle} className={`bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition shadow`}>
-                        {booking.isPaid ? '❌ Marquer Non Payé' : '✅ Marquer Payé'}
-                    </button>
 
-                    {/* ANNULATION & MODIF */}
-                    <button onClick={handleTimeChangeClick} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition shadow">
-                        Modifier Heure
-                    </button>
-                    <button onClick={handleCancellation} className="bg-red-600 text-white px-4 py-2 rounded font-bold hover:bg-red-700 transition shadow">
-                        Annuler Résa
-                    </button>
+                    <button onClick={() => handleEditTime(booking)} className="bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded font-bold text-sm hover:bg-slate-50">Heure</button>
+                    <button onClick={() => handleDelete(booking.id, booking.clientName)} className="bg-red-100 text-red-600 px-3 py-2 rounded font-bold text-sm hover:bg-red-200">Supprimer</button>
                 </div>
             </div>
         </div>
-    );
-  };
-
+    )
+  }
 
   return (
     <div className="h-screen p-6 bg-slate-50 flex flex-col">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-4">
             <div>
-                <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-1 inline-block">
-                  ← Tableau de Bord
-                </Link>
-                <h1 className="text-2xl font-bold text-blue-900">Planning de la Flotte 🛶</h1>
+                <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-1 inline-block">← Tableau de Bord</Link>
+                <h1 className="text-2xl font-bold text-blue-900">Planning 🛶</h1>
                 <p className="text-sm text-slate-500">
-                  {loadingBoats ? "Chargement des barques..." : "Cliquez sur un créneau libre pour ajouter une réservation."}
+                  {loadingBoats ? "Chargement des barques..." : "Cliquez sur une case vide pour ajouter une réservation."}
                 </p>
             </div>
             <div className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
@@ -484,72 +375,50 @@ export default function AdminPlanning() {
       <div className="flex-1 bg-white border rounded-xl shadow-sm p-4">
         {/* Affichage du calendrier */}
         {!loadingBoats && resources.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-red-500 font-bold">
-                ⚠️ Aucune barque trouvée. Veuillez lancer le script de seed (npx prisma db seed).
-            </div>
+            <div className="h-full flex items-center justify-center text-red-500 font-bold">⚠️ Aucune barque trouvée. Relancez le seed.</div>
         ) : (
             <Calendar
             localizer={localizer}
             events={events}
             startAccessor="start"
             endAccessor="end"
-            
             date={currentDate} 
             onNavigate={handleNavigate}
             onRangeChange={handleRangeChange}
-            onSelectEvent={handleSelectBooking} // Ouvre la modale au clic
-            onSelectSlot={handleSlotSelect} // Ouvre la modale rapide au clic sur un créneau vide
+            onSelectEvent={handleSelectBooking}
+            onSelectSlot={handleSlotSelect}
             selectable={true}
-            
-            view={currentView} // FIX : Contrôle de l'état de la vue
-            onView={handleViewChange} // FIX : Mise à jour de l'état de la vue
-            
-            defaultView={Views.WORK_WEEK} 
-            views={['day', 'work_week', 'month']} 
-            
+            view={currentView} 
+            onView={handleViewChange}
+            defaultView={Views.DAY} 
+            views={['day', 'work_week', 'month']}
             resources={resources} 
             resourceIdAccessor="id"
             resourceTitleAccessor="title"
-            
             step={5} 
             timeslots={1} 
             min={new Date(0, 0, 0, 8, 0, 0)} 
             max={new Date(0, 0, 0, 19, 0, 0)} 
             culture='fr'
-            
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
             slotPropGetter={slotPropGetter}
-            
-            components={{ event: EventComponent, resourceHeader: ResourceHeader }}
+            // AJOUT DU WRAPPER POUR LE BOUTON +
+            components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
             eventPropGetter={(event: any) => {
-                 let style = {};
-                 
-                 if (event.checkinStatus === 'EMBARQUED') {
-                     style.backgroundColor = '#1f4068'; 
-                     style.color = 'white';
-                 } else if (event.checkinStatus === 'NO_SHOW') {
-                     style.backgroundColor = '#e69900'; 
-                     style.color = 'black';
-                 } else {
-                     style.backgroundColor = event.resourceId === 1 ? '#2563eb' : event.resourceId === 2 ? '#008b8b' : event.resourceId === 3 ? '#7c3aed' : '#d97706';
-                     style.color = 'white';
-                 }
-
-                 return { style: {...style, borderRadius: '6px', border: 'none', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'} };
+                 let style = { color: 'white', backgroundColor: '#2563eb' };
+                 if (event.checkinStatus === 'EMBARQUED') style.backgroundColor = '#1f4068';
+                 else if (event.checkinStatus === 'NO_SHOW') { style.backgroundColor = '#e69900'; style.color = 'black'; }
+                 else if (event.resourceId === 2) style.backgroundColor = '#008b8b';
+                 else if (event.resourceId === 3) style.backgroundColor = '#7c3aed';
+                 else if (event.resourceId === 4) style.backgroundColor = '#d97706';
+                 return { style: {...style, borderRadius: '6px', border: 'none'} };
              }}
             />
         )}
       </div>
 
-      {/* Rendu de la modale */}
-      {showDetailsModal && selectedBooking && (
-          <DetailsModal 
-              booking={selectedBooking} 
-              onClose={() => setShowDetailsModal(false)} 
-          />
-      )}
+      {showDetailsModal && selectedBooking && <DetailsModal booking={selectedBooking} onClose={() => setShowDetailsModal(false)} />}
       
-      {/* Rendu de la modale de Réservation Rapide */}
       {showQuickBookModal && selectedSlotDetails && (
         <QuickBookingModal
             slotStart={selectedSlotDetails.start}

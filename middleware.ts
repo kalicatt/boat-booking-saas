@@ -1,48 +1,54 @@
+// middleware.ts (À la racine du projet)
+
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { match } from "@formatjs/intl-localematcher";
+import Negotiator from "negotiator";
+import { auth } from "@/auth"; // Import de NextAuth
 
-// ROUTES QUI NÉCESSITENT L'AUTH
-const protectedRoutes = [
-  "/dashboard",
-  "/admin",
-  "/calendar",
-  "/manage-bookings",
-];
+// --- CONFIG I18N ---
+const locales = ["en", "fr", "de"];
+const defaultLocale = "en"; // Anglais par défaut
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-
-  // 🚫 Ignore TOUTES les routes API + fichiers internes Next.js
-  if (
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/_next") ||
-    pathname === "/favicon.ico"
-  ) {
-    return NextResponse.next();
-  }
-
-  // Récupération du token (ou session)
-  const token = req.cookies.get("session")?.value;
-
-  // 🔐 Si route protégée → vérifier session
-  if (protectedRoutes.some((route) => pathname.startsWith(route))) {
-    if (!token) {
-      const loginUrl = new URL("/login", req.url);
-      return NextResponse.redirect(loginUrl);
-    }
-  }
-
-  return NextResponse.next();
+function getLocale(request: NextRequest) {
+  const headers = { "accept-language": request.headers.get("accept-language") || "" };
+  const languages = new Negotiator({ headers }).languages();
+  return match(languages, locales, defaultLocale);
 }
 
-/**
- * ⛔ NEXT 14 — NO CONFIG !
- * On utilise directement matcher dans export const middleware
- */
-export const matcher = [
-  /*
-   * ⚠ NE PAS inclure /api ici !
-   * On applique le middleware à TOUT sauf API & fichiers système
-   */
-  "/((?!api|_next/static|_next/image|favicon.ico).*)",
-];
+// --- LE MIDDLEWARE COMBINÉ ---
+export default auth((req) => {
+  const { pathname } = req.nextUrl;
+
+  // 1. GESTION DES ROUTES SPÉCIALES (Ignorées par I18N)
+  // On ne redirige pas les fichiers systèmes, les APIs, ou les routes admin/login
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/admin") || 
+    pathname.startsWith("/login") || 
+    pathname.includes(".")
+  ) {
+    return;
+  }
+
+  // 2. GESTION I18N (Langues) 🌍
+  
+  // Si l'URL contient déjà une locale (ex: /fr/...)
+  const pathnameHasLocale = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  );
+
+  if (pathnameHasLocale) return;
+
+  // 3. Redirection vers la langue détectée (ex: / -> /fr)
+  const locale = getLocale(req);
+  req.nextUrl.pathname = `/${locale}${pathname}`;
+  
+  return NextResponse.redirect(req.nextUrl);
+});
+
+// Configuration du matcher
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};
