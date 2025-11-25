@@ -5,7 +5,7 @@ import {
   format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, 
   addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, isSameDay 
 } from 'date-fns'
-import fr from 'date-fns/locale/fr'
+import { fr } from 'date-fns/locale' // <--- CORRECTION ICI
 import Link from 'next/link'
 
 // Type pour le mode de vue
