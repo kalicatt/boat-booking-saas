@@ -21,7 +21,6 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     
-    // On récupère le captchaToken en plus des autres infos
     const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken } = body
 
     // ============================================================
@@ -41,8 +40,6 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Échec de la validation Captcha. Êtes-vous un robot ?" }, { status: 400 })
         }
     }
-    // ============================================================
-
 
     const myStart = parseISO(`${date}T${time}:00`)
     const myEnd = addMinutes(myStart, TOUR_DURATION)
@@ -100,12 +97,9 @@ export async function POST(request: Request) {
     if (realConflicts.length === 0) {
         canBook = true 
     } else {
-        // Si occupée -> Vérif Langue & Place
         const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
         const isSameLang = realConflicts.every(b => b.language === language)
         const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-
-        // 5. LOGIQUE DE DÉPASSEMENT DE CAPACITÉ (Staff Override)
         const hasCapacity = (totalPeople + people <= targetBoat.capacity) || isStaffOverride === true
 
         if (isExactStart && isSameLang && hasCapacity) {
@@ -138,13 +132,19 @@ export async function POST(request: Request) {
         user: {
           connectOrCreate: {
             where: { email: userDetails.email },
-            create: { ...userDetails }
+            // 👇 CORRECTION ICI : On sélectionne manuellement les champs pour éviter l'erreur "Unknown argument message"
+            create: { 
+                firstName: userDetails.firstName,
+                lastName: userDetails.lastName,
+                email: userDetails.email,
+                phone: userDetails.phone || null,
+                // On n'inclut PAS 'message' ici car il n'existe pas dans la table User
+            }
           }
         }
       }
     })
 
-    // Log
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
 
@@ -155,8 +155,6 @@ export async function POST(request: Request) {
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userDetails.email],
             subject: 'Confirmation de votre tour en barque 🛶',
-            // 👇 MODIFICATION ICI : Ajout de 'await' devant BookingTemplate
-            // Cela permet de résoudre la Promesse si le composant est considéré comme async par Vercel
             react: await BookingTemplate({
               firstName: userDetails.firstName,
               date: date,
