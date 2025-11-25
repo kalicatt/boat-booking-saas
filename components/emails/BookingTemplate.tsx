@@ -5,9 +5,9 @@ interface BookingEmailProps {
   date: string;
   time: string;
   people: number;
-  adults: number; // Nouveau
-  children: number; // Nouveau
-  babies: number; // Nouveau
+  adults: number;
+  children: number;
+  babies: number;
   bookingId: string;
   totalPrice: number;
 }
