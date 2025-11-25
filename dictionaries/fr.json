@@ -5,14 +5,14 @@
     "book": "RÉSERVER 🎟️"
   },
   "hero": {
-    "title": "Colmar au fil de l'eau",
+    "title": "Colmar au Fil de l'Eau",
     "subtitle": "Découvrez la magie de la Petite Venise à bord de nos barques traditionnelles. Une expérience hors du temps.",
     "cta": "COMMENCER L'AVENTURE"
   },
   "presentation": {
     "title": "La Venise Alsacienne comme vous ne l'avez jamais vue.",
-    "text": "Laissez-vous bercer par le clapotis de la Lauch. Nos bateliers passionnés vous guideront à travers les quartiers historiques des tanneurs et de la poissonnerie. Profitez d'un point de vue unique sur les maisons à colombages colorées, loin de la foule.",
-    "points": ["Guides multilingues (FR, EN, DE)", "Barques traditionnelles à fond plat", "Parcours de 25 minutes au cœur de la ville"]
+    "text": "Laissez-vous bercer par le clapotis de la Lauch. Nos bateliers passionnés vous guideront à travers les quartiers historiques des tanneurs et de la poissonnerie. Profitez d'une vue unique sur les maisons à colombages colorées, loin de la foule.",
+    "points": ["Guides Multilingues (FR, EN, DE)", "Barques à fond plat traditionnelles", "Parcours de 25 minutes en plein centre"]
   },
   "booking": {
     "title": "Réservez votre départ",
@@ -20,38 +20,73 @@
     "widget": {
       "date": "DATE",
       "passengers": "PASSAGERS",
-      "language": "LANGUE SOUHAITÉE",
-      "choose": "Choisir heure",
-      "reserve": "Réserver",
+      "language": "LANGUE DU GUIDE",
+      "choose": "Choisir l'heure",
+      "reserve": "RÉSERVER",
       "no_slot": "Aucun départ disponible pour ces critères.",
-      "form_title": "Vos Coordonnées",
-      "confirm": "CONFIRMER LA RÉSERVATION"
+      "form_title": "Coordonnées",
+      "form_subtitle": "Dernière étape pour confirmer votre réservation.",
+      "confirm": "CONFIRMER LA RÉSERVATION",
+      "adults": "Adultes",
+      "children": "Enfants (4-10 ans)",
+      "babies": "Bébés (-3 ans)",
+      "free": "Gratuit (0,00 €)",
+      "step_criteria_title": "Configurez votre départ",
+      "step_slots_title": "Choisissez votre heure",
+      "slots_subtitle": "Créneaux disponibles pour le",
+      "step_success": "Réservation Confirmée !",
+      "loading": "Recherche...",
+      "submitting": "Traitement...",
+      "btn_search": "Voir les disponibilités",
+      "btn_continue_group": "Demander un devis groupe →",
+      "btn_continue_private": "Demander une privatisation →",
+      "btn_validate_slot": "Valider l'horaire",
+      "private_toggle_title": "Privatiser la barque",
+      "private_toggle_subtitle": "Profitez d'un tour exclusif (sur devis)",
+      "private_badge": "Privatisation",
+      "group_badge": "Groupe",
+      "summary_details": "Détails",
+      "summary_departure": "Départ",
+      "summary_title_standard": "Votre Réservation",
+      "help_text": "Besoin d'aide ?",
+      "modify_btn": "Modifier",
+      "duration_text": "Durée : ~25 min",
+      "back_btn": "Retour"
     }
   },
   "group_form": {
-    "title": "Demande de Groupe (+{people} pers.)",
+    "title": "Demande Groupe (+{people} pers.)",
     "subtitle": "Pour les grands groupes, nous organisons des départs privés. Remplissez ce formulaire pour être recontacté.",
     "placeholder_firstname": "Prénom",
     "placeholder_lastname": "Nom",
     "placeholder_email": "Email",
     "placeholder_phone": "Téléphone",
-    "placeholder_message": "Précisez la demande (horaire, besoins...)",
+    "placeholder_message": "Précisez votre demande (horaire, besoins...)",
     "button_send": "ENVOYER LA DEMANDE",
-    "sent_title": "Demande envoyée !",
+    "sent_title": "Demande Envoyée !",
     "sent_message": "Nous vous recontacterons sous 24h.",
     "sent_button": "Nouvelle demande"
   },
+  "private_form": {
+     "title": "Demande de Privatisation",
+     "subtitle": "Remplissez ce formulaire pour recevoir un devis personnalisé pour un tour en barque privé.",
+     "placeholder_message": "Heure souhaitée, occasion spéciale, champagne, souhaits particuliers...",
+     "message_label": "Message / Souhaits particuliers",
+     "button_send": "DEMANDER UN DEVIS",
+     "sent_title": "Demande reçue !",
+     "sent_message": "Nous avons bien reçu votre demande de privatisation. Nous vous contacterons très rapidement."
+  },
   "footer": {
-    "hours_title": "Horaires d'Ouverture",
+    "hours_title": "Horaires d'ouverture",
     "open_days": "Ouvert tous les jours",
     "morning_label": "Matin :",
-    "morning_hours": "08h00 - 12h15",
+    "morning_hours": "10h00 - 12h15",
     "afternoon_label": "Après-midi :",
     "afternoon_hours": "13h30 - 18h15",
     "infos": "Informations",
     "legal": "Mentions Légales",
-    "cgv": "Conditions Générales de Vente",
-    "employee_access": "Accès Employés 🔒",
+    "cgv": "CGV",
+    "employee_access": "Accès Employé 🔒",
     "rights": "© 2025 Sweet Narcisse. Tous droits réservés."
   }
 }

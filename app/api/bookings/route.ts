@@ -20,8 +20,32 @@ const PRICE_BABY = 0
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    // 1. On récupère le paramètre "isStaffOverride" du formulaire employé
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride } = body // <--- MODIFICATION ICI
+    
+    // On récupère le captchaToken en plus des autres infos
+    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken } = body
+
+    // ============================================================
+    // 1. SÉCURITÉ : VÉRIFICATION CAPTCHA
+    // ============================================================
+    // On ne vérifie le captcha que si ce n'est PAS un override staff.
+    // Le staff (via le dashboard) n'envoie pas de captcha, le public (via le widget) en envoie un.
+    
+    if (!isStaffOverride) {
+        if (!captchaToken) {
+            return NextResponse.json({ error: "Veuillez valider le captcha." }, { status: 400 })
+        }
+
+        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
+        
+        const captchaRes = await fetch(verifyUrl, { method: 'POST' })
+        const captchaData = await captchaRes.json()
+
+        if (!captchaData.success) {
+            return NextResponse.json({ error: "Échec de la validation Captcha. Êtes-vous un robot ?" }, { status: 400 })
+        }
+    }
+    // ============================================================
+
 
     const myStart = parseISO(`${date}T${time}:00`)
     const myEnd = addMinutes(myStart, TOUR_DURATION)
@@ -30,12 +54,13 @@ export async function POST(request: Request) {
     const people = adults + children + babies
     const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
 
+    // 2. Charger les barques
     const boats = await prisma.boat.findMany({ 
         where: { status: 'ACTIVE' },
         orderBy: { id: 'asc' }
     })
 
-    // 2. CALCUL ROTATION
+    // 3. CALCUL ROTATION
     const startHourRef = parseInt(OPEN_TIME.split(':')[0])
     const startMinRef = parseInt(OPEN_TIME.split(':')[1])
     const startTimeInMinutes = startHourRef * 60 + startMinRef
@@ -53,7 +78,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Aucune barque assignée à ce créneau." }, { status: 409 })
     }
 
-    // 3. VÉRIFICATION CONFLITS
+    // 4. VÉRIFICATION CONFLITS
     const conflicts = await prisma.booking.findMany({
       where: {
         boatId: targetBoat.id,
@@ -76,7 +101,6 @@ export async function POST(request: Request) {
     let canBook = false
 
     if (realConflicts.length === 0) {
-        // Si la barque est vide, on accepte (sauf si vous voulez aussi bloquer > 12 ici)
         canBook = true 
     } else {
         // Si occupée -> Vérif Langue & Place
@@ -84,9 +108,8 @@ export async function POST(request: Request) {
         const isSameLang = realConflicts.every(b => b.language === language)
         const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
 
-        // 4. LOGIQUE DE DÉPASSEMENT DE CAPACITÉ
-        // La réservation est valide si (il reste de la place) OU (c'est le staff qui force)
-        const hasCapacity = (totalPeople + people <= targetBoat.capacity) || isStaffOverride === true // <--- MODIFICATION ICI
+        // 5. LOGIQUE DE DÉPASSEMENT DE CAPACITÉ (Staff Override)
+        const hasCapacity = (totalPeople + people <= targetBoat.capacity) || isStaffOverride === true
 
         if (isExactStart && isSameLang && hasCapacity) {
             canBook = true
@@ -94,7 +117,6 @@ export async function POST(request: Request) {
     }
 
     if (!canBook) {
-         // Petit bonus : message d'erreur différent si c'est le staff
          const errorMsg = isStaffOverride 
             ? `Impossible de forcer : Langue ou horaire incompatible sur ${targetBoat.name}.`
             : `Le créneau est complet sur la barque ${targetBoat.name}.`
@@ -126,15 +148,12 @@ export async function POST(request: Request) {
     })
 
     // Log : on précise si c'était un override
-    const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : "" // <--- LOG
+    const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
 
-    // ... (Reste du code pour l'email inchangé) ...
-    // Note: Pensez à vérifier si userDetails.email est valide avant d'envoyer l'email
-    // si c'est une résa "comptoir" rapide sans email réel.
-
+    // --- ENVOI EMAIL ---
     try {
-      if (userDetails.email && userDetails.email.includes('@')) { // Petite sécu si pas d'email
+      if (userDetails.email && userDetails.email.includes('@')) {
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userDetails.email],

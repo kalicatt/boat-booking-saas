@@ -25,11 +25,33 @@
       "reserve": "BOOK",
       "no_slot": "No departures available for these criteria.",
       "form_title": "Contact Information",
+      "form_subtitle": "Last step to confirm your booking.",
       "confirm": "CONFIRM BOOKING",
-      "adults": "Adultes",
-      "children": "Enfants (4-10 ans)",
-      "babies": "Bébés (-3 ans)",
-      "free": "Gratuit (0,00 €)"
+      "adults": "Adults",
+      "children": "Children (4-10 yo)",
+      "babies": "Babies (-3 yo)",
+      "free": "Free (0,00 €)",
+      "step_criteria_title": "Configure your departure",
+      "step_slots_title": "Choose your time",
+      "slots_subtitle": "Available slots for",
+      "step_success": "Booking Confirmed!",
+      "loading": "Searching...",
+      "submitting": "Processing...",
+      "btn_search": "See availability",
+      "btn_continue_group": "Request Group Quote →",
+      "btn_continue_private": "Request Private Quote →",
+      "btn_validate_slot": "Confirm Time",
+      "private_toggle_title": "Privatize the boat",
+      "private_toggle_subtitle": "Enjoy an exclusive tour (on estimate)",
+      "private_badge": "Privatization",
+      "group_badge": "Group",
+      "summary_details": "Details",
+      "summary_departure": "Departure",
+      "summary_title_standard": "Your Booking",
+      "help_text": "Need help?",
+      "modify_btn": "Modify",
+      "duration_text": "Duration: ~25 min",
+      "back_btn": "Back"
     }
   },
   "group_form": {
@@ -44,6 +66,15 @@
     "sent_title": "Request Sent!",
     "sent_message": "We will contact you within 24 hours.",
     "sent_button": "New Request"
+  },
+  "private_form": {
+     "title": "Private Request",
+     "subtitle": "Fill out this form to receive a personalized quote for a private boat tour.",
+     "placeholder_message": "Desired time, special occasion, champagne, special requests...",
+     "message_label": "Message / Special Wishes",
+     "button_send": "SEND QUOTE REQUEST",
+     "sent_title": "Request Sent!",
+     "sent_message": "We have received your privatization request. We will contact you shortly."
   },
   "footer": {
     "hours_title": "Opening Hours",
