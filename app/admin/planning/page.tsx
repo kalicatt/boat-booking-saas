@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
-// 👇 CORRECTION ICI : Import nommé depuis 'date-fns/locale'
-import { fr } from 'date-fns/locale'
+import { fr } from 'date-fns/locale' // Correction 1 : Import nommé
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import Link from 'next/link'
@@ -219,7 +218,8 @@ export default function AdminPlanning() {
       )
   }
 
-  const ResourceHeader = ({ label }: { label: string }) => {
+  // Correction 2 : on met 'any' ici pour que TypeScript accepte le ReactNode envoyé par la lib
+  const ResourceHeader = ({ label }: { label: any }) => {
     const resource = resources.find(r => r.title === label)
     return (
       <div className="text-center py-2 group cursor-pointer hover:bg-blue-50 transition rounded"
