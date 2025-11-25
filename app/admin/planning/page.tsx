@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
 import fr from 'date-fns/locale/fr'
@@ -8,6 +8,7 @@ import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import Link from 'next/link'
 import QuickBookingModal from '@/components/QuickBookingModal'
+import useSWR from 'swr' // <--- IMPORT SWR
 
 // --- CONFIGURATION ---
 const locales = { 'fr': fr }
@@ -20,25 +21,33 @@ interface BoatResource { id: number; title: string; capacity: number }
 interface UserData { firstName: string; lastName: string; email: string; phone: string; role: string }
 
 interface BookingDetails {
-    id: string;
-    title: string;
-    start: Date;
-    end: Date;
-    resourceId: number;
-    clientName: string;
-    peopleCount: number;
-    totalOnBoat: number;
-    boatCapacity: number;
-    user: UserData;
-    language: string;
-    totalPrice: number;
-    checkinStatus: 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
-    isPaid: boolean;
-    status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  resourceId: number;
+  clientName: string;
+  peopleCount: number;
+  totalOnBoat: number;
+  boatCapacity: number;
+  user: UserData;
+  language: string;
+  totalPrice: number;
+  checkinStatus: 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
+  isPaid: boolean;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
 }
 
+// 1. DÉFINITION DU FETCHER SWR
+const fetcher = (url: string) => fetch(url).then((res) => {
+    if (!res.ok) throw new Error("Erreur fetch")
+    return res.json()
+})
+
 export default function AdminPlanning() {
-  const [events, setEvents] = useState<BookingDetails[]>([])
+  // On retire 'events' du state local, car ils viendront de SWR via useMemo
+  // const [events, setEvents] = useState<BookingDetails[]>([]) <-- SUPPRIMÉ
+  
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
   
@@ -47,9 +56,6 @@ export default function AdminPlanning() {
   const [currentView, setCurrentView] = useState(Views.DAY as ('day' | 'week' | 'month' | 'work_week'))
   const [currentRange, setCurrentRange] = useState({ start: startOfDay(new Date()), end: endOfDay(new Date()) })
   
-  // Réf pour le polling (Fix du bug de disparition)
-  const currentRangeRef = useRef(currentRange)
-
   // Modales
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
@@ -57,37 +63,32 @@ export default function AdminPlanning() {
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date, boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
   
-  // Clé de rafraîchissement manuel
-  const [refreshKey, setRefreshKey] = useState(0)
+  // On retire refreshKey et les Refs de polling <-- SUPPRIMÉ
 
+  // --- 1. SWR HOOK (REMPLACE LE FETCH MANUEL ET LE POLLING) ---
+  
+  // Construction de l'URL dynamique basée sur la vue actuelle
+  const apiUrl = `/api/admin/all-bookings?start=${currentRange.start.toISOString()}&end=${currentRange.end.toISOString()}`
 
-  // --- 1. CHARGEMENT DES DONNÉES ---
+  const { data: rawBookings, error, mutate } = useSWR(apiUrl, fetcher, {
+      refreshInterval: 10000, // Actualise toutes les 10 secondes automatiquement
+      revalidateOnFocus: true, // Actualise quand on clique sur la fenêtre
+      keepPreviousData: true, // Garde les données affichées pendant le chargement de la semaine suivante
+  })
 
-  const fetchBoats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/admin/boats')
-      if (!res.ok) throw new Error("Erreur API")
-      const data = await res.json()
-      setResources(data)
-    } catch (e) { console.error("Erreur chargement barques", e) } 
-    finally { setLoadingBoats(false) }
-  }, [])
+  // --- 2. TRANSFORMATION DES DONNÉES (Memoized) ---
+  const events = useMemo(() => {
+      if (!rawBookings || !Array.isArray(rawBookings)) return []
 
-  const fetchBookings = async (start: Date, end: Date) => {
-    try {
-      const startStr = start.toISOString()
-      const endStr = end.toISOString()
-      
-      const res = await fetch(`/api/admin/all-bookings?start=${startStr}&end=${endStr}&t=${Date.now()}`) 
-      const rawData = await res.json()
-      
+      // Calcul de la charge par créneau
       const loadMap: Record<string, number> = {}
-      rawData.forEach((b: any) => {
+      rawBookings.forEach((b: any) => {
         const key = `${b.startTime}_${b.boatId}`
         loadMap[key] = (loadMap[key] || 0) + b.numberOfPeople
       })
 
-      const formattedEvents = rawData.map((b: any) => {
+      // Mapping JSON -> BookingDetails (Conversion des Dates)
+      return rawBookings.map((b: any) => {
         const fullName = `${b.user.firstName} ${b.user.lastName}`
         const startDate = new Date(b.startTime)
         const endDate = new Date(b.endTime)
@@ -102,34 +103,24 @@ export default function AdminPlanning() {
           checkinStatus: b.checkinStatus, isPaid: b.isPaid, status: b.status,
         }
       }).filter((event: any) => event !== null) as BookingDetails[]
-      
-      setEvents(formattedEvents)
-    } catch (e) { console.error("Erreur fetch réservations", e) }
-  }
+  }, [rawBookings]) // Se recalcule uniquement quand SWR renvoie de nouvelles données
 
-  // --- 2. GESTION DES EFFETS (POLLING STABILISÉ) ---
 
-  // Initialisation
+  // --- 3. CHARGEMENT DES RESSOURCES (BARQUES) ---
+  const fetchBoats = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/boats')
+      if (!res.ok) throw new Error("Erreur API")
+      const data = await res.json()
+      setResources(data)
+    } catch (e) { console.error("Erreur chargement barques", e) } 
+    finally { setLoadingBoats(false) }
+  }, [])
+
   useEffect(() => { fetchBoats() }, [fetchBoats])
 
-  // Mise à jour de la Ref quand le range change
-  useEffect(() => {
-    currentRangeRef.current = currentRange
-    fetchBookings(currentRange.start, currentRange.end)
-  }, [currentRange])
 
-  // Intervalle de rafraîchissement (utilise la Ref)
-  useEffect(() => {
-      const autoRefresh = () => {
-          const { start, end } = currentRangeRef.current
-          fetchBookings(start, end)
-      }
-      const intervalId = setInterval(autoRefresh, 10000) 
-      return () => clearInterval(intervalId)
-  }, [refreshKey]) // Se relance si on fait une action CRUD
-
-
-  // --- 3. HANDLERS (NAVIGATION & CLICS) ---
+  // --- 4. HANDLERS (NAVIGATION & CLICS) ---
 
   const handleNavigate = (date: Date) => setCurrentDate(date)
   const handleViewChange = (view: any) => setCurrentView(view)
@@ -146,24 +137,18 @@ export default function AdminPlanning() {
     setCurrentRange({ start, end })
   }
   
-  // Clic sur réservation existante
   const handleSelectBooking = (event: BookingDetails) => {
     setSelectedBooking(event)
     setShowDetailsModal(true)
   }
 
-  // Clic sur créneau vide (Réservation Rapide)
   const handleSlotSelect = (slotInfo: any) => {
-    // Bloquer si sélection multiple (glisser-déposer > 5 min)
     const duration = new Date(slotInfo.end).getTime() - new Date(slotInfo.start).getTime();
-    if (duration > 5 * 60 * 1000) {
-        return; 
-    }
+    if (duration > 5 * 60 * 1000) return; 
 
     const startTime = slotInfo.start
     const boatId = slotInfo.resourceId
 
-    // Vérifier conflit exact
     const conflicts = events.some(e => 
         e.resourceId === boatId && isSameMinute(e.start, startTime)
     )
@@ -176,17 +161,17 @@ export default function AdminPlanning() {
 
   const handleQuickBookingSuccess = () => {
       setShowQuickBookModal(false)
-      setRefreshKey(prev => prev + 1) // Force refresh
+      mutate() // <--- APPEL SWR : Actualisation immédiate
   }
 
 
-  // --- 4. ACTIONS CRUD ---
+  // --- 5. ACTIONS CRUD ---
 
   const handleRenameBoat = async (boatId: number, currentName: string) => {
     const newName = prompt(`Nom du batelier pour la barque ${boatId} ?`, currentName)
     if (newName && newName !== currentName) {
       await fetch('/api/admin/boats', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: boatId, name: newName }) })
-      fetchBoats()
+      fetchBoats() // On recharge les barques (pas géré par SWR ici car ressources statiques)
     }
   }
 
@@ -195,25 +180,30 @@ export default function AdminPlanning() {
     if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
     if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
     
+    // Mise à jour optimiste locale (Optionnel mais recommandé pour UX fluide)
+    if(selectedBooking) {
+        setSelectedBooking({
+             ...selectedBooking,
+             checkinStatus: newCheckinStatus !== undefined ? newCheckinStatus as any : selectedBooking.checkinStatus,
+             isPaid: newIsPaid !== undefined ? newIsPaid : selectedBooking.isPaid 
+        })
+    }
+
     const res = await fetch(`/api/bookings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    
     if (res.ok) {
-        setRefreshKey(prev => prev + 1)
-        // Mise à jour optimiste de la modale
-        setSelectedBooking(prev => prev ? ({ 
-            ...prev, 
-            checkinStatus: newCheckinStatus !== undefined ? newCheckinStatus as any : prev.checkinStatus,
-            isPaid: newIsPaid !== undefined ? newIsPaid : prev.isPaid 
-        }) : null)
+        mutate() // <--- APPEL SWR : Actualisation immédiate des données serveur
     } else { alert("Erreur mise à jour") }
   }
 
   const handleDelete = async (id: string, title: string) => {
     if(!confirm(`ANNULER la réservation de ${title} ?`)) return
+    
     const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
     
     if (res.status === 401) { alert("Session expirée."); await logout(); return; }
     if (res.ok) {
-        setRefreshKey(prev => prev + 1)
+        mutate() // <--- APPEL SWR : Actualisation immédiate
         setShowDetailsModal(false)
     } else { alert("Erreur suppression") }
   }
@@ -226,15 +216,14 @@ export default function AdminPlanning() {
         const newDate = new Date(event.start); newDate.setHours(parseInt(h), parseInt(m))
         
         const res = await fetch(`/api/bookings/${event.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newDate.toISOString() }) })
-        if (res.ok) setRefreshKey(prev => prev + 1)
+        if (res.ok) mutate() // <--- APPEL SWR
         else alert("Erreur (Conflit ?)")
     }
   }
 
 
-  // --- 5. COMPOSANTS VISUELS ---
+  // --- 6. COMPOSANTS VISUELS (INCHANGÉS) ---
 
-  // Wrapper pour le bouton "+" au survol
   const AddButtonWrapper = ({ children }: any) => {
       return (
           <div className="h-full w-full relative group cursor-pointer hover:bg-blue-50/50 transition-colors flex items-center justify-center">
@@ -291,10 +280,9 @@ export default function AdminPlanning() {
     return {}
   }
 
-  // --- MODALE DÉTAILS ---
+  // --- RENDU (DÉTAILS MODALE INCHANGÉE) ---
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails, onClose: () => void }) => {
     if (!booking) return null
-    
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300">
@@ -332,7 +320,6 @@ export default function AdminPlanning() {
                     <button onClick={() => handleStatusUpdate(booking.id, undefined, !booking.isPaid)} className="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700">
                         {booking.isPaid ? 'Marquer Non Payé' : 'Marquer Payé'}
                     </button>
-                    
                     {booking.checkinStatus === 'CONFIRMED' && (
                         <>
                             <button onClick={() => handleStatusUpdate(booking.id, 'EMBARQUED')} className="bg-green-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-green-700">Embarquer</button>
@@ -362,24 +349,28 @@ export default function AdminPlanning() {
                   {loadingBoats ? "Chargement des barques..." : "Cliquez sur une case vide pour ajouter une réservation."}
                 </p>
             </div>
-            <div className="flex items-center gap-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold border border-green-200">
-                <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span> LIVE
+            {/* Indicateur de chargement SWR */}
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${!rawBookings && !error ? 'bg-yellow-100 text-yellow-700 border-yellow-200' : 'bg-green-100 text-green-700 border-green-200'}`}>
+                {!rawBookings && !error ? (
+                     <>⏳ Chargement...</>
+                ) : (
+                     <><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span></span> LIVE</>
+                )}
             </div>
         </div>
         <div className="flex gap-3">
-            <button onClick={() => fetchBookings(currentRange.start, currentRange.end)} className="px-4 py-2 bg-white border shadow-sm rounded hover:bg-slate-50 text-sm font-bold text-slate-600 transition">Actualiser 🔄</button>
+            <button onClick={() => mutate()} className="px-4 py-2 bg-white border shadow-sm rounded hover:bg-slate-50 text-sm font-bold text-slate-600 transition">Actualiser 🔄</button>
             <button onClick={() => logout()} className="px-4 py-2 bg-red-50 border border-red-100 shadow-sm rounded hover:bg-red-100 text-sm font-bold text-red-600 transition flex items-center gap-2">Déconnexion 🚪</button>
         </div>
       </div>
       
       <div className="flex-1 bg-white border rounded-xl shadow-sm p-4">
-        {/* Affichage du calendrier */}
         {!loadingBoats && resources.length === 0 ? (
             <div className="h-full flex items-center justify-center text-red-500 font-bold">⚠️ Aucune barque trouvée. Relancez le seed.</div>
         ) : (
             <Calendar
             localizer={localizer}
-            events={events}
+            events={events} // <-- Utilise la variable memoized
             startAccessor="start"
             endAccessor="end"
             date={currentDate} 
@@ -402,7 +393,6 @@ export default function AdminPlanning() {
             culture='fr'
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
             slotPropGetter={slotPropGetter}
-            // AJOUT DU WRAPPER POUR LE BOUTON +
             components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
             eventPropGetter={(event: any) => {
                  let style = { color: 'white', backgroundColor: '#2563eb' };
