@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
 interface QuickBookingModalProps {
@@ -30,7 +30,16 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     // Infos calculées
     const totalPeople = adults + children + babies;
     const totalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD);
+    
+    // Recherche du bateau cible
     const targetBoat = resources.find(r => r.id === boatId);
+
+    // Debugging: Vérifier si le bateau est trouvé
+    useEffect(() => {
+        console.log("QuickBookingModal - boatId:", boatId);
+        console.log("QuickBookingModal - resources:", resources);
+        console.log("QuickBookingModal - targetBoat:", targetBoat);
+    }, [boatId, resources, targetBoat]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,9 +56,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         selectedDate.setSeconds(0);
 
         // On convertit en UTC pour l'envoi au serveur
-        // Exemple : Si je choisis 10:00 en France, toISOString() donnera "...T09:00:00.000Z"
-        // Le serveur recevra 09:00 UTC et stockera ça.
-        // À l'affichage, 09:00 UTC redeviendra 10:00 France. C'est gagné !
         const isoString = selectedDate.toISOString();
         const dateUTC = isoString.split('T')[0];
         const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
@@ -99,7 +105,8 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
                     <div>
                         <h3 className="text-white font-bold text-lg">Ajout Rapide</h3>
-                        <p className="text-blue-200 text-xs">Sur {targetBoat?.title || 'Bateau inconnu'}</p>
+                        {/* Affichage du nom du bateau ou d'un fallback */}
+                        <p className="text-blue-200 text-xs">Sur {targetBoat ? targetBoat.title : `Barque ${boatId}`}</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white text-2xl font-bold">×</button>
                 </div>
