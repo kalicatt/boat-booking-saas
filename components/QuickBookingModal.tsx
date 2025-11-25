@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 
 interface QuickBookingModalProps {
@@ -38,27 +38,31 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
         setIsLoading(true);
 
+        // ⚠️ CORRECTION ICI : userDetails doit correspondre EXACTEMENT au modèle User de Prisma
+        // PAS de champ "message" ici !
         const bookingData = {
-            date: format(slotStart, 'yyyy-MM-dd'), // La date du jour du clic
-            time: time, // L'heure choisie (potentiellement modifiée par l'employé)
+            date: format(slotStart, 'yyyy-MM-dd'),
+            time: time, 
             adults, 
             children, 
             babies,
             people: totalPeople,
-            language: 'FR', // Par défaut FR pour le guichet (modifiable si besoin)
+            language: 'FR', 
             userDetails: {
-                firstName: firstName || 'Client', // Valeur par défaut si vide
+                firstName: firstName || 'Client',
                 lastName: lastName || 'Guichet',
-                email: 'guichet@sweet-narcisse.com', // Email générique interne
+                email: 'guichet@sweet-narcisse.com', // Email générique pour l'admin
                 phone: ''
+                // ❌ SUPPRIMÉ: message: "" (C'était l'erreur !)
             },
-            forcedBoatId: boatId // IMPORTANT : On force ce bateau là
+            forcedBoatId: boatId 
         };
 
         try {
             const res = await fetch('/api/bookings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                // On ajoute isStaffOverride pour contourner le captcha et la limite de 12
                 body: JSON.stringify({ ...bookingData, isStaffOverride: true })
             });
 
