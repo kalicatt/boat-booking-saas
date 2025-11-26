@@ -20,10 +20,10 @@ export default function EmployeesPage() {
     useEffect(() => {
         async function load() {
             try {
-                const meRes = await fetch('/api/auth/me')
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' })
                 const me = await meRes.json()
                 setMyRole(me?.user?.role || '')
-                const res = await fetch('/api/admin/employees')
+                const res = await fetch('/api/admin/employees', { credentials: 'include' })
                 const data = await res.json()
                 setEmployees(data || [])
             } finally {
