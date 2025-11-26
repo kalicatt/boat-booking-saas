@@ -17,6 +17,29 @@ export async function GET(request: Request) {
   const adults = parseInt(searchParams.get('adults') || '0')
   const children = parseInt(searchParams.get('children') || '0')
   const babies = parseInt(searchParams.get('babies') || '0')
+
+// --- In-memory memo cache (fallback when Redis is not used) ---
+type MemoEntry = { value: { date: string | null; availableSlots: string[] }, expiresAt: number }
+const memoCache: Map<string, MemoEntry> = new Map()
+const MEMO_TTL_MS = 90 * 1000
+
+function memoGet(key: string): { date: string | null; availableSlots: string[] } | null {
+  const e = memoCache.get(key)
+  if (!e) return null
+  if (Date.now() > e.expiresAt) { memoCache.delete(key); return null }
+  return e.value
+}
+
+function memoSet(key: string, value: { date: string | null; availableSlots: string[] }) {
+  memoCache.set(key, { value, expiresAt: Date.now() + MEMO_TTL_MS })
+}
+
+export function memoInvalidateByDate(date: string) {
+  const prefix = `availability:${date}:`
+  for (const k of memoCache.keys()) {
+    if (k.startsWith(prefix)) memoCache.delete(k)
+  }
+}
   const langParam = searchParams.get('lang')
 
   if (!dateParam || !langParam) {
@@ -117,3 +140,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
+    // Cache key (works for both memo and potential Redis)
+    const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
+    const memoHit = memoGet(cacheKey)
+    if (memoHit) return NextResponse.json(memoHit)
