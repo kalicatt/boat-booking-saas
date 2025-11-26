@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
 export default function BlocksAdminPage() {
   const [blocks, setBlocks] = useState<any[]>([])
@@ -86,7 +87,10 @@ export default function BlocksAdminPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Blocages de réservation</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold">Blocages de réservation</h1>
+          <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600">← Retour Tableau de bord</Link>
+        </div>
         <p className="text-slate-600 mb-6">Créez des intervalles où la réservation est impossible (journée, matin, après-midi, ou spécifiques).</p>
 
         <div className="bg-white border rounded p-4 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
