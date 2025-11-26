@@ -107,8 +107,8 @@ export default function AdminPlanning() {
         return {
           id: b.id, 
           title: displayTitle, 
-          start: visualStart, 
-          end: visualEnd,     
+          start: startWall, 
+          end: endWall,     
           resourceId: b.boatId, 
           peopleCount: b.numberOfPeople,
           // Mapping des détails passagers
