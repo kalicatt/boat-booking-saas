@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
     
     // Rotation simple : 10h00 = Bateau 0, 10h10 = Bateau 1, etc.
-    const boatIndex = Math.floor(slotsElapsed) % boats.length 
+    const boatIndex = ((Math.floor(slotsElapsed) % boats.length) + boats.length) % boats.length
     const targetBoat = boats[boatIndex]
 
     if (!targetBoat) return NextResponse.json({ error: "Erreur rotation barque." }, { status: 409 })

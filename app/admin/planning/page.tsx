@@ -167,7 +167,11 @@ export default function AdminPlanning() {
     const duration = new Date(slotInfo.end).getTime() - new Date(slotInfo.start).getTime();
     if (duration > 5 * 60 * 1000) return; 
 
-    const startTime = slotInfo.start
+    // Normalize to wall-clock by building a UTC-anchored date from local parts
+    const s = new Date(slotInfo.start)
+    const startTime = new Date(Date.UTC(
+      s.getFullYear(), s.getMonth(), s.getDate(), s.getHours(), s.getMinutes()
+    ))
     const boatId = slotInfo.resourceId
     
     const conflicts = events.some(e => 
@@ -238,7 +242,10 @@ export default function AdminPlanning() {
     // Wrapper des créneaux: capte le clic/tap (mobile) pour ouvrir le QuickBooking
     const AddButtonWrapper = ({ children, value, resource }: any) => {
       const onClick = () => {
-      const startTime = new Date(value)
+      const v = new Date(value)
+      const startTime = new Date(Date.UTC(
+        v.getFullYear(), v.getMonth(), v.getDate(), v.getHours(), v.getMinutes()
+      ))
       const hh = String(startTime.getUTCHours()).padStart(2, '0')
       const mm = String(startTime.getUTCMinutes()).padStart(2, '0')
       const boatId = resource?.id ?? resource ?? 1
