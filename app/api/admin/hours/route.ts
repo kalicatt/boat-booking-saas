@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseISO, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,11 +56,19 @@ export async function GET(request: Request) {
 // 2. AJOUTER UN SHIFT AVEC PAUSE
 export async function POST(request: Request) {
   try {
+    // Authorize: only ADMIN or SUPER_ADMIN can modify hours
+    const session = await auth()
+    const role = (session?.user as { role?: string })?.role || 'GUEST'
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      return NextResponse.json({ error: 'Accès refusé: réservé aux administrateurs.' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { userId, date, start, end, breakTime, note } = body
 
-    const startTime = parseISO(`${date}T${start}:00`)
-    const endTime = parseISO(`${date}T${end}:00`)
+    // Construct UTC "wall-clock" timestamps to avoid timezone drift
+    const startTime = new Date(`${date}T${start}:00.000Z`)
+    const endTime = new Date(`${date}T${end}:00.000Z`)
     const pause = parseInt(breakTime) || 0
 
     // Validation logique

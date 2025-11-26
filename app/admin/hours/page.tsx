@@ -8,6 +8,7 @@ export default function HoursPage() {
   const [report, setReport] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+    const [role, setRole] = useState<string>('GUEST')
 
   const [form, setForm] = useState({
     userId: '',
@@ -39,6 +40,19 @@ export default function HoursPage() {
   }
 
   useEffect(() => { fetchData() }, [currentMonth])
+
+    // Fetch current user role
+    useEffect(() => {
+        (async () => {
+            try {
+                const res = await fetch('/api/auth/me')
+                if (res.ok) {
+                    const data = await res.json()
+                    setRole(data.role || 'GUEST')
+                }
+            } catch {}
+        })()
+    }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -149,9 +163,14 @@ export default function HoursPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:block">
             
-            <div className="lg:col-span-1 print:hidden">
+                        <div className="lg:col-span-1 print:hidden">
                 <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200 sticky top-8">
                     <h3 className="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Saisir une journée</h3>
+                                        {role !== 'ADMIN' && role !== 'SUPER_ADMIN' && (
+                                            <div className="mb-4 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded p-3">
+                                                Seuls les administrateurs peuvent modifier les heures.
+                                            </div>
+                                        )}
                                         {errors.length > 0 && (
                                             <div className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">
                                                 <ul className="list-disc pl-5">
@@ -159,7 +178,7 @@ export default function HoursPage() {
                                                 </ul>
                                             </div>
                                         )}
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                                        <form onSubmit={handleSubmit} className="space-y-4">
                         
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Employé</label>
@@ -203,7 +222,7 @@ export default function HoursPage() {
                                 value={form.note} onChange={e => setForm({...form, note: e.target.value})} />
                         </div>
 
-                        <button type="submit" className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm">
+                        <button type="submit" disabled={role !== 'ADMIN' && role !== 'SUPER_ADMIN'} className="w-full bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm">
                             Enregistrer le pointage
                         </button>
                     </form>
