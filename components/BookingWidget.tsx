@@ -261,9 +261,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <span className="text-xs uppercase font-bold text-slate-400">{dict.booking.widget.summary_details}</span>
                         {step > STEPS.CRITERIA && <button onClick={() => setStep(STEPS.CRITERIA)} className="text-[10px] text-[#eab308] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
                     </div>
-                    <div className="font-semibold text-lg text-white">
-                        {new Date(date).toLocaleDateString(initialLang === 'fr' ? 'fr-FR' : initialLang === 'de' ? 'de-DE' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })}
-                    </div>
+                                        <div className="font-semibold text-lg text-white">
+                                                {(() => {
+                                                    const [y, m, d] = date.split('-').map(Number)
+                                                    const wall = new Date(Date.UTC(y, m - 1, d))
+                                                    return wall.toLocaleDateString(initialLang === 'fr' ? 'fr-FR' : initialLang === 'de' ? 'de-DE' : 'en-US', { day: 'numeric', month: 'long', year: 'numeric' })
+                                                })()}
+                                        </div>
                     <div className="text-sm text-slate-300 mt-1">
                         {totalPeople} pers. <span className="text-slate-500 mx-1">•</span> {language}
                     </div>
@@ -372,7 +376,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
                     <button onClick={() => setStep(STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {dict.booking.widget.back_btn || "Retour"}</button>
                     <h2 className="text-2xl font-bold text-slate-800 mb-2">{dict.booking.widget.step_slots_title}</h2>
-                    <p className="text-slate-500 mb-6 text-sm">{dict.booking.widget.slots_subtitle} {new Date(date).toLocaleDateString()}.</p>
+                    <p className="text-slate-500 mb-6 text-sm">{dict.booking.widget.slots_subtitle} {(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}.</p>
                     
                     <div className="flex-1 bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                         {availableSlots.length > 0 ? (

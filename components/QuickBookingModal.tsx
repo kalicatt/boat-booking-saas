@@ -18,7 +18,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [isLoading, setIsLoading] = useState(false);
     
     // États du formulaire
-    const [time, setTime] = useState(format(slotStart, 'HH:mm')); // Pré-rempli avec le clic
+    const [time, setTime] = useState(() => {
+        const hh = String(slotStart.getUTCHours()).padStart(2, '0')
+        const mm = String(slotStart.getUTCMinutes()).padStart(2, '0')
+        return `${hh}:${mm}`
+    }); // Pré-rempli avec le clic (UTC mur du temps)
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [message, setMessage] = useState(''); // <--- 1. NOUVEL ÉTAT POUR LE MESSAGE
@@ -53,7 +57,12 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         // On envoie la date et l'heure brutes locales.
         // C'est l'API qui ajoutera le "Z" pour forcer le stockage en 10:00 UTC.
         
-        const dateLocal = format(slotStart, 'yyyy-MM-dd');
+        const dateLocal = (() => {
+            const y = slotStart.getUTCFullYear()
+            const m = String(slotStart.getUTCMonth() + 1).padStart(2, '0')
+            const d = String(slotStart.getUTCDate()).padStart(2, '0')
+            return `${y}-${m}-${d}`
+        })();
         const timeLocal = time; // "10:00" reste "10:00"
 
         // Nom exact à envoyer à la base de données
@@ -127,7 +136,12 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         </div>
                         <div className="text-right">
                             <span className="block text-xs font-bold text-slate-500">DATE</span>
-                            <span className="font-bold text-slate-700">{format(slotStart, 'dd/MM/yyyy')}</span>
+                            <span className="font-bold text-slate-700">{(() => {
+                                const y = slotStart.getUTCFullYear()
+                                const m = String(slotStart.getUTCMonth() + 1).padStart(2, '0')
+                                const d = String(slotStart.getUTCDate()).padStart(2, '0')
+                                return `${d}/${m}/${y}`
+                            })()}</span>
                         </div>
                     </div>
 
