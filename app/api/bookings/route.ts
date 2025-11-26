@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { addMinutes, parseISO, getHours, getMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
+import { addMinutes, parseISO, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { createLog } from '@/lib/logger'
@@ -34,9 +34,9 @@ export async function POST(request: Request) {
     }
 
     // 2. DATES (CONSTRUCTION UTC STRICTE)
-    // On force la date en UTC pour que 10:00 reste 10:00
-    const isoDateTime = `${date}T${time}:00.000Z`; 
-    const myStart = new Date(isoDateTime);
+    // On force la date en UTC pour que 10:00 reste 10:00 (pas de TZ locale)
+    const isoDateTime = `${date}T${time}:00.000Z`
+    const myStart = new Date(isoDateTime)
     const myEnd = addMinutes(myStart, TOUR_DURATION)
     const myTotalEnd = addMinutes(myEnd, BUFFER_TIME)
 
@@ -111,7 +111,8 @@ export async function POST(request: Request) {
     // 7. ENREGISTREMENT
     const newBooking = await prisma.booking.create({
       data: {
-        date: parseISO(date),
+        // Date du jour en UTC "flottant" pour être cohérent avec les heures stockées
+        date: new Date(`${date}T00:00:00.000Z`),
         startTime: myStart,
         endTime: myEnd,
         numberOfPeople: people,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { addMinutes, format, parseISO, startOfDay, endOfDay, getHours, getMinutes, areIntervalsOverlapping, isSameMinute, isPast } from 'date-fns'
+import { addMinutes, areIntervalsOverlapping, isSameMinute, isPast } from 'date-fns'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -38,17 +38,20 @@ export async function GET(request: Request) {
         return NextResponse.json({ date: dateParam, availableSlots: [] })
     }
 
-    const searchDate = parseISO(dateParam)
+    // Fenêtre du jour en UTC "flottant" (pas de décalage local)
+    const dayStartUtc = new Date(`${dateParam}T00:00:00.000Z`)
+    const dayEndUtc = new Date(`${dateParam}T23:59:59.999Z`)
     const bookings = await prisma.booking.findMany({
       where: {
-        startTime: { gte: startOfDay(searchDate), lte: endOfDay(searchDate) },
+        startTime: { gte: dayStartUtc, lte: dayEndUtc },
         status: { not: 'CANCELLED' }
       }
     })
 
     const availableSlots: string[] = []
-    let currentSlot = parseISO(`${dateParam}T${OPEN_TIME}:00`)
-    const endTimeLimit = parseISO(`${dateParam}T${CLOSE_TIME}:00`)
+    // Construction des créneaux en UTC explicite
+    let currentSlot = new Date(`${dateParam}T${OPEN_TIME}:00.000Z`)
+    const endTimeLimit = new Date(`${dateParam}T${CLOSE_TIME}:00.000Z`)
 
     // --- CALCUL DE RÉFÉRENCE POUR LA ROTATION ---
     const startHourRef = parseInt(OPEN_TIME.split(':')[0])
@@ -57,8 +60,8 @@ export async function GET(request: Request) {
 
     while (currentSlot <= endTimeLimit) { // <= pour inclure potentiellement la dernière limite si elle tombe pile
       const slotTime = currentSlot
-      const currentHours = getHours(slotTime)
-      const currentMinutes = getMinutes(slotTime)
+      const currentHours = slotTime.getUTCHours()
+      const currentMinutes = slotTime.getUTCMinutes()
       const minutesTotal = currentHours * 60 + currentMinutes
 
       // --- 0. FILTRE PASSÉ ---
@@ -117,7 +120,9 @@ export async function GET(request: Request) {
       }
 
       if (isSlotAvailable) {
-        availableSlots.push(format(slotTime, 'HH:mm'))
+        const hh = String(slotTime.getUTCHours()).padStart(2, '0')
+        const mm = String(slotTime.getUTCMinutes()).padStart(2, '0')
+        availableSlots.push(`${hh}:${mm}`)
       }
 
       currentSlot = addMinutes(currentSlot, INTERVAL)
