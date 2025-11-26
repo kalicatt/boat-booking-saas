@@ -34,9 +34,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     // Recherche du bateau cible
     const targetBoat = resources.find(r => r.id === boatId);
 
-    // Nom affiché par défaut si l'employé ne rentre rien
-    const defaultName = 'Client Guichet'; 
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (totalPeople === 0) return alert("Il faut au moins 1 passager.");
@@ -44,15 +41,20 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setIsLoading(true);
 
         // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
+        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
         const [hours, minutes] = time.split(':').map(Number);
         const selectedDate = new Date(slotStart);
         selectedDate.setHours(hours);
         selectedDate.setMinutes(minutes);
         selectedDate.setSeconds(0);
 
+        // On convertit en UTC pour l'envoi au serveur
+        // Exemple : Si je choisis 10:00 en France, toISOString() donnera "...T09:00:00.000Z"
+        // Le serveur recevra 09:00 UTC et stockera ça.
+        // À l'affichage, 09:00 UTC redeviendra 10:00 France. C'est gagné !
         const isoString = selectedDate.toISOString();
         const dateUTC = isoString.split('T')[0];
-        const timeUTC = isoString.split('T')[1].substring(0, 5); 
+        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
 
         // Nom exact à envoyer à la base de données
         const finalFirstName = firstName.trim() || 'Client';
