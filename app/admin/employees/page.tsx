@@ -172,7 +172,30 @@ export default function EmployeesPage() {
 
 function EditEmployeeModal({ open, onClose, employee, setEmployee, myRole, errors, setErrors, onSaved }: any) {
     const firstFieldRef = useRef<HTMLInputElement|null>(null)
+    const dialogRef = useRef<HTMLDivElement|null>(null)
     useEffect(()=>{ if(open && firstFieldRef.current) firstFieldRef.current.focus() }, [open])
+    useEffect(()=>{
+        if(!open) return
+        const handler = (e: KeyboardEvent) => {
+            if(e.key === 'Escape') { e.preventDefault(); onClose(); }
+            if(e.key === 'Tab' && dialogRef.current) {
+                const focusables = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                )).filter(el => !el.hasAttribute('disabled'))
+                if(focusables.length === 0) return
+                const first = focusables[0]
+                const last = focusables[focusables.length - 1]
+                const currentIndex = focusables.indexOf(document.activeElement as HTMLElement)
+                if(e.shiftKey) {
+                    if(document.activeElement === first || currentIndex === -1) { e.preventDefault(); last.focus(); }
+                } else {
+                    if(document.activeElement === last) { e.preventDefault(); first.focus(); }
+                }
+            }
+        }
+        document.addEventListener('keydown', handler)
+        return ()=> document.removeEventListener('keydown', handler)
+    }, [open, onClose])
     if (!open || !employee) return null
 
     const local = { ...employee }
@@ -206,10 +229,10 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, myRole, error
         }
     }
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" role="dialog" aria-modal="true">
-            <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg border border-slate-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-employee-title" ref={dialogRef}>
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg border border-slate-200" role="document">
                 <div className="p-4 border-b flex justify-between items-center">
-                    <h3 className="font-bold">Modifier collaborateur</h3>
+                    <h3 id="edit-employee-title" className="font-bold">Modifier collaborateur</h3>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800" aria-label="Fermer">✕</button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-auto" aria-describedby="edit-errors">

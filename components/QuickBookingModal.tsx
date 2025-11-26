@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
 
 interface QuickBookingModalProps {
@@ -16,6 +16,7 @@ const PRICE_CHILD = 4;
 
 export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess }: QuickBookingModalProps) {
     const [isLoading, setIsLoading] = useState(false);
+    const dialogRef = useRef<HTMLDivElement|null>(null)
     
     // États du formulaire
     const [time, setTime] = useState(() => {
@@ -109,14 +110,35 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         }
     };
 
+    useEffect(()=>{
+        const handler = (e: KeyboardEvent) => {
+            if(e.key === 'Escape') { e.preventDefault(); onClose(); }
+            if(e.key === 'Tab' && dialogRef.current) {
+                const nodes = Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')).filter(el=>!el.hasAttribute('disabled'))
+                if(nodes.length === 0) return
+                const first = nodes[0]
+                const last = nodes[nodes.length-1]
+                const active = document.activeElement as HTMLElement
+                const idx = nodes.indexOf(active)
+                if(e.shiftKey) {
+                    if(active === first || idx === -1) { e.preventDefault(); last.focus(); }
+                } else {
+                    if(active === last) { e.preventDefault(); first.focus(); }
+                }
+            }
+        }
+        document.addEventListener('keydown', handler)
+        return ()=> document.removeEventListener('keydown', handler)
+    }, [onClose])
+
     return (
-        <div className="fixed inset-0 bg-black/60 z-[99] flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 bg-black/60 z-[99] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
+            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" role="document">
                 
                 {/* Header */}
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
                     <div>
-                        <h3 className="text-white font-bold text-lg">Ajout Rapide</h3>
+                        <h3 id="qb-title" className="text-white font-bold text-lg">Ajout Rapide</h3>
                         {/* Affichage du nom du bateau ou d'un fallback */}
                         <p className="text-blue-200 text-xs">Sur {targetBoat ? targetBoat.title : `Barque ${boatId}`}</p>
                     </div>
