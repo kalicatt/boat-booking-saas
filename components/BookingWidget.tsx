@@ -78,11 +78,30 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
     // Sinon, recherche classique de créneaux
     setLoading(true)
-    try {
-        const res = await fetch(`/api/availability?date=${date}&adults=${adults}&children=${children}&babies=${babies}&lang=${language}`)
-        const data = await res.json()
-        setAvailableSlots(data.availableSlots || [])
-        setStep(STEPS.SLOTS)
+        try {
+                const res = await fetch(`/api/availability?date=${date}&adults=${adults}&children=${children}&babies=${babies}&lang=${language}`)
+                const data = await res.json()
+
+                // Filtre côté client: si la date recherchée est aujourd'hui (local),
+                // on masque les créneaux déjà passés en se basant sur l'heure locale.
+                const slots: string[] = data.availableSlots || []
+                const now = new Date()
+                const pad = (n: number) => String(n).padStart(2, '0')
+                const todayLocal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+
+                let filtered = slots
+                if (date === todayLocal) {
+                    const nowMinutes = now.getHours() * 60 + now.getMinutes()
+                    // Petit tampon de 5 minutes pour éviter les "bords"
+                    filtered = slots.filter((s) => {
+                        const [h, m] = s.split(':').map(Number)
+                        const mins = (h * 60) + m
+                        return mins > nowMinutes + 5
+                    })
+                }
+
+                setAvailableSlots(filtered)
+                setStep(STEPS.SLOTS)
     } catch (e) {
         console.error(e)
         alert("Erreur technique lors de la recherche.")
