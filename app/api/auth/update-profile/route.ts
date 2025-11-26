@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
+import { createLog } from '@/lib/logger'
 
 export async function POST(request: Request) {
   try {
@@ -17,6 +18,8 @@ export async function POST(request: Request) {
       where: { email },
       data: { image }
     })
+
+    await createLog('PROFILE_UPDATE', `Mise à jour du profil (image) pour ${email}`)
 
     return NextResponse.json({ success: true })
   } catch (error) {

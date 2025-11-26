@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import bcrypt from 'bcryptjs'
+import { createLog } from '@/lib/logger'
 
 export async function POST(request: Request) {
   try {
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
         where: { email },
         data: { password: hashedPassword }
     })
+
+    // Log action
+    await createLog('PASSWORD_CHANGE', `Mot de passe changé pour ${email}`)
 
     return NextResponse.json({ success: true })
 

@@ -6,10 +6,13 @@ import Link from 'next/link'
 export default function LogsPage() {
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [actionFilter, setActionFilter] = useState('')
+  const [dateStart, setDateStart] = useState('')
+  const [dateEnd, setDateEnd] = useState('')
 
   const fetchLogs = async () => {
     try {
-      const res = await fetch('/api/admin/logs')
+      const res = await fetch('/api/logs')
       const data = await res.json()
       setLogs(data)
     } catch (e) { console.error(e) } 
@@ -17,6 +20,14 @@ export default function LogsPage() {
   }
 
   useEffect(() => { fetchLogs() }, [])
+
+  const filteredLogs = logs.filter((log) => {
+    const matchAction = actionFilter ? log.action.toLowerCase().includes(actionFilter.toLowerCase()) : true
+    const created = new Date(log.createdAt)
+    const startOk = dateStart ? created >= new Date(dateStart) : true
+    const endOk = dateEnd ? created <= new Date(dateEnd) : true
+    return matchAction && startOk && endOk
+  })
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -32,6 +43,21 @@ export default function LogsPage() {
         </div>
 
         <div className="bg-white rounded-xl shadow overflow-hidden border border-slate-200">
+          <div className="p-4 flex gap-3 items-end border-b bg-slate-50">
+            <div>
+              <label className="block text-xs text-slate-500">Action contient</label>
+              <input value={actionFilter} onChange={(e)=>setActionFilter(e.target.value)} className="border px-2 py-1 rounded text-sm" placeholder="ex: BOOKING, DELETE" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500">Date début</label>
+              <input type="date" value={dateStart} onChange={(e)=>setDateStart(e.target.value)} className="border px-2 py-1 rounded text-sm" />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500">Date fin</label>
+              <input type="date" value={dateEnd} onChange={(e)=>setDateEnd(e.target.value)} className="border px-2 py-1 rounded text-sm" />
+            </div>
+            <button onClick={fetchLogs} className="ml-auto bg-white border px-3 py-1.5 rounded shadow-sm hover:bg-slate-100 text-sm">Recharger</button>
+          </div>
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-500 font-bold border-b">
               <tr>
@@ -44,10 +70,10 @@ export default function LogsPage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr><td colSpan={4} className="p-8 text-center">Chargement...</td></tr>
-              ) : logs.length === 0 ? (
+              ) : filteredLogs.length === 0 ? (
                 <tr><td colSpan={4} className="p-8 text-center text-slate-400">Aucune activité récente.</td></tr>
               ) : (
-                logs.map((log) => (
+                filteredLogs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50">
                     <td className="p-4 text-slate-500 font-mono text-xs">
                       {(() => {
