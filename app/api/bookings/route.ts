@@ -145,7 +145,7 @@ export async function POST(request: Request) {
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userEmailToUse],
             subject: 'Confirmation de votre tour en barque 🛶',
-            react: BookingTemplate({ 
+            react: await BookingTemplate({ 
               firstName: userDetails.firstName,
               date, time, people, adults, children, babies,
               totalPrice: finalPrice,
