@@ -4,14 +4,15 @@ import { addMinutes, parseISO, getHours, getMinutes, areIntervalsOverlapping, is
 import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { createLog } from '@/lib/logger'
-import { nanoid } from 'nanoid' // Import nécessaire pour générer un ID unique
+import { nanoid } from 'nanoid'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
 const BUFFER_TIME = 5
-const OPEN_TIME = "10:00"
+const OPEN_TIME = "10:00" // Ouverture 10h00
+const INTERVAL = 10
 
 // TARIFS
 const PRICE_ADULT = 9
@@ -24,25 +25,16 @@ export async function POST(request: Request) {
     
     const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message } = body
 
-    // ============================================================
-    // 1. SÉCURITÉ : VÉRIFICATION CAPTCHA
-    // ============================================================
+    // 1. SÉCURITÉ : CAPTCHA
     if (!isStaffOverride) {
-        if (!captchaToken) {
-            return NextResponse.json({ error: "Veuillez valider le captcha." }, { status: 400 })
-        }
-
+        if (!captchaToken) return NextResponse.json({ error: "Captcha requis" }, { status: 400 })
         const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
-        
         const captchaRes = await fetch(verifyUrl, { method: 'POST' })
         const captchaData = await captchaRes.json()
-
-        if (!captchaData.success) {
-            return NextResponse.json({ error: "Échec de la validation Captcha. Êtes-vous un robot ?" }, { status: 400 })
-        }
+        if (!captchaData.success) return NextResponse.json({ error: "Captcha invalide" }, { status: 400 })
     }
 
-    // --- CORRECTION TIMEZONE ---
+    // 2. PRÉPARATION & VALIDATION HORAIRE
     const isoDateTime = `${date}T${time}:00.000Z`; 
     const myStart = new Date(isoDateTime);
     const myEnd = addMinutes(myStart, TOUR_DURATION)
@@ -51,52 +43,55 @@ export async function POST(request: Request) {
     const people = adults + children + babies
     const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
 
-    // 2. Charger les barques
-    const boats = await prisma.boat.findMany({ 
-        where: { status: 'ACTIVE' },
-        orderBy: { id: 'asc' }
-    })
-
-    // 3. CALCUL ROTATION
-    const startHourRef = parseInt(OPEN_TIME.split(':')[0])
-    const startMinRef = parseInt(OPEN_TIME.split(':')[1])
-    const startTimeInMinutes = startHourRef * 60 + startMinRef
-
+    // --- VALIDATION DES PLAGES HORAIRES ---
     const currentHours = myStart.getUTCHours()
     const currentMinutes = myStart.getUTCMinutes()
     const minutesTotal = currentHours * 60 + currentMinutes
+
+    // Plages en minutes :
+    // Matin : 10h00 (600) -> 11h45 (705)
+    // Après-midi : 13h30 (810) -> 17h45 (1065)
+    const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
+    const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
+
+    if (!isMorning && !isAfternoon) {
+        return NextResponse.json({ 
+            error: `Horaire impossible. Ouvert de 10h00 à 11h45 et de 13h30 à 17h45.` 
+        }, { status: 400 })
+    }
+
+    // 3. CHARGER LES BARQUES
+    const boats = await prisma.boat.findMany({ where: { status: 'ACTIVE' }, orderBy: { id: 'asc' } })
+    if (boats.length === 0) return NextResponse.json({ error: "Aucune barque active" }, { status: 500 })
     
-    const slotsElapsed = (minutesTotal - startTimeInMinutes) / 10
-    const boatIndex = slotsElapsed % boats.length 
+    // 4. CALCUL ROTATION (Basé sur 10h00)
+    const startHourRef = parseInt(OPEN_TIME.split(':')[0])
+    const startMinRef = parseInt(OPEN_TIME.split(':')[1])
+    const startTimeInMinutes = startHourRef * 60 + startMinRef
     
+    const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
+    const boatIndex = Math.floor(slotsElapsed) % boats.length 
     const targetBoat = boats[boatIndex]
 
     if (!targetBoat) {
-        return NextResponse.json({ error: "Aucune barque assignée à ce créneau." }, { status: 409 })
+        // Normalement impossible grâce au filtre horaire plus haut, mais sécurité
+        return NextResponse.json({ error: "Erreur calcul rotation barque." }, { status: 409 })
     }
 
-    // 4. VÉRIFICATION CONFLITS
+    // 5. VÉRIFICATION CONFLITS
     const conflicts = await prisma.booking.findMany({
       where: {
         boatId: targetBoat.id,
         status: { not: 'CANCELLED' },
-        AND: [
-             { startTime: { lt: myTotalEnd } },
-             { endTime: { gt: myStart } }
-        ]
+        AND: [ { startTime: { lt: myTotalEnd } }, { endTime: { gt: myStart } } ]
       }
     })
-
     const realConflicts = conflicts.filter(b => {
         const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
-        return areIntervalsOverlapping(
-            { start: myStart, end: myTotalEnd },
-            { start: b.startTime, end: busyEnd }
-        )
+        return areIntervalsOverlapping({ start: myStart, end: myTotalEnd }, { start: b.startTime, end: busyEnd })
     })
 
     let canBook = false
-
     if (realConflicts.length === 0) {
         canBook = true 
     } else {
@@ -104,55 +99,45 @@ export async function POST(request: Request) {
         const isSameLang = realConflicts.every(b => b.language === language)
         const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
         const hasCapacity = (totalPeople + people <= targetBoat.capacity) || isStaffOverride === true
-
-        if (isExactStart && isSameLang && hasCapacity) {
-            canBook = true
-        }
+        if (isExactStart && isSameLang && hasCapacity) canBook = true
     }
 
     if (!canBook) {
          const errorMsg = isStaffOverride 
-            ? `Impossible de forcer : Langue ou horaire incompatible sur ${targetBoat.name}.`
+            ? `Impossible de forcer : Conflit sur ${targetBoat.name}.`
             : `Le créneau est complet sur la barque ${targetBoat.name}.`
-
          return NextResponse.json({ error: errorMsg }, { status: 409 })
     }
 
-    // --- LOGIQUE UTILISATEUR UNIQUE POUR LE GUICHET ---
+    // 6. CLIENT (Unique pour guichet)
     let userEmailToUse = userDetails.email;
-
-    // Si c'est une réservation staff (guichet), on génère un email unique pour forcer la création d'un nouvel utilisateur
-    // Cela permet d'avoir le bon nom associé à la réservation
     if (isStaffOverride) {
-        // On crée un email unique : guichet.nom.prenom.uniqueID@sweet-narcisse.local
         const uniqueId = nanoid(6);
-        const safeLastName = userDetails.lastName.replace(/\s+/g, '').toLowerCase();
-        const safeFirstName = userDetails.firstName.replace(/\s+/g, '').toLowerCase();
-        userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@sweet-narcisse.local`;
+        const safeLastName = (userDetails.lastName || 'Inconnu').replace(/\s+/g, '').toLowerCase();
+        const safeFirstName = (userDetails.firstName || 'Client').replace(/\s+/g, '').toLowerCase();
+        userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`;
     }
 
-    // --- ENREGISTREMENT ---
+    // 7. ENREGISTREMENT
     const newBooking = await prisma.booking.create({
       data: {
         date: parseISO(date),
         startTime: myStart,
         endTime: myEnd,
         numberOfPeople: people,
-        adults: adults,
-        children: children,
-        babies: babies,
-        language: language,
+        adults, children, babies,
+        language,
         totalPrice: finalPrice,
         status: 'CONFIRMED',
         message: message || null,
         boat: { connect: { id: targetBoat.id } },
         user: {
           connectOrCreate: {
-            where: { email: userEmailToUse }, // On utilise l'email (potentiellement unique)
+            where: { email: userEmailToUse },
             create: { 
                 firstName: userDetails.firstName,
                 lastName: userDetails.lastName,
-                email: userEmailToUse, // On utilise l'email (potentiellement unique)
+                email: userEmailToUse,
                 phone: userDetails.phone || null,
             }
           }
@@ -163,35 +148,26 @@ export async function POST(request: Request) {
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
 
-    // --- ENVOI EMAIL ---
-    // On n'envoie l'email que si ce n'est pas une adresse générée automatiquement (terminant par .local)
+    // 8. EMAIL
     try {
-      if (userEmailToUse && !userEmailToUse.endsWith('@sweet-narcisse.local') && userEmailToUse.includes('@')) {
+      if (userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@')) {
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userEmailToUse],
             subject: 'Confirmation de votre tour en barque 🛶',
-            react: await BookingTemplate({
+            react: BookingTemplate({ 
               firstName: userDetails.firstName,
-              date: date,
-              time: time,
-              people: people,
-              adults: adults,
-              children: children,
-              babies: babies,
+              date, time, people, adults, children, babies,
               totalPrice: finalPrice,
               bookingId: newBooking.id
             })
           })
       }
-    } catch (e) { 
-        console.error("Erreur email:", e) 
-    }
+    } catch (e) { console.error("Erreur email", e) }
 
     return NextResponse.json({ success: true, bookingId: newBooking.id })
-
   } catch (error) {
-    console.error(error)
+    console.error("ERREUR API:", error)
     return NextResponse.json({ error: "Erreur technique" }, { status: 500 })
   }
 }
