@@ -21,6 +21,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [time, setTime] = useState(format(slotStart, 'HH:mm')); // Pré-rempli avec le clic
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
+    const [message, setMessage] = useState(''); // <--- 1. NOUVEL ÉTAT POUR LE MESSAGE
     
     // Détail passagers
     const [adults, setAdults] = useState(2);
@@ -40,37 +41,31 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
         setIsLoading(true);
 
-        // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
-        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
+        // --- CORRECTION TIMEZONE ---
         const [hours, minutes] = time.split(':').map(Number);
         const selectedDate = new Date(slotStart);
         selectedDate.setHours(hours);
         selectedDate.setMinutes(minutes);
         selectedDate.setSeconds(0);
 
-        // On convertit en UTC pour l'envoi au serveur
-        // Exemple : Si je choisis 10:00 en France, toISOString() donnera "...T09:00:00.000Z"
-        // Le serveur recevra 09:00 UTC et stockera ça.
-        // À l'affichage, 09:00 UTC redeviendra 10:00 France. C'est gagné !
         const isoString = selectedDate.toISOString();
         const dateUTC = isoString.split('T')[0];
-        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
+        const timeUTC = isoString.split('T')[1].substring(0, 5); 
 
-        // Nom exact à envoyer à la base de données
         const finalFirstName = firstName.trim() || 'Client';
         const finalLastName = lastName.trim() || 'Guichet';
 
         const bookingData = {
-            date: dateUTC, // Date UTC
-            time: timeUTC, // Heure UTC
+            date: dateUTC, 
+            time: timeUTC, 
             adults, 
             children, 
             babies,
             people: totalPeople,
             language: 'FR', 
+            message: message, // <--- 2. ON ENVOIE LE MESSAGE À L'API
             userDetails: {
-                // On s'assure d'envoyer la bonne valeur
-                firstName: finalFirstName, 
+                firstName: finalFirstName,
                 lastName: finalLastName,
                 email: 'guichet@sweet-narcisse.com', 
                 phone: ''
@@ -86,7 +81,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             });
 
             if (res.ok) {
-                onSuccess(); // Ferme et rafraîchit
+                onSuccess(); 
             } else {
                 const err = await res.json();
                 alert(`Erreur: ${err.error}`);
@@ -106,7 +101,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
                     <div>
                         <h3 className="text-white font-bold text-lg">Ajout Rapide</h3>
-                        {/* Affichage du nom du bateau ou d'un fallback */}
                         <p className="text-blue-200 text-xs">Sur {targetBoat ? targetBoat.title : `Barque ${boatId}`}</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white text-2xl font-bold">×</button>
@@ -190,7 +184,18 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         </div>
                     </div>
 
-                    {/* 4. FOOTER & PRIX */}
+                    {/* 4. NOUVEAU : COMMENTAIRE */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">NOTE / COMMENTAIRE</label>
+                        <textarea 
+                            placeholder="Ex: Payé en espèces, Groupe scolaire..."
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            className="w-full border rounded p-2 bg-slate-50 text-sm h-20 resize-none outline-none focus:border-blue-600"
+                        />
+                    </div>
+
+                    {/* 5. FOOTER & PRIX */}
                     <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-4">
                         <div className="flex flex-col">
                             <span className="text-xs text-slate-500 uppercase font-bold">À Encaisser</span>
