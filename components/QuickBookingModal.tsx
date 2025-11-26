@@ -48,26 +48,21 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
         setIsLoading(true);
 
-        // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
-        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
-        const [hours, minutes] = time.split(':').map(Number);
-        const selectedDate = new Date(slotStart);
-        selectedDate.setHours(hours);
-        selectedDate.setMinutes(minutes);
-        selectedDate.setSeconds(0);
-
-        // On convertit en UTC pour l'envoi au serveur
-        const isoString = selectedDate.toISOString();
-        const dateUTC = isoString.split('T')[0];
-        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
+        // --- CORRECTION TIMEZONE CRITIQUE ---
+        // On NE convertit PLUS en UTC ici avec toISOString() car cela décale l'heure (10h -> 09h)
+        // On envoie la date et l'heure brutes locales.
+        // C'est l'API qui ajoutera le "Z" pour forcer le stockage en 10:00 UTC.
+        
+        const dateLocal = format(slotStart, 'yyyy-MM-dd');
+        const timeLocal = time; // "10:00" reste "10:00"
 
         // Nom exact à envoyer à la base de données
         const finalFirstName = firstName.trim() || 'Client';
         const finalLastName = lastName.trim() || 'Guichet';
 
         const bookingData = {
-            date: dateUTC, // Date UTC
-            time: timeUTC, // Heure UTC
+            date: dateLocal, 
+            time: timeLocal, // On envoie l'heure exacte affichée (ex: 10:00)
             adults, 
             children, 
             babies,
