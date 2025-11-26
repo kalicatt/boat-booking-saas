@@ -35,29 +35,39 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     // Recherche du bateau cible
     const targetBoat = resources.find(r => r.id === boatId);
 
+    // Debugging: Vérifier si le bateau est trouvé
+    useEffect(() => {
+        console.log("QuickBookingModal - boatId:", boatId);
+        console.log("QuickBookingModal - resources:", resources);
+        console.log("QuickBookingModal - targetBoat:", targetBoat);
+    }, [boatId, resources, targetBoat]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (totalPeople === 0) return alert("Il faut au moins 1 passager.");
 
         setIsLoading(true);
 
-        // --- CORRECTION TIMEZONE ---
+        // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
+        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
         const [hours, minutes] = time.split(':').map(Number);
         const selectedDate = new Date(slotStart);
         selectedDate.setHours(hours);
         selectedDate.setMinutes(minutes);
         selectedDate.setSeconds(0);
 
+        // On convertit en UTC pour l'envoi au serveur
         const isoString = selectedDate.toISOString();
         const dateUTC = isoString.split('T')[0];
-        const timeUTC = isoString.split('T')[1].substring(0, 5); 
+        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
 
+        // Nom exact à envoyer à la base de données
         const finalFirstName = firstName.trim() || 'Client';
         const finalLastName = lastName.trim() || 'Guichet';
 
         const bookingData = {
-            date: dateUTC, 
-            time: timeUTC, 
+            date: dateUTC, // Date UTC
+            time: timeUTC, // Heure UTC
             adults, 
             children, 
             babies,
@@ -81,7 +91,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             });
 
             if (res.ok) {
-                onSuccess(); 
+                onSuccess(); // Ferme et rafraîchit
             } else {
                 const err = await res.json();
                 alert(`Erreur: ${err.error}`);
@@ -101,6 +111,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
                     <div>
                         <h3 className="text-white font-bold text-lg">Ajout Rapide</h3>
+                        {/* Affichage du nom du bateau ou d'un fallback */}
                         <p className="text-blue-200 text-xs">Sur {targetBoat ? targetBoat.title : `Barque ${boatId}`}</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white text-2xl font-bold">×</button>
