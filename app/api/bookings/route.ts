@@ -6,6 +6,7 @@ import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { createLog } from '@/lib/logger'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
+import { getParisTodayISO, getParisNowParts } from '@/lib/time'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -60,12 +61,12 @@ export async function POST(request: Request) {
 
     // 2.b VERROU: Interdiction de réserver moins de 5 minutes avant le départ
     // On compare dans la même "échelle murale" que le front (dates locales traitées comme UTC)
-    const now = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
-    const todayLocalISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    const todayLocalISO = getParisTodayISO()
+    const { hh: hhNow, mm: mmNow } = getParisNowParts()
     if (date === todayLocalISO) {
-      const hh = pad(now.getHours())
-      const mm = pad(now.getMinutes())
+      const hh = pad(hhNow)
+      const mm = pad(mmNow)
       const wallNow = new Date(`${todayLocalISO}T${hh}:${mm}:00.000Z`)
       const diffMs = myStart.getTime() - wallNow.getTime()
       if (diffMs <= 5 * 60 * 1000 && !isStaffOverride) {

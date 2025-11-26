@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { memoGet, memoSet } from '@/lib/memoCache'
+import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -64,11 +65,9 @@ export async function GET(request: Request) {
 
     const startTimeInMinutes = openMins
 
-    // Filtre "moins de 5 minutes avant" pour la journée en cours, basé sur l'heure locale
-    const now = new Date()
-    const pad = (n: number) => String(n).padStart(2, '0')
-    const todayLocalISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-    const nowLocalMinutes = now.getHours() * 60 + now.getMinutes()
+    // Filtre temps réel côté serveur en TZ boutique (Europe/Paris)
+    const todayLocalISO = getParisTodayISO()
+    const nowLocalMinutes = getParisNowMinutes()
 
     for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += INTERVAL) {
       // 1) Filtre horaires (matin/après-midi)

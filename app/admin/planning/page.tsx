@@ -88,20 +88,21 @@ export default function AdminPlanning() {
         // Horaires déjà gérés en UTC "mur du temps": on utilise directement les dates stockées
         const visualStart = new Date(b.startTime)
         const visualEnd = new Date(b.endTime)
-        const startWall = new Date(Date.UTC(
+        // Build local wall-clock dates so 10:00 renders/clicks as 10:00
+        const startWall = new Date(
           visualStart.getUTCFullYear(),
           visualStart.getUTCMonth(),
           visualStart.getUTCDate(),
           visualStart.getUTCHours(),
           visualStart.getUTCMinutes()
-        ))
-        const endWall = new Date(Date.UTC(
+        )
+        const endWall = new Date(
           visualEnd.getUTCFullYear(),
           visualEnd.getUTCMonth(),
           visualEnd.getUTCDate(),
           visualEnd.getUTCHours(),
           visualEnd.getUTCMinutes()
-        ))
+        )
         if (isNaN(visualStart.getTime())) return null
 
         return {
