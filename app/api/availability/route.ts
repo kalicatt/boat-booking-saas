@@ -32,6 +32,10 @@ export async function GET(request: Request) {
   if (peopleNeeded === 0) return NextResponse.json({ date: dateParam, availableSlots: [] })
 
   try {
+    // Cache key (memo cache)
+    const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
+    const memoHit = memoGet(cacheKey)
+    if (memoHit) return NextResponse.json(memoHit)
     const boats = await prisma.boat.findMany({ 
         where: { status: 'ACTIVE' },
         orderBy: { id: 'asc' } 
@@ -113,14 +117,13 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json({ date: dateParam, availableSlots })
+    const result = { date: dateParam, availableSlots }
+    memoSet(cacheKey, result)
+    return NextResponse.json(result)
 
   } catch (error) {
     console.error(error)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
-    // Cache key (works for memo cache)
-    const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
-    const memoHit = memoGet(cacheKey)
-    if (memoHit) return NextResponse.json(memoHit)
+// (memo cache calls are inside the GET handler)
