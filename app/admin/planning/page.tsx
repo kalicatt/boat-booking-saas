@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
-import { fr } from 'date-fns/locale' // Correction 1 : Import nommé
+import { fr } from 'date-fns/locale' 
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import Link from 'next/link'
@@ -22,11 +22,11 @@ interface UserData { firstName: string; lastName: string; email: string; phone: 
 
 interface BookingDetails {
   id: string;
-  title: string; // Nom affiché sur le calendrier (souvent Nom + Prénom)
+  title: string;
   start: Date;
   end: Date;
   resourceId: number;
-  clientName: string; // Nom complet du client (pour la modale)
+  clientName: string;
   peopleCount: number;
   totalOnBoat: number;
   boatCapacity: number;
@@ -36,9 +36,9 @@ interface BookingDetails {
   checkinStatus: 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
   isPaid: boolean;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+  message?: string | null;
 }
 
-// 1. DÉFINITION DU FETCHER SWR
 const fetcher = (url: string) => fetch(url).then((res) => {
     if (!res.ok) throw new Error("Erreur fetch")
     return res.json()
@@ -48,19 +48,16 @@ export default function AdminPlanning() {
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
   
-  // Navigation & Vue
   const [currentDate, setCurrentDate] = useState(startOfDay(new Date())) 
   const [currentView, setCurrentView] = useState(Views.DAY as ('day' | 'week' | 'month' | 'work_week'))
   const [currentRange, setCurrentRange] = useState({ start: startOfDay(new Date()), end: endOfDay(new Date()) })
   
-  // Modales
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date, boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
   
-  // --- 1. SWR HOOK ---
   const apiUrl = `/api/admin/all-bookings?start=${currentRange.start.toISOString()}&end=${currentRange.end.toISOString()}`
 
   const { data: rawBookings, error, mutate } = useSWR(apiUrl, fetcher, {
@@ -69,7 +66,6 @@ export default function AdminPlanning() {
       keepPreviousData: true,
   })
 
-  // --- 2. TRANSFORMATION DES DONNÉES (Fix affichage du nom) ---
   const events = useMemo(() => {
       if (!rawBookings || !Array.isArray(rawBookings)) return []
 
@@ -80,37 +76,43 @@ export default function AdminPlanning() {
       })
 
       return rawBookings.map((b: any) => {
-        // CORRECTION MAJEURE: S'assurer que le nom complet est bien construit
         const clientFullName = `${b.user.firstName} ${b.user.lastName}`
-        // On utilise le nom complet pour le titre de l'événement.
+        const displayTitle = (clientFullName === 'Client Guichet') ? 'Guichet' : clientFullName;
         
-        const startDate = new Date(b.startTime)
-        const endDate = new Date(b.endTime)
+        // --- CORRECTION VISUELLE TIMEZONE ---
+        // On récupère la date qui est en UTC (ex: 10:00 UTC)
+        const utcStart = new Date(b.startTime)
+        const utcEnd = new Date(b.endTime)
+        
+        // Le navigateur va automatiquement ajouter +1h/+2h (ex: 11:00)
+        // On doit soustraire cet offset pour que "10:00 UTC" s'affiche "10:00" à l'écran
+        const offset = utcStart.getTimezoneOffset(); // en minutes (ex: -60)
+        const visualStart = new Date(utcStart.getTime() + (offset * 60 * 1000));
+        const visualEnd = new Date(utcEnd.getTime() + (offset * 60 * 1000));
 
-        if (isNaN(startDate.getTime())) return null
+        if (isNaN(visualStart.getTime())) return null
 
         return {
           id: b.id, 
-          title: clientFullName, // 👈 AFFICHAGE CALENDRIER: Utilise le nom complet
-          start: startDate, 
-          end: endDate,     
+          title: displayTitle, 
+          start: visualStart, // Date corrigée pour l'affichage
+          end: visualEnd,     // Date corrigée pour l'affichage
           resourceId: b.boatId, 
           peopleCount: b.numberOfPeople,
           boatCapacity: b.boat.capacity, 
           totalOnBoat: loadMap[`${b.startTime}_${b.boatId}`] || 0,
-          user: b.user, // Contient firstName et lastName
+          user: b.user, 
           language: b.language, 
           totalPrice: b.totalPrice,
           checkinStatus: b.checkinStatus, 
           isPaid: b.isPaid, 
           status: b.status,
-          clientName: clientFullName // 👈 POUR LA MODALE: Nom complet prêt à l'emploi
+          clientName: clientFullName,
+          message: b.message
         }
       }).filter((event: any) => event !== null) as BookingDetails[]
   }, [rawBookings]) 
 
-
-  // --- 3. CHARGEMENT DES RESSOURCES ---
   const fetchBoats = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/boats')
@@ -123,8 +125,6 @@ export default function AdminPlanning() {
 
   useEffect(() => { fetchBoats() }, [fetchBoats])
 
-
-  // --- 4. HANDLERS ---
   const handleNavigate = (date: Date) => setCurrentDate(date)
   const handleViewChange = (view: any) => setCurrentView(view)
 
@@ -152,6 +152,9 @@ export default function AdminPlanning() {
     const startTime = slotInfo.start
     const boatId = slotInfo.resourceId
 
+    // Pour le clic sur une case vide, on utilise aussi l'heure visuelle locale
+    // QuickBookingModal se chargera d'envoyer "10:00" en texte, donc pas besoin de correction inverse ici
+    
     const conflicts = events.some(e => 
         e.resourceId === boatId && isSameMinute(e.start, startTime)
     )
@@ -167,8 +170,6 @@ export default function AdminPlanning() {
       mutate()
   }
 
-
-  // --- 5. ACTIONS CRUD ---
   const handleRenameBoat = async (boatId: number, currentName: string) => {
     const newName = prompt(`Nom du batelier pour la barque ${boatId} ?`, currentName)
     if (newName && newName !== currentName) {
@@ -212,14 +213,22 @@ export default function AdminPlanning() {
     if (newTime && newTime !== currentHour) {
         const [h, m] = newTime.split(':')
         const newDate = new Date(event.start); newDate.setHours(parseInt(h), parseInt(m))
-        const res = await fetch(`/api/bookings/${event.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: newDate.toISOString() }) })
+        
+        // Attention : ici newDate est en heure "visuelle" (locale forcée).
+        // L'API attend une date ISO UTC. Comme on a décalé l'affichage, il faut décaler l'envoi inversement
+        // OU plus simple : on envoie juste l'heure comme pour le QuickBooking
+        // Mais comme l'API PATCH attend une date complète, on utilise toISOString() sur une date construite en UTC
+        
+        // Reconstruction propre pour l'API
+        const dateStr = format(event.start, 'yyyy-MM-dd');
+        const utcIso = `${dateStr}T${newTime}:00.000Z`;
+
+        const res = await fetch(`/api/bookings/${event.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ start: utcIso }) })
         if (res.ok) mutate() 
         else alert("Erreur (Conflit ?)")
     }
   }
 
-
-  // --- 6. COMPOSANTS VISUELS ---
   const AddButtonWrapper = ({ children }: any) => {
       return (
           <div className="h-full w-full relative group cursor-pointer hover:bg-blue-50/50 transition-colors flex items-center justify-center">
@@ -231,7 +240,6 @@ export default function AdminPlanning() {
       )
   }
 
-  // Correction 2 : on met 'any' ici pour que TypeScript accepte le ReactNode envoyé par la lib
   const ResourceHeader = ({ label }: { label: any }) => {
     const resource = resources.find(r => r.title === label)
     return (
@@ -253,7 +261,6 @@ export default function AdminPlanning() {
     const isNoShow = event.checkinStatus === 'NO_SHOW'
     const paymentDotColor = event.isPaid ? 'bg-green-500' : 'bg-red-500'
 
-    // Le titre affiché est désormais le nom complet construit par useMemo
     const displayName = event.title; 
 
     return (
@@ -274,7 +281,7 @@ export default function AdminPlanning() {
 
   const slotPropGetter = (date: Date) => {
     const m = date.getHours() * 60 + date.getMinutes()
-    if (m > 11 * 60 + 45 && m < 13 * 60 + 30) { 
+    if (m > 12 * 60 + 15 && m < 13 * 60 + 30) { 
       return { style: { backgroundColor: '#f3f4f6', backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', backgroundSize: '10px 10px', opacity: 0.5, pointerEvents: 'none' as 'none' } }
     }
     return {}
@@ -282,8 +289,6 @@ export default function AdminPlanning() {
 
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails, onClose: () => void }) => {
     if (!booking) return null
-
-    // 🔑 CORRECTION AFFICHAGE MODALE : Utilisation des propriétés user.firstName et user.lastName
     const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
     
     return (
@@ -300,11 +305,18 @@ export default function AdminPlanning() {
                         <div><p className="font-bold text-slate-800">{booking.peopleCount}p</p><p className="text-xs text-slate-500">({booking.language})</p></div>
                     </div>
                     <div className="border p-3 rounded bg-slate-50">
-                        {/* 🔑 CORRECTION ICI: Affichage du nom complet depuis user object */}
                         <p className="font-bold text-lg text-slate-800">{displayedClientName}</p>
                         <p className="text-sm text-slate-600">📧 {booking.user.email}</p>
                         <p className="text-sm text-slate-600">📞 {booking.user.phone || 'N/A'}</p>
                     </div>
+
+                    {booking.message && (
+                        <div className="bg-yellow-50 p-3 rounded border border-yellow-200 text-sm text-yellow-800">
+                            <strong>Note / Commentaire :</strong><br/>
+                            {booking.message}
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4 text-center">
                         <div className={`p-2 rounded border ${booking.isPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
                             <p className="text-xs font-bold uppercase">Paiement</p>
@@ -386,11 +398,29 @@ export default function AdminPlanning() {
             resourceTitleAccessor="title"
             step={5} 
             timeslots={1} 
+            // 👇 Affichage de 9h à 19h
             min={new Date(0, 0, 0, 9, 0, 0)} 
-            max={new Date(0, 0, 0, 18, 0, 0)} 
+            max={new Date(0, 0, 0, 19, 0, 0)} 
             culture='fr'
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
-            slotPropGetter={slotPropGetter}
+            
+            // 👇 Zone grisée pour la pause (11h45 - 13h30)
+            slotPropGetter={(date) => {
+                const m = date.getHours() * 60 + date.getMinutes()
+                if (m >= 705 && m < 810) { 
+                  return { 
+                      style: { 
+                          backgroundColor: '#f3f4f6', 
+                          backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', 
+                          backgroundSize: '10px 10px', 
+                          opacity: 0.5, 
+                          pointerEvents: 'none' 
+                      } 
+                  }
+                }
+                return {}
+            }}
+            
             components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
             eventPropGetter={(event: any) => {
                  let style = { color: 'white', backgroundColor: '#2563eb' };
