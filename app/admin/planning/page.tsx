@@ -260,33 +260,42 @@ export default function AdminPlanning() {
 
     return (
       <div className="flex flex-col justify-between h-full w-full p-1 overflow-hidden group relative">
-          
-          {/* Ligne 1 : Drapeau + Nom (Gras) */}
-          <div className="flex justify-between items-start leading-tight">
-              <span className="font-bold text-xs truncate pr-4">
+          {/* Badge total personnes sur la barque */}
+          <div className="absolute top-0 right-0 m-1">
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-white/20 ring-1 ring-white/40">
+              {event.totalOnBoat}/{event.boatCapacity}p
+            </span>
+          </div>
+
+          {/* Ligne 1 : Drapeau + Nom (multi-ligne) */}
+          <div className="flex justify-start items-start leading-tight pr-5">
+              <span className="font-bold text-[11px] whitespace-normal break-words">
                 {flag} {displayName}
               </span>
-              
+
               {/* Bouton Supprimer (visible au survol uniquement) */}
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.clientName) }}
-                  className="absolute top-0 right-0 text-white/50 hover:text-white hover:bg-red-500/50 rounded px-1 text-[10px] opacity-0 group-hover:opacity-100 transition">
-                  ✕
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.clientName) }}
+                className="absolute top-0 right-0 text-white/60 hover:text-white hover:bg-red-500/60 rounded px-1 text-[10px] opacity-0 group-hover:opacity-100 transition"
+                aria-label="Supprimer"
+              >
+                ✕
               </button>
           </div>
 
-          {/* Ligne 2 : Détail Pax (Ad/Enf/Bé) - Flex wrap pour s'adapter */}
+          {/* Ligne 2 : Détail Pax (Ad/Enf/Bé) */}
           <div className="flex flex-wrap gap-x-2 gap-y-0 text-[10px] font-medium opacity-90 mt-0.5">
              {event.adults > 0 && <span>{event.adults}Ad</span>}
              {event.children > 0 && <span>{event.children}En</span>}
              {event.babies > 0 && <span>{event.babies}Bé</span>}
           </div>
 
-          {/* Ligne 3 : Footer (Paiement + Total) */}
+          {/* Ligne 3 : Footer (Paiement + total de cette réservation) */}
           <div className="flex items-center gap-1 mt-auto pt-1">
-              {/* Pastille Paiement */}
-              <div className={`w-2 h-2 rounded-full ${event.isPaid ? 'bg-green-400' : 'bg-red-500'} ring-1 ring-white/40`} 
-                   title={event.isPaid ? "Payé" : "Non Payé"}></div>
-              
+              <div
+                className={`w-2 h-2 rounded-full ${event.isPaid ? 'bg-green-400' : 'bg-red-500'} ring-1 ring-white/40`}
+                title={event.isPaid ? 'Payé' : 'Non Payé'}
+              />
               <span className="text-[10px] font-bold ml-auto">
                   {event.peopleCount}p
               </span>
