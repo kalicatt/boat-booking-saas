@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useState } from 'react'
+import TripReviews from '@/components/TripReviews'
 
 export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de' }) {
   const [scrolled, setScrolled] = useState(false)
@@ -108,25 +109,13 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
       </section>
 
-      <section className="py-24 px-6 bg-sand-gradient">
+      <section className="py-24 px-6 bg-sand-gradient" id="reviews">
         <div className="max-w-5xl mx-auto text-center mb-12 fade-in">
           <h2 className="text-4xl font-serif font-bold mb-3">{dict.social?.title}</h2>
           <p className="text-slate-600 max-w-xl mx-auto">{dict.social?.subtitle}</p>
         </div>
-        <div className="max-w-6xl mx-auto grid gap-6 md:grid-cols-3">
-          {[{ name:'Sophie', text:'Magique. On redécouvre la ville sous un angle apaisant.' },{ name:'Mark', text:'Highlight of our weekend in Alsace. Authentic & calm.' },{ name:'Anna', text:'Kinder waren begeistert, wir auch. Très belle expérience.' }].map(r => (
-            <div key={r.name} className="fade-in bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex flex-col">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[#eab308]/20 flex items-center justify-center font-bold text-[#0f172a]">{r.name[0]}</div>
-                <span className="font-semibold">{r.name}</span>
-              </div>
-              <p className="text-sm text-slate-600 leading-relaxed flex-1">“{r.text}”</p>
-              <div className="mt-4 text-xs text-slate-400">★★★★★</div>
-            </div>
-          ))}
-        </div>
-        <div className="text-center mt-10">
-          <a href="#" className="text-[#0f172a] bg-[#eab308] px-6 py-3 rounded-full font-bold text-sm hover:bg-white transition shadow-md">{dict.social?.cta}</a>
+        <div className="max-w-6xl mx-auto">
+          <TripReviews dict={dict} lang={lang} />
         </div>
       </section>
 

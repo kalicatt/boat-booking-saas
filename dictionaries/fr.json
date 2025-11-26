@@ -27,7 +27,10 @@
   "social": {
     "title": "Ils ont adoré",
     "subtitle": "Des centaines de voyageurs ont partagé leur surprise de redécouvrir Colmar côté eau.",
-    "cta": "Voir plus d'avis"
+    "cta": "Voir plus d'avis",
+    "sourceLink": "Voir sur TripAdvisor",
+    "aggregatePrefix": "Note globale",
+    "reviewsLabel": "avis"
   },
   "logos": {
     "title": "Partenaires & Confiance"

@@ -27,7 +27,10 @@
   "social": {
     "title": "Sie waren begeistert",
     "subtitle": "Viele Besucher berichten, wie überraschend es ist, Colmar vom Wasser aus neu zu entdecken.",
-    "cta": "Weitere Bewertungen"
+    "cta": "Weitere Bewertungen",
+    "sourceLink": "Auf TripAdvisor ansehen",
+    "aggregatePrefix": "Gesamtbewertung",
+    "reviewsLabel": "Bewertungen"
   },
   "logos": {
     "title": "Partner & Vertrauen"

@@ -34,3 +34,31 @@ if ($files.Count -gt $maxBackups) {
 }
 
 Write-Host "✅ Maintenance terminée avec succès !" -ForegroundColor Green
+
+# 4. Rotation quotidienne des avis & mise à jour éventuelle du compteur
+Write-Host "4. Rotation des avis (TripAdvisor style)"
+$featuredPath = "./public/reviews-featured.json"
+$reviewIds = @('tp-1','tp-2','tp-3','tp-4')
+$dayOfYear = (Get-Date).DayOfYear
+$count = 3
+$offset = $dayOfYear % $reviewIds.Count
+$selected = @()
+for ($i=0; $i -lt [Math]::Min($count, $reviewIds.Count); $i++) {
+    $selected += $reviewIds[($offset + $i) % $reviewIds.Count]
+}
+
+# Mise à jour du reviewCount via variable d'environnement si définie
+$envReviewCount = $env:TRIPADVISOR_REVIEW_COUNT
+if ($envReviewCount -and $envReviewCount -match '^[0-9]+$') {
+    Write-Host "Mise à jour reviewCount -> $envReviewCount"
+    # On écrit la valeur dans le JSON (et non directement dans le TS pour éviter un rebuild automatique)
+    $aggregate = @{ reviewCount = [int]$envReviewCount }
+} else {
+    $aggregate = @{}
+}
+
+$json = @{ featured = $selected; generatedAt = (Get-Date).ToString('o'); aggregate = $aggregate } | ConvertTo-Json -Depth 3
+Set-Content -Path $featuredPath -Value $json -Encoding UTF8
+Write-Host "Fichier $featuredPath généré." -ForegroundColor Green
+
+Write-Host "--- FIN ÉTAPE AVIS ---" -ForegroundColor Cyan

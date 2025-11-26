@@ -27,7 +27,10 @@
   "social": {
     "title": "They loved it",
     "subtitle": "Hundreds of visitors shared how surprised they were to rediscover Colmar from the water.",
-    "cta": "See more reviews"
+    "cta": "See more reviews",
+    "sourceLink": "View on TripAdvisor",
+    "aggregatePrefix": "Overall rating",
+    "reviewsLabel": "reviews"
   },
   "logos": {
     "title": "Partners & Trust"
