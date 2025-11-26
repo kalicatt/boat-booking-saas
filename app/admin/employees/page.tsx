@@ -7,6 +7,7 @@ export default function EmployeesPage() {
   const [employees, setEmployees] = useState<any[]>([])
   const [myRole, setMyRole] = useState<string>('')
   const [loading, setLoading] = useState(true)
+    const [showCreateModal, setShowCreateModal] = useState(false)
   
   // État pour savoir si on est en mode ÉDITION
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -147,25 +148,37 @@ export default function EmployeesPage() {
           <div>
             <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-2 inline-block">← Retour Tableau de bord</Link>
             <h1 className="text-3xl font-bold text-slate-800">Annuaire Entreprise 👥</h1>
-            {!isSuperAdmin && !loading && (
+                        {myRole !== 'SUPERADMIN' && !loading && (
                 <p className="text-sm text-orange-600 mt-1 font-bold bg-orange-50 inline-block px-2 py-1 rounded border border-orange-200">
                     🔒 Mode Lecture Seule
                 </p>
             )}
           </div>
+                    {(myRole === 'SUPERADMIN' || myRole === 'ADMIN') && (
+                        <button onClick={()=>setShowCreateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded shadow-sm">+ Nouveau collaborateur</button>
+                    )}
         </div>
+
+                <CreateEmployeeModal
+                    open={showCreateModal}
+                    onClose={()=>setShowCreateModal(false)}
+                    onSubmit={(e:any)=>{handleSubmit(e); setShowCreateModal(false)}}
+                    form={form}
+                    setForm={setForm}
+                    myRole={myRole}
+                />
 
         <div className={`grid grid-cols-1 gap-8 ${isSuperAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-1'}`}>
             
             {/* FORMULAIRE (Création / Édition) */}
-            {isSuperAdmin && (
+            {(myRole === 'SUPERADMIN' || myRole === 'ADMIN') && (
             <div className="lg:col-span-1">
                 <div className={`p-6 rounded-xl shadow-md border sticky top-8 transition-colors 
                     ${editingId ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-slate-200'}`}>
                     
                     <div className="flex justify-between items-center mb-4 border-b pb-2">
                         <h3 className="text-lg font-bold text-slate-800">
-                            {editingId ? "Modifier la fiche" : "Nouveau Collaborateur"}
+                            {editingId ? "Modifier la fiche" : "Fiche collaborateur"}
                         </h3>
                         {editingId && (
                             <button onClick={handleCancelEdit} className="text-xs text-slate-500 underline hover:text-slate-800">
@@ -274,16 +287,22 @@ export default function EmployeesPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
-                                                        <input type="number" step="0.01" className="w-full p-2 border rounded bg-white" value={form.hourlyRate} onChange={e=>setForm({...form, hourlyRate: e.target.value})} />
+                                                {isSuperAdmin ? (
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
+                                                            <input type="number" step="0.01" className="w-full p-2 border rounded bg-white" value={form.hourlyRate} onChange={e=>setForm({...form, hourlyRate: e.target.value})} />
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
+                                                            <input type="number" step="0.01" className="w-full p-2 border rounded bg-white" value={form.annualSalary} onChange={e=>setForm({...form, annualSalary: e.target.value})} />
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
-                                                        <input type="number" step="0.01" className="w-full p-2 border rounded bg-white" value={form.annualSalary} onChange={e=>setForm({...form, annualSalary: e.target.value})} />
+                                                ) : (
+                                                    <div className="p-2 rounded bg-slate-50 border text-xs text-slate-500">
+                                                        Les informations de rémunération sont visibles et modifiables uniquement par le Propriétaire.
                                                     </div>
-                                                </div>
+                                                )}
 
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div>
@@ -316,10 +335,14 @@ export default function EmployeesPage() {
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Rôle</label>
                             <select className="w-full p-2 border rounded bg-white"
-                                value={form.role} onChange={e => setForm({...form, role: e.target.value})}>
+                                value={form.role} onChange={e => setForm({...form, role: e.target.value})}
+                                disabled={myRole === 'ADMIN'}>
                                 <option value="EMPLOYEE">Employé</option>
-                                <option value="ADMIN">Administrateur</option>
+                                {myRole === 'SUPERADMIN' && <option value="ADMIN">Administrateur</option>}
                             </select>
+                            {myRole === 'ADMIN' && (
+                              <p className="text-[11px] text-slate-500 mt-1">Les administrateurs ne peuvent créer que des employés.</p>
+                            )}
                         </div>
 
                         <button type="submit" className={`w-full text-white py-3 rounded-lg font-bold transition shadow-sm 
@@ -361,10 +384,16 @@ export default function EmployeesPage() {
                                                 {emp.role}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-slate-600 align-top">
+                                                                                <td className="p-4 text-slate-600 align-top">
                                             <div className="mb-1">📧 {emp.email}</div>
                                             <div className="mb-1">📞 {emp.phone || "-"}</div>
                                             <div className="text-xs text-slate-400">🏠 {emp.address || "-"}</div>
+                                                                                        {isSuperAdmin && (
+                                                                                            <div className="text-xs text-slate-400 mt-1">
+                                                                                                {emp.hourlyRate ? `💶 ${emp.hourlyRate.toFixed ? emp.hourlyRate.toFixed(2) : emp.hourlyRate}€/h` : ''}
+                                                                                                {emp.annualSalary ? ` · 💼 ${emp.annualSalary.toFixed ? emp.annualSalary.toFixed(2) : emp.annualSalary}€/an` : ''}
+                                                                                            </div>
+                                                                                        )}
                                         </td>
                                         <td className="p-4 text-right align-top space-x-2">
                                             {isSuperAdmin && emp.role !== 'SUPERADMIN' && (
@@ -396,4 +425,39 @@ export default function EmployeesPage() {
       </div>
     </div>
   )
+}
+
+// Modal de création rapide
+function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }: any) {
+    if (!open) return null
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+            <div className="bg-white w-full max-w-lg rounded-xl shadow-lg border border-slate-200">
+                <div className="p-4 border-b flex justify-between items-center">
+                    <h3 className="font-bold">Nouveau collaborateur</h3>
+                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800">✕</button>
+                </div>
+                <form onSubmit={onSubmit} className="p-4 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                        <input required placeholder="Prénom" className="p-2 border rounded" value={form.firstName} onChange={e=>setForm({...form, firstName: e.target.value})} />
+                        <input required placeholder="Nom" className="p-2 border rounded" value={form.lastName} onChange={e=>setForm({...form, lastName: e.target.value})} />
+                    </div>
+                    <input required placeholder="Email" type="email" className="w-full p-2 border rounded" value={form.email} onChange={e=>setForm({...form, email: e.target.value})} />
+                    <input required placeholder="Téléphone" className="w-full p-2 border rounded" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+                    <input required placeholder={"Mot de passe provisoire"} className="w-full p-2 border rounded" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} />
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Rôle</label>
+                        <select className="w-full p-2 border rounded bg-white" value={form.role} onChange={e => setForm({...form, role: e.target.value})} disabled={myRole === 'ADMIN'}>
+                            <option value="EMPLOYEE">Employé</option>
+                            {myRole === 'SUPERADMIN' && <option value="ADMIN">Administrateur</option>}
+                        </select>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="border px-4 py-2 rounded">Annuler</button>
+                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
 }

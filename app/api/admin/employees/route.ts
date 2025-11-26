@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { auth } from '@/auth'
+import { createLog } from '@/lib/logger'
 
 // 1. FIX: Interface pour définir que le rôle existe pour TypeScript
 interface ExtendedUser {
@@ -31,11 +32,10 @@ export async function POST(request: Request) {
     // 2. FIX: On force le type ici
     const userSession = session?.user as ExtendedUser | undefined
     
-    // SÉCURITÉ MAXIMALE : SEUL LE SUPERADMIN PEUT CRÉER
-    if (userSession?.role !== 'SUPERADMIN') {
-        return NextResponse.json({ 
-            error: "⛔ Accès refusé. Seul le Propriétaire (SuperAdmin) peut recruter." 
-        }, { status: 403 })
+    // Autorisations: SUPERADMIN et ADMIN peuvent créer des comptes,
+    // mais un ADMIN ne peut créer que des EMPLOYEE (pas d'ADMIN)
+    if (!userSession?.role || (userSession.role !== 'SUPERADMIN' && userSession.role !== 'ADMIN')) {
+      return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -52,7 +52,8 @@ export async function POST(request: Request) {
       data: {
         firstName, lastName, email, phone, address, city, postalCode, country,
         password: hashedPassword,
-        role: role || 'EMPLOYEE',
+        // Si créateur = ADMIN, force le rôle à EMPLOYEE
+        role: userSession.role === 'ADMIN' ? 'EMPLOYEE' : (role || 'EMPLOYEE'),
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         gender,
         employeeNumber,
@@ -69,6 +70,8 @@ export async function POST(request: Request) {
         notes,
       }
     })
+
+    await createLog('EMPLOYEE_CREATE', `Création employé ${newUser.firstName} ${newUser.lastName} (${newUser.email})`) 
 
     return NextResponse.json({ success: true, user: newUser })
   } catch (error) {
@@ -103,6 +106,7 @@ export async function DELETE(request: Request) {
     // Suppression en cascade manuelle si nécessaire (workShifts)
     await prisma.workShift.deleteMany({ where: { userId: targetId } })
     await prisma.user.delete({ where: { id: targetId } })
+    await createLog('EMPLOYEE_DELETE', `Suppression employé ${targetUser?.firstName} ${targetUser?.lastName} (${targetUser?.email})`)
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -158,6 +162,8 @@ export async function PUT(request: Request) {
       where: { id },
       data: dataToUpdate
     })
+
+    await createLog('EMPLOYEE_UPDATE', `Mise à jour employé ${updatedUser.firstName} ${updatedUser.lastName} (${updatedUser.email})`)
 
     return NextResponse.json({ success: true, user: updatedUser })
   } catch (error) {
