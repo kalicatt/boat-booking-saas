@@ -22,11 +22,11 @@ interface UserData { firstName: string; lastName: string; email: string; phone: 
 
 interface BookingDetails {
   id: string;
-  title: string;
+  title: string; // Nom affiché sur le calendrier (souvent Nom + Prénom)
   start: Date;
   end: Date;
   resourceId: number;
-  clientName: string;
+  clientName: string; // Nom complet du client (pour la modale)
   peopleCount: number;
   totalOnBoat: number;
   boatCapacity: number;
@@ -69,7 +69,7 @@ export default function AdminPlanning() {
       keepPreviousData: true,
   })
 
-  // --- 2. TRANSFORMATION DES DONNÉES ---
+  // --- 2. TRANSFORMATION DES DONNÉES (Fix affichage du nom) ---
   const events = useMemo(() => {
       if (!rawBookings || !Array.isArray(rawBookings)) return []
 
@@ -80,18 +80,31 @@ export default function AdminPlanning() {
       })
 
       return rawBookings.map((b: any) => {
-        const fullName = `${b.user.firstName} ${b.user.lastName}`
+        // CORRECTION MAJEURE: S'assurer que le nom complet est bien construit
+        const clientFullName = `${b.user.firstName} ${b.user.lastName}`
+        // On utilise le nom complet pour le titre de l'événement.
+        
         const startDate = new Date(b.startTime)
         const endDate = new Date(b.endTime)
 
         if (isNaN(startDate.getTime())) return null
 
         return {
-          id: b.id, title: fullName, start: startDate, end: endDate,     
-          resourceId: b.boatId, peopleCount: b.numberOfPeople,
-          boatCapacity: b.boat.capacity, totalOnBoat: loadMap[`${b.startTime}_${b.boatId}`] || 0,
-          user: b.user, language: b.language, totalPrice: b.totalPrice,
-          checkinStatus: b.checkinStatus, isPaid: b.isPaid, status: b.status,
+          id: b.id, 
+          title: clientFullName, // 👈 AFFICHAGE CALENDRIER: Utilise le nom complet
+          start: startDate, 
+          end: endDate,     
+          resourceId: b.boatId, 
+          peopleCount: b.numberOfPeople,
+          boatCapacity: b.boat.capacity, 
+          totalOnBoat: loadMap[`${b.startTime}_${b.boatId}`] || 0,
+          user: b.user, // Contient firstName et lastName
+          language: b.language, 
+          totalPrice: b.totalPrice,
+          checkinStatus: b.checkinStatus, 
+          isPaid: b.isPaid, 
+          status: b.status,
+          clientName: clientFullName // 👈 POUR LA MODALE: Nom complet prêt à l'emploi
         }
       }).filter((event: any) => event !== null) as BookingDetails[]
   }, [rawBookings]) 
@@ -240,13 +253,16 @@ export default function AdminPlanning() {
     const isNoShow = event.checkinStatus === 'NO_SHOW'
     const paymentDotColor = event.isPaid ? 'bg-green-500' : 'bg-red-500'
 
+    // Le titre affiché est désormais le nom complet construit par useMemo
+    const displayName = event.title; 
+
     return (
       <div className={`relative flex justify-between items-start h-full px-1 overflow-hidden ${isFull ? 'bg-red-500/10' : ''}`}
           style={{ backgroundColor: isEmbarked ? '#1f4068' : isNoShow ? '#e69900' : undefined }}>
           
           <div className={`absolute top-1 left-1 w-2.5 h-2.5 rounded-full shadow ${paymentDotColor}`}></div>
           <div className="flex flex-col leading-tight overflow-hidden pt-1 pl-3">
-              <span className="text-xs font-bold truncate" style={{color: isNoShow ? 'black' : 'white'}}>{event.title}</span>
+              <span className="text-xs font-bold truncate" style={{color: isNoShow ? 'black' : 'white'}}>{displayName}</span>
               <span className="text-[10px] opacity-90" style={{color: isNoShow ? 'black' : 'white'}}>({event.peopleCount}p)</span>
               <span className={`text-[9px] font-bold mt-0.5 ${isEmbarked || isNoShow ? 'text-white' : 'opacity-70'}`} style={{color: isNoShow ? 'black' : 'white'}}>⚓ {event.totalOnBoat}/{event.boatCapacity}</span>
           </div>
@@ -266,6 +282,10 @@ export default function AdminPlanning() {
 
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails, onClose: () => void }) => {
     if (!booking) return null
+
+    // 🔑 CORRECTION AFFICHAGE MODALE : Utilisation des propriétés user.firstName et user.lastName
+    const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
+    
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300">
@@ -280,7 +300,8 @@ export default function AdminPlanning() {
                         <div><p className="font-bold text-slate-800">{booking.peopleCount}p</p><p className="text-xs text-slate-500">({booking.language})</p></div>
                     </div>
                     <div className="border p-3 rounded bg-slate-50">
-                        <p className="font-bold text-lg text-slate-800">{booking.clientName}</p>
+                        {/* 🔑 CORRECTION ICI: Affichage du nom complet depuis user object */}
+                        <p className="font-bold text-lg text-slate-800">{displayedClientName}</p>
                         <p className="text-sm text-slate-600">📧 {booking.user.email}</p>
                         <p className="text-sm text-slate-600">📞 {booking.user.phone || 'N/A'}</p>
                     </div>
