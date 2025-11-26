@@ -274,7 +274,7 @@ export default function AdminPlanning() {
 
   const slotPropGetter = (date: Date) => {
     const m = date.getHours() * 60 + date.getMinutes()
-    if (m > 12 * 60 + 15 && m < 13 * 60 + 30) { 
+    if (m > 11 * 60 + 45 && m < 13 * 60 + 30) { 
       return { style: { backgroundColor: '#f3f4f6', backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', backgroundSize: '10px 10px', opacity: 0.5, pointerEvents: 'none' as 'none' } }
     }
     return {}
@@ -386,8 +386,8 @@ export default function AdminPlanning() {
             resourceTitleAccessor="title"
             step={5} 
             timeslots={1} 
-            min={new Date(0, 0, 0, 8, 0, 0)} 
-            max={new Date(0, 0, 0, 19, 0, 0)} 
+            min={new Date(0, 0, 0, 9, 0, 0)} 
+            max={new Date(0, 0, 0, 18, 0, 0)} 
             culture='fr'
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
             slotPropGetter={slotPropGetter}

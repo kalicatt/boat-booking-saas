@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-// Import de isPast pour la nouvelle logique
 import { addMinutes, format, parseISO, startOfDay, endOfDay, getHours, getMinutes, areIntervalsOverlapping, isSameMinute, isPast } from 'date-fns'
 
 // --- CONFIGURATION ---
@@ -8,9 +7,9 @@ const TOUR_DURATION = 25
 const BUFFER_TIME = 5
 const INTERVAL = 10 // Départs toutes les 10 min
 
-// Horaires d'ouverture (doivent matcher avec bookings/route.ts)
-const OPEN_TIME = "09:00" 
-const CLOSE_TIME = "19:00"
+// Nouveaux horaires d'ouverture (Base de calcul rotation)
+const OPEN_TIME = "10:00" 
+const CLOSE_TIME = "18:00" // On scanne large, le filtre précis se fait dans la boucle
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -56,34 +55,34 @@ export async function GET(request: Request) {
     const startMinRef = parseInt(OPEN_TIME.split(':')[1])
     const startTimeInMinutes = startHourRef * 60 + startMinRef
 
-    while (currentSlot < endTimeLimit) {
+    while (currentSlot <= endTimeLimit) { // <= pour inclure potentiellement la dernière limite si elle tombe pile
       const slotTime = currentSlot
       const currentHours = getHours(slotTime)
       const currentMinutes = getMinutes(slotTime)
       const minutesTotal = currentHours * 60 + currentMinutes
 
-      // ------------------------------------------
-      // 🚀 NOUVELLE LOGIQUE : IGNORER LE PASSÉ
-      // ------------------------------------------
+      // --- 0. FILTRE PASSÉ ---
       if (isPast(slotTime)) {
           currentSlot = addMinutes(currentSlot, INTERVAL)
           continue
       }
-      // ------------------------------------------
 
-      // --- 1. FILTRE PAUSE DÉJEUNER ---
-      const LUNCH_START = 12 * 60 + 15
-      const LUNCH_END = 13 * 60 + 30
+      // --- 1. FILTRES HORAIRES PRÉCIS ---
+      // Matin : 10h00 (600min) à 11h45 (705min) inclus
+      const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
       
-      if (minutesTotal > LUNCH_START && minutesTotal < LUNCH_END) {
+      // Aprèm : 13h30 (810min) à 17h45 (1065min) inclus
+      const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
+
+      if (!isMorning && !isAfternoon) {
           currentSlot = addMinutes(currentSlot, INTERVAL)
           continue
       }
 
       // --- 2. CALCUL DE LA BARQUE ASSIGNÉE (ROTATION) ---
-      const slotsElapsed = (minutesTotal - startTimeInMinutes) / 10
+      const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
       
-      const boatIndex = slotsElapsed % boats.length 
+      const boatIndex = Math.floor(slotsElapsed) % boats.length 
       const assignedBoat = boats[boatIndex]
 
       if (!assignedBoat) {
@@ -106,10 +105,8 @@ export async function GET(request: Request) {
       let isSlotAvailable = false
 
       if (conflicts.length === 0) {
-          // Barque vide -> OK
           isSlotAvailable = true
       } else {
-          // Barque occupée -> Vérif Langue Stricte + Capacité Restante
           const isExactStart = conflicts.every(b => isSameMinute(b.startTime, slotTime))
           const isSameLang = conflicts.every(b => b.language === requestedLang)
           const currentPeople = conflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)

@@ -11,7 +11,7 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
 const BUFFER_TIME = 5
-const OPEN_TIME = "09:00"
+const OPEN_TIME = "10:00"
 
 // TARIFS
 const PRICE_ADULT = 9
