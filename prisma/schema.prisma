@@ -23,6 +23,7 @@ model User {
   bookings  Booking[]
   workShifts WorkShift[]
   log Log[] 
+  createdBlocks BlockedInterval[] @relation("UserCreatedBlocks")
 }
 
 model Boat {
@@ -70,7 +71,7 @@ model BlockedInterval {
   scope        String   // 'day' | 'morning' | 'afternoon' | 'specific'
   reason       String?
   createdById  String?
-  createdBy    User?    @relation(fields: [createdById], references: [id])
+  createdBy    User?    @relation("UserCreatedBlocks", fields: [createdById], references: [id])
 }
 
 model WorkShift {
