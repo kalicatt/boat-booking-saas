@@ -42,6 +42,17 @@ model Booking {
   startTime   DateTime
   endTime     DateTime
 
+model BlockedInterval {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  start      DateTime
+  end        DateTime
+  scope      String   // 'day' | 'morning' | 'afternoon' | 'specific'
+  reason     String?
+  createdById String?
+  createdBy  User?    @relation(fields: [createdById], references: [id])
+}
+
   // DÉTAIL DES PASSAGERS
   numberOfPeople Int      // Total (pour la capacité)
   adults         Int      @default(0) // <--- NOUVEAU

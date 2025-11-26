@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { memoGet, memoSet } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
+import { areIntervalsOverlapping as overlap } from 'date-fns'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -99,10 +100,20 @@ export async function GET(request: Request) {
         )
       })
 
+      // Blocked intervals: filter out slots overlapping any block
+      const blocks = await prisma.blockedInterval.findMany({
+        where: {
+          OR: [
+            { start: { lte: dayEndUtc }, end: { gte: dayStartUtc } },
+          ]
+        }
+      })
+      const blocked = blocks.some(b => overlap({ start: slotStartUtc, end: slotEndUtc }, { start: b.start, end: b.end }))
+
       let isSlotAvailable = false
-      if (conflicts.length === 0) {
+      if (!blocked && conflicts.length === 0) {
         isSlotAvailable = true
-      } else {
+      } else if (!blocked) {
         const isExactStart = conflicts.every(b => isSameMinute(b.startTime, slotStartUtc))
         const isSameLang = conflicts.every(b => b.language === requestedLang)
         const currentPeople = conflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)

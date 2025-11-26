@@ -182,8 +182,23 @@ export default async function AdminDashboard() {
             </p>
           </Link>
 
+          {/* 7. Blocages de réservation (Admins uniquement) */}
+          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
+            <Link href="/admin/blocks" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-red-300 transition-all cursor-pointer transform hover:-translate-y-1">
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
+                ⛔
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-red-600">
+                Blocages Réservation
+              </h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Bloquer des journées, matinées, après-midi ou horaires spécifiques.
+              </p>
+            </Link>
+          )}
 
-          {/* CARTE 7 : MON PROFIL */}
+
+          {/* CARTE 8 : MON PROFIL */}
           <Link href="/admin/profile" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-slate-500 transition-all cursor-pointer transform hover:-translate-y-1">
             <div className="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
               👤
