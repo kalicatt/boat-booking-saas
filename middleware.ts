@@ -6,6 +6,43 @@ import { match } from "@formatjs/intl-localematcher";
 import Negotiator from "negotiator";
 import { auth } from "@/auth"; // Import de NextAuth
 
+// Ajout des en-têtes de sécurité de base
+function applySecurityHeaders(res: NextResponse) {
+  res.headers.set('X-Frame-Options', 'DENY')
+  res.headers.set('X-Content-Type-Options', 'nosniff')
+  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  res.headers.set('Permissions-Policy', 'geolocation=(), camera=()')
+  res.headers.set('X-XSS-Protection', '0') // Obsolète (mise à 0 pour éviter faux sens)
+
+  const isProd = process.env.NODE_ENV === 'production'
+
+  // Directives de base communes
+  const baseDirectives: string[] = [
+    "default-src 'self'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self' https://www.google.com https://www.gstatic.com https://api.resend.com",
+    "frame-src 'self' https://www.google.com",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'"
+  ]
+
+  // Scripts / Styles selon l'environnement
+  if (isProd) {
+    // Mode production (plus strict) – pas d'eval, on garde inline si Next injecte des scripts data
+    baseDirectives.push("script-src 'self' 'unsafe-inline'")
+    baseDirectives.push("style-src 'self' 'unsafe-inline'")
+  } else {
+    // Dev: autoriser eval pour outils React / sourcemaps
+    baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+    baseDirectives.push("style-src 'self' 'unsafe-inline'")
+  }
+
+  res.headers.set('Content-Security-Policy', baseDirectives.join('; '))
+  return res
+}
+
 // --- CONFIG I18N ---
 const locales = ["en", "fr", "de"];
 const defaultLocale = "en"; // Anglais par défaut
@@ -24,12 +61,17 @@ export default auth((req) => {
   // On ne redirige pas les fichiers systèmes, les APIs, ou les routes admin/login
   if (
     pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
     pathname.startsWith("/admin") || 
     pathname.startsWith("/login") || 
     pathname.includes(".")
   ) {
-    return;
+    // Pour ces routes on laisse passer mais on ajoute les headers
+    return applySecurityHeaders(NextResponse.next())
+  }
+
+  // Cas API : on applique seulement les headers (pas de logique i18n)
+  if (pathname.startsWith('/api')) {
+    return applySecurityHeaders(NextResponse.next())
   }
 
   // 2. GESTION I18N (Langues) 🌍
@@ -39,13 +81,13 @@ export default auth((req) => {
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
   );
 
-  if (pathnameHasLocale) return;
+  if (pathnameHasLocale) return applySecurityHeaders(NextResponse.next());
 
   // 3. Redirection vers la langue détectée (ex: / -> /fr)
   const locale = getLocale(req);
   req.nextUrl.pathname = `/${locale}${pathname}`;
   
-  return NextResponse.redirect(req.nextUrl);
+  return applySecurityHeaders(NextResponse.redirect(req.nextUrl));
 });
 
 // Configuration du matcher

@@ -1,14 +1,31 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { GroupRequestTemplate } from '@/components/emails/GroupRequestTemplate' // Assurez-vous que ce chemin est bon
+import { GroupRequestTemplate } from '@/components/emails/GroupRequestTemplate'
 import { createLog } from '@/lib/logger'
+import { z } from 'zod'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { firstName, lastName, email, phone, message, people, captchaToken } = body
+    const ip = getClientIp(request.headers)
+    const rl = rateLimit({ key: `contact:group:${ip}`, limit: 5, windowMs: 300_000 })
+    if (!rl.allowed) return NextResponse.json({ error: 'Trop de demandes', retryAfter: rl.retryAfter }, { status: 429 })
+
+    const json = await request.json()
+    const schema = z.object({
+      firstName: z.string().min(1).max(60),
+      lastName: z.string().min(1).max(60),
+      email: z.string().email().max(120),
+      phone: z.string().optional().max(30),
+      message: z.string().optional().max(1500),
+      people: z.number().int().min(1).max(500),
+      captchaToken: z.string().min(10)
+    })
+    const parsed = schema.safeParse(json)
+    if (!parsed.success) return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
+    const { firstName, lastName, email, phone, message, people, captchaToken } = parsed.data
 
     // 1. VÉRIFICATION CAPTCHA
     if (!captchaToken) {

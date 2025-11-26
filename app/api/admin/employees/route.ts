@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { auth } from '@/auth'
 import { createLog } from '@/lib/logger'
+import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber } from '@/lib/validation'
 
 // 1. FIX: Interface pour définir que le rôle existe pour TypeScript
 interface ExtendedUser {
@@ -38,10 +39,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
     }
 
-    const body = await request.json()
-        const { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
-          dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
-          employmentStatus, isFullTime, hourlyRate, annualSalary, emergencyContactName, emergencyContactPhone, notes } = body
+    const json = await request.json()
+    const parsed = EmployeeCreateSchema.safeParse(json)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
+    }
+    const { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
+      dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
+      employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
 
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) return NextResponse.json({ error: "Email déjà utilisé." }, { status: 409 })
@@ -50,24 +55,28 @@ export async function POST(request: Request) {
 
     const newUser = await prisma.user.create({
       data: {
-        firstName, lastName, email, phone, address, city, postalCode, country,
+        firstName, lastName, email,
+        phone: phone || undefined,
+        address: address || undefined,
+        city: city || undefined,
+        postalCode: postalCode || undefined,
+        country: country || undefined,
         password: hashedPassword,
-        // Si créateur = ADMIN, force le rôle à EMPLOYEE
         role: userSession.role === 'ADMIN' ? 'EMPLOYEE' : (role || 'EMPLOYEE'),
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-        gender,
-        employeeNumber,
+        gender: gender || undefined,
+        employeeNumber: employeeNumber || undefined,
         hireDate: hireDate ? new Date(hireDate) : undefined,
-        department,
-        jobTitle,
-        managerId,
-        employmentStatus,
-        isFullTime,
-        hourlyRate,
-        annualSalary,
-        emergencyContactName,
-        emergencyContactPhone,
-        notes,
+        department: department || undefined,
+        jobTitle: jobTitle || undefined,
+        managerId: managerId || undefined,
+        employmentStatus: employmentStatus || 'ACTIVE',
+        isFullTime: fullTime ?? true,
+        hourlyRate: toNumber(hourlyRate),
+        annualSalary: toNumber(salary),
+        emergencyContactName: emergencyContactName || undefined,
+        emergencyContactPhone: emergencyContactPhone || undefined,
+        notes: notes || undefined,
       }
     })
 
@@ -126,30 +135,40 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: "Action refusée." }, { status: 403 })
     }
 
-    const body = await request.json()
-        const { id, firstName, lastName, email, phone, address, city, postalCode, country, password, role,
-          dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
-          employmentStatus, isFullTime, hourlyRate, annualSalary, emergencyContactName, emergencyContactPhone, notes } = body
+    const json = await request.json()
+    const parsed = EmployeeUpdateSchema.safeParse(json)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
+    }
+    const { id, firstName, lastName, email, phone, address, city, postalCode, country, password, role,
+      dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
+      employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
 
     if (!id) return NextResponse.json({ error: "ID manquant" }, { status: 400 })
 
     // Préparation des données à mettre à jour
     const dataToUpdate: any = {
-      firstName, lastName, email, phone, address, city, postalCode, country, role,
+      firstName, lastName, email,
+      phone: phone || undefined,
+      address: address || undefined,
+      city: city || undefined,
+      postalCode: postalCode || undefined,
+      country: country || undefined,
+      role,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-      gender,
-      employeeNumber,
+      gender: gender || undefined,
+      employeeNumber: employeeNumber || undefined,
       hireDate: hireDate ? new Date(hireDate) : undefined,
-      department,
-      jobTitle,
-      managerId,
-      employmentStatus,
-      isFullTime,
-      hourlyRate,
-      annualSalary,
-      emergencyContactName,
-      emergencyContactPhone,
-      notes,
+      department: department || undefined,
+      jobTitle: jobTitle || undefined,
+      managerId: managerId || undefined,
+      employmentStatus: employmentStatus || undefined,
+      isFullTime: fullTime ?? undefined,
+      hourlyRate: toNumber(hourlyRate),
+      annualSalary: toNumber(salary),
+      emergencyContactName: emergencyContactName || undefined,
+      emergencyContactPhone: emergencyContactPhone || undefined,
+      notes: notes || undefined,
     }
 
     // Si un nouveau mot de passe est fourni, on le hache et on l'ajoute

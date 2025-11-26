@@ -4,6 +4,8 @@ import { addMinutes, parseISO, areIntervalsOverlapping, isSameMinute } from 'dat
 import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { createLog } from '@/lib/logger'
+import { BookingRequestSchema } from '@/lib/validation'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
@@ -21,10 +23,15 @@ const PRICE_BABY = 0
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    
-    // On récupère l'heure brute envoyée par le modal (ex: "10:00")
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message } = body
+    const ip = getClientIp(request.headers)
+    const rl = rateLimit({ key: `booking:create:${ip}`, limit: 50, windowMs: 60_000 })
+    if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
+    const json = await request.json()
+    const parsed = BookingRequestSchema.safeParse(json)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
+    }
+    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message } = parsed.data
 
     // 1. CAPTCHA
     if (!isStaffOverride) {

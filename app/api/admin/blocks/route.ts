@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { auth } from '@/auth'
 import { createLog } from '@/lib/logger'
+import { BlockCreateSchema, BlockUpdateSchema } from '@/lib/validation'
+import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export async function GET() {
   try {
@@ -15,14 +17,20 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const session = await auth()
+    const ip = getClientIp(req.headers)
+    const rl = rateLimit({ key: `block:create:${ip}`, limit: 20, windowMs: 60_000 })
+    if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    const body = await req.json()
-    const { start, end, scope, reason } = body
-    if (!start || !end || !scope) return NextResponse.json({ error: 'Champs requis manquants' }, { status: 400 })
+    const json = await req.json()
+    const parsed = BlockCreateSchema.safeParse(json)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
+    }
+    const { start, end, scope, reason } = parsed.data
 
     // Normalize incoming datetime-local to UTC by appending Z if missing seconds
     const normalizeToUtc = (s: string) => {
@@ -57,6 +65,9 @@ export async function POST(req: Request) {
 export async function DELETE(req: Request) {
   try {
     const session = await auth()
+    const ip = getClientIp(req.headers)
+    const rl = rateLimit({ key: `block:delete:${ip}`, limit: 40, windowMs: 60_000 })
+    if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
@@ -77,14 +88,20 @@ export async function DELETE(req: Request) {
 export async function PUT(req: Request) {
   try {
     const session = await auth()
+    const ip = getClientIp(req.headers)
+    const rl = rateLimit({ key: `block:update:${ip}`, limit: 40, windowMs: 60_000 })
+    if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
     }
 
-    const body = await req.json()
-    const { id, start, end, scope, reason } = body
-    if (!id) return NextResponse.json({ error: 'ID manquant' }, { status: 400 })
+    const json = await req.json()
+    const parsed = BlockUpdateSchema.safeParse(json)
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
+    }
+    const { id, start, end, scope, reason } = parsed.data
 
     const normalizeToUtc = (s: string | undefined) => {
       if (!s) return undefined
