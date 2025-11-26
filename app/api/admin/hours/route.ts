@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseISO, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns'
 import { auth } from '@/auth'
-import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
