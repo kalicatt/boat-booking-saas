@@ -55,7 +55,6 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const [phoneCode, setPhoneCode] = useState('+33')
     const [phoneCodeInput, setPhoneCodeInput] = useState('+33') // manual input value
     const [phoneCodeError, setPhoneCodeError] = useState<string | null>(null)
-    const [phoneSearch, setPhoneSearch] = useState('')
     const [phoneError, setPhoneError] = useState<string | null>(null)
 
     const validateLocalPhone = (digits: string) => {
@@ -536,21 +535,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                     className={`p-3 border rounded-lg bg-white focus:ring-2 outline-none text-sm ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#eab308]'}`}
                                                                 />
                                                                 <datalist id="phoneCodes">
-                                                                    {PHONE_CODES.filter(pc => {
-                                                                        if (!phoneSearch) return true
-                                                                        const s = phoneSearch.toLowerCase()
-                                                                        return pc.code.includes(s) || pc.country.toLowerCase().includes(s)
-                                                                    }).map(pc => (
+                                                                    {PHONE_CODES.map(pc => (
                                                                         <option key={pc.code} value={pc.code}>{pc.country}</option>
                                                                     ))}
                                                                 </datalist>
-                                                                <input
-                                                                    type="text"
-                                                                    value={phoneSearch}
-                                                                    onChange={e => setPhoneSearch(e.target.value)}
-                                                                    placeholder="Rechercher pays/code"
-                                                                    className="mt-2 p-2 border rounded bg-white text-[11px] focus:ring-1 focus:ring-[#eab308] outline-none"
-                                                                />
                                                                 {phoneCodeError && <p className="text-[10px] text-red-500 mt-1">{phoneCodeError}</p>}
                                                             </div>
                                                             <div className="flex-1">
