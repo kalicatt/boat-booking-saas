@@ -4,6 +4,7 @@ import { addMinutes, parseISO, getHours, getMinutes, areIntervalsOverlapping, is
 import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { createLog } from '@/lib/logger'
+import { nanoid } from 'nanoid' // Import nécessaire pour générer un ID unique
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
     }
 
     // --- CORRECTION TIMEZONE ---
-    const isoDateTime = `${date}T${time}:00.000Z`;
+    const isoDateTime = `${date}T${time}:00.000Z`; 
     const myStart = new Date(isoDateTime);
     const myEnd = addMinutes(myStart, TOUR_DURATION)
     const myTotalEnd = addMinutes(myEnd, BUFFER_TIME)
@@ -117,6 +118,19 @@ export async function POST(request: Request) {
          return NextResponse.json({ error: errorMsg }, { status: 409 })
     }
 
+    // --- LOGIQUE UTILISATEUR UNIQUE POUR LE GUICHET ---
+    let userEmailToUse = userDetails.email;
+
+    // Si c'est une réservation staff (guichet), on génère un email unique pour forcer la création d'un nouvel utilisateur
+    // Cela permet d'avoir le bon nom associé à la réservation
+    if (isStaffOverride) {
+        // On crée un email unique : guichet.nom.prenom.uniqueID@sweet-narcisse.local
+        const uniqueId = nanoid(6);
+        const safeLastName = userDetails.lastName.replace(/\s+/g, '').toLowerCase();
+        const safeFirstName = userDetails.firstName.replace(/\s+/g, '').toLowerCase();
+        userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@sweet-narcisse.local`;
+    }
+
     // --- ENREGISTREMENT ---
     const newBooking = await prisma.booking.create({
       data: {
@@ -133,11 +147,11 @@ export async function POST(request: Request) {
         boat: { connect: { id: targetBoat.id } },
         user: {
           connectOrCreate: {
-            where: { email: userDetails.email },
+            where: { email: userEmailToUse }, // On utilise l'email (potentiellement unique)
             create: { 
                 firstName: userDetails.firstName,
                 lastName: userDetails.lastName,
-                email: userDetails.email,
+                email: userEmailToUse, // On utilise l'email (potentiellement unique)
                 phone: userDetails.phone || null,
             }
           }
@@ -149,11 +163,12 @@ export async function POST(request: Request) {
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
 
     // --- ENVOI EMAIL ---
+    // On n'envoie l'email que si ce n'est pas une adresse générée automatiquement (terminant par .local)
     try {
-      if (userDetails.email && userDetails.email.includes('@')) {
+      if (userEmailToUse && !userEmailToUse.endsWith('@sweet-narcisse.local') && userEmailToUse.includes('@')) {
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
-            to: [userDetails.email],
+            to: [userEmailToUse],
             subject: 'Confirmation de votre tour en barque 🛶',
             react: await BookingTemplate({
               firstName: userDetails.firstName,
