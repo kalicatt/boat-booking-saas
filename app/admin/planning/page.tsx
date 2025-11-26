@@ -224,16 +224,35 @@ export default function AdminPlanning() {
     }
   }
 
-  const AddButtonWrapper = ({ children }: any) => {
+    // Wrapper des créneaux: capte le clic/tap (mobile) pour ouvrir le QuickBooking
+    const AddButtonWrapper = ({ children, value, resource }: any) => {
+      const onClick = () => {
+      const startTime = new Date(value)
+      const boatId = resource?.id ?? resource ?? 1
+
+      // Empêche la création si un événement existe exactement à cette minute
+      const hasConflict = events.some(e => e.resourceId === boatId && isSameMinute(e.start, startTime))
+      if (hasConflict) return
+
+      setSelectedSlotDetails({ start: startTime, boatId })
+      setShowQuickBookModal(true)
+      }
+
       return (
-          <div className="h-full w-full relative group cursor-pointer hover:bg-blue-50/50 transition-colors flex items-center justify-center">
-              {children}
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
-                  <span className="text-blue-400 text-lg font-bold select-none">+</span>
-              </div>
+        <div
+        className="h-full w-full relative group cursor-pointer hover:bg-blue-50/50 transition-colors flex items-center justify-center"
+        onClick={onClick}
+        onTouchEnd={onClick}
+        role="button"
+        aria-label="Ajouter une réservation"
+        >
+          {children}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <span className="text-blue-400 text-lg font-bold select-none">+</span>
           </div>
+        </div>
       )
-  }
+    }
 
   const ResourceHeader = ({ label }: { label: any }) => {
     const resource = resources.find(r => r.title === label)
