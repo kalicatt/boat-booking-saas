@@ -481,6 +481,36 @@ export default function AdminPlanning() {
         /* Diminue l'espace des lignes pour compacter visuellement */
         .sn-compact :global(.rbc-row) { min-height: 0; }
         .sn-compact :global(.rbc-time-view) { overflow: hidden; }
+
+        /* ===== Responsive téléphone ===== */
+        @media (max-width: 640px) {
+          /* Réduit les marges/paddings généraux */
+          :global(.rbc-toolbar) { padding: 4px 0; }
+          :global(.rbc-toolbar .rbc-btn-group) { gap: 4px; }
+          :global(.rbc-toolbar button) { padding: 4px 6px; font-size: 12px; }
+
+          /* Le calendrier prend toute la largeur avec scroll horizontal si besoin */
+          :global(.rbc-time-view) { overflow-x: auto; }
+          :global(.rbc-time-content) { overflow-x: auto; }
+
+          /* Augmente légèrement la hauteur des créneaux pour le touch, et espace lisible */
+          :global(.rbc-time-slot) { height: 20px; }
+          :global(.rbc-time-gutter .rbc-time-slot) { height: 20px; }
+
+          /* Simplifie les libellés horaires pour éviter la surcharge visuelle */
+          :global(.rbc-label) { font-size: 11px; line-height: 1.1; }
+
+          /* Évènements plus lisibles sur mobile */
+          :global(.rbc-event) { padding: 4px 6px; border-radius: 8px; }
+          /* Le nom client est autorisé à passer sur plusieurs lignes */
+          :global(.rbc-event) span { white-space: normal; }
+
+          /* En-têtes ressources (noms des barques) plus compacts */
+          :global(.rbc-resource-header) { padding: 6px 2px; font-size: 12px; }
+
+          /* Conteneur de notre page: amincir les paddings pour gagner de la place */
+          .sn-container { padding: 8px; }
+        }
       `}</style>
 
       {showDetailsModal && selectedBooking && <DetailsModal booking={selectedBooking} onClose={() => setShowDetailsModal(false)} />}
