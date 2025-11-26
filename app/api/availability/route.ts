@@ -65,6 +65,20 @@ export async function GET(request: Request) {
       }
     })
 
+    // If a full-day block exists, short-circuit to no availability
+    const hasFullDayBlock = blocks.some(b => {
+      if (b.scope !== 'day') return false
+      const bStart = new Date(b.start)
+      const bEnd = new Date(b.end)
+      // Consider a day block if it spans the whole day range
+      return bStart <= dayStartUtc && bEnd >= dayEndUtc
+    })
+    if (hasFullDayBlock) {
+      const result = { date: dateParam, availableSlots: [] }
+      memoSet(cacheKey, result)
+      return NextResponse.json(result)
+    }
+
     const availableSlots: string[] = []
     // Itération "mur du temps" avec simple compteur minutes pour éviter tout décalage de fuseau
     const openParts = OPEN_TIME.split(':').map(Number)
