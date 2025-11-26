@@ -53,6 +53,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // Contact & Formulaires
     const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', phone: '', message: '' })
     const [phoneCode, setPhoneCode] = useState('+33')
+    const [phoneCodeInput, setPhoneCodeInput] = useState('+33') // manual input value
+    const [phoneCodeError, setPhoneCodeError] = useState<string | null>(null)
+    const [phoneSearch, setPhoneSearch] = useState('')
     const [phoneError, setPhoneError] = useState<string | null>(null)
 
     const validateLocalPhone = (digits: string) => {
@@ -62,6 +65,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             return 'Trop long'
         }
         return null
+    }
+
+    const sanitizePhoneCode = (raw: string) => {
+        if (!raw) return ''
+        let v = raw.replace(/[^+0-9]/g,'')
+        if (!v.startsWith('+')) v = '+' + v.replace(/^\+/, '')
+        return v
     }
 
     const buildE164 = () => localToE164(phoneCode, formData.phone)
@@ -84,6 +94,29 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     setSelectedSlot(null)
     setAvailableSlots([])
   }, [date, adults, children, babies])
+
+    // Auto-detect country calling code once (if user hasn't modified input manually)
+    useEffect(() => {
+        let aborted = false
+        const detect = async () => {
+            try {
+                // Skip if user already changed code manually
+                if (phoneCodeInput !== '+33') return
+                const res = await fetch('/api/geo/phone-code')
+                if (!res.ok) return
+                const data = await res.json()
+                if (aborted) return
+                if (data?.dialCode && /^\+[1-9]\d{1,3}$/.test(data.dialCode)) {
+                    setPhoneCode(data.dialCode)
+                    setPhoneCodeInput(data.dialCode)
+                }
+            } catch (e) {
+                // Silent failure
+            }
+        }
+        detect()
+        return () => { aborted = true }
+    }, [])
 
   // --- ACTIONS DU TUNNEL ---
 
@@ -482,11 +515,44 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 <div>
                                                         <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_phone}</label>
                                                         <div className="flex gap-2 mt-1 items-start">
-                                                            <select value={phoneCode} onChange={e => setPhoneCode(e.target.value)} className="p-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none w-36 text-sm">
-                                                                {PHONE_CODES.map(pc => (
-                                                                    <option key={pc.code} value={pc.code}>{pc.flag} {pc.code}</option>
-                                                                ))}
-                                                            </select>
+                                                            <div className="flex flex-col w-40">
+                                                                <input
+                                                                    list="phoneCodes"
+                                                                    value={phoneCodeInput}
+                                                                    onChange={e => {
+                                                                        const raw = e.target.value
+                                                                        setPhoneCodeInput(raw)
+                                                                        const sanitized = sanitizePhoneCode(raw)
+                                                                        // if matches known code pick its canonical formatting
+                                                                        const match = PHONE_CODES.find(pc => pc.code === sanitized)
+                                                                        setPhoneCode(match ? match.code : sanitized)
+                                                                        if (!/^\+[1-9]\d{1,3}$/.test(sanitized)) {
+                                                                            setPhoneCodeError('Indicatif invalide')
+                                                                        } else {
+                                                                            setPhoneCodeError(null)
+                                                                        }
+                                                                    }}
+                                                                    placeholder="+1"
+                                                                    className={`p-3 border rounded-lg bg-white focus:ring-2 outline-none text-sm ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#eab308]'}`}
+                                                                />
+                                                                <datalist id="phoneCodes">
+                                                                    {PHONE_CODES.filter(pc => {
+                                                                        if (!phoneSearch) return true
+                                                                        const s = phoneSearch.toLowerCase()
+                                                                        return pc.code.includes(s) || pc.country.toLowerCase().includes(s)
+                                                                    }).map(pc => (
+                                                                        <option key={pc.code} value={pc.code}>{pc.country}</option>
+                                                                    ))}
+                                                                </datalist>
+                                                                <input
+                                                                    type="text"
+                                                                    value={phoneSearch}
+                                                                    onChange={e => setPhoneSearch(e.target.value)}
+                                                                    placeholder="Rechercher pays/code"
+                                                                    className="mt-2 p-2 border rounded bg-white text-[11px] focus:ring-1 focus:ring-[#eab308] outline-none"
+                                                                />
+                                                                {phoneCodeError && <p className="text-[10px] text-red-500 mt-1">{phoneCodeError}</p>}
+                                                            </div>
                                                             <div className="flex-1">
                                                                 <input
                                                                     required
@@ -535,7 +601,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             />
                         </div>
                         
-                        <button type="submit" disabled={isSubmitting || !!phoneError} 
+                        <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
                             className="w-full bg-[#0f172a] text-[#eab308] py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-lg mt-4">
                             {isSubmitting ? dict.booking.widget.submitting : 
                                 step === STEPS.CONTACT ? `${dict.booking.widget.confirm} (${totalPrice}€)` : 
