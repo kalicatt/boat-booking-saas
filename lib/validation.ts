@@ -44,11 +44,9 @@ export const EmployeeCreateSchema = z.object({
   notes: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v, 2000)!) : undefined)
 })
 
-export const EmployeeUpdateSchema = EmployeeCreateSchema.extend({
-  id: z.string().uuid(),
-  password: z.string().optional(), // Optional for update
-}).partial({
-  id: false,
+// Update schema: require id, all other fields optional (partial update)
+export const EmployeeUpdateSchema = EmployeeCreateSchema.partial().extend({
+  id: z.string().uuid()
 })
 
 // Blocks schema (start/end ISO strings & reason)
