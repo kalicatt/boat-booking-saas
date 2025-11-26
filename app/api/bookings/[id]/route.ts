@@ -1,107 +1,102 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { addMinutes, format } from 'date-fns'
+import { auth } from '@/auth' // 👈 Import de la fonction auth
 import { createLog } from '@/lib/logger'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/auth' 
 
-// GET (READ details of a single booking)
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+const TOUR_DURATION = 25
+const BUFFER_TIME = 5
+
+// 1. FIX: Interface pour dire à TypeScript que firstName existe
+interface ExtendedUser {
+  firstName?: string | null
+  lastName?: string | null
+}
+
+// --- DELETE : Supprimer une réservation ---
+export async function DELETE(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> } // Next.js 15
+) {
+  // Le middleware NextAuth est censé protéger cette route.
+  // On utilise 'auth' pour vérifier la session.
+  const session = await auth()
+  
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
+  }
+
+  // Casting de l'utilisateur
+  const user = session.user as ExtendedUser
+  const { id } = await params 
+
   try {
-    const session = await getServerSession(authOptions)
-    
-    // Protection: Seuls les administrateurs peuvent voir les détails complets des réservations
-    if (!session || session.user.role !== 'ADMIN') {
-        return NextResponse.json({ error: "Accès non autorisé. Réservé aux administrateurs." }, { status: 403 })
-    }
+    await prisma.booking.delete({ where: { id } })
 
-    const { id } = params
-    
-    const booking = await prisma.booking.findUnique({
-      where: { id },
-      // 🔑 MODIFICATION CLÉ : Inclure les détails de l'utilisateur (le client) et de la barque
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phone: true,
-          }
-        },
-        boat: {
-            select: {
-                id: true,
-                name: true,
-            }
-        }
-      }
-    })
-    
-    if (!booking) {
-      return NextResponse.json({ error: "Réservation non trouvée" }, { status: 404 })
-    }
-    
-    return NextResponse.json(booking)
+    const userName = user.firstName || 'Admin'
+    await createLog('DELETE_BOOKING', `Réservation ${id} supprimée par ${userName}`)
+
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("ERREUR GET BOOKING DETAIL:", error)
-    return NextResponse.json({ error: "Erreur technique lors de la récupération des détails." }, { status: 500 })
+    console.error('Erreur DELETE réservation:', error)
+    return NextResponse.json({ error: "Erreur serveur lors de la suppression." }, { status: 500 })
   }
 }
 
-// PUT (UPDATE a booking - e.g., status, boat, details)
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
-        }
-        
-        const { id } = params
-        const body = await request.json()
-        const { status, boatId, ...dataToUpdate } = body
+// --- PATCH : Mettre à jour une réservation ---
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth()
+  if (!session || !session.user) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
+  }
+  
+  const { id } = await params
+  const user = session.user as ExtendedUser
 
-        // Logique de mise à jour: On suppose que seul le statut et le bateau sont les plus souvent mis à jour
-        const updatedBooking = await prisma.booking.update({
-            where: { id },
-            data: {
-                status: status,
-                boat: boatId ? { connect: { id: boatId } } : undefined,
-                // Si d'autres champs doivent être mis à jour, ils devraient être gérés ici
-            },
-            include: { user: true, boat: true } // Retourne l'objet complet mis à jour
-        })
+  try {
+    const body = await request.json()
+    const { start, newCheckinStatus, newIsPaid } = body
 
-        await createLog("BOOKING_UPDATE", `Réservation #${id} mise à jour (Statut: ${status}).`)
-        return NextResponse.json(updatedBooking)
+    const dataToUpdate: any = {}
+    const userName = user.firstName || 'Admin'
+    let logMessage = `Admin ${userName} met à jour réservation ${id}: `
 
-    } catch (error) {
-        console.error("ERREUR PUT BOOKING:", error)
-        return NextResponse.json({ error: "Erreur lors de la mise à jour de la réservation." }, { status: 500 })
+    if (start) {
+      const startTime = new Date(start)
+      const endTime = addMinutes(startTime, TOUR_DURATION)
+      
+      dataToUpdate.startTime = startTime
+      dataToUpdate.endTime = endTime
+      logMessage += `Nouvelle heure → ${format(startTime, 'HH:mm')}. `
     }
-}
 
-// DELETE (CANCEL/DELETE a booking)
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-    try {
-        const session = await getServerSession(authOptions)
-        if (!session || session.user.role !== 'ADMIN') {
-            return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 })
-        }
-
-        const { id } = params
-        
-        // Plutôt que de supprimer, on préfère souvent annuler pour garder l'historique
-        const cancelledBooking = await prisma.booking.update({
-            where: { id },
-            data: { status: 'CANCELLED' }
-        })
-
-        await createLog("BOOKING_CANCEL", `Réservation #${id} annulée.`)
-        return NextResponse.json(cancelledBooking)
-
-    } catch (error) {
-        console.error("ERREUR DELETE BOOKING:", error)
-        return NextResponse.json({ error: "Erreur lors de l'annulation de la réservation." }, { status: 500 })
+    if (newCheckinStatus !== undefined) {
+      dataToUpdate.checkinStatus = newCheckinStatus
+      logMessage += `Check-in = ${newCheckinStatus}. `
     }
+
+    if (newIsPaid !== undefined) {
+      dataToUpdate.isPaid = newIsPaid
+      logMessage += `Paiement = ${newIsPaid}. `
+    }
+
+    if (Object.keys(dataToUpdate).length === 0) {
+      return NextResponse.json({ error: "Aucune donnée à mettre à jour." }, { status: 400 })
+    }
+
+    const updatedBooking = await prisma.booking.update({
+      where: { id },
+      data: dataToUpdate
+    })
+
+    await createLog('UPDATE_BOOKING_ADMIN', logMessage)
+
+    return NextResponse.json({ success: true, booking: updatedBooking })
+  } catch (error) {
+    console.error('Erreur PATCH réservation:', error)
+    return NextResponse.json({ error: "Erreur interne." }, { status: 500 })
+  }
 }
