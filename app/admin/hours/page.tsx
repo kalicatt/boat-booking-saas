@@ -270,7 +270,7 @@ export default function HoursPage() {
                                                                                                             const netH = (netMin / 60).toFixed(2)
                                                                                                             return { shift, netMin, netH }
                                                                                                         })
-                                                                                                        const dayTotalH = (rows.reduce((s, r) => s + r.netMin, 0) / 60).toFixed(2)
+                                                                                                        const dayTotalH = (rows.reduce((s: number, r: any) => s + r.netMin, 0) / 60).toFixed(2)
                                                                                                         return (
                                                                                                             <>
                                                                                                                 {rows.map(({shift, netH}: any) => (
