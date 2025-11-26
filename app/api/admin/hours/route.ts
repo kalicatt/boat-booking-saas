@@ -72,8 +72,8 @@ export async function POST(request: Request) {
   try {
     // Authorize: only ADMIN or SUPER_ADMIN can modify hours
     const session = await auth()
-    const role = (session?.user as { role?: string })?.role || 'GUEST'
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      const role = (session?.user as { role?: string })?.role || 'GUEST'
+      if (!['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN'].includes(role)) {
       return NextResponse.json({ error: 'Accès refusé: réservé aux administrateurs.' }, { status: 403 })
     }
 
@@ -116,7 +116,7 @@ export async function PUT(request: Request) {
   try {
     const session = await auth()
     const role = (session?.user as { role?: string })?.role || 'GUEST'
-    if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      if (!['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN'].includes(role)) {
       return NextResponse.json({ error: 'Accès refusé: réservé aux administrateurs.' }, { status: 403 })
     }
 

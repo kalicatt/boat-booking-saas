@@ -321,7 +321,7 @@ export default function HoursPage() {
                                                 <th className="p-2">Horaires</th>
                                                 <th className="p-2">Pause</th>
                                                 <th className="p-2 text-right pr-4">Total Net</th>
-                                                {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (<th className="p-2 text-right pr-4">Actions</th>)}
+                                                {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN') && (<th className="p-2 text-right pr-4">Actions</th>)}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -358,7 +358,7 @@ export default function HoursPage() {
                                                                                                                                 : '-'}
                                                                                                                         </td>
                                                                                                                                                                                                                                                 <td className="p-2 pr-4 text-right font-bold text-slate-700">{netH} h</td>
-                                                                                                                                                                                                                                                {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (
+                                                                                                                                                                                                                                                {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN') && (
                                                                                                                                                                                                                                                     <td className="p-2 pr-4 text-right">
                                                                                                                                                                                                                                                         <button onClick={() => startEdit(shift)} className="text-xs bg-white border px-2 py-1 rounded hover:bg-slate-100" aria-label="Modifier">
                                                                                                                                                                                                                                                             ✏️
@@ -371,7 +371,7 @@ export default function HoursPage() {
                                                                                                                     <td className="p-2 pl-4 font-bold text-slate-700">Total jour</td>
                                                                                                                     <td className="p-2 text-slate-600" colSpan={2}></td>
                                                                                                                     <td className="p-2 pr-4 text-right font-bold text-blue-700">{dayTotalH} h</td>
-                                                                                                                    {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (<td></td>)}
+                                                                                                                    {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN') && (<td></td>)}
                                                                                                                 </tr>
                                                                                                             </>
                                                                                                         )
