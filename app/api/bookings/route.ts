@@ -5,6 +5,7 @@ import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { createLog } from '@/lib/logger'
 import { nanoid } from 'nanoid'
+import { memoInvalidateByDate } from '@/lib/memoCache'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -170,6 +171,9 @@ export async function POST(request: Request) {
           })
       }
     } catch (e) { console.error("Erreur email", e) }
+
+    // Invalidate memo availability cache for this date
+    memoInvalidateByDate(date)
 
     return NextResponse.json({ success: true, bookingId: newBooking.id })
   } catch (error) {

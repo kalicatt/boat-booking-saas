@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
+import { memoGet, memoSet } from '@/lib/memoCache'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -18,28 +19,7 @@ export async function GET(request: Request) {
   const children = parseInt(searchParams.get('children') || '0')
   const babies = parseInt(searchParams.get('babies') || '0')
 
-// --- In-memory memo cache (fallback when Redis is not used) ---
-type MemoEntry = { value: { date: string | null; availableSlots: string[] }, expiresAt: number }
-const memoCache: Map<string, MemoEntry> = new Map()
-const MEMO_TTL_MS = 90 * 1000
-
-function memoGet(key: string): { date: string | null; availableSlots: string[] } | null {
-  const e = memoCache.get(key)
-  if (!e) return null
-  if (Date.now() > e.expiresAt) { memoCache.delete(key); return null }
-  return e.value
-}
-
-function memoSet(key: string, value: { date: string | null; availableSlots: string[] }) {
-  memoCache.set(key, { value, expiresAt: Date.now() + MEMO_TTL_MS })
-}
-
-export function memoInvalidateByDate(date: string) {
-  const prefix = `availability:${date}:`
-  for (const k of memoCache.keys()) {
-    if (k.startsWith(prefix)) memoCache.delete(k)
-  }
-}
+// Memo cache is provided by '@/lib/memoCache'
   const langParam = searchParams.get('lang')
 
   if (!dateParam || !langParam) {
@@ -140,7 +120,7 @@ export function memoInvalidateByDate(date: string) {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
-    // Cache key (works for both memo and potential Redis)
+    // Cache key (works for memo cache)
     const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
     const memoHit = memoGet(cacheKey)
     if (memoHit) return NextResponse.json(memoHit)
