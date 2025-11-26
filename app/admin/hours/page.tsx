@@ -190,21 +190,28 @@ export default function HoursPage() {
                 const err = await res.json()
                 alert('❌ Erreur: ' + err.error)
             }
+        } catch {
+            alert('Erreur technique')
+        }
+    }
 
-            const deleteShift = async (shift: any) => {
-                if (!confirm('Supprimer ce shift ?')) return
-                try {
-                    const res = await fetch(`/api/admin/hours?id=${encodeURIComponent(shift.id)}`, { method: 'DELETE' })
-                    if (res.ok) {
-                        fetchData()
-                        alert('🗑️ Shift supprimé')
-                    } else {
-                        const err = await res.json()
-                        alert('❌ Erreur: ' + err.error)
-                    }
-                } catch {
-                    alert('Erreur technique')
-                }
+    const deleteShift = async (shift: any) => {
+        if (!shift?.id) return
+        const ok = window.confirm('Confirmer la suppression de ce shift ?')
+        if (!ok) return
+        try {
+            const res = await fetch('/api/admin/hours', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: shift.id })
+            })
+            if (res.ok) {
+                cancelEdit()
+                fetchData()
+                alert('🗑️ Shift supprimé.')
+            } else {
+                const err = await res.json()
+                alert('❌ Erreur: ' + err.error)
             }
         } catch {
             alert('Erreur technique')
