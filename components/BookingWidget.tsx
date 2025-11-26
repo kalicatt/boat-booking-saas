@@ -25,7 +25,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [step, setStep] = useState(STEPS.CRITERIA)
   
   // Données de réservation
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0])
+    // Date locale (YYYY-MM-DD) pour éviter tout décalage de fuseau
+    const getTodayLocalISO = () => {
+        const d = new Date()
+        const y = d.getFullYear()
+        const m = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        return `${y}-${m}-${day}`
+    }
+    const todayLocalISO = getTodayLocalISO()
+    const [date, setDate] = useState<string>(todayLocalISO)
   const [language, setLanguage] = useState<string>(initialLang.toUpperCase())
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
@@ -299,8 +308,18 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-6 flex-1">
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{dict.booking.widget.date}</label>
-                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
-                                className="w-full p-3 rounded-lg bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-[#eab308] outline-none transition" />
+                            <input
+                                type="date"
+                                value={date}
+                                min={todayLocalISO}
+                                onChange={(e) => {
+                                  const v = e.target.value
+                                  // Bloque les dates passées côté client
+                                  if (v && v < todayLocalISO) setDate(todayLocalISO)
+                                  else setDate(v)
+                                }}
+                                className="w-full p-3 rounded-lg bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-[#eab308] outline-none transition"
+                            />
                         </div>
 
                         <div>
