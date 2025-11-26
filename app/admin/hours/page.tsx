@@ -205,6 +205,7 @@ export default function HoursPage() {
             <h1 className="text-3xl font-bold text-slate-800">Pointage & Paie 🕒</h1>
           </div>
           <div className="flex items-center gap-4">
+                        <span className="text-xs px-2 py-1 rounded border bg-white text-slate-700">Rôle: {role}</span>
             <div>
                 <label className="text-xs font-bold uppercase text-slate-500 mr-2">Période :</label>
                 <input type="month" value={currentMonth} onChange={(e) => setCurrentMonth(e.target.value)}

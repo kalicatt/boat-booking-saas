@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseISO, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns'
 import { auth } from '@/auth'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,14 +18,28 @@ export async function GET(request: Request) {
   const end = endOfMonth(dateRef)
 
   try {
+    // Role-based scoping: employees only see their own shifts
+    const session = await auth()
+    const userInfo = session?.user as { role?: string; email?: string } | undefined
+    const role = userInfo?.role || 'GUEST'
+    const email = userInfo?.email
+
+    let employees
+    if (role === 'EMPLOYEE' && email) {
+      const me = await prisma.user.findUnique({ where: { email } })
+      if (!me) return NextResponse.json([])
+      employees = [me]
+    } else {
+      employees = await prisma.user.findMany({ where: { role: { in: ['EMPLOYEE', 'ADMIN'] } } })
+    }
+
     const shifts = await prisma.workShift.findMany({
-      where: { startTime: { gte: start, lte: end } },
+      where: {
+        startTime: { gte: start, lte: end },
+        ...(role === 'EMPLOYEE' && email ? { user: { email } } : {})
+      },
       include: { user: true },
       orderBy: { startTime: 'asc' }
-    })
-
-    const employees = await prisma.user.findMany({
-      where: { role: { in: ['EMPLOYEE', 'ADMIN'] } }
     })
 
     const report = employees.map(emp => {
