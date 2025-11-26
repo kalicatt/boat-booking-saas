@@ -52,6 +52,7 @@ const fetcher = (url: string) => fetch(url).then((res) => {
 export default function AdminPlanning() {
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
+  const [compactZoom, setCompactZoom] = useState(false)
   
   const [currentDate, setCurrentDate] = useState(startOfDay(new Date())) 
   const [currentView, setCurrentView] = useState(Views.DAY as ('day' | 'week' | 'month' | 'work_week'))
@@ -403,11 +404,28 @@ export default function AdminPlanning() {
         </div>
         <div className="flex gap-3">
             <button onClick={() => mutate()} className="px-4 py-2 bg-white border shadow-sm rounded hover:bg-slate-50 text-sm font-bold text-slate-600 transition">Actualiser 🔄</button>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-600">Zoom</span>
+              <button
+                onClick={() => setCompactZoom(false)}
+                className={`px-2 py-1 rounded text-sm font-bold border ${!compactZoom ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700'}`}
+                title="Vue standard"
+              >
+                100%
+              </button>
+              <button
+                onClick={() => setCompactZoom(true)}
+                className={`px-2 py-1 rounded text-sm font-bold border ${compactZoom ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700'}`}
+                title="Vue compacte (journée entière)"
+              >
+                Compacte
+              </button>
+            </div>
             <button onClick={() => logout()} className="px-4 py-2 bg-red-50 border border-red-100 shadow-sm rounded hover:bg-red-100 text-sm font-bold text-red-600 transition flex items-center gap-2">Déconnexion 🚪</button>
         </div>
       </div>
       
-      <div className="flex-1 bg-white border rounded-xl shadow-sm p-4">
+      <div className={`flex-1 bg-white border rounded-xl shadow-sm p-4 ${compactZoom ? 'sn-compact' : ''}`}>
         {!loadingBoats && resources.length === 0 ? (
             <div className="h-full flex items-center justify-center text-red-500 font-bold">⚠️ Aucune barque trouvée. Relancez le seed.</div>
         ) : (
@@ -449,6 +467,16 @@ export default function AdminPlanning() {
             />
         )}
       </div>
+
+      {/* Styles pour la vue compacte (réduction de la hauteur des créneaux) */}
+      <style jsx>{`
+        .sn-compact :global(.rbc-time-slot) { height: 10px; }
+        .sn-compact :global(.rbc-time-content) { height: auto; }
+        .sn-compact :global(.rbc-time-header) { font-size: 11px; }
+        .sn-compact :global(.rbc-event) { padding: 2px 4px; }
+        .sn-compact :global(.rbc-timeslot-group) { border-bottom-width: 0; }
+        .sn-compact :global(.rbc-label) { font-size: 10px; }
+      `}</style>
 
       {showDetailsModal && selectedBooking && <DetailsModal booking={selectedBooking} onClose={() => setShowDetailsModal(false)} />}
       
