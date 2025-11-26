@@ -304,7 +304,7 @@ export default function AdminPlanning() {
               backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', 
               backgroundSize: '10px 10px', 
               opacity: 0.5, 
-              pointerEvents: 'none' 
+              pointerEvents: 'none' as const
           } 
       }
     }
