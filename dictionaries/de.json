@@ -5,14 +5,32 @@
     "book": "BUCHEN 🎟️"
   },
   "hero": {
-    "title": "Colmar auf dem Wasser",
-    "subtitle": "Entdecken Sie den Zauber von Klein-Venedig an Bord unserer traditionellen Kähne. Ein zeitloses Erlebnis.",
-    "cta": "ABENTEUER STARTEN"
+    "title": "Colmar neu erleben",
+    "subtitle": "Ein ruhiger Moment auf dem Wasser – ohne Gedränge, ohne Hektik. Authentische Pause mitten in Klein-Venedig.",
+    "cta": "PLATZ RESERVIEREN"
   },
   "presentation": {
     "title": "Das elsässische Venedig, wie Sie es noch nie gesehen haben.",
     "text": "Lassen Sie sich vom Plätschern der Lauch wiegen. Unsere leidenschaftlichen Schiffer führen Sie durch die historischen Viertel der Gerber und Fischhändler. Genießen Sie einen einzigartigen Blick auf die bunten Fachwerkhäuser, abseits der Massen.",
     "points": ["Mehrsprachige Führer (FR, EN, DE)", "Traditionelle Flachbodenboote", "25-minütige Fahrt im Stadtzentrum"]
+  },
+  "bento": {
+    "cards": [
+      {"title": "⏱ Ideale Länge", "text": "25 Minuten: genügend Abschalten, leicht integrierbar."},
+      {"title": "🌿 Sanfter Einfluss", "text": "Schonende Fahrt – respektvoll gegenüber Erbe & Umwelt."},
+      {"title": "🗣 Menschliche Guides", "text": "Lokale Anekdoten statt generischer Audiotracks."},
+      {"title": "📍 Zentrale Abfahrt", "text": "Mitten im historischen Kern – kein Zusatzweg."},
+      {"title": "🎫 Reibungslos", "text": "Einfache Buchung, Zahlung vor Ort oder online."},
+      {"title": "👥 Gruppe & privat", "text": "Flexibel für Familien, Events, Schulen."}
+    ]
+  },
+  "social": {
+    "title": "Sie waren begeistert",
+    "subtitle": "Viele Besucher berichten, wie überraschend es ist, Colmar vom Wasser aus neu zu entdecken.",
+    "cta": "Weitere Bewertungen"
+  },
+  "logos": {
+    "title": "Partner & Vertrauen"
   },
   "booking": {
     "title": "Buchen Sie Ihre Fahrt",

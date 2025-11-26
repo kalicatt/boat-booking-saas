@@ -1,26 +1,34 @@
+"use client"
 import BookingWidget from '@/components/BookingWidget'
 import { getDictionary } from '@/lib/get-dictionary'
-import Image from 'next/image' // L'import est correct
+import Image from 'next/image'
+import { useEffect, useState } from 'react'
 
 // On définit params comme une Promise (Spécifique Next.js 15+)
-export default async function LandingPage({ 
-  params 
-}: { 
-  params: Promise<{ lang: 'en' | 'fr' | 'de' }> 
-}) {
-  
-  // 1. On attend que les paramètres soient prêts et on extrait 'lang'
-  const { lang } = await params;
-
-  // 2. On charge le dictionnaire
-  const dict = await getDictionary(lang);
-
-  return (
+export default function LandingPage({ params }: { params: Promise<{ lang: 'en' | 'fr' | 'de' }> }) {
+    const [dict, setDict] = useState<any>(null)
+    const [lang, setLang] = useState<'en'|'fr'|'de'>('fr')
+    const [scrolled, setScrolled] = useState(false)
+    useEffect(()=>{
+        (async()=>{
+            const p = await params
+            setLang(p.lang)
+            const d = await getDictionary(p.lang)
+            setDict(d)
+        })()
+    },[params])
+    useEffect(()=>{
+        const onScroll = () => setScrolled(window.scrollY > 40)
+        window.addEventListener('scroll', onScroll)
+        return ()=> window.removeEventListener('scroll', onScroll)
+    },[])
+    if(!dict) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       
       {/* --- NAVIGATION --- */}
-      <nav className="fixed w-full z-40 bg-white/90 backdrop-blur-md border-b border-slate-100 transition-all">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+            <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
+                <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
             <div className="text-2xl font-serif font-bold text-[#0f172a]">
                 Sweet <span className="text-[#eab308]">Narcisse</span>
             </div>
@@ -58,12 +66,15 @@ export default async function LandingPage({
                         <div className="absolute inset-0 bg-gradient-to-tr from-[rgba(13,27,42,0.85)] via-[rgba(27,73,101,0.55)] to-[rgba(234,179,8,0.15)]" />
                 </div>
         
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-10 duration-1000">
-            <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg">{dict.hero.title}</h1>
-            <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-2xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
-            <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">
-                {dict.hero.cta}
-            </a>
+        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto fade-in">
+            <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{dict.hero.title}</h1>
+            <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
+            <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+              <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">
+                  {dict.hero.cta}
+              </a>
+              <a href={`/${lang}/partners`} className="text-[#eab308] font-bold hover:underline text-sm">{dict.partners?.nav}</a>
+            </div>
         </div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
       </header>
@@ -98,11 +109,66 @@ export default async function LandingPage({
         </div>
       </section>
 
+            {/* --- LOGOS / TRUST --- */}
+            <section className="py-8 px-6 bg-white">
+                <div className="max-w-6xl mx-auto text-center mb-6 fade-in">
+                    <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{dict.logos?.title}</h3>
+                </div>
+                <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6 opacity-70">
+                    {[1,2,3,4,5,6].map(n => (
+                        <div key={n} className="flex items-center justify-center h-16 grayscale hover:grayscale-0 transition">
+                            <Image src={`/images/logo${n}.png`} alt={`Logo ${n}`} width={120} height={50} className="object-contain" />
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* --- BENTO GRID BENEFITS --- */}
+            <section className="py-24 px-6 bg-white">
+                <div className="max-w-7xl mx-auto">
+                    <div className="mb-12 text-center fade-in">
+                        <h2 className="text-4xl font-serif font-bold mb-4">Pourquoi choisir notre balade ?</h2>
+                        <p className="text-slate-600 max-w-2xl mx-auto">Un format pensé pour maximiser votre plaisir et minimiser les frictions.</p>
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
+                        {dict.bento?.cards?.map((c: any, idx: number) => (
+                            <div key={idx} className={`fade-in rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between bg-gradient-to-br from-slate-50 to-slate-100 hover:shadow-lg transition group ${idx===0||idx===3? 'md:row-span-2' : ''}`}>
+                                <h3 className="font-serif text-xl font-bold mb-2 text-[#0f172a] group-hover:text-[#eab308] transition">{c.title}</h3>
+                                <p className="text-sm text-slate-600 leading-relaxed">{c.text}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* --- SOCIAL PROOF --- */}
+            <section className="py-24 px-6 bg-sand-gradient">
+                <div className="max-w-5xl mx-auto text-center mb-12 fade-in">
+                    <h2 className="text-4xl font-serif font-bold mb-3">{dict.social?.title}</h2>
+                    <p className="text-slate-600 max-w-xl mx-auto">{dict.social?.subtitle}</p>
+                </div>
+                <div className="max-w-6xl mx-auto grid gap-6 md:grid-cols-3">
+                    {[{ name:'Sophie', text:'Magique. On redécouvre la ville sous un angle apaisant.' },{ name:'Mark', text:'Highlight of our weekend in Alsace. Authentic & calm.' },{ name:'Anna', text:'Kinder waren begeistert, wir auch. Très belle expérience.' }].map(r => (
+                        <div key={r.name} className="fade-in bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex flex-col">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className="w-10 h-10 rounded-full bg-[#eab308]/20 flex items-center justify-center font-bold text-[#0f172a]">{r.name[0]}</div>
+                                <span className="font-semibold">{r.name}</span>
+                            </div>
+                            <p className="text-sm text-slate-600 leading-relaxed flex-1">“{r.text}”</p>
+                            <div className="mt-4 text-xs text-slate-400">★★★★★</div>
+                        </div>
+                    ))}
+                </div>
+                <div className="text-center mt-10">
+                    <a href="#" className="text-[#0f172a] bg-[#eab308] px-6 py-3 rounded-full font-bold text-sm hover:bg-white transition shadow-md">{dict.social?.cta}</a>
+                </div>
+            </section>
+
       {/* --- RÉSERVATION --- */}
             <div className="wave-divider" aria-hidden="true">
                 <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,80 L0,40 C160,10 320,10 480,30 C640,50 800,70 960,60 C1120,50 1280,20 1440,30 L1440,80 Z" /></svg>
             </div>
-            <section id="reservation" className="py-24 px-4 bg-[#0d1b2a] relative overflow-hidden">
+            <section id="reservation" className="py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
              <div className="absolute w-96 h-96 bg-yellow-500 rounded-full blur-[120px] -top-20 -left-20"></div>
              <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
@@ -114,7 +180,7 @@ export default async function LandingPage({
         </div>
 
         {/* INTEGRATION WIDGET AVEC TRADUCTION */}
-        <div className="relative z-10 animate-in slide-in-from-bottom-5 duration-700">
+                <div className="relative z-10 fade-in">
             <BookingWidget dict={dict} initialLang={lang} /> 
         </div>
       </section>

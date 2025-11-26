@@ -1,4 +1,8 @@
 import "./globals.css";
+import { Playfair_Display, Inter } from 'next/font/google'
+
+const display = Playfair_Display({ subsets: ['latin'], variable: '--font-display' })
+const inter = Inter({ subsets: ['latin'], variable: '--font-body' })
 
 export const metadata = {
   title: 'Sweet Narcisse Admin',
@@ -11,8 +15,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr">
-      <body>
+    <html lang="fr" className={`${display.variable} ${inter.variable}`}>
+      <body className="font-[var(--font-body)]">
         {children}
       </body>
     </html>

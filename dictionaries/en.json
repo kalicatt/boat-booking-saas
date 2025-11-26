@@ -5,14 +5,32 @@
     "book": "BOOK NOW 🎟️"
   },
   "hero": {
-    "title": "Colmar on the Water",
-    "subtitle": "Discover the magic of Little Venice aboard our traditional boats. A timeless experience.",
-    "cta": "START THE ADVENTURE"
+    "title": "Experience Colmar Differently",
+    "subtitle": "Get a calm escape on the water without crowds or stress – an authentic pause inside Little Venice.",
+    "cta": "BOOK MY SEAT"
   },
   "presentation": {
     "title": "Alsatian Venice as you have never seen it before.",
     "text": "Let yourself be rocked by the lapping of the Lauch river. Our passionate boatmen will guide you through the historic districts of the tanners and the fishmongers. Enjoy a unique view of the colorful half-timbered houses, away from the crowds.",
     "points": ["Multilingual Guides (FR, EN, DE)", "Traditional flat-bottom boats", "25-minute journey in the city center"]
+  },
+  "bento": {
+    "cards": [
+      {"title": "⏱ Perfect length", "text": "25 minutes: enough to disconnect, easy to fit in."},
+      {"title": "🌿 Low impact", "text": "Gentle navigation respectful of heritage & environment."},
+      {"title": "🗣 Human guides", "text": "Local stories – not a generic audio track."},
+      {"title": "📍 Central departure", "text": "Right in the historic heart. No extra commute."},
+      {"title": "🎫 Frictionless", "text": "Simple booking, pay on site or online."},
+      {"title": "👥 Group & private", "text": "Flexible for families, events, schools."}
+    ]
+  },
+  "social": {
+    "title": "They loved it",
+    "subtitle": "Hundreds of visitors shared how surprised they were to rediscover Colmar from the water.",
+    "cta": "See more reviews"
+  },
+  "logos": {
+    "title": "Partners & Trust"
   },
   "booking": {
     "title": "Book Your Departure",

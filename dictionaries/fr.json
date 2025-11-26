@@ -5,14 +5,32 @@
     "book": "RÉSERVER 🎟️"
   },
   "hero": {
-    "title": "Colmar au Fil de l'Eau",
-    "subtitle": "Découvrez la magie de la Petite Venise à bord de nos barques traditionnelles. Une expérience hors du temps.",
-    "cta": "COMMENCER L'AVENTURE"
+    "title": "Vivez Colmar autrement",
+    "subtitle": "Obtenez un moment paisible sur l'eau, sans foule ni stress – une parenthèse authentique au cœur de la Petite Venise.",
+    "cta": "RÉSERVER MA PLACE"
   },
   "presentation": {
     "title": "La Venise Alsacienne comme vous ne l'avez jamais vue.",
     "text": "Laissez-vous bercer par le clapotis de la Lauch. Nos bateliers passionnés vous guideront à travers les quartiers historiques des tanneurs et de la poissonnerie. Profitez d'une vue unique sur les maisons à colombages colorées, loin de la foule.",
     "points": ["Guides Multilingues (FR, EN, DE)", "Barques à fond plat traditionnelles", "Parcours de 25 minutes en plein centre"]
+  },
+  "bento": {
+    "cards": [
+      {"title": "⏱ 25 min utiles", "text": "Une durée idéale : assez pour s'évader, parfaite dans votre journée."},
+      {"title": "🌿 Impact léger", "text": "Navigation douce respectueuse de l'architecture et du milieu."},
+      {"title": "🗣 Guides humains", "text": "Des anecdotes locales, pas un audio monotone pré‑enregistré."},
+      {"title": "📍 Hyper-centre", "text": "Départ au cœur historique : zéro déplacement supplémentaire."},
+      {"title": "🎫 Sans friction", "text": "Réservation simple, paiement sur place ou en ligne."},
+      {"title": "👥 Groupe & privé", "text": "Solutions adaptées aux familles, événements, écoles."}
+    ]
+  },
+  "social": {
+    "title": "Ils ont adoré",
+    "subtitle": "Des centaines de voyageurs ont partagé leur surprise de redécouvrir Colmar côté eau.",
+    "cta": "Voir plus d'avis"
+  },
+  "logos": {
+    "title": "Partenaires & Confiance"
   },
   "booking": {
     "title": "Réservez votre départ",
