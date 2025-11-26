@@ -57,6 +57,14 @@ export async function GET(request: Request) {
       }
     })
 
+    // Fetch any blocks overlapping the requested day once
+    const blocks = await prisma.blockedInterval.findMany({
+      where: {
+        start: { lte: dayEndUtc },
+        end: { gte: dayStartUtc },
+      }
+    })
+
     const availableSlots: string[] = []
     // Itération "mur du temps" avec simple compteur minutes pour éviter tout décalage de fuseau
     const openParts = OPEN_TIME.split(':').map(Number)
@@ -100,14 +108,7 @@ export async function GET(request: Request) {
         )
       })
 
-      // Blocked intervals: filter out slots overlapping any block
-      const blocks = await prisma.blockedInterval.findMany({
-        where: {
-          OR: [
-            { start: { lte: dayEndUtc }, end: { gte: dayStartUtc } },
-          ]
-        }
-      })
+      // Blocked intervals: exclude slot if overlaps any block
       const blocked = blocks.some(b => overlap({ start: slotStartUtc, end: slotEndUtc }, { start: b.start, end: b.end }))
 
       let isSlotAvailable = false

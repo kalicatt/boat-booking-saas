@@ -24,10 +24,23 @@ export async function POST(req: Request) {
     const { start, end, scope, reason } = body
     if (!start || !end || !scope) return NextResponse.json({ error: 'Champs requis manquants' }, { status: 400 })
 
+    // Normalize incoming datetime-local to UTC by appending Z if missing seconds
+    const normalizeToUtc = (s: string) => {
+      // Accept formats like YYYY-MM-DDTHH:MM or full ISO; ensure we store in UTC
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) {
+        return new Date(s + ":00.000Z")
+      }
+      if (/Z$/.test(s)) {
+        return new Date(s)
+      }
+      // Fallback: treat as UTC by appending Z
+      return new Date(s + "Z")
+    }
+
     const created = await prisma.blockedInterval.create({
       data: {
-        start: new Date(start),
-        end: new Date(end),
+        start: normalizeToUtc(start),
+        end: normalizeToUtc(end),
         scope,
         reason,
         createdById: session.user.id,
