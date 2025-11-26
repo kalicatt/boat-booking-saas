@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { addMinutes, areIntervalsOverlapping, isSameMinute, isPast } from 'date-fns'
+import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -49,83 +49,56 @@ export async function GET(request: Request) {
     })
 
     const availableSlots: string[] = []
-    // Construction des créneaux en UTC explicite
-    let currentSlot = new Date(`${dateParam}T${OPEN_TIME}:00.000Z`)
-    const endTimeLimit = new Date(`${dateParam}T${CLOSE_TIME}:00.000Z`)
+    // Itération "mur du temps" avec simple compteur minutes pour éviter tout décalage de fuseau
+    const openParts = OPEN_TIME.split(':').map(Number)
+    const closeParts = CLOSE_TIME.split(':').map(Number)
+    const openMins = openParts[0] * 60 + openParts[1]
+    const closeMins = closeParts[0] * 60 + closeParts[1]
 
-    // --- CALCUL DE RÉFÉRENCE POUR LA ROTATION ---
-    const startHourRef = parseInt(OPEN_TIME.split(':')[0])
-    const startMinRef = parseInt(OPEN_TIME.split(':')[1])
-    const startTimeInMinutes = startHourRef * 60 + startMinRef
+    const startTimeInMinutes = openMins
 
-    while (currentSlot <= endTimeLimit) { // <= pour inclure potentiellement la dernière limite si elle tombe pile
-      const slotTime = currentSlot
-      const currentHours = slotTime.getUTCHours()
-      const currentMinutes = slotTime.getUTCMinutes()
-      const minutesTotal = currentHours * 60 + currentMinutes
-
-      // --- 0. FILTRE PASSÉ ---
-      if (isPast(slotTime)) {
-          currentSlot = addMinutes(currentSlot, INTERVAL)
-          continue
-      }
-
-      // --- 1. FILTRES HORAIRES PRÉCIS ---
-      // Matin : 10h00 (600min) à 11h45 (705min) inclus
+    for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += INTERVAL) {
+      // 1) Filtre horaires (matin/après-midi)
       const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
-      
-      // Aprèm : 13h30 (810min) à 17h45 (1065min) inclus
       const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
+      if (!isMorning && !isAfternoon) continue
 
-      if (!isMorning && !isAfternoon) {
-          currentSlot = addMinutes(currentSlot, INTERVAL)
-          continue
-      }
-
-      // --- 2. CALCUL DE LA BARQUE ASSIGNÉE (ROTATION) ---
+      // 2) Calcul de la barque assignée
       const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
-      
-      const boatIndex = Math.floor(slotsElapsed) % boats.length 
+      const boatIndex = Math.floor(slotsElapsed) % boats.length
       const assignedBoat = boats[boatIndex]
+      if (!assignedBoat) continue
 
-      if (!assignedBoat) {
-          currentSlot = addMinutes(currentSlot, INTERVAL)
-          continue
-      }
+      // 3) Construction de l'intervalle pour comparaison avec la base (en UTC explicite)
+      const hh = String(Math.floor(minutesTotal / 60)).padStart(2, '0')
+      const mm = String(minutesTotal % 60).padStart(2, '0')
+      const slotStartUtc = new Date(`${dateParam}T${hh}:${mm}:00.000Z`)
+      const slotEndUtc = addMinutes(slotStartUtc, TOUR_DURATION + BUFFER_TIME)
 
-      // --- 3. VÉRIFICATION DISPO SUR CETTE BARQUE ---
-      const myEnd = addMinutes(slotTime, TOUR_DURATION + BUFFER_TIME)
       const boatBookings = bookings.filter(b => b.boatId === assignedBoat.id)
-      
       const conflicts = boatBookings.filter(b => {
-          const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
-          return areIntervalsOverlapping(
-             { start: slotTime, end: myEnd }, 
-             { start: b.startTime, end: busyEnd }
-          )
+        const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
+        return areIntervalsOverlapping(
+          { start: slotStartUtc, end: slotEndUtc },
+          { start: b.startTime, end: busyEnd }
+        )
       })
 
       let isSlotAvailable = false
-
       if (conflicts.length === 0) {
-          isSlotAvailable = true
+        isSlotAvailable = true
       } else {
-          const isExactStart = conflicts.every(b => isSameMinute(b.startTime, slotTime))
-          const isSameLang = conflicts.every(b => b.language === requestedLang)
-          const currentPeople = conflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-
-          if (isExactStart && isSameLang && (currentPeople + peopleNeeded <= assignedBoat.capacity)) {
-              isSlotAvailable = true
-          }
+        const isExactStart = conflicts.every(b => isSameMinute(b.startTime, slotStartUtc))
+        const isSameLang = conflicts.every(b => b.language === requestedLang)
+        const currentPeople = conflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
+        if (isExactStart && isSameLang && (currentPeople + peopleNeeded <= assignedBoat.capacity)) {
+          isSlotAvailable = true
+        }
       }
 
       if (isSlotAvailable) {
-        const hh = String(slotTime.getUTCHours()).padStart(2, '0')
-        const mm = String(slotTime.getUTCMinutes()).padStart(2, '0')
         availableSlots.push(`${hh}:${mm}`)
       }
-
-      currentSlot = addMinutes(currentSlot, INTERVAL)
     }
 
     return NextResponse.json({ date: dateParam, availableSlots })
