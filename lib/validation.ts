@@ -34,7 +34,8 @@ export const EmployeeCreateSchema = z.object({
   department: z.string().optional().transform(v => v ? cleanString(v, 60) : undefined),
   jobTitle: z.string().optional().transform(v => v ? cleanString(v, 80) : undefined),
   managerId: z.string().uuid().optional(),
-  employmentStatus: z.enum(['ACTIVE','ON_LEAVE','TERMINATED']).optional(),
+  // Align with Prisma enum EmploymentStatus { PERMANENT, TEMPORARY }
+  employmentStatus: z.enum(['PERMANENT','TEMPORARY']).optional(),
   fullTime: z.boolean().optional(),
   hourlyRate: z.union([z.string(), z.number()]).optional(),
   salary: z.union([z.string(), z.number()]).optional(),
@@ -46,7 +47,7 @@ export const EmployeeCreateSchema = z.object({
 export const EmployeeUpdateSchema = EmployeeCreateSchema.extend({
   id: z.string().uuid(),
   password: z.string().optional(), // Optional for update
-}).partial({ // allow partial updates except id
+}).partial({
   id: false,
 })
 

@@ -70,7 +70,7 @@ export async function POST(request: Request) {
         department: department || undefined,
         jobTitle: jobTitle || undefined,
         managerId: managerId || undefined,
-        employmentStatus: employmentStatus || 'ACTIVE',
+        employmentStatus: employmentStatus || 'PERMANENT',
         isFullTime: fullTime ?? true,
         hourlyRate: toNumber(hourlyRate),
         annualSalary: toNumber(salary),

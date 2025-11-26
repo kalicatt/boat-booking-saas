@@ -13,7 +13,7 @@ export default function EmployeesPage() {
     const [form, setForm] = useState<any>({
         firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '',
         dateOfBirth: '', gender: '', employeeNumber: '', hireDate: '', department: '', jobTitle: '', managerId: '',
-        employmentStatus: 'ACTIVE', fullTime: true, hourlyRate: '', salary: '', emergencyContactName: '', emergencyContactPhone: '',
+        employmentStatus: 'PERMANENT', fullTime: true, hourlyRate: '', salary: '', emergencyContactName: '', emergencyContactPhone: '',
         notes: '', password: '', role: 'EMPLOYEE'
     })
 
@@ -47,7 +47,7 @@ export default function EmployeesPage() {
             setForm({
                 firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '',
                 dateOfBirth: '', gender: '', employeeNumber: '', hireDate: '', department: '', jobTitle: '', managerId: '',
-                employmentStatus: 'ACTIVE', fullTime: true, hourlyRate: '', salary: '', emergencyContactName: '', emergencyContactPhone: '',
+                employmentStatus: 'PERMANENT', fullTime: true, hourlyRate: '', salary: '', emergencyContactName: '', emergencyContactPhone: '',
                 notes: '', password: '', role: 'EMPLOYEE'
             })
         }
