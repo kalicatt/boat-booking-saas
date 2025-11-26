@@ -158,7 +158,13 @@ export async function DELETE(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const id = searchParams.get('id')
+    let id = searchParams.get('id')
+    if (!id) {
+      try {
+        const body = await request.json()
+        id = body?.id || null
+      } catch {}
+    }
     if (!id) return NextResponse.json({ error: 'ID manquant' }, { status: 400 })
 
     await prisma.workShift.delete({ where: { id } })
