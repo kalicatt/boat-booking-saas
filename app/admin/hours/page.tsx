@@ -263,7 +263,7 @@ export default function HoursPage() {
                                                                                                             acc[key].push(shift)
                                                                                                             return acc
                                                                                                         }, {})
-                                                                                                ).map(([day, shifts]: [string, any[]]) => {
+                                                                                                ).map(([day, shifts]: [string, any]) => {
                                                                                                         const rows = shifts.map((shift:any) => {
                                                                                                             const rawMin = (new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime()) / 60000
                                                                                                             const netMin = Math.max(0, rawMin - shift.breakMinutes)
