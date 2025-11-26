@@ -470,12 +470,17 @@ export default function AdminPlanning() {
 
       {/* Styles pour la vue compacte (réduction de la hauteur des créneaux) */}
       <style jsx>{`
-        .sn-compact :global(.rbc-time-slot) { height: 10px; }
-        .sn-compact :global(.rbc-time-content) { height: auto; }
+        /* Réduction drastique de la hauteur des créneaux pour afficher toute la journée */
+        .sn-compact :global(.rbc-time-slot) { height: 6px; }
+        .sn-compact :global(.rbc-time-gutter .rbc-time-slot) { height: 6px; }
+        .sn-compact :global(.rbc-timeslot-group) { border-bottom-width: 0; }
+        .sn-compact :global(.rbc-time-content) { height: auto; overflow: hidden; }
         .sn-compact :global(.rbc-time-header) { font-size: 11px; }
         .sn-compact :global(.rbc-event) { padding: 2px 4px; }
-        .sn-compact :global(.rbc-timeslot-group) { border-bottom-width: 0; }
-        .sn-compact :global(.rbc-label) { font-size: 10px; }
+        .sn-compact :global(.rbc-label) { font-size: 9px; line-height: 1; }
+        /* Diminue l'espace des lignes pour compacter visuellement */
+        .sn-compact :global(.rbc-row) { min-height: 0; }
+        .sn-compact :global(.rbc-time-view) { overflow: hidden; }
       `}</style>
 
       {showDetailsModal && selectedBooking && <DetailsModal booking={selectedBooking} onClose={() => setShowDetailsModal(false)} />}
