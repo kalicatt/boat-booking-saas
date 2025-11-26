@@ -27,6 +27,7 @@ export default async function LandingPage({
             
             <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600">
                 <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{dict.nav.experience}</a>
+                <a href={`/${lang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>
                 <a href="#contact" className="hover:text-[#eab308] transition duration-300">{dict.nav.contact}</a>
                 
                 {/* Sélecteur de langue */}
@@ -44,17 +45,18 @@ export default async function LandingPage({
       </nav>
 
       {/* --- HERO SECTION --- */}
-      <header className="relative h-screen flex items-center justify-center overflow-hidden">
+    <header className="relative h-screen flex items-center justify-center overflow-hidden bg-water-gradient">
         {/* CORRECTION 1: Image de fond (doit utiliser fill et priority) */}
-        <div className="absolute inset-0 z-0">
-             <Image 
-                src="/images/hero-bg.jpg" // Assurez-vous que ce chemin est correct
-                alt="Colmar Petite Venise" 
-                fill // Remplir le conteneur parent (position: absolute)
-                className="object-cover brightness-[0.60]"
-                priority // Charger en priorité (car c'est le LCP)
-             />
-        </div>
+                <div className="absolute inset-0 z-0 opacity-70">
+                        <Image 
+                            src="/images/hero-bg.jpg"
+                            alt="Colmar Petite Venise" 
+                            fill
+                            className="object-cover mix-blend-multiply"
+                            priority
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-tr from-[rgba(13,27,42,0.85)] via-[rgba(27,73,101,0.55)] to-[rgba(234,179,8,0.15)]" />
+                </div>
         
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-10 duration-1000">
             <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg">{dict.hero.title}</h1>
@@ -67,11 +69,11 @@ export default async function LandingPage({
       </header>
 
       {/* --- PRÉSENTATION --- */}
-      <section id="presentation" className="py-24 px-6 bg-white">
+    <section id="presentation" className="py-24 px-6 bg-sand-gradient">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             <div className="space-y-6">
                 <h4 className="text-[#eab308] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
-                <h2 className="text-4xl font-serif font-bold text-[#0f172a]">{dict.presentation.title}</h2>
+                <h2 className="text-4xl font-serif font-bold text-deep">{dict.presentation.title}</h2>
                 <p className="text-slate-600 leading-relaxed text-lg text-justify">{dict.presentation.text}</p>
                 <ul className="space-y-3 pt-4">
                     {dict.presentation.points.map((item: string) => (
@@ -97,7 +99,10 @@ export default async function LandingPage({
       </section>
 
       {/* --- RÉSERVATION --- */}
-      <section id="reservation" className="py-24 px-4 bg-[#0f172a] relative overflow-hidden">
+            <div className="wave-divider" aria-hidden="true">
+                <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,80 L0,40 C160,10 320,10 480,30 C640,50 800,70 960,60 C1120,50 1280,20 1440,30 L1440,80 Z" /></svg>
+            </div>
+            <section id="reservation" className="py-24 px-4 bg-[#0d1b2a] relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
              <div className="absolute w-96 h-96 bg-yellow-500 rounded-full blur-[120px] -top-20 -left-20"></div>
              <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
@@ -168,8 +173,9 @@ export default async function LandingPage({
             </div>
 
         </div>
-        <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50">
-            {dict.footer.rights}
+        <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50 flex flex-col items-center gap-2">
+            <a href={`/${lang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{dict.partners?.nav || 'Partners'}</a>
+            <span>{dict.footer.rights}</span>
         </div>
       </footer>
 

@@ -88,5 +88,13 @@
     "cgv": "CGV",
     "employee_access": "Accès Employé 🔒",
     "rights": "© 2025 Sweet Narcisse. Tous droits réservés."
+  },
+  "partners": {
+    "nav": "Partenaires",
+    "title": "Nos Partenaires Locaux",
+    "subtitle": "Nous collaborons avec des artisans, initiatives éco‑responsables et acteurs culturels de Colmar pour enrichir votre expérience.",
+    "list_title": "Sélection",
+    "learn_more": "En savoir plus",
+    "back_home": "← Retour à l'accueil"
   }
 }

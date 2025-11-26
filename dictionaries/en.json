@@ -88,5 +88,13 @@
     "cgv": "Terms & Conditions",
     "employee_access": "Employee Login 🔒",
     "rights": "© 2025 Sweet Narcisse. All rights reserved."
+  },
+  "partners": {
+    "nav": "Partners",
+    "title": "Our Local Partners",
+    "subtitle": "We proudly collaborate with artisans, eco‑friendly initiatives and cultural actors of Colmar to enhance your journey.",
+    "list_title": "Featured Partners",
+    "learn_more": "Learn more",
+    "back_home": "← Back to Home"
   }
 }
