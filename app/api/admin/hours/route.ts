@@ -147,3 +147,23 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 })
   }
 }
+
+// 4. SUPPRIMER UN SHIFT (ADMIN uniquement)
+export async function DELETE(request: Request) {
+  try {
+    const session = await auth()
+    const role = (session?.user as { role?: string })?.role || 'GUEST'
+    if (!['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN'].includes(role)) {
+      return NextResponse.json({ error: 'Accès refusé: réservé aux administrateurs.' }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) return NextResponse.json({ error: 'ID manquant' }, { status: 400 })
+
+    await prisma.workShift.delete({ where: { id } })
+    return NextResponse.json({ success: true })
+  } catch (e) {
+    return NextResponse.json({ error: 'Erreur suppression' }, { status: 500 })
+  }
+}

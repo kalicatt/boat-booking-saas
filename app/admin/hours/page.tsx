@@ -190,6 +190,22 @@ export default function HoursPage() {
                 const err = await res.json()
                 alert('❌ Erreur: ' + err.error)
             }
+
+            const deleteShift = async (shift: any) => {
+                if (!confirm('Supprimer ce shift ?')) return
+                try {
+                    const res = await fetch(`/api/admin/hours?id=${encodeURIComponent(shift.id)}`, { method: 'DELETE' })
+                    if (res.ok) {
+                        fetchData()
+                        alert('🗑️ Shift supprimé')
+                    } else {
+                        const err = await res.json()
+                        alert('❌ Erreur: ' + err.error)
+                    }
+                } catch {
+                    alert('Erreur technique')
+                }
+            }
         } catch {
             alert('Erreur technique')
         }
@@ -275,7 +291,7 @@ export default function HoursPage() {
                                 value={form.note} onChange={e => setForm({...form, note: e.target.value})} />
                         </div>
 
-                        <button type="submit" disabled={role !== 'ADMIN' && role !== 'SUPER_ADMIN'} className="w-full bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm">
+                        <button type="submit" disabled={role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'SUPERADMIN'} className="w-full bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm">
                             Enregistrer le pointage
                         </button>
                     </form>
@@ -363,6 +379,9 @@ export default function HoursPage() {
                                                                                                                                                                                                                                                         <button onClick={() => startEdit(shift)} className="text-xs bg-white border px-2 py-1 rounded hover:bg-slate-100" aria-label="Modifier">
                                                                                                                                                                                                                                                             ✏️
                                                                                                                                                                                                                                                         </button>
+                                                                                                                                                                                                                                                        <button onClick={() => deleteShift(shift)} className="text-xs bg-white border px-2 py-1 rounded hover:bg-red-50 ml-2" aria-label="Supprimer">
+                                                                                                                                                                                                                                                            🗑️
+                                                                                                                                                                                                                                                        </button>
                                                                                                                                                                                                                                                     </td>
                                                                                                                                                                                                                                                 )}
                                                                                                                     </tr>
@@ -417,9 +436,12 @@ export default function HoursPage() {
                             <input type="text" className="w-full p-2 border rounded" value={editingShift.note} onChange={e => setEditingShift({ ...editingShift, note: e.target.value })} />
                         </div>
                     </div>
-                    <div className="mt-6 flex justify-end gap-2">
-                        <button onClick={cancelEdit} className="px-3 py-2 border rounded">Annuler</button>
-                        <button onClick={submitEdit} className="px-3 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+                    <div className="mt-6 flex justify-between gap-2">
+                        <button onClick={() => deleteShift(editingShift)} className="px-3 py-2 border border-red-300 text-red-700 rounded hover:bg-red-50">Supprimer</button>
+                        <div className="flex gap-2">
+                            <button onClick={cancelEdit} className="px-3 py-2 border rounded">Annuler</button>
+                            <button onClick={submitEdit} className="px-3 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+                        </div>
                     </div>
                 </div>
             </div>
