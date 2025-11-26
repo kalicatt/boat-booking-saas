@@ -4,9 +4,9 @@ import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 
 interface QuickBookingModalProps {
-    slotStart: Date;     // L'heure sur laquelle on a cliqué
-    boatId: number;      // Le bateau (colonne) sur lequel on a cliqué
-    resources: any[];    // Liste des bateaux pour afficher le nom
+    slotStart: Date;     
+    boatId: number;      
+    resources: any[];    
     onClose: () => void;
     onSuccess: () => void;
 }
@@ -18,10 +18,10 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [isLoading, setIsLoading] = useState(false);
     
     // États du formulaire
-    const [time, setTime] = useState(format(slotStart, 'HH:mm')); // Pré-rempli avec le clic
+    const [time, setTime] = useState(format(slotStart, 'HH:mm')); // ex: "10:00"
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
-    const [message, setMessage] = useState(''); // <--- 1. NOUVEL ÉTAT POUR LE MESSAGE
+    const [message, setMessage] = useState('');
     
     // Détail passagers
     const [adults, setAdults] = useState(2);
@@ -32,15 +32,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const totalPeople = adults + children + babies;
     const totalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD);
     
-    // Recherche du bateau cible
     const targetBoat = resources.find(r => r.id === boatId);
-
-    // Debugging: Vérifier si le bateau est trouvé
-    useEffect(() => {
-        console.log("QuickBookingModal - boatId:", boatId);
-        console.log("QuickBookingModal - resources:", resources);
-        console.log("QuickBookingModal - targetBoat:", targetBoat);
-    }, [boatId, resources, targetBoat]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,32 +40,24 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
         setIsLoading(true);
 
-        // --- CORRECTION TIMEZONE (Fuseau Horaire) ---
-        // On reconstruit la date exacte choisie par l'utilisateur (Date Locale)
-        const [hours, minutes] = time.split(':').map(Number);
-        const selectedDate = new Date(slotStart);
-        selectedDate.setHours(hours);
-        selectedDate.setMinutes(minutes);
-        selectedDate.setSeconds(0);
+        // --- CORRECTION TIMEZONE IMPORTANTE ---
+        // On n'utilise plus toISOString() qui décale l'heure en UTC.
+        // On garde la date locale (YYYY-MM-DD) et l'heure locale (HH:mm) telles quelles.
+        const dateLocal = format(slotStart, 'yyyy-MM-dd');
+        const timeLocal = time; // "10:00" reste "10:00"
 
-        // On convertit en UTC pour l'envoi au serveur
-        const isoString = selectedDate.toISOString();
-        const dateUTC = isoString.split('T')[0];
-        const timeUTC = isoString.split('T')[1].substring(0, 5); // "HH:mm"
-
-        // Nom exact à envoyer à la base de données
         const finalFirstName = firstName.trim() || 'Client';
         const finalLastName = lastName.trim() || 'Guichet';
 
         const bookingData = {
-            date: dateUTC, // Date UTC
-            time: timeUTC, // Heure UTC
+            date: dateLocal, 
+            time: timeLocal, // On envoie 10:00
             adults, 
             children, 
             babies,
             people: totalPeople,
             language: 'FR', 
-            message: message, // <--- 2. ON ENVOIE LE MESSAGE À L'API
+            message: message,
             userDetails: {
                 firstName: finalFirstName,
                 lastName: finalLastName,
@@ -91,7 +75,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             });
 
             if (res.ok) {
-                onSuccess(); // Ferme et rafraîchit
+                onSuccess(); 
             } else {
                 const err = await res.json();
                 alert(`Erreur: ${err.error}`);
@@ -107,11 +91,9 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         <div className="fixed inset-0 bg-black/60 z-[99] flex items-center justify-center p-4">
             <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
                 
-                {/* Header */}
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
                     <div>
                         <h3 className="text-white font-bold text-lg">Ajout Rapide</h3>
-                        {/* Affichage du nom du bateau ou d'un fallback */}
                         <p className="text-blue-200 text-xs">Sur {targetBoat ? targetBoat.title : `Barque ${boatId}`}</p>
                     </div>
                     <button onClick={onClose} className="text-white/70 hover:text-white text-2xl font-bold">×</button>
@@ -119,7 +101,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
                 <form onSubmit={handleSubmit} className="p-5 space-y-5">
                     
-                    {/* 1. HORAIRE */}
+                    {/* Horaire */}
                     <div className="flex items-center gap-4">
                         <div className="flex-1">
                             <label className="block text-xs font-bold text-slate-500 mb-1">HORAIRE DE DÉPART</label>
@@ -136,35 +118,20 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         </div>
                     </div>
 
-                    {/* 2. CLIENT */}
+                    {/* Client */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">NOM</label>
-                            <input 
-                                type="text" 
-                                required 
-                                placeholder="Nom"
-                                value={lastName}
-                                onChange={(e) => setLastName(e.target.value)}
-                                className="w-full border rounded p-2 bg-slate-50"
-                                autoFocus
-                            />
+                            <input type="text" required placeholder="Nom" value={lastName} onChange={(e) => setLastName(e.target.value)} className="w-full border rounded p-2 bg-slate-50" autoFocus />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">PRÉNOM</label>
-                            <input 
-                                type="text" 
-                                placeholder="Prénom"
-                                value={firstName}
-                                onChange={(e) => setFirstName(e.target.value)}
-                                className="w-full border rounded p-2 bg-slate-50"
-                            />
+                            <input type="text" placeholder="Prénom" value={firstName} onChange={(e) => setFirstName(e.target.value)} className="w-full border rounded p-2 bg-slate-50" />
                         </div>
                     </div>
 
-                    {/* 3. PASSAGERS (Compteurs) */}
+                    {/* Passagers */}
                     <div className="bg-slate-100 rounded-lg p-3 space-y-2">
-                        {/* ADULTES */}
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-slate-700">Adultes (9€)</span>
                             <div className="flex items-center bg-white rounded border">
@@ -173,8 +140,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 <button type="button" onClick={() => setAdults(adults + 1)} className="px-3 py-1 hover:bg-slate-100">+</button>
                             </div>
                         </div>
-
-                        {/* ENFANTS */}
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-slate-700">Enfants (4€)</span>
                             <div className="flex items-center bg-white rounded border">
@@ -183,8 +148,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 <button type="button" onClick={() => setChildren(children + 1)} className="px-3 py-1 hover:bg-slate-100">+</button>
                             </div>
                         </div>
-
-                        {/* BÉBÉS */}
                         <div className="flex justify-between items-center">
                             <span className="text-sm font-bold text-slate-700">Bébés (Gratuit)</span>
                             <div className="flex items-center bg-white rounded border">
@@ -195,32 +158,22 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         </div>
                     </div>
 
-                    {/* 4. NOUVEAU : COMMENTAIRE */}
+                    {/* Commentaire */}
                     <div>
                         <label className="block text-xs font-bold text-slate-500 mb-1">NOTE / COMMENTAIRE</label>
-                        <textarea 
-                            placeholder="Ex: Payé en espèces, Groupe scolaire..."
-                            value={message}
-                            onChange={(e) => setMessage(e.target.value)}
-                            className="w-full border rounded p-2 bg-slate-50 text-sm h-20 resize-none outline-none focus:border-blue-600"
-                        />
+                        <textarea placeholder="Ex: Payé en espèces..." value={message} onChange={(e) => setMessage(e.target.value)} className="w-full border rounded p-2 bg-slate-50 text-sm h-20 resize-none outline-none focus:border-blue-600" />
                     </div>
 
-                    {/* 5. FOOTER & PRIX */}
+                    {/* Footer */}
                     <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-4">
                         <div className="flex flex-col">
                             <span className="text-xs text-slate-500 uppercase font-bold">À Encaisser</span>
                             <span className="text-2xl font-bold text-green-600">{totalPrice} €</span>
                         </div>
-                        <button 
-                            type="submit" 
-                            disabled={isLoading || totalPeople === 0}
-                            className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 transition transform active:scale-95"
-                        >
+                        <button type="submit" disabled={isLoading || totalPeople === 0} className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 transition transform active:scale-95">
                             {isLoading ? "..." : "VALIDER ✅"}
                         </button>
                     </div>
-
                 </form>
             </div>
         </div>
