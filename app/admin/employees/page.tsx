@@ -22,7 +22,7 @@ export default function EmployeesPage() {
             try {
                 const meRes = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
                 const me = await meRes.json()
-                setMyRole(me?.user?.role || '')
+                setMyRole(me?.role || '')
                 const res = await fetch('/api/admin/employees', { credentials: 'include', cache: 'no-store' })
                 const data = await res.json()
                 setEmployees(data || [])
