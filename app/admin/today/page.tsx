@@ -168,9 +168,21 @@ export default function BookingList() {
                       )}
                       <tr key={b.id} className="hover:bg-slate-50 transition">
                         <td className="p-4 font-bold text-blue-900 text-lg">
-                            {format(new Date(b.startTime), 'HH:mm')}
+                            {(() => {
+                              const d = new Date(b.startTime)
+                              const hh = String(d.getUTCHours()).padStart(2, '0')
+                              const mm = String(d.getUTCMinutes()).padStart(2, '0')
+                              return `${hh}:${mm}`
+                            })()}
                             {/* Petit rappel de la date si on est en vue semaine/mois pour l'impression */}
-                            {viewMode !== 'day' && <div className="text-[10px] text-slate-400 font-normal print:block hidden">{format(new Date(b.startTime), 'dd/MM')}</div>}
+                            {viewMode !== 'day' && <div className="text-[10px] text-slate-400 font-normal print:block hidden">{(() => {
+                              const d = new Date(b.startTime)
+                              const y = d.getUTCFullYear()
+                              const m = d.getUTCMonth()
+                              const day = d.getUTCDate()
+                              const wall = new Date(Date.UTC(y, m, day))
+                              return format(wall, 'dd/MM')
+                            })()}</div>}
                         </td>
                         <td className="p-4">
                             <span className={`px-2 py-1 rounded text-xs font-bold 

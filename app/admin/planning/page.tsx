@@ -88,6 +88,20 @@ export default function AdminPlanning() {
         // Horaires déjà gérés en UTC "mur du temps": on utilise directement les dates stockées
         const visualStart = new Date(b.startTime)
         const visualEnd = new Date(b.endTime)
+        const startWall = new Date(Date.UTC(
+          visualStart.getUTCFullYear(),
+          visualStart.getUTCMonth(),
+          visualStart.getUTCDate(),
+          visualStart.getUTCHours(),
+          visualStart.getUTCMinutes()
+        ))
+        const endWall = new Date(Date.UTC(
+          visualEnd.getUTCFullYear(),
+          visualEnd.getUTCMonth(),
+          visualEnd.getUTCDate(),
+          visualEnd.getUTCHours(),
+          visualEnd.getUTCMinutes()
+        ))
         if (isNaN(visualStart.getTime())) return null
 
         return {
@@ -210,7 +224,7 @@ export default function AdminPlanning() {
     const newTime = prompt(`Nouvelle heure (HH:mm) ?`, currentHour)
     if (newTime && newTime !== currentHour) {
         const [h, m] = newTime.split(':')
-        const newDate = new Date(event.start); newDate.setHours(parseInt(h), parseInt(m))
+        const newDate = new Date(event.start); newDate.setUTCHours(parseInt(h), parseInt(m))
         const dateStr = format(event.start, 'yyyy-MM-dd');
         const utcIso = `${dateStr}T${newTime}:00.000Z`;
 
@@ -224,6 +238,8 @@ export default function AdminPlanning() {
     const AddButtonWrapper = ({ children, value, resource }: any) => {
       const onClick = () => {
       const startTime = new Date(value)
+      const hh = String(startTime.getUTCHours()).padStart(2, '0')
+      const mm = String(startTime.getUTCMinutes()).padStart(2, '0')
       const boatId = resource?.id ?? resource ?? 1
 
       // Empêche la création si un événement existe exactement à cette minute

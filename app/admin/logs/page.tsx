@@ -50,7 +50,16 @@ export default function LogsPage() {
                 logs.map((log) => (
                   <tr key={log.id} className="hover:bg-slate-50">
                     <td className="p-4 text-slate-500 font-mono text-xs">
-                      {new Date(log.createdAt).toLocaleString()}
+                      {(() => {
+                        const d = new Date(log.createdAt)
+                        const y = d.getUTCFullYear()
+                        const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+                        const day = String(d.getUTCDate()).padStart(2, '0')
+                        const hh = String(d.getUTCHours()).padStart(2, '0')
+                        const mm = String(d.getUTCMinutes()).padStart(2, '0')
+                        const ss = String(d.getUTCSeconds()).padStart(2, '0')
+                        return `${day}/${m}/${y} ${hh}:${mm}:${ss}`
+                      })()}
                     </td>
                     <td className="p-4">
                       <div className="font-bold text-slate-800">

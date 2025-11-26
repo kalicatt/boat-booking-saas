@@ -156,7 +156,7 @@ export default function HoursPage() {
         setEditingShift({
             id: shift.id,
             userId: shift.userId,
-            date: new Date(shift.startTime).toISOString().slice(0,10),
+            date: (() => { const d = new Date(shift.startTime); return `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}` })(),
             start: formatWallTime(shift.startTime),
             end: formatWallTime(shift.endTime),
             breakTime: `${String(Math.floor((shift.breakMinutes||0)/60)).padStart(2,'0')}:${String((shift.breakMinutes||0)%60).padStart(2,'0')}`,
