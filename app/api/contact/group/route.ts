@@ -18,8 +18,8 @@ export async function POST(request: Request) {
       firstName: z.string().min(1).max(60),
       lastName: z.string().min(1).max(60),
       email: z.string().email().max(120),
-      phone: z.string().optional().max(30),
-      message: z.string().optional().max(1500),
+      phone: z.string().max(30).optional(),
+      message: z.string().max(1500).optional(),
       people: z.number().int().min(1).max(500),
       captchaToken: z.string().min(10)
     })
