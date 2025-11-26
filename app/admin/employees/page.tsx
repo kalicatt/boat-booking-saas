@@ -17,6 +17,23 @@ export default function EmployeesPage() {
     email: '',
     phone: '',
     address: '',
+        city: '',
+        postalCode: '',
+        country: '',
+        dateOfBirth: '',
+        gender: '',
+        employeeNumber: '',
+        hireDate: '',
+        department: '',
+        jobTitle: '',
+        managerId: '',
+        employmentStatus: 'PERMANENT',
+        isFullTime: true,
+        hourlyRate: '',
+        annualSalary: '',
+        emergencyContactName: '',
+        emergencyContactPhone: '',
+        notes: '',
     password: '',
     role: 'EMPLOYEE'
   })
@@ -49,6 +66,23 @@ export default function EmployeesPage() {
       email: emp.email,
       phone: emp.phone || '',
       address: emp.address || '',
+            city: emp.city || '',
+            postalCode: emp.postalCode || '',
+            country: emp.country || '',
+            dateOfBirth: emp.dateOfBirth ? String(emp.dateOfBirth).slice(0,10) : '',
+            gender: emp.gender || '',
+            employeeNumber: emp.employeeNumber || '',
+            hireDate: emp.hireDate ? String(emp.hireDate).slice(0,10) : '',
+            department: emp.department || '',
+            jobTitle: emp.jobTitle || '',
+            managerId: emp.managerId || '',
+            employmentStatus: emp.employmentStatus || 'PERMANENT',
+            isFullTime: emp.isFullTime ?? true,
+            hourlyRate: emp.hourlyRate?.toString() || '',
+            annualSalary: emp.annualSalary?.toString() || '',
+            emergencyContactName: emp.emergencyContactName || '',
+            emergencyContactPhone: emp.emergencyContactPhone || '',
+            notes: emp.notes || '',
       password: '', // On vide le mot de passe par sécurité (laisser vide = ne pas changer)
       role: emp.role
     })
@@ -59,7 +93,7 @@ export default function EmployeesPage() {
   // Annuler l'édition
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm({ firstName: '', lastName: '', email: '', phone: '', address: '', password: '', role: 'EMPLOYEE' })
+        setForm({ firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '', dateOfBirth: '', gender: '', employeeNumber: '', hireDate: '', department: '', jobTitle: '', managerId: '', employmentStatus: 'PERMANENT', isFullTime: true, hourlyRate: '', annualSalary: '', emergencyContactName: '', emergencyContactPhone: '', notes: '', password: '', role: 'EMPLOYEE' })
   }
 
   // Soumission (Gère CREATE et UPDATE)
@@ -171,6 +205,102 @@ export default function EmployeesPage() {
                             <textarea className="w-full p-2 border rounded bg-white text-sm" rows={2}
                                 value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
                         </div>
+
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Ville</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.city} onChange={e=>setForm({...form, city: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Code Postal</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.postalCode} onChange={e=>setForm({...form, postalCode: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Pays</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.country} onChange={e=>setForm({...form, country: e.target.value})} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Date de Naissance</label>
+                                                        <input type="date" className="w-full p-2 border rounded bg-white" value={form.dateOfBirth} onChange={e=>setForm({...form, dateOfBirth: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Sexe</label>
+                                                        <select className="w-full p-2 border rounded bg-white" value={form.gender} onChange={e=>setForm({...form, gender: e.target.value})}>
+                                                            <option value="">—</option>
+                                                            <option value="Homme">Homme</option>
+                                                            <option value="Femme">Femme</option>
+                                                            <option value="Autre">Autre</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">N° Employé</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.employeeNumber} onChange={e=>setForm({...form, employeeNumber: e.target.value})} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Date d'embauche</label>
+                                                        <input type="date" className="w-full p-2 border rounded bg-white" value={form.hireDate} onChange={e=>setForm({...form, hireDate: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Département</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.department} onChange={e=>setForm({...form, department: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Poste</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.jobTitle} onChange={e=>setForm({...form, jobTitle: e.target.value})} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Manager ID</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.managerId} onChange={e=>setForm({...form, managerId: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Statut</label>
+                                                        <select className="w-full p-2 border rounded bg-white" value={form.employmentStatus} onChange={e=>setForm({...form, employmentStatus: e.target.value})}>
+                                                            <option value="PERMANENT">Permanent</option>
+                                                            <option value="TEMPORARY">Temporaire</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <input type="checkbox" checked={form.isFullTime} onChange={e=>setForm({...form, isFullTime: e.target.checked})} />
+                                                        <label className="text-xs font-bold text-slate-500">Temps plein</label>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
+                                                        <input type="number" step="0.01" className="w-full p-2 border rounded bg-white" value={form.hourlyRate} onChange={e=>setForm({...form, hourlyRate: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
+                                                        <input type="number" step="0.01" className="w-full p-2 border rounded bg-white" value={form.annualSalary} onChange={e=>setForm({...form, annualSalary: e.target.value})} />
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Contact Urgence - Nom</label>
+                                                        <input type="text" className="w-full p-2 border rounded bg-white" value={form.emergencyContactName} onChange={e=>setForm({...form, emergencyContactName: e.target.value})} />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 mb-1">Contact Urgence - Téléphone</label>
+                                                        <input type="tel" className="w-full p-2 border rounded bg-white" value={form.emergencyContactPhone} onChange={e=>setForm({...form, emergencyContactPhone: e.target.value})} />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-xs font-bold text-slate-500 mb-1">Notes</label>
+                                                    <textarea className="w-full p-2 border rounded bg-white text-sm" rows={3}
+                                                        value={form.notes} onChange={e=>setForm({...form, notes: e.target.value})} />
+                                                </div>
 
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">

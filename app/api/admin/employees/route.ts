@@ -39,7 +39,9 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { firstName, lastName, email, phone, address, password, role } = body
+        const { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
+          dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
+          employmentStatus, isFullTime, hourlyRate, annualSalary, emergencyContactName, emergencyContactPhone, notes } = body
 
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) return NextResponse.json({ error: "Email déjà utilisé." }, { status: 409 })
@@ -48,9 +50,23 @@ export async function POST(request: Request) {
 
     const newUser = await prisma.user.create({
       data: {
-        firstName, lastName, email, phone, address,
+        firstName, lastName, email, phone, address, city, postalCode, country,
         password: hashedPassword,
-        role: role || 'EMPLOYEE'
+        role: role || 'EMPLOYEE',
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+        gender,
+        employeeNumber,
+        hireDate: hireDate ? new Date(hireDate) : undefined,
+        department,
+        jobTitle,
+        managerId,
+        employmentStatus,
+        isFullTime,
+        hourlyRate,
+        annualSalary,
+        emergencyContactName,
+        emergencyContactPhone,
+        notes,
       }
     })
 
@@ -107,13 +123,29 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, firstName, lastName, email, phone, address, password, role } = body
+        const { id, firstName, lastName, email, phone, address, city, postalCode, country, password, role,
+          dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
+          employmentStatus, isFullTime, hourlyRate, annualSalary, emergencyContactName, emergencyContactPhone, notes } = body
 
     if (!id) return NextResponse.json({ error: "ID manquant" }, { status: 400 })
 
     // Préparation des données à mettre à jour
     const dataToUpdate: any = {
-      firstName, lastName, email, phone, address, role
+      firstName, lastName, email, phone, address, city, postalCode, country, role,
+      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+      gender,
+      employeeNumber,
+      hireDate: hireDate ? new Date(hireDate) : undefined,
+      department,
+      jobTitle,
+      managerId,
+      employmentStatus,
+      isFullTime,
+      hourlyRate,
+      annualSalary,
+      emergencyContactName,
+      emergencyContactPhone,
+      notes,
     }
 
     // Si un nouveau mot de passe est fourni, on le hache et on l'ajoute

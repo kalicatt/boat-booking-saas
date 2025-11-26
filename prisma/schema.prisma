@@ -15,11 +15,28 @@ model User {
   password  String?   // Optionnel car peut-être pas de mot de passe si "Guest"
   firstName String
   address   String?   
+  city      String?
+  postalCode String?
+  country   String?
   image     String?
   lastName  String
   phone     String?
   role      Role      @default(CLIENT)
   createdAt DateTime  @default(now())
+  dateOfBirth DateTime?
+  gender      String? // 'Homme' | 'Femme' | 'Autre'
+  employeeNumber String?
+  hireDate   DateTime?
+  department String?
+  jobTitle   String?
+  managerId  String?
+  employmentStatus EmploymentStatus? @default(PERMANENT)
+  isFullTime  Boolean? @default(true)
+  hourlyRate  Float?
+  annualSalary Float?
+  emergencyContactName String?
+  emergencyContactPhone String?
+  notes      String?
   bookings  Booking[]
   workShifts WorkShift[]
   log Log[] 
@@ -129,4 +146,10 @@ enum CheckinStatus {
   CONFIRMED  // Réservation normale (par défaut)
   EMBARQUED  // Personnes arrivées
   NO_SHOW    // Personnes non présentées
+}
+
+// Employment status enum
+enum EmploymentStatus {
+  PERMANENT
+  TEMPORARY
 }
