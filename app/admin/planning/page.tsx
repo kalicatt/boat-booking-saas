@@ -28,6 +28,11 @@ interface BookingDetails {
   resourceId: number;
   clientName: string;
   peopleCount: number;
+  // NOUVEAUX CHAMPS POUR L'AFFICHAGE
+  adults: number;
+  children: number;
+  babies: number;
+  
   totalOnBoat: number;
   boatCapacity: number;
   user: UserData;
@@ -79,14 +84,10 @@ export default function AdminPlanning() {
         const clientFullName = `${b.user.firstName} ${b.user.lastName}`
         const displayTitle = (clientFullName === 'Client Guichet') ? 'Guichet' : clientFullName;
         
-        // --- CORRECTION VISUELLE TIMEZONE ---
-        // On récupère la date qui est en UTC (ex: 10:00 UTC)
+        // Correction Visuelle Timezone (UTC -> Local)
         const utcStart = new Date(b.startTime)
         const utcEnd = new Date(b.endTime)
-        
-        // Le navigateur va automatiquement ajouter +1h/+2h (ex: 11:00)
-        // On doit soustraire cet offset pour que "10:00 UTC" s'affiche "10:00" à l'écran
-        const offset = utcStart.getTimezoneOffset(); // en minutes (ex: -60)
+        const offset = utcStart.getTimezoneOffset(); 
         const visualStart = new Date(utcStart.getTime() + (offset * 60 * 1000));
         const visualEnd = new Date(utcEnd.getTime() + (offset * 60 * 1000));
 
@@ -95,10 +96,15 @@ export default function AdminPlanning() {
         return {
           id: b.id, 
           title: displayTitle, 
-          start: visualStart, // Date corrigée pour l'affichage
-          end: visualEnd,     // Date corrigée pour l'affichage
+          start: visualStart, 
+          end: visualEnd,     
           resourceId: b.boatId, 
           peopleCount: b.numberOfPeople,
+          // Mapping des détails passagers
+          adults: b.adults || 0,
+          children: b.children || 0,
+          babies: b.babies || 0,
+
           boatCapacity: b.boat.capacity, 
           totalOnBoat: loadMap[`${b.startTime}_${b.boatId}`] || 0,
           user: b.user, 
@@ -151,9 +157,6 @@ export default function AdminPlanning() {
 
     const startTime = slotInfo.start
     const boatId = slotInfo.resourceId
-
-    // Pour le clic sur une case vide, on utilise aussi l'heure visuelle locale
-    // QuickBookingModal se chargera d'envoyer "10:00" en texte, donc pas besoin de correction inverse ici
     
     const conflicts = events.some(e => 
         e.resourceId === boatId && isSameMinute(e.start, startTime)
@@ -190,9 +193,7 @@ export default function AdminPlanning() {
              isPaid: newIsPaid !== undefined ? newIsPaid : selectedBooking.isPaid 
         })
     }
-
     const res = await fetch(`/api/bookings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-    
     if (res.ok) mutate() 
     else alert("Erreur mise à jour")
   }
@@ -213,13 +214,6 @@ export default function AdminPlanning() {
     if (newTime && newTime !== currentHour) {
         const [h, m] = newTime.split(':')
         const newDate = new Date(event.start); newDate.setHours(parseInt(h), parseInt(m))
-        
-        // Attention : ici newDate est en heure "visuelle" (locale forcée).
-        // L'API attend une date ISO UTC. Comme on a décalé l'affichage, il faut décaler l'envoi inversement
-        // OU plus simple : on envoie juste l'heure comme pour le QuickBooking
-        // Mais comme l'API PATCH attend une date complète, on utilise toISOString() sur une date construite en UTC
-        
-        // Reconstruction propre pour l'API
         const dateStr = format(event.start, 'yyyy-MM-dd');
         const utcIso = `${dateStr}T${newTime}:00.000Z`;
 
@@ -255,34 +249,64 @@ export default function AdminPlanning() {
     )
   }
 
+  // 🎨 NOUVEAU COMPOSANT VISUEL AMÉLIORÉ
   const EventComponent = ({ event }: { event: BookingDetails }) => {
-    const isFull = event.totalOnBoat >= event.boatCapacity
     const isEmbarked = event.checkinStatus === 'EMBARQUED'
     const isNoShow = event.checkinStatus === 'NO_SHOW'
-    const paymentDotColor = event.isPaid ? 'bg-green-500' : 'bg-red-500'
-
     const displayName = event.title; 
+    
+    // Drapeaux
+    const flag = event.language === 'FR' ? '🇫🇷' : event.language === 'DE' ? '🇩🇪' : '🇬🇧';
 
     return (
-      <div className={`relative flex justify-between items-start h-full px-1 overflow-hidden ${isFull ? 'bg-red-500/10' : ''}`}
-          style={{ backgroundColor: isEmbarked ? '#1f4068' : isNoShow ? '#e69900' : undefined }}>
+      <div className="flex flex-col justify-between h-full w-full p-1 overflow-hidden group relative">
           
-          <div className={`absolute top-1 left-1 w-2.5 h-2.5 rounded-full shadow ${paymentDotColor}`}></div>
-          <div className="flex flex-col leading-tight overflow-hidden pt-1 pl-3">
-              <span className="text-xs font-bold truncate" style={{color: isNoShow ? 'black' : 'white'}}>{displayName}</span>
-              <span className="text-[10px] opacity-90" style={{color: isNoShow ? 'black' : 'white'}}>({event.peopleCount}p)</span>
-              <span className={`text-[9px] font-bold mt-0.5 ${isEmbarked || isNoShow ? 'text-white' : 'opacity-70'}`} style={{color: isNoShow ? 'black' : 'white'}}>⚓ {event.totalOnBoat}/{event.boatCapacity}</span>
+          {/* Ligne 1 : Drapeau + Nom (Gras) */}
+          <div className="flex justify-between items-start leading-tight">
+              <span className="font-bold text-xs truncate pr-4">
+                {flag} {displayName}
+              </span>
+              
+              {/* Bouton Supprimer (visible au survol uniquement) */}
+              <button onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.clientName) }}
+                  className="absolute top-0 right-0 text-white/50 hover:text-white hover:bg-red-500/50 rounded px-1 text-[10px] opacity-0 group-hover:opacity-100 transition">
+                  ✕
+              </button>
           </div>
-          <button onClick={(e) => { e.stopPropagation(); handleDelete(event.id, event.clientName) }}
-              className="text-white hover:text-red-300 font-bold px-1.5 ml-1 text-sm bg-black/10 rounded hover:bg-black/30 transition">✕</button>
+
+          {/* Ligne 2 : Détail Pax (Ad/Enf/Bé) - Flex wrap pour s'adapter */}
+          <div className="flex flex-wrap gap-x-2 gap-y-0 text-[10px] font-medium opacity-90 mt-0.5">
+             {event.adults > 0 && <span>{event.adults}Ad</span>}
+             {event.children > 0 && <span>{event.children}En</span>}
+             {event.babies > 0 && <span>{event.babies}Bé</span>}
+          </div>
+
+          {/* Ligne 3 : Footer (Paiement + Total) */}
+          <div className="flex items-center gap-1 mt-auto pt-1">
+              {/* Pastille Paiement */}
+              <div className={`w-2 h-2 rounded-full ${event.isPaid ? 'bg-green-400' : 'bg-red-500'} ring-1 ring-white/40`} 
+                   title={event.isPaid ? "Payé" : "Non Payé"}></div>
+              
+              <span className="text-[10px] font-bold ml-auto">
+                  {event.peopleCount}p
+              </span>
+          </div>
       </div>
     )
   }
 
   const slotPropGetter = (date: Date) => {
     const m = date.getHours() * 60 + date.getMinutes()
-    if (m > 12 * 60 + 15 && m < 13 * 60 + 30) { 
-      return { style: { backgroundColor: '#f3f4f6', backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', backgroundSize: '10px 10px', opacity: 0.5, pointerEvents: 'none' as 'none' } }
+    if (m >= 705 && m < 810) { 
+      return { 
+          style: { 
+              backgroundColor: '#f3f4f6', 
+              backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', 
+              backgroundSize: '10px 10px', 
+              opacity: 0.5, 
+              pointerEvents: 'none' 
+          } 
+      }
     }
     return {}
   }
@@ -398,38 +422,20 @@ export default function AdminPlanning() {
             resourceTitleAccessor="title"
             step={5} 
             timeslots={1} 
-            // 👇 Affichage de 9h à 19h
             min={new Date(0, 0, 0, 9, 0, 0)} 
             max={new Date(0, 0, 0, 19, 0, 0)} 
             culture='fr'
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
-            
-            // 👇 Zone grisée pour la pause (11h45 - 13h30)
-            slotPropGetter={(date) => {
-                const m = date.getHours() * 60 + date.getMinutes()
-                if (m >= 705 && m < 810) { 
-                  return { 
-                      style: { 
-                          backgroundColor: '#f3f4f6', 
-                          backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)', 
-                          backgroundSize: '10px 10px', 
-                          opacity: 0.5, 
-                          pointerEvents: 'none' 
-                      } 
-                  }
-                }
-                return {}
-            }}
-            
+            slotPropGetter={slotPropGetter}
             components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
             eventPropGetter={(event: any) => {
-                 let style = { color: 'white', backgroundColor: '#2563eb' };
+                 let style = { color: 'white', backgroundColor: '#2563eb', border: '1px solid rgba(255,255,255,0.6)', borderRadius: '6px' };
                  if (event.checkinStatus === 'EMBARQUED') style.backgroundColor = '#1f4068';
                  else if (event.checkinStatus === 'NO_SHOW') { style.backgroundColor = '#e69900'; style.color = 'black'; }
                  else if (event.resourceId === 2) style.backgroundColor = '#008b8b';
                  else if (event.resourceId === 3) style.backgroundColor = '#7c3aed';
                  else if (event.resourceId === 4) style.backgroundColor = '#d97706';
-                 return { style: {...style, borderRadius: '6px', border: 'none'} };
+                 return { style };
              }}
             />
         )}
