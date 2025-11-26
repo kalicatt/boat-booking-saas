@@ -9,145 +9,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true)
     const [showCreateModal, setShowCreateModal] = useState(false)
   
-  // État pour savoir si on est en mode ÉDITION
-  const [editingId, setEditingId] = useState<string | null>(null)
-
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-        city: '',
-        postalCode: '',
-        country: '',
-        dateOfBirth: '',
-        gender: '',
-        employeeNumber: '',
-        hireDate: '',
-        department: '',
-        jobTitle: '',
-        managerId: '',
-        employmentStatus: 'PERMANENT',
-        isFullTime: true,
-        hourlyRate: '',
-        annualSalary: '',
-        emergencyContactName: '',
-        emergencyContactPhone: '',
-        notes: '',
-    password: '',
-    role: 'EMPLOYEE'
-  })
-
-  const initPage = async () => {
-    setLoading(true)
-    try {
-      const resMe = await fetch('/api/auth/me')
-      const dataMe = await resMe.json()
-      setMyRole(dataMe.role)
-
-      const resEmp = await fetch('/api/admin/employees')
-      const dataEmp = await resEmp.json()
-      if (Array.isArray(dataEmp)) setEmployees(dataEmp)
-      else setEmployees([])
-    } catch (e) { console.error(e) } 
-    finally { setLoading(false) }
-  }
-
-  useEffect(() => { initPage() }, [])
-
-  // --- FONCTIONS ---
-
-  // Remplir le formulaire avec les données de l'employé
-  const handleEditClick = (emp: any) => {
-    setEditingId(emp.id)
-    setForm({
-      firstName: emp.firstName,
-      lastName: emp.lastName,
-      email: emp.email,
-      phone: emp.phone || '',
-      address: emp.address || '',
-            city: emp.city || '',
-            postalCode: emp.postalCode || '',
-            country: emp.country || '',
-            dateOfBirth: emp.dateOfBirth ? String(emp.dateOfBirth).slice(0,10) : '',
-            gender: emp.gender || '',
-            employeeNumber: emp.employeeNumber || '',
-            hireDate: emp.hireDate ? String(emp.hireDate).slice(0,10) : '',
-            department: emp.department || '',
-            jobTitle: emp.jobTitle || '',
-            managerId: emp.managerId || '',
-            employmentStatus: emp.employmentStatus || 'PERMANENT',
-            isFullTime: emp.isFullTime ?? true,
-            hourlyRate: emp.hourlyRate?.toString() || '',
-            annualSalary: emp.annualSalary?.toString() || '',
-            emergencyContactName: emp.emergencyContactName || '',
-            emergencyContactPhone: emp.emergencyContactPhone || '',
-            notes: emp.notes || '',
-      password: '', // On vide le mot de passe par sécurité (laisser vide = ne pas changer)
-      role: emp.role
-    })
-    // Scroll vers le formulaire (utile sur mobile)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  // Annuler l'édition
-  const handleCancelEdit = () => {
-    setEditingId(null)
-        setForm({ firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '', dateOfBirth: '', gender: '', employeeNumber: '', hireDate: '', department: '', jobTitle: '', managerId: '', employmentStatus: 'PERMANENT', isFullTime: true, hourlyRate: '', annualSalary: '', emergencyContactName: '', emergencyContactPhone: '', notes: '', password: '', role: 'EMPLOYEE' })
-  }
-
-  // Soumission (Gère CREATE et UPDATE)
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    const isEdit = !!editingId
-    const message = isEdit ? "Confirmer la modification ?" : "Confirmer la création ?"
-    if (!confirm(message)) return
-
-    try {
-      const url = '/api/admin/employees'
-      const method = isEdit ? 'PUT' : 'POST'
-      
-      // Si édition, on ajoute l'ID dans le corps
-      const body = isEdit ? { ...form, id: editingId } : form
-
-      const res = await fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      })
-      
-      if (res.ok) {
-        alert(isEdit ? "Modifications enregistrées !" : "Compte créé !")
-        handleCancelEdit() // Reset du formulaire
-        initPage() // Recharger la liste
-      } else {
-        const err = await res.json()
-        alert("Erreur : " + err.error)
-      }
-    } catch (e) { alert("Erreur technique") }
-  }
-
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Supprimer ${name} ?`)) return
-    try {
-      const res = await fetch(`/api/admin/employees?id=${id}`, { method: 'DELETE' })
-      if (res.ok) initPage()
-      else alert("Erreur suppression")
-    } catch (e) { alert("Erreur technique") }
-  }
-
-  const isSuperAdmin = myRole === 'SUPERADMIN'
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-2 inline-block">← Retour Tableau de bord</Link>
-            <h1 className="text-3xl font-bold text-slate-800">Annuaire Entreprise 👥</h1>
+            {/* Le formulaire latéral est retiré; création se fait via le modal */}
                         {myRole !== 'SUPERADMIN' && !loading && (
                 <p className="text-sm text-orange-600 mt-1 font-bold bg-orange-50 inline-block px-2 py-1 rounded border border-orange-200">
                     🔒 Mode Lecture Seule
@@ -432,26 +294,154 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
     if (!open) return null
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="bg-white w-full max-w-lg rounded-xl shadow-lg border border-slate-200">
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg border border-slate-200">
                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 className="font-bold">Nouveau collaborateur</h3>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800">✕</button>
                 </div>
-                <form onSubmit={onSubmit} className="p-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                        <input required placeholder="Prénom" className="p-2 border rounded" value={form.firstName} onChange={e=>setForm({...form, firstName: e.target.value})} />
-                        <input required placeholder="Nom" className="p-2 border rounded" value={form.lastName} onChange={e=>setForm({...form, lastName: e.target.value})} />
+                <form onSubmit={onSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-auto">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Prénom</label>
+                            <input required className="w-full p-2 border rounded" value={form.firstName} onChange={e=>setForm({...form, firstName: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Nom</label>
+                            <input required className="w-full p-2 border rounded" value={form.lastName} onChange={e=>setForm({...form, lastName: e.target.value})} />
+                        </div>
                     </div>
-                    <input required placeholder="Email" type="email" className="w-full p-2 border rounded" value={form.email} onChange={e=>setForm({...form, email: e.target.value})} />
-                    <input required placeholder="Téléphone" className="w-full p-2 border rounded" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
-                    <input required placeholder={"Mot de passe provisoire"} className="w-full p-2 border rounded" value={form.password} onChange={e=>setForm({...form, password: e.target.value})} />
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Email</label>
+                            <input required type="email" className="w-full p-2 border rounded" value={form.email} onChange={e=>setForm({...form, email: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Téléphone</label>
+                            <input required className="w-full p-2 border rounded" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
+                        </div>
+                    </div>
+
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Rôle</label>
-                        <select className="w-full p-2 border rounded bg-white" value={form.role} onChange={e => setForm({...form, role: e.target.value})} disabled={myRole === 'ADMIN'}>
-                            <option value="EMPLOYEE">Employé</option>
-                            {myRole === 'SUPERADMIN' && <option value="ADMIN">Administrateur</option>}
-                        </select>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Adresse</label>
+                        <textarea className="w-full p-2 border rounded" value={form.address || ''} onChange={e=>setForm({...form, address: e.target.value})} />
                     </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Ville</label>
+                            <input className="w-full p-2 border rounded" value={form.city || ''} onChange={e=>setForm({...form, city: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Code Postal</label>
+                            <input className="w-full p-2 border rounded" value={form.postalCode || ''} onChange={e=>setForm({...form, postalCode: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Pays</label>
+                            <input className="w-full p-2 border rounded" value={form.country || ''} onChange={e=>setForm({...form, country: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Date de Naissance</label>
+                            <input type="date" className="w-full p-2 border rounded" value={form.dateOfBirth || ''} onChange={e=>setForm({...form, dateOfBirth: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Sexe</label>
+                            <select className="w-full p-2 border rounded bg-white" value={form.gender || ''} onChange={e=>setForm({...form, gender: e.target.value})}>
+                                <option value="">—</option>
+                                <option value="M">Homme</option>
+                                <option value="F">Femme</option>
+                                <option value="O">Autre</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">N° Employé</label>
+                            <input className="w-full p-2 border rounded" value={form.employeeNumber || ''} onChange={e=>setForm({...form, employeeNumber: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Date d'embauche</label>
+                            <input type="date" className="w-full p-2 border rounded" value={form.hireDate || ''} onChange={e=>setForm({...form, hireDate: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Département</label>
+                            <input className="w-full p-2 border rounded" value={form.department || ''} onChange={e=>setForm({...form, department: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Poste</label>
+                            <input className="w-full p-2 border rounded" value={form.jobTitle || ''} onChange={e=>setForm({...form, jobTitle: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Manager ID</label>
+                            <input className="w-full p-2 border rounded" value={form.managerId || ''} onChange={e=>setForm({...form, managerId: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Statut</label>
+                            <select className="w-full p-2 border rounded bg-white" value={form.employmentStatus || 'ACTIVE'} onChange={e=>setForm({...form, employmentStatus: e.target.value})}>
+                                <option value="ACTIVE">Actif</option>
+                                <option value="ON_LEAVE">En congé</option>
+                                <option value="TERMINATED">Sorti</option>
+                            </select>
+                        </div>
+                        <div className="flex items-end gap-2">
+                            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-500">
+                                <input type="checkbox" checked={!!form.fullTime} onChange={e=>setForm({...form, fullTime: e.target.checked})} />
+                                Temps plein
+                            </label>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
+                            <input className="w-full p-2 border rounded" value={form.hourlyRate || ''} onChange={e=>setForm({...form, hourlyRate: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
+                            <input className="w-full p-2 border rounded" value={form.salary || ''} onChange={e=>setForm({...form, salary: e.target.value})} disabled={myRole !== 'SUPERADMIN'} />
+                            {myRole !== 'SUPERADMIN' && (
+                                <p className="text-[11px] text-slate-500 mt-1">Visible et éditable uniquement par le SuperAdmin.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Contact Urgence - Nom</label>
+                            <input className="w-full p-2 border rounded" value={form.emergencyContactName || ''} onChange={e=>setForm({...form, emergencyContactName: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Contact Urgence - Téléphone</label>
+                            <input className="w-full p-2 border rounded" value={form.emergencyContactPhone || ''} onChange={e=>setForm({...form, emergencyContactPhone: e.target.value})} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Notes</label>
+                        <textarea className="w-full p-2 border rounded" value={form.notes || ''} onChange={e=>setForm({...form, notes: e.target.value})} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Mot de passe provisoire</label>
+                            <input required className="w-full p-2 border rounded" value={form.password || ''} onChange={e=>setForm({...form, password: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Rôle</label>
+                            <select className="w-full p-2 border rounded bg-white" value={form.role} onChange={e => setForm({...form, role: e.target.value})} disabled={myRole === 'ADMIN'}>
+                                <option value="EMPLOYEE">Employé</option>
+                                {myRole === 'SUPERADMIN' && <option value="ADMIN">Administrateur</option>}
+                            </select>
+                        </div>
+                    </div>
+
                     <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={onClose} className="border px-4 py-2 rounded">Annuler</button>
                         <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Créer</button>
