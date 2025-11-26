@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { PHONE_CODES } from '@/lib/phoneData'
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
+import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
 
 interface WizardProps {
@@ -26,6 +27,7 @@ const STEPS = {
 export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // --- ÉTATS ---
   const [step, setStep] = useState(STEPS.CRITERIA)
+    const [globalErrors, setGlobalErrors] = useState<string[]>([])
   
   // Données de réservation
     // Date locale (YYYY-MM-DD) pour éviter tout décalage de fuseau
@@ -81,12 +83,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
   // Calculs
   const totalPeople = adults + children + babies
-  const isGroup = totalPeople > 12 // Bascule automatiquement en mode Groupe
-  
-  const PRICE_ADULT = 9
-  const PRICE_CHILD = 4
-  const PRICE_BABY = 0
-  const totalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
+    const isGroup = totalPeople > GROUP_THRESHOLD // Bascule automatiquement en mode Groupe
+    const totalPrice = (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
 
   // Reset des créneaux si on change les critères
   useEffect(() => {
@@ -121,7 +119,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
   // ÉTAPE 1 -> SUIVANT
   const handleSearch = async () => {
-    if (totalPeople === 0) return alert("Veuillez sélectionner au moins une personne.")
+        if (totalPeople === 0) { setGlobalErrors(["Veuillez sélectionner au moins une personne."]); return }
+        setGlobalErrors([])
     
     // Si c'est un groupe (>12), direction formulaire groupe
     if (isGroup) {
@@ -164,7 +163,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 setStep(STEPS.SLOTS)
     } catch (e) {
         console.error(e)
-        alert("Erreur technique lors de la recherche.")
+        setGlobalErrors(["Erreur technique lors de la recherche. Veuillez réessayer."])
     } finally {
         setLoading(false)
     }
@@ -173,7 +172,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // VALIDATION STANDARD
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!captchaToken) return alert("Veuillez cocher la case 'Je ne suis pas un robot'.")
+        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
     
     setIsSubmitting(true)
     try {
@@ -194,15 +193,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         })
         
         if (res.ok) {
+            setGlobalErrors([])
             setStep(STEPS.SUCCESS)
         } else {
-            const err = await res.json()
-            alert("Erreur: " + err.error)
+            const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
+            setGlobalErrors(["Erreur: " + err.error])
             recaptchaRef.current?.reset()
         }
     } catch (e) {
         console.error(e)
-        alert("Erreur de connexion (Vérifiez votre réseau ou contactez le support)")
+        setGlobalErrors(["Erreur de connexion (vérifiez votre réseau ou contactez le support)"])
     } finally {
         setIsSubmitting(false)
     }
@@ -211,7 +211,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // VALIDATION GROUPE
   const handleGroupSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!captchaToken) return alert("Veuillez cocher la case 'Je ne suis pas un robot'.")
+        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
 
     setIsSubmitting(true)
     try {
@@ -227,14 +227,15 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         })
 
         if (res.ok) {
+            setGlobalErrors([])
             setStep(STEPS.GROUP_SUCCESS)
         } else {
-            const err = await res.json()
-            alert("Erreur: " + err.error)
+            const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
+            setGlobalErrors(["Erreur: " + err.error])
             recaptchaRef.current?.reset()
         }
     } catch (error) {
-        alert("Erreur de connexion")
+        setGlobalErrors(["Erreur de connexion"])
     } finally {
         setIsSubmitting(false)
     }
@@ -243,7 +244,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // VALIDATION PRIVATISATION
   const handlePrivateSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!captchaToken) return alert("Veuillez cocher la case 'Je ne suis pas un robot'.")
+        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
 
     setIsSubmitting(true)
     try {
@@ -260,14 +261,15 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         })
 
         if (res.ok) {
+            setGlobalErrors([])
             setStep(STEPS.PRIVATE_SUCCESS)
         } else {
-            const err = await res.json()
-            alert("Erreur: " + err.error)
+            const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
+            setGlobalErrors(["Erreur: " + err.error])
             recaptchaRef.current?.reset()
         }
     } catch (error) {
-        alert("Erreur de connexion")
+        setGlobalErrors(["Erreur de connexion"])
     } finally {
         setIsSubmitting(false)
     }
@@ -359,6 +361,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
         {/* === COLONNE DROITE === */}
         <div className="p-8 md:w-2/3 bg-slate-50 relative flex flex-col">
+            {globalErrors.length > 0 && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded" role="alert" aria-live="polite">
+                    <ul className="list-disc pl-4">
+                        {globalErrors.map((er,i)=>(<li key={i}>{er}</li>))}
+                    </ul>
+                </div>
+            )}
             
             {/* --- ÉTAPE 1 : CRITÈRES --- */}
             {step === STEPS.CRITERIA && (
@@ -386,8 +395,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{dict.booking.widget.passengers}</label>
                             <div className="space-y-1">
-                                <Counter label={dict.booking.widget.adults} price={`${PRICE_ADULT}€`} value={adults} setter={setAdults} />
-                                <Counter label={dict.booking.widget.children} price={`${PRICE_CHILD}€`} value={children} setter={setChildren} />
+                                <Counter label={dict.booking.widget.adults} price={`${PRICES.ADULT}€`} value={adults} setter={setAdults} />
+                                <Counter label={dict.booking.widget.children} price={`${PRICES.CHILD}€`} value={children} setter={setChildren} />
                                 <Counter label={dict.booking.widget.babies} price={dict.booking.widget.free} value={babies} setter={setBabies} />
                             </div>
                         </div>

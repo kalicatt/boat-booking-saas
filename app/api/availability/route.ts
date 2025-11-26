@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { memoGet, memoSet } from '@/lib/memoCache'
-import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
-import { areIntervalsOverlapping as overlap } from 'date-fns'
+import { computeAvailability } from '@/lib/availability'
 
-// --- CONFIGURATION ---
-const TOUR_DURATION = 25
-const BUFFER_TIME = 5
-const INTERVAL = 10 // Départs toutes les 10 min
-
-// Nouveaux horaires d'ouverture (Base de calcul rotation)
-const OPEN_TIME = "10:00" 
-const CLOSE_TIME = "18:00" // On scanne large, le filtre précis se fait dans la boucle
+// Logic moved to lib/availability.ts
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -80,75 +71,14 @@ export async function GET(request: Request) {
       return NextResponse.json(result)
     }
 
-    const availableSlots: string[] = []
-    // Itération "mur du temps" avec simple compteur minutes pour éviter tout décalage de fuseau
-    const openParts = OPEN_TIME.split(':').map(Number)
-    const closeParts = CLOSE_TIME.split(':').map(Number)
-    const openMins = openParts[0] * 60 + openParts[1]
-    const closeMins = closeParts[0] * 60 + closeParts[1]
-
-    const startTimeInMinutes = openMins
-
-    // Filtre temps réel côté serveur en TZ boutique (Europe/Paris)
-    const todayLocalISO = getParisTodayISO()
-    const nowLocalMinutes = getParisNowMinutes()
-
-    for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += INTERVAL) {
-      // 1) Filtre horaires (matin/après-midi)
-      const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
-      const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
-      if (!isMorning && !isAfternoon) continue
-
-      // 1.b) Pour la journée d'aujourd'hui, masquage des créneaux déjà passés
-      if (dateParam === todayLocalISO && minutesTotal <= nowLocalMinutes + 5) continue
-
-      // 2) Calcul de la barque assignée
-      const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
-      const boatIndex = Math.floor(slotsElapsed) % boats.length
-      const assignedBoat = boats[boatIndex]
-      if (!assignedBoat) continue
-
-      // 3) Construction de l'intervalle pour comparaison avec la base (en UTC explicite)
-      const hh = String(Math.floor(minutesTotal / 60)).padStart(2, '0')
-      const mm = String(minutesTotal % 60).padStart(2, '0')
-      const slotStartUtc = new Date(`${dateParam}T${hh}:${mm}:00.000Z`)
-      const slotEndUtc = addMinutes(slotStartUtc, TOUR_DURATION + BUFFER_TIME)
-
-      const boatBookings = bookings.filter(b => b.boatId === assignedBoat.id)
-      const conflicts = boatBookings.filter(b => {
-        const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
-        return areIntervalsOverlapping(
-          { start: slotStartUtc, end: slotEndUtc },
-          { start: b.startTime, end: busyEnd }
-        )
-      })
-
-      // Blocked intervals: exclude slot if overlaps any block
-      const blocked = blocks.some(b => overlap({ start: slotStartUtc, end: slotEndUtc }, { start: b.start, end: b.end }))
-
-      let isSlotAvailable = false
-      if (!blocked && conflicts.length === 0) {
-        isSlotAvailable = true
-      } else if (!blocked) {
-        const isExactStart = conflicts.every(b => isSameMinute(b.startTime, slotStartUtc))
-        const isSameLang = conflicts.every(b => b.language === requestedLang)
-        const currentPeople = conflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-        if (isExactStart && isSameLang && (currentPeople + peopleNeeded <= assignedBoat.capacity)) {
-          isSlotAvailable = true
-        }
-      }
-
-      if (isSlotAvailable) {
-        availableSlots.push(`${hh}:${mm}`)
-      }
-    }
-
-    // If no slots and there were blocks, surface the reason of the most relevant block
-    let blockedReason: string | undefined
-    if (availableSlots.length === 0 && blocks.length > 0) {
-      blockedReason = blocks[0]?.reason || 'Aucun créneau disponible sur ce créneau'
-    }
-    const result = { date: dateParam, availableSlots, ...(blockedReason ? { blockedReason } : {}) }
+    const result = computeAvailability({
+      dateParam,
+      requestedLang,
+      peopleNeeded,
+      boats,
+      bookings,
+      blocks
+    })
     memoSet(cacheKey, result)
     return NextResponse.json(result)
 

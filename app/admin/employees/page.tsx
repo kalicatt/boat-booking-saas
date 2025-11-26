@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
 export default function EmployeesPage() {
@@ -9,6 +9,8 @@ export default function EmployeesPage() {
     const [loading, setLoading] = useState(true)
     const [showCreateModal, setShowCreateModal] = useState(false)
 
+    const [editTarget, setEditTarget] = useState<any|null>(null)
+    const [editErrors, setEditErrors] = useState<string[]>([])
     const isSuperAdmin = myRole === 'SUPERADMIN'
     const [form, setForm] = useState<any>({
         firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '',
@@ -130,7 +132,7 @@ export default function EmployeesPage() {
                                             {isSuperAdmin && emp.role !== 'SUPERADMIN' && (
                                                 <>
                                                     <button 
-                                                        onClick={() => alert('Édition à venir')}
+                                                        onClick={() => { setEditTarget(emp); setEditErrors([]); }}
                                                         className="text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded font-bold text-xs border border-blue-200"
                                                     >
                                                         Modifier
@@ -139,6 +141,19 @@ export default function EmployeesPage() {
                                                         onClick={() => handleDelete(emp.id, emp.firstName)}
                                                         className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded font-bold text-xs border border-red-200"
                                                     >
+                                                    <EditEmployeeModal
+                                                        open={!!editTarget}
+                                                        onClose={()=>{setEditTarget(null); setEditErrors([])}}
+                                                        employee={editTarget}
+                                                        setEmployee={setEditTarget}
+                                                        myRole={myRole}
+                                                        errors={editErrors}
+                                                        setErrors={setEditErrors}
+                                                        onSaved={(updated:any)=>{
+                                                            setEmployees(prev => prev.map(e => e.id === updated.user.id ? { ...e, ...updated.user } : e))
+                                                            setEditTarget(null)
+                                                        }}
+                                                    />
                                                         Supprimer
                                                     </button>
                                                 </>
@@ -155,6 +170,118 @@ export default function EmployeesPage() {
     )
 }
 
+function EditEmployeeModal({ open, onClose, employee, setEmployee, myRole, errors, setErrors, onSaved }: any) {
+    const firstFieldRef = useRef<HTMLInputElement|null>(null)
+    useEffect(()=>{ if(open && firstFieldRef.current) firstFieldRef.current.focus() }, [open])
+    if (!open || !employee) return null
+
+    const local = { ...employee }
+
+    const validate = () => {
+        const errs:string[] = []
+        if (!local.firstName?.trim()) errs.push('Prénom requis')
+        if (!local.lastName?.trim()) errs.push('Nom requis')
+        if (!local.email?.match(/^[^@\s]+@[^@\s]+\.[^@\s]+$/)) errs.push('Email invalide')
+        setErrors(errs)
+        return errs.length === 0
+    }
+    const handleChange = (field:string, value:any) => {
+        setEmployee((prev:any) => ({ ...prev, [field]: value }))
+    }
+    const handleSubmit = async (e:any) => {
+        e.preventDefault()
+        if (!validate()) return
+        const payload = { ...employee, id: employee.id }
+        const res = await fetch('/api/admin/employees', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        if (res.ok) {
+            const updated = await res.json()
+            onSaved(updated)
+        } else {
+            const err = await res.json().catch(()=>null)
+            setErrors([err?.error || 'Erreur mise à jour'])
+        }
+    }
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" role="dialog" aria-modal="true">
+            <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg border border-slate-200">
+                <div className="p-4 border-b flex justify-between items-center">
+                    <h3 className="font-bold">Modifier collaborateur</h3>
+                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800" aria-label="Fermer">✕</button>
+                </div>
+                <form onSubmit={handleSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-auto" aria-describedby="edit-errors">
+                    {errors.length > 0 && (
+                        <div id="edit-errors" className="bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded" aria-live="polite">
+                            <ul className="list-disc pl-4">
+                                {errors.map((er: string, i: number)=><li key={i}>{er}</li>)}
+                            </ul>
+                        </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-firstName">Prénom</label>
+                            <input ref={firstFieldRef} id="edit-firstName" className="w-full p-2 border rounded" value={employee.firstName || ''} onChange={e=>handleChange('firstName', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-lastName">Nom</label>
+                            <input id="edit-lastName" className="w-full p-2 border rounded" value={employee.lastName || ''} onChange={e=>handleChange('lastName', e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-email">Email</label>
+                            <input id="edit-email" type="email" className="w-full p-2 border rounded" value={employee.email || ''} onChange={e=>handleChange('email', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-phone">Téléphone</label>
+                            <input id="edit-phone" className="w-full p-2 border rounded" value={employee.phone || ''} onChange={e=>handleChange('phone', e.target.value)} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Département</label>
+                            <input className="w-full p-2 border rounded" value={employee.department || ''} onChange={e=>handleChange('department', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Poste</label>
+                            <input className="w-full p-2 border rounded" value={employee.jobTitle || ''} onChange={e=>handleChange('jobTitle', e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Statut</label>
+                            <select className="w-full p-2 border rounded bg-white" value={employee.employmentStatus || ''} onChange={e=>handleChange('employmentStatus', e.target.value)}>
+                                <option value="PERMANENT">Permanent</option>
+                                <option value="TEMPORARY">Temporaire</option>
+                            </select>
+                        </div>
+                    </div>
+                    {myRole === 'SUPERADMIN' && (
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
+                                <input className="w-full p-2 border rounded" value={employee.hourlyRate || ''} onChange={e=>handleChange('hourlyRate', e.target.value)} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
+                                <input className="w-full p-2 border rounded" value={employee.annualSalary || ''} onChange={e=>handleChange('annualSalary', e.target.value)} />
+                            </div>
+                        </div>
+                    )}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Notes</label>
+                        <textarea className="w-full p-2 border rounded" value={employee.notes || ''} onChange={e=>handleChange('notes', e.target.value)} />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="border px-4 py-2 rounded">Annuler</button>
+                        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded">Sauvegarder</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
+}
 // Modal de création rapide
 function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }: any) {
     if (!open) return null
