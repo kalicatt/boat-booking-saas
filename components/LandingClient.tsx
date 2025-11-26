@@ -38,17 +38,19 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
       </nav>
 
-      <header className="relative h-screen flex items-center justify-center overflow-hidden bg-water-gradient">
-        <div className="absolute inset-0 z-0 opacity-70">
-          <Image src="/images/hero-bg.jpg" alt="Colmar Petite Venise" fill className="object-cover mix-blend-multiply" priority />
-          <div className="absolute inset-0 bg-gradient-to-tr from-[rgba(13,27,42,0.85)] via-[rgba(27,73,101,0.55)] to-[rgba(234,179,8,0.15)]" />
+      <header className="relative h-screen flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 z-0">
+          <Image src="/images/hero-bg.jpg" alt="Colmar Petite Venise" fill className="object-cover" priority />
+          {/* Subtle vignette & warm overlay instead of heavy blue */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.35)] via-[rgba(0,0,0,0.25)] to-[rgba(0,0,0,0.55)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(234,179,8,0.25),transparent_60%)]" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto fade-in">
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{dict.hero.title}</h1>
           <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
-          <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col items-center justify-center gap-5">
             <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{dict.hero.cta}</a>
-            <a href={`/${lang}/partners`} className="text-[#eab308] font-bold hover:underline text-sm">{dict.partners?.nav}</a>
+            <a href={`/${lang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{dict.partners?.nav}</a>
           </div>
         </div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
