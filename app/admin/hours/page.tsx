@@ -7,8 +7,10 @@ export default function HoursPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
   const [report, setReport] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+    const [loading, setLoading] = useState(true)
     const [role, setRole] = useState<string>('GUEST')
+    const [openUsers, setOpenUsers] = useState<Record<string, boolean>>({})
+    const [editingShift, setEditingShift] = useState<any | null>(null)
 
   const [form, setForm] = useState({
     userId: '',
@@ -33,8 +35,11 @@ export default function HoursPage() {
       const res = await fetch(`/api/admin/hours?month=${currentMonth}`)
       const data = await res.json()
       setReport(data)
-      setEmployees(data.map((r: any) => r.user))
-      if(data.length > 0 && !form.userId) setForm(prev => ({ ...prev, userId: data[0].user.id }))
+    setEmployees(data.map((r: any) => r.user))
+    if(data.length > 0 && !form.userId) setForm(prev => ({ ...prev, userId: data[0].user.id }))
+    const initOpen: Record<string, boolean> = {}
+    data.forEach((r:any, idx:number) => { initOpen[r.user.id] = idx === 0 })
+    setOpenUsers(initOpen)
     } catch (e) { console.error(e) } 
     finally { setLoading(false) }
   }
@@ -143,6 +148,53 @@ export default function HoursPage() {
         URL.revokeObjectURL(url)
     }
 
+    const toggleUser = (userId: string) => {
+        setOpenUsers(prev => ({ ...prev, [userId]: !prev[userId] }))
+    }
+
+    const startEdit = (shift: any) => {
+        setEditingShift({
+            id: shift.id,
+            userId: shift.userId,
+            date: new Date(shift.startTime).toISOString().slice(0,10),
+            start: formatWallTime(shift.startTime),
+            end: formatWallTime(shift.endTime),
+            breakTime: `${String(Math.floor((shift.breakMinutes||0)/60)).padStart(2,'0')}:${String((shift.breakMinutes||0)%60).padStart(2,'0')}`,
+            note: shift.note || ''
+        })
+    }
+
+    const cancelEdit = () => setEditingShift(null)
+
+    const submitEdit = async () => {
+        if (!editingShift) return
+        const breakInMinutes = timeToMinutes(editingShift.breakTime)
+        try {
+            const res = await fetch('/api/admin/hours', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: editingShift.id,
+                    date: editingShift.date,
+                    start: editingShift.start,
+                    end: editingShift.end,
+                    breakTime: breakInMinutes,
+                    note: editingShift.note
+                })
+            })
+            if (res.ok) {
+                cancelEdit()
+                fetchData()
+                alert('✅ Shift modifié avec succès !')
+            } else {
+                const err = await res.json()
+                alert('❌ Erreur: ' + err.error)
+            }
+        } catch {
+            alert('Erreur technique')
+        }
+    }
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 print:bg-white print:p-0">
       <div className="max-w-6xl mx-auto">
@@ -248,9 +300,10 @@ export default function HoursPage() {
                             {report.map((row) => (
                                 <div key={row.user.id} className="border rounded-lg overflow-hidden print:border-black mb-6 break-inside-avoid">
                                     <div className="bg-slate-100 p-3 flex justify-between items-center print:bg-slate-200">
-                                        <div className="font-bold text-slate-900">
+                                        <button onClick={() => toggleUser(row.user.id)} className="font-bold text-slate-900 flex items-center gap-2">
+                                            <span className="inline-block w-4 text-center">{openUsers[row.user.id] ? '▾' : '▸'}</span>
                                             {row.user.firstName} {row.user.lastName.toUpperCase()}
-                                        </div>
+                                        </button>
                                         <div className="text-sm">
                                             <span className="text-slate-500 mr-2">{row.shiftsCount} jours</span>
                                             <span className="bg-blue-600 text-white px-2 py-1 rounded font-bold print:text-black print:border print:border-black print:bg-white">
@@ -259,6 +312,7 @@ export default function HoursPage() {
                                         </div>
                                     </div>
 
+                                    {openUsers[row.user.id] && (
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-slate-50 text-slate-500 font-normal text-xs uppercase border-b">
                                             <tr>
@@ -266,6 +320,7 @@ export default function HoursPage() {
                                                 <th className="p-2">Horaires</th>
                                                 <th className="p-2">Pause</th>
                                                 <th className="p-2 text-right pr-4">Total Net</th>
+                                                {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (<th className="p-2 text-right pr-4">Actions</th>)}
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-100">
@@ -301,13 +356,21 @@ export default function HoursPage() {
                                                                                                                                 ? `-${Math.floor(shift.breakMinutes/60)}h${(shift.breakMinutes%60).toString().padStart(2,'0')}`
                                                                                                                                 : '-'}
                                                                                                                         </td>
-                                                                                                                        <td className="p-2 pr-4 text-right font-bold text-slate-700">{netH} h</td>
+                                                                                                                                                                                                                                                <td className="p-2 pr-4 text-right font-bold text-slate-700">{netH} h</td>
+                                                                                                                                                                                                                                                {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (
+                                                                                                                                                                                                                                                    <td className="p-2 pr-4 text-right">
+                                                                                                                                                                                                                                                        <button onClick={() => startEdit(shift)} className="text-xs bg-white border px-2 py-1 rounded hover:bg-slate-100" aria-label="Modifier">
+                                                                                                                                                                                                                                                            ✏️
+                                                                                                                                                                                                                                                        </button>
+                                                                                                                                                                                                                                                    </td>
+                                                                                                                                                                                                                                                )}
                                                                                                                     </tr>
                                                                                                                 ))}
                                                                                                                 <tr>
                                                                                                                     <td className="p-2 pl-4 font-bold text-slate-700">Total jour</td>
                                                                                                                     <td className="p-2 text-slate-600" colSpan={2}></td>
                                                                                                                     <td className="p-2 pr-4 text-right font-bold text-blue-700">{dayTotalH} h</td>
+                                                                                                                    {(role === 'ADMIN' || role === 'SUPER_ADMIN') && (<td></td>)}
                                                                                                                 </tr>
                                                                                                             </>
                                                                                                         )
@@ -315,6 +378,7 @@ export default function HoursPage() {
                                             )}
                                         </tbody>
                                     </table>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -322,7 +386,43 @@ export default function HoursPage() {
                 </div>
             </div>
         </div>
-      </div>
+        </div>
+
+        {editingShift && (
+            <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+                <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6">
+                    <h3 className="text-lg font-bold mb-4">Modifier le shift</h3>
+                    <div className="space-y-3">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Date</label>
+                            <input type="date" className="w-full p-2 border rounded" value={editingShift.date} onChange={e => setEditingShift({ ...editingShift, date: e.target.value })} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Début</label>
+                                <input type="time" className="w-full p-2 border rounded" value={editingShift.start} onChange={e => setEditingShift({ ...editingShift, start: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Fin</label>
+                                <input type="time" className="w-full p-2 border rounded" value={editingShift.end} onChange={e => setEditingShift({ ...editingShift, end: e.target.value })} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Pause (HH:mm)</label>
+                            <input type="time" className="w-full p-2 border rounded" value={editingShift.breakTime} onChange={e => setEditingShift({ ...editingShift, breakTime: e.target.value })} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Note</label>
+                            <input type="text" className="w-full p-2 border rounded" value={editingShift.note} onChange={e => setEditingShift({ ...editingShift, note: e.target.value })} />
+                        </div>
+                    </div>
+                    <div className="mt-6 flex justify-end gap-2">
+                        <button onClick={cancelEdit} className="px-3 py-2 border rounded">Annuler</button>
+                        <button onClick={submitEdit} className="px-3 py-2 bg-blue-600 text-white rounded">Enregistrer</button>
+                    </div>
+                </div>
+            </div>
+        )}
     </div>
   )
 }
