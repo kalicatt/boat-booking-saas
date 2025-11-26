@@ -19,19 +19,19 @@ export default function StatsPage() {
     const now = new Date()
     let start, end
 
-    if (range === 'day') {
+    if (range === 'day') { 
       start = startOfDay(now)
       end = endOfDay(now)
     } else if (range === 'month') {
       start = startOfMonth(now)
       end = endOfMonth(now)
     } else {
-      start = startOfYear(now)
+      start = startOfYear(now) 
       end = endOfYear(now)
     }
 
     try {
-      const res = await fetch(`/api/admin/stats?start=${start.toISOString()}&end=${end.toISOString()}`)
+      const res = await fetch(`/api/admin/stats?start=${start.toISOString().slice(0,10)}&end=${end.toISOString().slice(0,10)}`)
       
       if (!res.ok) {
           throw new Error(`Erreur API : ${res.status}`)
@@ -100,6 +100,16 @@ export default function StatsPage() {
                 <p className="text-4xl font-bold text-slate-800 mt-2">{data.bookingsCount || 0}</p>
               </div>
             </div>
+            <div className="grid grid-cols-4 gap-4">
+              <KPI title="Réservations" value={data.bookingsCount || 0} />
+              <KPI title="Embarqués" value={data.passengers || 0} />
+              <KPI title="No-Show" value={data.noShow || 0} />
+              <KPI title="Annulés" value={data.cancelled || 0} />
+              <KPI title="CA (€)" value={data.revenue || 0} />
+              <KPI title="Pers./Total" value={data.people || 0} />
+              <KPI title="Panier moy." value={data.avgPerBooking || 0} />
+              <KPI title="€/pers." value={data.avgPerPerson || 0} />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
@@ -112,10 +122,93 @@ export default function StatsPage() {
                     const percent = Math.round((l._count.id / total) * 100);
                     return (
                       <div key={l.language}>
+            </div>
+            <Section title="Par statut">
+              <Bar data={toBarData(data.statusDist || {})} />
+            </Section>
+            <Section title="Par langue">
+              <Bar data={toBarData(data.langDist || {})} />
+            </Section>
+            <Section title="Par jour (mois)">
+              <Line data={toLineData(data.seriesDaily || [])} />
+            </Section>
+            <Section title="Par heure">
+              <Bar data={toHourBar(data.byHour || [])} />
+            </Section>
                         <div className="flex justify-between text-sm font-bold mb-1">
                           <span>{l.language}</span>
                           <span>{percent}% ({l._count.id})</span>
                         </div>
+}
+
+function KPI({ title, value }: { title: string; value: number }) {
+  return (
+    <div className="p-4 bg-white border rounded shadow-sm">
+      <div className="text-xs text-slate-500 font-bold uppercase">{title}</div>
+      <div className="text-2xl font-bold text-blue-900">{value}</div>
+    </div>
+  )
+}
+
+function Section({ title, children }: any) {
+  return (
+    <div className="mt-6">
+      <h3 className="text-sm font-bold text-slate-600 mb-2">{title}</h3>
+      <div className="p-4 bg-white border rounded">{children}</div>
+    </div>
+  )
+}
+
+function Bar({ data }: { data: Array<{ label: string; value: number }> }) {
+  return (
+    <div className="grid grid-cols-6 gap-2 items-end h-40">
+      {data.map((d) => (
+        <div key={d.label} className="flex flex-col items-center">
+          <div className="w-6 bg-blue-600" style={{ height: `${Math.max(4, d.value)}px` }} />
+          <div className="text-[10px] mt-1 text-center break-words">{d.label}</div>
+          <div className="text-[10px] text-slate-500">{d.value}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function Line({ data }: { data: Array<{ date: string; bookings: number; revenue: number }> }) {
+  return (
+    <div className="h-40 relative">
+      {/* minimal line: bookings only */}
+      <svg className="absolute inset-0 w-full h-full">
+        {(() => {
+          if (!data.length) return null
+          const max = Math.max(...data.map(d => d.bookings)) || 1
+          const points = data.map((d, i) => {
+            const x = (i / Math.max(1, data.length - 1)) * 100
+            const y = 100 - (d.bookings / max) * 100
+            return `${x},${y}`
+          }).join(' ')
+          return (
+            <polyline points={points} fill="none" stroke="#2563eb" strokeWidth="2" />
+          )
+        })()}
+      </svg>
+      <div className="grid grid-cols-6 text-[10px] absolute bottom-0 w-full">
+        {data.slice(0,6).map(d => <div key={d.date} className="truncate">{d.date.slice(8,10)}</div>)}
+      </div>
+    </div>
+  )
+}
+
+function toBarData(obj: Record<string, number>) {
+  return Object.entries(obj).map(([label, value]) => ({ label, value }))
+}
+
+function toLineData(arr: Array<{ date: string; bookings: number; revenue: number }>) {
+  return arr
+}
+
+function toHourBar(arr: Array<{ hour: string; count: number; revenue: number }>) {
+  return arr.map(a => ({ label: a.hour, value: a.count }))
+}
                         <div className="w-full bg-slate-100 rounded-full h-2.5">
                           <div className={`h-2.5 rounded-full ${l.language === 'FR' ? 'bg-blue-500' : l.language === 'EN' ? 'bg-red-500' : 'bg-yellow-500'}`} style={{ width: `${percent}%` }}></div>
                         </div>
