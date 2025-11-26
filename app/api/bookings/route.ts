@@ -57,6 +57,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Horaire ${time} impossible. (10h-11h45 / 13h30-17h45)` }, { status: 400 })
     }
 
+    // 2.b VERROU: Interdiction de réserver moins de 5 minutes avant le départ
+    // On compare dans la même "échelle murale" que le front (dates locales traitées comme UTC)
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const todayLocalISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    if (date === todayLocalISO) {
+      const hh = pad(now.getHours())
+      const mm = pad(now.getMinutes())
+      const wallNow = new Date(`${todayLocalISO}T${hh}:${mm}:00.000Z`)
+      const diffMs = myStart.getTime() - wallNow.getTime()
+      if (diffMs <= 5 * 60 * 1000 && !isStaffOverride) {
+        return NextResponse.json({ error: `Réservation trop tardive: moins de 5 minutes avant le départ.` }, { status: 400 })
+      }
+    }
+
     // 3. CHARGEMENT BARQUES
     const boats = await prisma.boat.findMany({ where: { status: 'ACTIVE' }, orderBy: { id: 'asc' } })
     if (boats.length === 0) return NextResponse.json({ error: "Aucune barque active" }, { status: 500 })

@@ -57,11 +57,20 @@ export async function GET(request: Request) {
 
     const startTimeInMinutes = openMins
 
+    // Filtre "moins de 5 minutes avant" pour la journée en cours, basé sur l'heure locale
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const todayLocalISO = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+    const nowLocalMinutes = now.getHours() * 60 + now.getMinutes()
+
     for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += INTERVAL) {
       // 1) Filtre horaires (matin/après-midi)
       const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
       const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
       if (!isMorning && !isAfternoon) continue
+
+      // 1.b) Pour la journée d'aujourd'hui, masquage des créneaux déjà passés
+      if (dateParam === todayLocalISO && minutesTotal <= nowLocalMinutes + 5) continue
 
       // 2) Calcul de la barque assignée
       const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL

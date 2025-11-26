@@ -386,8 +386,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             </div>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
-                                <span className="text-4xl mb-4">📅</span>
-                                <h3 className="font-bold text-slate-800">{dict.booking.widget.no_slot}</h3>
+                                <span className="text-4xl mb-3">📅</span>
+                                <h3 className="font-bold text-slate-800">
+                                  {date === todayLocalISO ? 'Plus de départs aujourd\'hui' : (dict.booking.widget.no_slot || 'Aucun créneau disponible')}
+                                </h3>
+                                {date === todayLocalISO && (
+                                  <p className="text-sm text-slate-500 mt-1">Revenez demain ou choisissez une autre date.</p>
+                                )}
                             </div>
                         )}
                     </div>

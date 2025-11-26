@@ -469,7 +469,7 @@ export default function AdminPlanning() {
             step={5} 
             timeslots={1} 
             min={new Date(0, 0, 0, 9, 0, 0)} 
-            max={new Date(0, 0, 0, 19, 0, 0)} 
+            max={new Date(0, 0, 0, 18, 30, 0)} 
             culture='fr'
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
             slotPropGetter={slotPropGetter}
