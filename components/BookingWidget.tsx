@@ -43,7 +43,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   
   // API & Slots
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
-  const [loading, setLoading] = useState(false)
+    const [loading, setLoading] = useState(false)
+    const [blockedReason, setBlockedReason] = useState<string | undefined>(undefined)
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   
   // Contact & Formulaires
@@ -94,6 +95,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 // Filtre côté client: si la date recherchée est aujourd'hui (local),
                 // on masque les créneaux déjà passés en se basant sur l'heure locale.
                 const slots: string[] = data.availableSlots || []
+                setBlockedReason(data.blockedReason)
                 const now = new Date()
                 const pad = (n: number) => String(n).padStart(2, '0')
                 const todayLocal = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
@@ -388,13 +390,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                     </button>
                                 ))}
                             </div>
-                        ) : (
+                                                ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
                                 <span className="text-4xl mb-3">📅</span>
                                 <h3 className="font-bold text-slate-800">
                                   {date === todayLocalISO ? 'Plus de départs aujourd\'hui' : (dict.booking.widget.no_slot || 'Aucun créneau disponible')}
                                 </h3>
-                                {date === todayLocalISO && (
+                                                                {blockedReason && (
+                                                                    <p className="text-sm text-slate-500 mt-1">{blockedReason}</p>
+                                                                )}
+                                                                {date === todayLocalISO && !blockedReason && (
                                   <p className="text-sm text-slate-500 mt-1">Revenez demain ou choisissez une autre date.</p>
                                 )}
                             </div>

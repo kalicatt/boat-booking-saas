@@ -73,3 +73,38 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: 'Erreur suppression bloc' }, { status: 500 })
   }
 }
+
+export async function PUT(req: Request) {
+  try {
+    const session = await auth()
+    if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
+    const body = await req.json()
+    const { id, start, end, scope, reason } = body
+    if (!id) return NextResponse.json({ error: 'ID manquant' }, { status: 400 })
+
+    const normalizeToUtc = (s: string | undefined) => {
+      if (!s) return undefined
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return new Date(s + ':00.000Z')
+      if (/Z$/.test(s)) return new Date(s)
+      return new Date(s + 'Z')
+    }
+
+    const updated = await prisma.blockedInterval.update({
+      where: { id },
+      data: {
+        start: start ? normalizeToUtc(start) : undefined,
+        end: end ? normalizeToUtc(end) : undefined,
+        scope: scope ?? undefined,
+        reason: reason ?? undefined,
+      }
+    })
+    await createLog('BLOCK_UPDATE', `Mise à jour blocage ${updated.scope} (${updated.start.toISOString()} -> ${updated.end.toISOString()})`)
+    return NextResponse.json(updated)
+  } catch (e) {
+    return NextResponse.json({ error: 'Erreur mise à jour bloc' }, { status: 500 })
+  }
+}

@@ -74,7 +74,8 @@ export async function GET(request: Request) {
       return bStart <= dayStartUtc && bEnd >= dayEndUtc
     })
     if (hasFullDayBlock) {
-      const result = { date: dateParam, availableSlots: [] }
+      const reason = blocks.find(b => b.scope === 'day')?.reason || 'Journée indisponible'
+      const result = { date: dateParam, availableSlots: [], blockedReason: reason }
       memoSet(cacheKey, result)
       return NextResponse.json(result)
     }
@@ -142,7 +143,12 @@ export async function GET(request: Request) {
       }
     }
 
-    const result = { date: dateParam, availableSlots }
+    // If no slots and there were blocks, surface the reason of the most relevant block
+    let blockedReason: string | undefined
+    if (availableSlots.length === 0 && blocks.length > 0) {
+      blockedReason = blocks[0]?.reason || 'Aucun créneau disponible sur ce créneau'
+    }
+    const result = { date: dateParam, availableSlots, ...(blockedReason ? { blockedReason } : {}) }
     memoSet(cacheKey, result)
     return NextResponse.json(result)
 

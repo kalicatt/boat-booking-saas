@@ -10,6 +10,8 @@ export default function BlocksAdminPage() {
   const [scope, setScope] = useState<'day'|'morning'|'afternoon'|'specific'>('specific')
   const [reason, setReason] = useState('')
   const [day, setDay] = useState('') // YYYY-MM-DD (Europe/Paris)
+  const [presetApplied, setPresetApplied] = useState(false)
+  const [editingId, setEditingId] = useState<string|undefined>(undefined)
 
   // Helpers to build UTC ISO from Paris wall time
   const makeUtcIso = (dateStr: string, hh: number, mm: number) => {
@@ -37,6 +39,7 @@ export default function BlocksAdminPage() {
       setStart(makeUtcIso(day, 13, 30))
       setEnd(makeUtcIso(day, 18, 0))
     }
+    setPresetApplied(true)
   }
 
   const load = async () => {
@@ -57,7 +60,20 @@ export default function BlocksAdminPage() {
       body: JSON.stringify({ start, end, scope, reason })
     })
     if (res.ok) {
-      setStart(''); setEnd(''); setReason('')
+      setStart(''); setEnd(''); setReason(''); setDay(''); setPresetApplied(false)
+      await load()
+    }
+  }
+
+  const saveEdit = async () => {
+    if (!editingId) return
+    const res = await fetch('/api/admin/blocks', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: editingId, start, end, scope, reason })
+    })
+    if (res.ok) {
+      setEditingId(undefined); setStart(''); setEnd(''); setReason(''); setDay(''); setPresetApplied(false)
       await load()
     }
   }
@@ -84,14 +100,15 @@ export default function BlocksAdminPage() {
               <button type="button" onClick={()=>applyPreset('morning')} className="border px-3 py-1.5 rounded text-sm">Bloquer la matinée</button>
               <button type="button" onClick={()=>applyPreset('afternoon')} className="border px-3 py-1.5 rounded text-sm">Bloquer l'après-midi</button>
             </div>
+            {presetApplied && <span className="text-xs text-green-700 bg-green-100 border border-green-200 px-2 py-1 rounded">Préset appliqué</span>}
           </div>
           <div>
             <label className="block text-xs text-slate-500">Début (UTC)</label>
-            <input type="datetime-local" value={start} onChange={(e)=>setStart(e.target.value)} className="border px-2 py-1 rounded w-full" />
+            <input type="datetime-local" value={start} onChange={(e)=>{ setStart(e.target.value); setPresetApplied(false) }} className="border px-2 py-1 rounded w-full" />
           </div>
           <div>
             <label className="block text-xs text-slate-500">Fin (UTC)</label>
-            <input type="datetime-local" value={end} onChange={(e)=>setEnd(e.target.value)} className="border px-2 py-1 rounded w-full" />
+            <input type="datetime-local" value={end} onChange={(e)=>{ setEnd(e.target.value); setPresetApplied(false) }} className="border px-2 py-1 rounded w-full" />
           </div>
           <div>
             <label className="block text-xs text-slate-500">Périmètre</label>
@@ -106,8 +123,15 @@ export default function BlocksAdminPage() {
             <label className="block text-xs text-slate-500">Raison (optionnel)</label>
             <input value={reason} onChange={(e)=>setReason(e.target.value)} className="border px-2 py-1 rounded w-full" placeholder="Maintenance, événement..." />
           </div>
-          <div className="md:col-span-2">
-            <button onClick={create} className="bg-blue-600 text-white px-4 py-2 rounded">Créer le blocage</button>
+          <div className="md:col-span-2 flex gap-2">
+            {!editingId ? (
+              <button onClick={create} className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50" disabled={!start || !end}>Créer le blocage</button>
+            ) : (
+              <>
+                <button onClick={saveEdit} className="bg-green-600 text-white px-4 py-2 rounded disabled:opacity-50" disabled={!start || !end}>Enregistrer</button>
+                <button onClick={()=>{ setEditingId(undefined); setStart(''); setEnd(''); setReason(''); setDay(''); setPresetApplied(false) }} className="border px-4 py-2 rounded">Annuler</button>
+              </>
+            )}
           </div>
         </div>
 
@@ -135,7 +159,18 @@ export default function BlocksAdminPage() {
                     <td className="p-3"><span className="px-2 py-1 rounded bg-slate-100 text-slate-700 text-xs">{b.scope}</span></td>
                     <td className="p-3 text-slate-600">{b.reason || '-'}</td>
                     <td className="p-3 text-right">
-                      <button onClick={()=>remove(b.id)} className="text-red-600 hover:underline">Supprimer</button>
+                      <div className="flex gap-3 justify-end">
+                        <button onClick={()=>{
+                          setEditingId(b.id)
+                          setStart(new Date(b.start).toISOString().slice(0,16))
+                          setEnd(new Date(b.end).toISOString().slice(0,16))
+                          setScope(b.scope)
+                          setReason(b.reason || '')
+                          setDay('')
+                          setPresetApplied(false)
+                        }} className="text-blue-600 hover:underline">Éditer</button>
+                        <button onClick={()=>remove(b.id)} className="text-red-600 hover:underline">Supprimer</button>
+                      </div>
                     </td>
                   </tr>
                 ))
