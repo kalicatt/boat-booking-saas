@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken } = body
+    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message } = body
 
     // ============================================================
     // 1. SÉCURITÉ : VÉRIFICATION CAPTCHA
@@ -144,6 +144,7 @@ export async function POST(request: Request) {
         language: language,
         totalPrice: finalPrice,
         status: 'CONFIRMED',
+        message: message || null,
         boat: { connect: { id: targetBoat.id } },
         user: {
           connectOrCreate: {

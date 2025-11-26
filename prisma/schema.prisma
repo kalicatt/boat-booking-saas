@@ -47,6 +47,7 @@ model Booking {
   adults         Int      @default(0) // <--- NOUVEAU
   children       Int      @default(0) // <--- NOUVEAU (4-10 ans)
   babies         Int      @default(0) // <--- NOUVEAU (0-3 ans)
+  message String?
 
   language    String
   totalPrice  Float
