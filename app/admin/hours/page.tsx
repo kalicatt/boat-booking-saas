@@ -64,6 +64,22 @@ export default function HoursPage() {
     } catch (e) { alert("Erreur technique") }
   }
 
+    // Affichage "mur du temps" en UTC explicite (évite décalage)
+    const formatWallDate = (iso: string) => {
+        const d = new Date(iso)
+        const y = d.getUTCFullYear()
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(d.getUTCDate()).padStart(2, '0')
+        return `${day}/${m}/${y}`
+    }
+
+    const formatWallTime = (iso: string) => {
+        const d = new Date(iso)
+        const hh = String(d.getUTCHours()).padStart(2, '0')
+        const mm = String(d.getUTCMinutes()).padStart(2, '0')
+        return `${hh}:${mm}`
+    }
+
   return (
     <div className="min-h-screen bg-slate-50 p-8 print:bg-white print:p-0">
       <div className="max-w-6xl mx-auto">
@@ -185,11 +201,10 @@ export default function HoursPage() {
                                                     return (
                                                         <tr key={shift.id}>
                                                             <td className="p-2 pl-4 font-medium">
-                                                                {new Date(shift.startTime).toLocaleDateString()}
+                                                                {formatWallDate(shift.startTime)}
                                                             </td>
                                                             <td className="p-2 text-slate-600">
-                                                                {new Date(shift.startTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})} - 
-                                                                {new Date(shift.endTime).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                                                {formatWallTime(shift.startTime)} - {formatWallTime(shift.endTime)}
                                                             </td>
                                                             <td className="p-2 text-slate-500 italic">
                                                                 {/* Affichage propre de la pause */}
