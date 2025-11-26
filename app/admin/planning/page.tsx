@@ -85,13 +85,9 @@ export default function AdminPlanning() {
         const clientFullName = `${b.user.firstName} ${b.user.lastName}`
         const displayTitle = (clientFullName === 'Client Guichet') ? 'Guichet' : clientFullName;
         
-        // Correction Visuelle Timezone (UTC -> Local)
-        const utcStart = new Date(b.startTime)
-        const utcEnd = new Date(b.endTime)
-        const offset = utcStart.getTimezoneOffset(); 
-        const visualStart = new Date(utcStart.getTime() + (offset * 60 * 1000));
-        const visualEnd = new Date(utcEnd.getTime() + (offset * 60 * 1000));
-
+        // Horaires déjà gérés en UTC "mur du temps": on utilise directement les dates stockées
+        const visualStart = new Date(b.startTime)
+        const visualEnd = new Date(b.endTime)
         if (isNaN(visualStart.getTime())) return null
 
         return {
@@ -282,9 +278,27 @@ export default function AdminPlanning() {
       <div className="flex flex-col justify-between h-full w-full p-1 overflow-hidden group relative">
           {/* Badge total personnes sur la barque */}
           <div className="absolute top-0 right-0 m-1">
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-white/20 ring-1 ring-white/40">
-              {event.totalOnBoat}/{event.boatCapacity}p
-            </span>
+            {(() => {
+              const usage = event.boatCapacity > 0 ? event.totalOnBoat / event.boatCapacity : 0
+              const style = usage >= 1 ? 'bg-red-500 text-white' : usage >= 0.85 ? 'bg-amber-500 text-black' : usage >= 0.5 ? 'bg-green-500 text-white' : 'bg-white/20 text-white'
+              return (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ring-1 ring-white/40 ${style}`} title={`Charge: ${event.totalOnBoat}/${event.boatCapacity}`}>
+                  {event.totalOnBoat}/{event.boatCapacity}p
+                </span>
+              )
+            })()}
+          </div>
+          {/* Badge places restantes */}
+          <div className="absolute bottom-0 right-0 m-1">
+            {(() => {
+              const remaining = Math.max(0, (event.boatCapacity || 0) - (event.totalOnBoat || 0))
+              const style = remaining === 0 ? 'bg-red-500 text-white' : remaining <= 2 ? 'bg-amber-500 text-black' : 'bg-white/30 text-white'
+              return (
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ring-1 ring-white/40 ${style}`} title={`Places restantes: ${remaining}`}>
+                  {remaining} rest.
+                </span>
+              )
+            })()}
           </div>
 
           {/* Ligne 1 : Drapeau + Nom (multi-ligne) */}
