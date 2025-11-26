@@ -4,6 +4,7 @@ import { GroupRequestTemplate } from '@/components/emails/GroupRequestTemplate'
 import { createLog } from '@/lib/logger'
 import { z } from 'zod'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { normalizeIncoming } from '@/lib/phone'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -26,7 +27,9 @@ export async function POST(request: Request) {
     })
     const parsed = schema.safeParse(json)
     if (!parsed.success) return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
-    const { firstName, lastName, email, phone, message, people, captchaToken } = parsed.data
+    let { firstName, lastName, email, phone, message, people, captchaToken } = parsed.data
+    // Normalize phone if provided with leading +country format (booking widget already sends E.164)
+    if (phone) phone = normalizeIncoming(phone)
 
     // 1. VÉRIFICATION CAPTCHA
     if (!captchaToken) {

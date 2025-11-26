@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
+import { normalizeIncoming } from './phone'
 
 // Basic reusable sanitization – trim & remove zero-width/invisible chars
 export function cleanString(input: unknown, maxLength = 255) {
@@ -72,12 +74,22 @@ export const BookingRequestSchema = z.object({
   adults: z.number().int().min(0).max(100),
   children: z.number().int().min(0).max(100),
   babies: z.number().int().min(0).max(100),
+function normalizePhone(input: string) {
+  return normalizeIncoming(input)
+}
+
   language: z.enum(['FR','EN','DE','ES']).or(z.string().min(2).max(5)),
   userDetails: z.object({
     firstName: z.string().min(1).max(60).transform(v => cleanString(v,60)!),
     lastName: z.string().min(1).max(60).transform(v => cleanString(v,60)!),
     email: z.string().email().max(120),
-    phone: z.string().optional().transform(v => v ? cleanString(v,30) : undefined)
+    phone: z.string().optional()
+      .transform(v => v ? normalizePhone(cleanString(v,30)!) : undefined)
+      .refine(v => {
+        if (!v) return true
+        const pn = parsePhoneNumberFromString(v)
+        return !!pn && pn.isValid()
+      }, { message: 'Format téléphone invalide (E.164)' })
   }),
   isStaffOverride: z.boolean().optional(),
   captchaToken: z.string().optional(),

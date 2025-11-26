@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { PHONE_CODES } from '@/lib/phoneData'
+import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
+import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import ReCAPTCHA from 'react-google-recaptcha'
 
 interface WizardProps {
@@ -48,7 +51,21 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
   
   // Contact & Formulaires
-  const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', phone: '', message: '' })
+    const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', phone: '', message: '' })
+    const [phoneCode, setPhoneCode] = useState('+33')
+    const [phoneError, setPhoneError] = useState<string | null>(null)
+
+    const validateLocalPhone = (digits: string) => {
+        if (!digits) return 'Numéro requis'
+        if (!isPossibleLocalDigits(digits)) {
+            if (digits.length < 6) return 'Trop court'
+            return 'Trop long'
+        }
+        return null
+    }
+
+    const buildE164 = () => localToE164(phoneCode, formData.phone)
+    const getFormattedPhone = () => formatInternational(buildE164())
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const recaptchaRef = useRef<ReCAPTCHA>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -133,9 +150,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                date, time: selectedSlot, 
-                adults, children, babies, language, 
-                userDetails: formData, 
+                date,
+                time: selectedSlot,
+                adults,
+                children,
+                babies,
+                language,
+                userDetails: { ...formData, phone: buildE164() },
                 captchaToken
             })
         })
@@ -167,6 +188,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 ...formData,
+                phone: buildE164(),
                 people: totalPeople,
                 captchaToken
             })
@@ -198,8 +220,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 ...formData,
+                phone: buildE164(),
                 people: totalPeople,
-                date: date,
+                date,
                 captchaToken
             })
         })
@@ -456,11 +479,44 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                 value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                         
-                        <div>
-                            <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_phone}</label>
-                            <input required type="tel" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none" 
-                                value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
-                        </div>
+                                                <div>
+                                                        <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_phone}</label>
+                                                        <div className="flex gap-2 mt-1 items-start">
+                                                            <select value={phoneCode} onChange={e => setPhoneCode(e.target.value)} className="p-3 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none w-36 text-sm">
+                                                                {PHONE_CODES.map(pc => (
+                                                                    <option key={pc.code} value={pc.code}>{pc.flag} {pc.code}</option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="flex-1">
+                                                                <input
+                                                                    required
+                                                                    type="tel"
+                                                                    inputMode="tel"
+                                                                    className={`w-full p-3 border rounded-lg bg-white focus:ring-2 outline-none ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#eab308]'}`}
+                                                                    value={formData.phone}
+                                                                    onChange={e => {
+                                                                        const digits = e.target.value.replace(/[^0-9]/g,'')
+                                                                        setFormData({ ...formData, phone: digits })
+                                                                        const localErr = validateLocalPhone(digits)
+                                                                        // library validation if basic passes
+                                                                        if (localErr) { setPhoneError(localErr); return }
+                                                                        const e164 = localToE164(phoneCode, digits)
+                                                                        setPhoneError(isValidE164(e164) ? null : 'Format international invalide')
+                                                                    }}
+                                                                    onBlur={() => {
+                                                                        const localErr = validateLocalPhone(formData.phone)
+                                                                        if (localErr) return setPhoneError(localErr)
+                                                                        const e164 = buildE164()
+                                                                        setPhoneError(isValidE164(e164) ? null : 'Format international invalide')
+                                                                    }}
+                                                                />
+                                                                <div className="flex justify-between mt-1">
+                                                                    <p className="text-[10px] text-slate-400">{getFormattedPhone()}</p>
+                                                                    {phoneError && <p className="text-[10px] text-red-500">{phoneError}</p>}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                </div>
 
                         {(step === STEPS.GROUP_CONTACT || step === STEPS.PRIVATE_CONTACT) && (
                              <div>
@@ -479,7 +535,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             />
                         </div>
                         
-                        <button type="submit" disabled={isSubmitting} 
+                        <button type="submit" disabled={isSubmitting || !!phoneError} 
                             className="w-full bg-[#0f172a] text-[#eab308] py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-lg mt-4">
                             {isSubmitting ? dict.booking.widget.submitting : 
                                 step === STEPS.CONTACT ? `${dict.booking.widget.confirm} (${totalPrice}€)` : 

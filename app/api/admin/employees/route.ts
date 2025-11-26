@@ -4,6 +4,7 @@ import { hash } from 'bcryptjs'
 import { auth } from '@/auth'
 import { createLog } from '@/lib/logger'
 import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber } from '@/lib/validation'
+import { normalizeIncoming } from '@/lib/phone'
 
 // 1. FIX: Interface pour définir que le rôle existe pour TypeScript
 interface ExtendedUser {
@@ -44,9 +45,14 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
-    const { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
+    let { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
       dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
       employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
+
+    // Normalisation E.164 si le numéro commence par '+'
+    if (phone && phone.startsWith('+')) {
+      phone = normalizeIncoming(phone)
+    }
 
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) return NextResponse.json({ error: "Email déjà utilisé." }, { status: 409 })
@@ -140,9 +146,13 @@ export async function PUT(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
-    const { id, firstName, lastName, email, phone, address, city, postalCode, country, password, role,
+    let { id, firstName, lastName, email, phone, address, city, postalCode, country, password, role,
       dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
       employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
+
+    if (phone && phone.startsWith('+')) {
+      phone = normalizeIncoming(phone)
+    }
 
     if (!id) return NextResponse.json({ error: "ID manquant" }, { status: 400 })
 
