@@ -173,7 +173,7 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
           )}
           <div className="md:col-span-2 flex items-center gap-3">
             <button disabled={loading} className={`px-5 py-2 rounded font-bold text-sm ${loading ? 'bg-slate-300 text-slate-500' : 'bg-[#0f172a] text-[#eab308] hover:bg-black'} transition`}>{active==='group' ? tr.submitGroup : tr.submitPrivate}</button>
-            {ok && <span className="text-green-600 font-bold text-sm">{tr.sent}</span>}
+            {ok && <span className="text-green-600 font-bold text-sm">{tr.sentText}</span>}
             {error && <span className="text-red-600 font-bold text-sm">{error}</span>}
           </div>
         </form>
