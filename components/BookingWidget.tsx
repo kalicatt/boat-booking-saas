@@ -541,7 +541,6 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     
                     <div className="flex-1 bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                         {availableSlots.length > 0 ? (
-                            <>
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 overflow-y-auto pr-2 custom-scrollbar">
                                 {availableSlots.map(slot => (
                                     <button key={slot} onClick={() => setSelectedSlot(slot)}
@@ -550,70 +549,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                     </button>
                                 ))}
                             </div>
-                                {/* --- CTA: Contact forms shortcut (always visible) --- */}
-                                <div className="mt-8 bg-white p-4 border rounded shadow-sm">
-                                    <div className="text-sm text-slate-700 font-bold mb-2">Besoin d'un devis groupe ou d'une privatisation ?</div>
-                                    <div className="flex flex-col sm:flex-row gap-2">
-                                        <button
-                                            type="button"
-                                            className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
-                                            onClick={() => {
-                                                // If we have meaningful context, navigate with query+hash; else smooth scroll
-                                                const hasContext = totalPeople > 0 || !!date
-                                                if (hasContext) {
-                                                    try {
-                                                        const params = new URLSearchParams()
-                                                        params.set('people', String(Math.max(totalPeople, GROUP_THRESHOLD + 1)))
-                                                        if (date) params.set('date', date)
-                                                        const url = `${window.location.pathname}?${params.toString()}#contact-group`
-                                                        window.location.assign(url)
-                                                        return
-                                                    } catch {
-                                                        // fallthrough to smooth scroll
-                                                    }
-                                                }
-                                                const el = document.getElementById('contact-group') || document.getElementById('contact')
-                                                if (el) {
-                                                    history.pushState(null, '', '#contact-group')
-                                                    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                                                } else {
-                                                    setAdults(GROUP_THRESHOLD + 1); setStep(STEPS.GROUP_CONTACT)
-                                                }
-                                            }}
-                                        >
-                                            👥 Demande groupe
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
-                                            onClick={() => {
-                                                const hasContext = totalPeople > 0 || !!date
-                                                if (hasContext) {
-                                                    try {
-                                                        const params = new URLSearchParams()
-                                                        if (totalPeople > 0) params.set('people', String(totalPeople))
-                                                        if (date) params.set('date', date)
-                                                        const url = `${window.location.pathname}?${params.toString()}#contact-private`
-                                                        window.location.assign(url)
-                                                        return
-                                                    } catch {
-                                                        // fallthrough to smooth scroll
-                                                    }
-                                                }
-                                                const el = document.getElementById('contact-private') || document.getElementById('contact')
-                                                if (el) {
-                                                    history.pushState(null, '', '#contact-private')
-                                                    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                                                } else {
-                                                    setIsPrivate(true); setStep(STEPS.PRIVATE_CONTACT)
-                                                }
-                                            }}
-                                        >
-                                            ✨ Demande de privatisation
-                                        </button>
-                                    </div>
-                                </div>
-                            </>
+                            
 
                                                 ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
