@@ -210,7 +210,7 @@ export async function POST(request: Request) {
         if (conflicting) {
           // Try multi-boat distribution: iterate through all other boats by capacity
           const otherBoats = await prisma.boat.findMany({
-            where: { id: { not: targetBoat.id }, capacity: { gte: chunkPeople } },
+            where: { id: { not: targetBoat.id }, capacity: { gt: 0 } },
             orderBy: { capacity: 'desc' }
           })
           let placedAny = false
