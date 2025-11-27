@@ -1,9 +1,7 @@
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import { createLog } from '@/lib/logger'
-import dynamic from 'next/dynamic'
-
-const ClientPage = dynamic(() => import('./ClientPage'), { ssr: false })
+import ClientPage from './ClientPage'
 
 export default async function BlocksAdminPage() {
   const session = await auth()
