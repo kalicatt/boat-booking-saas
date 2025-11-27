@@ -12,6 +12,10 @@ export async function POST(req: Request) {
   if (action === 'open') {
     const { openingFloat, openedById } = body
     const s = await prisma.cashSession.create({ data: { openingFloat: openingFloat ?? 0, openedById } })
+    // Ledger entry for opening float as PAID_IN (optional)
+    if (openingFloat && openingFloat > 0) {
+      await prisma.paymentLedger.create({ data: { eventType: 'PAID_IN', provider: 'cash', amount: openingFloat, currency: 'EUR' } })
+    }
     return NextResponse.json(s)
   }
   if (action === 'close') {
@@ -22,6 +26,8 @@ export async function POST(req: Request) {
   if (action === 'movement') {
     const { sessionId, kind, amount, note } = body
     const m = await prisma.cashMovement.create({ data: { sessionId, kind, amount, note } })
+    // Mirror cash movement to ledger
+    await prisma.paymentLedger.create({ data: { eventType: kind.toUpperCase(), provider: 'cash', amount: amount, currency: 'EUR', note } })
     return NextResponse.json(m)
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

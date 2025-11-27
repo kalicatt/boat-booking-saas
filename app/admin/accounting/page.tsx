@@ -12,6 +12,7 @@ export default function AccountingAdminPage(){
   const [openingFloat, setOpeningFloat] = useState(0)
   const [closingCount, setClosingCount] = useState(0)
   const [csvUrl, setCsvUrl] = useState<string|undefined>(undefined)
+  const [selectedDay, setSelectedDay] = useState<string>(()=> new Date().toISOString().slice(0,10))
 
   return (
     <div className="p-6 space-y-6">
@@ -51,7 +52,7 @@ export default function AccountingAdminPage(){
               {(ledger||[]).map((e:any)=> (
                 <tr key={e.id} className="border-t">
                   <td className="p-2">{format(new Date(e.occurredAt),'dd/MM HH:mm')}</td>
-                  <td className="p-2">{e.receiptNo ?? '—'}</td>
+                  <td className="p-2">{e.receiptNo ? `${new Date(e.occurredAt).getUTCFullYear()}-${String(e.receiptNo).padStart(6,'0')}` : '—'}</td>
                   <td className="p-2">{e.eventType}</td>
                   <td className="p-2">{e.provider}</td>
                   <td className="p-2">{e.methodType || '—'}</td>
@@ -65,14 +66,16 @@ export default function AccountingAdminPage(){
       </div>
       <div className="rounded-xl border bg-white p-4">
         <div className="font-semibold mb-2">Clôture journalière (Z)</div>
+        <div className="flex items-center gap-2">
+        <input type="date" className="border rounded px-2 py-1" value={selectedDay} onChange={e=> setSelectedDay(e.target.value)} />
         <button className="border rounded px-3 py-1" onClick={async ()=>{
-          const day = new Date(); day.setHours(0,0,0,0)
+          const d = new Date(selectedDay+'T00:00:00Z'); const day = d; day.setUTCHours(0,0,0,0)
           await fetch('/api/admin/closures', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ day }) })
           mutateClosures()
-        }}>Clôturer aujourd'hui</button>
+        }}>Clôturer la journée</button>
         <button className="ml-2 border rounded px-3 py-1" onClick={()=>{
           if (!Array.isArray(closures) || closures.length===0) return
-          const c = closures[0]
+          const c = closures.find((x:any)=> new Date(x.day).toISOString().slice(0,10)===selectedDay) || closures[0]
           const snap = JSON.parse(c.totalsJson)
           const rows = [
             ['Date', format(new Date(c.day),'yyyy-MM-dd')],
@@ -89,6 +92,7 @@ export default function AccountingAdminPage(){
           setTimeout(()=>{ URL.revokeObjectURL(url); setCsvUrl(undefined) }, 2000)
         }}>Exporter CSV</button>
         <button className="ml-2 border rounded px-3 py-1" onClick={()=> window.print()}>Exporter PDF (imprimer)</button>
+        </div>
         <table className="w-full text-sm mt-3">
           <thead><tr><th className="p-2">Date</th><th className="p-2">Hash</th><th className="p-2">Totaux</th></tr></thead>
           <tbody>

@@ -156,7 +156,22 @@ export default async function AdminDashboard() {
             </p>
           </Link>
 
-          {/* 5. ÉQUIPE & COMPTES */}
+          {/* 5. COMPTABILITÉ */}
+          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
+            <Link href="/admin/accounting" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer transform hover:-translate-y-1">
+              <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
+                💶
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-indigo-600">
+                Comptabilité
+              </h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Ledger, caisse, clôture journalière et exports CSV/PDF.
+              </p>
+            </Link>
+          )}
+
+          {/* 6. ÉQUIPE & COMPTES */}
           {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
             <Link href="/admin/employees" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-pink-300 transition-all cursor-pointer transform hover:-translate-y-1">
               <div className="w-16 h-16 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
@@ -171,7 +186,7 @@ export default async function AdminDashboard() {
             </Link>
           )}
 
-          {/* 6. MOUCHARD (Logs) */}
+          {/* 7. MOUCHARD (Logs) */}
           <Link href="/admin/logs" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-slate-400 transition-all cursor-pointer transform hover:-translate-y-1">
             <div className="w-16 h-16 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
               🕵️‍♂️
@@ -184,7 +199,7 @@ export default async function AdminDashboard() {
             </p>
           </Link>
 
-          {/* 7. Blocages de réservation (Admins uniquement) */}
+          {/* 8. Blocages de réservation (Admins uniquement) */}
           {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
             <Link href="/admin/blocks" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-red-300 transition-all cursor-pointer transform hover:-translate-y-1">
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
@@ -200,7 +215,7 @@ export default async function AdminDashboard() {
           )}
 
 
-          {/* CARTE 8 : MON PROFIL */}
+          {/* CARTE 9 : MON PROFIL */}
           <Link href="/admin/profile" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-slate-500 transition-all cursor-pointer transform hover:-translate-y-1">
             <div className="w-16 h-16 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
               👤
