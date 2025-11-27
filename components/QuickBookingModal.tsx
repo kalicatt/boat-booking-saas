@@ -33,6 +33,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [adults, setAdults] = useState(2);
     const [children, setChildren] = useState(0);
     const [babies, setBabies] = useState(0);
+    const [markAsPaid, setMarkAsPaid] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState<'cash'|'card'|'paypal'|'applepay'|'googlepay'|'ANCV'|'CityPass'>('cash')
 
     // Infos calculées
@@ -73,7 +74,13 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         const finalFirstName = firstName.trim() || 'Client';
         const finalLastName = lastName.trim() || 'Guichet';
 
-        const bookingData = {
+        if (markAsPaid && !paymentMethod) {
+            alert('Veuillez sélectionner un moyen de paiement.');
+            setIsLoading(false);
+            return;
+        }
+
+        const bookingData: any = {
             date: dateLocal, 
             time: timeLocal, // On envoie l'heure exacte affichée (ex: 10:00)
             adults, 
@@ -82,7 +89,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             people: totalPeople,
             language: 'FR', 
             message: message, // <--- 2. ON ENVOIE LE MESSAGE À L'API
-            paymentMethod,
             userDetails: {
                 firstName: finalFirstName,
                 lastName: finalLastName,
@@ -91,6 +97,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             },
             forcedBoatId: boatId 
         };
+
+        if (markAsPaid) {
+            bookingData.isPaid = true;
+            bookingData.paymentMethod = paymentMethod;
+        }
 
         try {
             const res = await fetch('/api/bookings', {
@@ -241,24 +252,37 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         />
                     </div>
 
-                                        {/* 4b. MODE DE PAIEMENT */}
-                                        <div>
-                                                <label className="block text-xs font-bold text-slate-500 mb-1">MODE DE PAIEMENT</label>
-                                                <select
-                                                    value={paymentMethod}
-                                                    onChange={(e)=> setPaymentMethod(e.target.value as any)}
-                                                    className="w-full border rounded p-2 bg-slate-50"
-                                                >
-                                                    <option value="cash">Espèces</option>
-                                                    <option value="card">Carte bancaire (TPE)</option>
-                                                    <option value="paypal">PayPal</option>
-                                                    <option value="applepay">Apple Pay</option>
-                                                    <option value="googlepay">Google Pay</option>
-                                                    <option value="ANCV">ANCV</option>
-                                                    <option value="CityPass">City Pass</option>
-                                                </select>
-                                                <p className="mt-1 text-xs text-slate-600">ANCV et City Pass seront comptés à part et exclus du total caisse.</p>
-                                        </div>
+                    {/* 4b. MARQUER COMME PAYÉ + MODE DE PAIEMENT */}
+                    <div className="space-y-2">
+                        <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                                type="checkbox"
+                                checked={markAsPaid}
+                                onChange={(e)=> setMarkAsPaid(e.target.checked)}
+                            />
+                            <span className="font-bold text-slate-700">Marquer la réservation comme payée</span>
+                        </label>
+                        {markAsPaid && (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">MODE DE PAIEMENT</label>
+                                <select
+                                    value={paymentMethod}
+                                    onChange={(e)=> setPaymentMethod(e.target.value as any)}
+                                    className="w-full border rounded p-2 bg-slate-50"
+                                    required={markAsPaid}
+                                >
+                                    <option value="cash">Espèces</option>
+                                    <option value="card">Carte bancaire (TPE)</option>
+                                    <option value="paypal">PayPal</option>
+                                    <option value="applepay">Apple Pay</option>
+                                    <option value="googlepay">Google Pay</option>
+                                    <option value="ANCV">ANCV</option>
+                                    <option value="CityPass">City Pass</option>
+                                </select>
+                                <p className="mt-1 text-xs text-slate-600">ANCV et City Pass seront comptés à part et exclus du total caisse.</p>
+                            </div>
+                        )}
+                    </div>
 
                     {/* 5. FOOTER & PRIX */}
                     <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-4">
