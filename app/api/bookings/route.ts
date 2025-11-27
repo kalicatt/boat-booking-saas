@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { addMinutes, parseISO, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
+import { sendMail } from '@/lib/mailer'
+import { renderBookingHtml } from '@/lib/emailRender'
 import { createLog } from '@/lib/logger'
 import { BookingRequestSchema } from '@/lib/validation'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
@@ -190,6 +192,42 @@ export async function POST(request: Request) {
 
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${isPrivate ? targetBoat.capacity : people}p${isPrivate ? ' PRIVATISATION' : ''}) sur ${targetBoat.name}`)
+
+    // 7. EMAIL CONFIRMATION
+    try {
+      const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
+      const secret = process.env.NEXTAUTH_SECRET || 'changeme'
+      const token = (await import('crypto')).createHmac('sha256', secret).update(String(newBooking.id)).digest('hex').slice(0,16)
+      const cancelUrl = `${baseUrl}/api/bookings/${newBooking.id}?action=cancel&token=${token}`
+      const emailSender = process.env.EMAIL_SENDER || 'no-reply@sweet-narcisse.fr'
+      const html = renderBookingHtml({
+        firstName: userDetails.firstName || 'Client',
+        date,
+        time,
+        people: isPrivate ? targetBoat.capacity : people,
+        adults,
+        children,
+        babies,
+        bookingId: String(newBooking.id),
+        totalPrice: finalPrice,
+      })
+      if(process.env.RESEND_API_KEY){
+        await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html })
+      } else {
+        await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html })
+      }
+      // Also send a simple text with cancel link as fallback
+      const cancelText = `Pour annuler votre réservation, cliquez: ${cancelUrl}`
+      if(process.env.RESEND_API_KEY){
+        await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+      } else {
+        await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+      }
+      await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${newBooking.id}`)
+    } catch (e) {
+      console.error('Email send failed:', e)
+      await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmailToUse}: ${String((e as any)?.message||e)}`)
+    }
 
     // Group chaining: chain consecutive boat slots for large groups
     const chainCreated: Array<{ index: number, boatId: string, start: string, end: string, people: number }> = []

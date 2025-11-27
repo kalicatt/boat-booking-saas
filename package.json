@@ -16,6 +16,7 @@
     "@formatjs/intl-localematcher": "^0.6.2",
     "@prisma/client": "^5.17.0",
     "@react-email/components": "^1.0.1",
+    "@react-email/render": "^0.0.15",
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.5.3",
     "@types/react-google-recaptcha": "^2.1.9",
@@ -30,6 +31,7 @@
     "react-dom": "19.2.0",
     "react-google-recaptcha": "^3.1.0",
     "resend": "^6.5.2",
+    "nodemailer": "^6.9.10",
     "stripe": "^20.0.0",
     "swr": "^2.3.6",
     "zod": "^3.23.8"

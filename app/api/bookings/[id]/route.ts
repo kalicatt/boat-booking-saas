@@ -1,5 +1,58 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import crypto from 'crypto'
+import { sendMail } from '@/lib/mailer'
+
+function makeCancelToken(id: string){
+  const secret = process.env.NEXTAUTH_SECRET || 'changeme'
+  return crypto.createHmac('sha256', secret).update(id).digest('hex').slice(0,16)
+}
+
+export async function GET(req: Request, { params }: { params: { id: string } }){
+  const { searchParams } = new URL(req.url)
+  const action = searchParams.get('action')
+  const token = searchParams.get('token') || ''
+
+  if(action !== 'cancel'){
+    return NextResponse.json({ error: 'Unsupported action' }, { status: 400 })
+  }
+
+  const id = params.id
+  try {
+    const booking = await prisma.booking.findUnique({ where: { id } , include: { user: true } })
+    if(!booking) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+    const expected = makeCancelToken(id)
+    if(token !== expected){
+      return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
+    }
+
+    if(booking.status === 'CANCELLED'){
+      return NextResponse.json({ success: true, status: 'CANCELLED' })
+    }
+
+    const now = new Date()
+    if(booking.startTime <= now){
+      return NextResponse.json({ error: 'Too late to cancel' }, { status: 400 })
+    }
+
+    const updated = await prisma.booking.update({ where: { id }, data: { status: 'CANCELLED' } })
+
+    // Notify customer + admin
+    const sender = process.env.EMAIL_SENDER || 'no-reply@sweet-narcisse.fr'
+    const admin = process.env.EMAIL_SENDER || 'contact@sweet-narcisse.fr'
+    const toCustomer = booking.user?.email || admin
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
+    await sendMail({ to: toCustomer, subject: `Annulation confirmée – Réservation ${booking.id}`, text: `Votre réservation a bien été annulée. ID: ${booking.id}. Si ce n'était pas prévu, contactez-nous: ${admin}.` , from: sender })
+    await sendMail({ to: admin, subject: `Annulation effectuée – ${booking.id}`, text: `La réservation ${booking.id} a été annulée par lien. Client: ${booking.user?.email || 'inconnu'}.` , from: sender })
+
+    return NextResponse.json({ success: true, status: updated.status })
+  } catch (e:any){
+    return NextResponse.json({ error: 'Cancel failed', details: String(e?.message||e) }, { status: 500 })
+  }
+}
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 import { addMinutes, format } from 'date-fns'
 import { auth } from '@/auth' // 👈 Import de la fonction auth
 import { createLog } from '@/lib/logger'
