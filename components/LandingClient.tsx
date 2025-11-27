@@ -6,7 +6,7 @@ import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function LandingClient({ dict, lang, debugLang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it', debugLang?: string }) {
+export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement|null>(null)
@@ -58,7 +58,7 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">Sweet <span className="text-[#eab308]">Narcisse</span><span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-100 text-slate-500">{debugLang}:{lang}</span></div>
+          <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">Sweet <span className="text-[#eab308]">Narcisse</span></div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{liveDict.nav.experience}</a>
             <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{liveDict.partners?.nav || 'Partners'}</a>
@@ -79,7 +79,7 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
               )}
             </div>
           </div>
-          <a href="#reservation" className="bg-[#0f172a] text-[#eab308] px-6 py-2 rounded-full font-bold text-sm hover:bg-black transition shadow-lg transform hover:scale-105">{dict.nav.book}</a>
+          <a href="#reservation" className="bg-[#0f172a] text-[#eab308] px-6 py-2 rounded-full font-bold text-sm hover:bg-black transition shadow-lg transform hover:scale-105">{liveDict.nav.book}</a>
         </div>
       </nav>
 
@@ -91,8 +91,8 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(234,179,8,0.25),transparent_60%)]" />
         </div>
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto fade-in">
-          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{dict.hero.title}</h1>
-          <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
+          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{liveDict.hero.title}</h1>
+          <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{liveDict.hero.subtitle}</p>
           <div className="flex flex-col items-center justify-center gap-5">
             <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero.cta}</a>
             <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{liveDict.partners?.nav}</Link>
@@ -125,7 +125,7 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
 
       <section className="py-8 px-6 bg-white">
         <div className="max-w-6xl mx-auto text-center mb-6 fade-in">
-          <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{dict.logos?.title}</h3>
+          <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{liveDict.logos?.title}</h3>
         </div>
         <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6 opacity-70">
           {[1,2,3,4,5,6].map(n => (
@@ -184,7 +184,7 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">Sweet <span className="text-[#eab308]">Narcisse</span></h5>
-            <p className="leading-relaxed font-bold text-white mb-2">Départ : Pont Saint-Pierre</p>
+            <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer.departure_label}</p>
             <p className="leading-relaxed">10 Rue de la Herse<br/>68000 Colmar, France</p>
             <p className="mt-4 font-bold text-white">📞 +33 3 89 20 68 92</p>
             <p>📧 contact@sweet-narcisse.fr</p>
@@ -204,9 +204,9 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
             <a href="/admin" className="inline-block bg-slate-800 text-slate-400 px-3 py-1 rounded hover:bg-slate-700 hover:text-white mt-4 text-xs transition">{liveDict.footer.employee_access}</a>
           </div>
           <div className="md:col-span-1 fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4">Plan d'Accès</h5>
+            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.access_map}</h5>
             <div className="rounded-lg overflow-hidden shadow-lg h-40 w-full border border-slate-700">
-              <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2665.933730020825!2d7.3546046767205695!3d48.0729220556597!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x479165e89c124c77%3A0x9da47dac5d840502!2sBarque%20Colmar%20au%20fil%20de%20l%E2%80%99eau%20*2A%20Sweet%20Narcisse!5e0!3m2!1sfr!2sfr!4v1764011388547!5m2!1sfr!2sfr" width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" title="Localisation de l'embarcadère Sweet Narcisse"></iframe>
+              <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2665.933730020825!2d7.3546046767205695!3d48.0729220556597!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x479165e89c124c77%3A0x9da47dac5d840502!2sBarque%20Colmar%20au%20fil%20de%20l%E2%80%99eau%20*2A%20Sweet%20Narcisse!5e0!3m2!1sfr!2sfr!4v1764011388547!5m2!1sfr!2sfr" width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" title={liveDict.footer.map_title}></iframe>
             </div>
           </div>
         </div>

@@ -110,7 +110,10 @@
     "legal": "Legal Notice",
     "cgv": "Terms & Conditions",
     "employee_access": "Employee Login 🔒",
-    "rights": "© 2025 Sweet Narcisse. All rights reserved."
+    "rights": "© 2025 Sweet Narcisse. All rights reserved.",
+    "access_map": "Access Map",
+    "departure_label": "Departure: Pont Saint-Pierre",
+    "map_title": "Location of the Sweet Narcisse pier"
   },
   "partners": {
     "nav": "Partners",

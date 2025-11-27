@@ -110,7 +110,10 @@
     "legal": "Impressum",
     "cgv": "AGB",
     "employee_access": "Mitarbeiter-Login 🔒",
-    "rights": "© 2025 Sweet Narcisse. Alle Rechte vorbehalten."
+    "rights": "© 2025 Sweet Narcisse. Alle Rechte vorbehalten.",
+    "access_map": "Lageplan",
+    "departure_label": "Abfahrt: Pont Saint-Pierre",
+    "map_title": "Standort des Anlegers Sweet Narcisse"
   },
   "partners": {
     "nav": "Partner",
