@@ -248,7 +248,7 @@ export async function POST(request: Request) {
                   isPaid: Boolean(inheritPaymentForChain && paymentMethod)
                 }
               })
-              chainCreated.push({ index: i, boatId: ob.id, start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
+              chainCreated.push({ index: i, boatId: String(ob.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
               if (inheritPaymentForChain && paymentMethod) {
                 await prisma.payment.create({
                   data: {
@@ -297,7 +297,7 @@ export async function POST(request: Request) {
               isPaid: Boolean(inheritPaymentForChain && paymentMethod)
             }
           })
-          chainCreated.push({ index: i, boatId: targetBoat.id, start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
+          chainCreated.push({ index: i, boatId: String(targetBoat.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
           // Optionally inherit payment metadata to chained bookings (record intent, not actual capture)
           if (inheritPaymentForChain && paymentMethod) {
             await prisma.payment.create({
