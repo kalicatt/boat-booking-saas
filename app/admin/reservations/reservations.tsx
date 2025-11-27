@@ -47,6 +47,8 @@ export default function ReservationsAdminPage(){
   const [chainCreating, setChainCreating] = useState(false)
   const [contactConverting, setContactConverting] = useState(false)
   const [chainBaseTime, setChainBaseTime] = useState('09:00')
+  const [markPaid, setMarkPaid] = useState<{ id: string, provider: string, methodType?: string }|null>(null)
+  const [viewMarkPaid, setViewMarkPaid] = useState<{ provider: string, methodType?: string }|null>(null)
 
   const startISO = useMemo(()=>{
     if (range==='day') {
@@ -180,7 +182,41 @@ export default function ReservationsAdminPage(){
                     <button className="border rounded px-2 py-1" onClick={(e)=>{e.stopPropagation(); setShowView(b)}}>Voir</button>
                     <button className="border rounded px-2 py-1" onClick={(e)=>{e.stopPropagation(); setShowEdit(b)}}>Modifier</button>
                     <button className="border rounded px-2 py-1" onClick={async (e)=>{e.stopPropagation(); const ok = window.confirm('Confirmer la suppression ?'); if(!ok) return; const resp = await fetch(`/api/bookings/${b.id}`, { method:'DELETE' }); if(resp.ok){ mutate(); setToasts(t=>[...t,{id:Date.now(),type:'success',message:'Réservation supprimée'}]) }}}>Supprimer</button>
+                    <button className="border rounded px-2 py-1 bg-blue-600 text-white" onClick={(e)=>{ e.stopPropagation(); setMarkPaid({ id: b.id, provider: '', methodType: undefined }) }}>Marquer Payé</button>
                   </div>
+                  {markPaid?.id===b.id && (
+                    <div className="mt-2 p-2 border rounded bg-slate-50" onClick={e=>e.stopPropagation()}>
+                      <div className="text-xs mb-1">Sélectionnez le moyen de paiement</div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select className="border rounded px-2 py-1" value={markPaid.provider} onChange={e=>{
+                          const val = e.target.value
+                          setMarkPaid(prev=> prev ? { ...prev, provider: val, methodType: (val==='voucher' ? (prev.methodType||'ANCV') : undefined) } : null)
+                        }}>
+                          <option value="">-- moyen --</option>
+                          <option value="cash">Espèces</option>
+                          <option value="card">Carte</option>
+                          <option value="paypal">PayPal</option>
+                          <option value="applepay">Apple Pay</option>
+                          <option value="googlepay">Google Pay</option>
+                          <option value="voucher">ANCV / CityPass</option>
+                        </select>
+                        {markPaid.provider==='voucher' && (
+                          <select className="border rounded px-2 py-1" value={markPaid.methodType||'ANCV'} onChange={e=> setMarkPaid(prev=> prev ? { ...prev, methodType: e.target.value } : prev)}>
+                            <option value="ANCV">ANCV</option>
+                            <option value="CityPass">CityPass</option>
+                          </select>
+                        )}
+                        <button className="border rounded px-2 py-1 bg-green-600 text-white" onClick={async ()=>{
+                          if (!markPaid?.provider) { alert('Sélectionnez un moyen de paiement'); return }
+                          const payload:any = { newIsPaid: true, paymentMethod: { provider: markPaid.provider, methodType: markPaid.provider==='voucher' ? markPaid.methodType : undefined } }
+                          const resp = await fetch(`/api/bookings/${b.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+                          if (resp.ok) { setMarkPaid(null); mutate(); setToasts(t=>[...t,{id:Date.now(),type:'success',message:'Réservation marquée comme payée'}]) }
+                          else { alert('Échec de la mise à jour du paiement'); }
+                        }}>Valider</button>
+                        <button className="border rounded px-2 py-1" onClick={()=> setMarkPaid(null)}>Annuler</button>
+                      </div>
+                    </div>
+                  )}
                 </td>
                 <td className="p-3">{b.payments?.[0]?.status || '—'}</td>
               </tr>
@@ -443,6 +479,42 @@ export default function ReservationsAdminPage(){
               <div>Langue: {showView.language}</div>
               <div>Paiement: {(showView.payments?.[0]?.provider || '—')}{showView.payments?.[0]?.methodType ? ` (${showView.payments[0].methodType})` : ''}</div>
               <div>Statut paiement: {showView.payments?.[0]?.status || '—'}</div>
+              <div className="mt-3 flex gap-2">
+                <button className="border rounded px-3 py-1 bg-blue-600 text-white" onClick={()=> setViewMarkPaid({ provider: '', methodType: undefined })}>Marquer Payé</button>
+                {viewMarkPaid && (
+                  <div className="mt-2 p-2 border rounded bg-slate-50 w-full">
+                    <div className="text-xs mb-1">Sélectionnez le moyen de paiement</div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <select className="border rounded px-2 py-1" value={viewMarkPaid.provider} onChange={e=>{
+                        const val = e.target.value
+                        setViewMarkPaid(prev=> prev ? { ...prev, provider: val, methodType: (val==='voucher' ? (prev.methodType||'ANCV') : undefined) } : null)
+                      }}>
+                        <option value="">-- moyen --</option>
+                        <option value="cash">Espèces</option>
+                        <option value="card">Carte</option>
+                        <option value="paypal">PayPal</option>
+                        <option value="applepay">Apple Pay</option>
+                        <option value="googlepay">Google Pay</option>
+                        <option value="voucher">ANCV / CityPass</option>
+                      </select>
+                      {viewMarkPaid.provider==='voucher' && (
+                        <select className="border rounded px-2 py-1" value={viewMarkPaid.methodType||'ANCV'} onChange={e=> setViewMarkPaid(prev=> prev ? { ...prev, methodType: e.target.value } : prev)}>
+                          <option value="ANCV">ANCV</option>
+                          <option value="CityPass">CityPass</option>
+                        </select>
+                      )}
+                      <button className="border rounded px-2 py-1 bg-green-600 text-white" onClick={async ()=>{
+                        if (!viewMarkPaid?.provider) { alert('Sélectionnez un moyen de paiement'); return }
+                        const payload:any = { newIsPaid: true, paymentMethod: { provider: viewMarkPaid.provider, methodType: viewMarkPaid.provider==='voucher' ? viewMarkPaid.methodType : undefined } }
+                        const resp = await fetch(`/api/bookings/${showView.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+                        if (resp.ok) { setViewMarkPaid(null); setShowView(null); mutate(); setToasts(t=>[...t,{id:Date.now(),type:'success',message:'Réservation marquée comme payée'}]) }
+                        else { alert('Échec de la mise à jour du paiement'); }
+                      }}>Valider</button>
+                      <button className="border rounded px-2 py-1" onClick={()=> setViewMarkPaid(null)}>Annuler</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
