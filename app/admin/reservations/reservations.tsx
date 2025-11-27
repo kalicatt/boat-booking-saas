@@ -22,7 +22,15 @@ export default function ReservationsAdminPage(){
     language: 'fr',
     firstName: '',
     lastName: '',
-    email: ''
+    email: '',
+    company: '',
+    phone: '',
+    address: '',
+    eventDate: '',
+    eventTime: '',
+    budget: '',
+    reason: '',
+    message: ''
   })
   const [selectedId, setSelectedId] = useState<string>('')
   const [groupChain, setGroupChain] = useState<number>(0)
@@ -36,6 +44,7 @@ export default function ReservationsAdminPage(){
   const [showEdit, setShowEdit] = useState<any|null>(null)
   const [chainCreating, setChainCreating] = useState(false)
   const [contactConverting, setContactConverting] = useState(false)
+  const [chainBaseTime, setChainBaseTime] = useState('09:00')
 
   const startISO = useMemo(()=>{
     const d = new Date(date)
@@ -137,12 +146,15 @@ export default function ReservationsAdminPage(){
         <div className="space-y-4">
           <div className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="text-sm font-semibold mb-2">Chaîne (prévisualisation)</div>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
               <input type="number" min={0} value={groupChain} onChange={e=>setGroupChain(parseInt(e.target.value||'0',10))} placeholder="Taille du groupe" className="border rounded px-2 py-1 w-44" />
+              <input type="time" value={chainBaseTime} onChange={e=>setChainBaseTime(e.target.value)} className="border rounded px-2 py-1" />
               <button className="border rounded px-3 py-1 bg-slate-100 hover:bg-slate-200" onClick={()=>{
                 const baseBooking: any = bookings.find((b:any)=>b.id===selectedId)
-                const base = baseBooking ? new Date(baseBooking.startTime) : new Date(date)
-                if (!baseBooking) base.setHours(9,0,0,0)
+                const baseDate = baseBooking ? new Date(baseBooking.startTime) : new Date(date)
+                // Use selected base time (HH:mm) always for preview
+                const [hh, mm] = chainBaseTime.split(':').map(n=>parseInt(n,10))
+                baseDate.setHours(hh||9, mm||0, 0, 0)
                 const capacity = 12
                 const INTERVAL_MIN = 30
                 const DURATION_MIN = 90
@@ -150,7 +162,7 @@ export default function ReservationsAdminPage(){
                 const chunks = Math.ceil(total / capacity)
                 const preview: Array<{ index: number, start: string, end: string, people: number }> = []
                 for (let i = 0; i < chunks; i++) {
-                  const s = new Date(base.getTime() + i * INTERVAL_MIN * 60000)
+                  const s = new Date(baseDate.getTime() + i * INTERVAL_MIN * 60000)
                   const e = new Date(s.getTime() + DURATION_MIN * 60000)
                   const ppl = Math.min(capacity, total - i * capacity)
                   preview.push({ index: i + 1, start: format(s,'HH:mm'), end: format(e,'HH:mm'), people: ppl })
@@ -168,6 +180,10 @@ export default function ReservationsAdminPage(){
                     <span className="font-medium">{c.people} pax</span>
                   </li>
                 ))}
+                <li className="text-xs mt-2 pt-2 border-t flex justify-between text-slate-600">
+                  <span>Total prévu</span>
+                  <span className="font-semibold">{chainPreview.reduce((acc,c)=>acc + c.people,0)} pax</span>
+                </li>
               </ul>
             )}
           </div>
@@ -182,24 +198,26 @@ export default function ReservationsAdminPage(){
             </label>
             <button
               className="mt-3 border rounded px-3 py-2 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-              disabled={chainCreating || !selectedId || groupChain<=0}
+              disabled={chainCreating || groupChain<=0}
               onClick={async ()=>{
                 setChainCreating(true)
                 try {
                   const base = bookings.find((b:any)=>b.id===selectedId)
-                  if (!base) return
+                  const baseRef = base ? new Date(base.startTime) : new Date(date)
+                  const [hh, mm] = chainBaseTime.split(':').map(n=>parseInt(n,10))
+                  baseRef.setHours(hh||9, mm||0, 0, 0)
                   const body = {
-                    date: format(new Date(base.startTime),'yyyy-MM-dd'),
-                    time: format(new Date(base.startTime),'HH:mm'),
+                    date: format(baseRef,'yyyy-MM-dd'),
+                    time: format(baseRef,'HH:mm'),
                     adults: base.numberOfPeople,
                     children: 0,
                     babies: 0,
                     language: base.language || 'fr',
-                    userDetails: { firstName: base.user?.firstName || '', lastName: base.user?.lastName || '', email: base.user?.email || '' },
+                    userDetails: { firstName: base?.user?.firstName || '', lastName: base?.user?.lastName || '', email: base?.user?.email || '' },
                     isStaffOverride: true,
                     groupChain,
                     inheritPaymentForChain,
-                    paymentMethod: base.payments?.[0] ? { provider: base.payments[0].provider, methodType: base.payments[0].methodType } : undefined
+                    paymentMethod: base?.payments?.[0] ? { provider: base.payments[0].provider, methodType: base.payments[0].methodType } : undefined
                   }
                   const res = await fetch('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
                   if (!res.ok) { setToasts(t=>[...t, { id: Date.now(), type:'warning', message:'Création de chaîne impossible' }]); return }
@@ -261,6 +279,22 @@ export default function ReservationsAdminPage(){
                 <input className="border rounded px-2 py-1" value={form.lastName} onChange={e=>setForm({...form, lastName:e.target.value})} placeholder="Nom" />
               </div>
               <input className="border rounded px-2 py-1 w-full" value={form.email} onChange={e=>setForm({...form, email:e.target.value})} placeholder="Email" />
+              {createTab==='group' && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="border rounded px-2 py-1" value={form.company||''} onChange={e=>setForm({...form, company:e.target.value})} placeholder="Entreprise" />
+                    <input className="border rounded px-2 py-1" value={form.phone||''} onChange={e=>setForm({...form, phone:e.target.value})} placeholder="Téléphone" />
+                  </div>
+                  <input className="border rounded px-2 py-1 w-full" value={form.address||''} onChange={e=>setForm({...form, address:e.target.value})} placeholder="Adresse" />
+                  <div className="grid grid-cols-3 gap-2">
+                    <input type="date" className="border rounded px-2 py-1" value={form.eventDate||''} onChange={e=>setForm({...form, eventDate:e.target.value})} placeholder="Date évènement" />
+                    <input type="time" className="border rounded px-2 py-1" value={form.eventTime||''} onChange={e=>setForm({...form, eventTime:e.target.value})} placeholder="Heure évènement" />
+                    <input className="border rounded px-2 py-1" value={form.budget||''} onChange={e=>setForm({...form, budget:e.target.value})} placeholder="Budget" />
+                  </div>
+                  <input className="border rounded px-2 py-1 w-full" value={form.reason||''} onChange={e=>setForm({...form, reason:e.target.value})} placeholder="Raison / Type d'évènement" />
+                  <textarea className="border rounded px-2 py-1 w-full" rows={3} value={form.message||''} onChange={e=>setForm({...form, message:e.target.value})} placeholder="Message / Notes supplémentaires" />
+                </>
+              )}
               {createTab==='private' && (
                 <div className="text-sm text-gray-600">Privatisation: le créneau sera fermé (capacité complète).</div>
               )}
@@ -318,7 +352,21 @@ export default function ReservationsAdminPage(){
                   if (createTab==='private') {
                     resp = await fetch('/api/bookings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...baseBody, private: true }) })
                   } else if (createTab==='group') {
-                    resp = await fetch('/api/bookings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ...baseBody, groupChain: form.adults }) })
+                    const extended = {
+                      ...baseBody,
+                      groupChain: form.adults,
+                      message: form.message,
+                      groupDetails: {
+                        company: form.company || '',
+                        address: form.address || '',
+                        phone: form.phone || '',
+                        eventDate: form.eventDate || '',
+                        eventTime: form.eventTime || '',
+                        budget: form.budget || '',
+                        reason: form.reason || ''
+                      }
+                    }
+                    resp = await fetch('/api/bookings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(extended) })
                   } else {
                     resp = await fetch('/api/bookings', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(baseBody) })
                   }
