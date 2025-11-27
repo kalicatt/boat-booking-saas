@@ -8,6 +8,8 @@ const fetcher = (url: string) => fetch(url).then(r=>r.json())
 export default function ReservationsAdminPage(){
   const [range, setRange] = useState<'day'|'month'|'year'>('day')
   const [date, setDate] = useState(()=> new Date())
+  const [monthStr, setMonthStr] = useState<string>(()=> format(new Date(),'yyyy-MM'))
+  const [yearStr, setYearStr] = useState<string>(()=> String(new Date().getFullYear()))
   const [q, setQ] = useState('')
   const [payment, setPayment] = useState('')
   const [showCreate, setShowCreate] = useState(false)
@@ -47,19 +49,26 @@ export default function ReservationsAdminPage(){
   const [chainBaseTime, setChainBaseTime] = useState('09:00')
 
   const startISO = useMemo(()=>{
-    const d = new Date(date)
-    if (range==='day') { d.setHours(0,0,0,0) }
-    else if (range==='month') { d.setDate(1); d.setHours(0,0,0,0) }
-    else { d.setMonth(0,1); d.setHours(0,0,0,0) }
-    return d.toISOString()
-  },[date,range])
+    if (range==='day') {
+      const d = new Date(date); d.setHours(0,0,0,0); return d.toISOString()
+    }
+    if (range==='month') {
+      const [y,m] = monthStr.split('-').map(n=>parseInt(n,10))
+      const d = new Date(y, (m-1), 1, 0,0,0,0); return d.toISOString()
+    }
+    const y = parseInt(yearStr,10)
+    const d = new Date(y, 0, 1, 0,0,0,0); return d.toISOString()
+  },[date,range,monthStr,yearStr])
 
   const endISO = useMemo(()=>{
-    const d = new Date(date)
-    if (range==='day') { d.setHours(23,59,59,999); return d.toISOString() }
-    else if (range==='month') { const e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999); return e.toISOString() }
-    else { const e = new Date(d.getFullYear(), 11, 31, 23,59,59,999); return e.toISOString() }
-  },[date,range])
+    if (range==='day') { const d = new Date(date); d.setHours(23,59,59,999); return d.toISOString() }
+    if (range==='month') {
+      const [y,m] = monthStr.split('-').map(n=>parseInt(n,10))
+      const e = new Date(y, m, 0, 23,59,59,999); return e.toISOString()
+    }
+    const y = parseInt(yearStr,10)
+    const e = new Date(y, 11, 31, 23,59,59,999); return e.toISOString()
+  },[date,range,monthStr,yearStr])
 
   const params = new URLSearchParams({ start: startISO, end: endISO })
   if (q) params.set('q', q)
@@ -87,7 +96,15 @@ export default function ReservationsAdminPage(){
           <option value="month">Mois</option>
           <option value="year">Année</option>
         </select>
-        <input type="date" value={format(date,'yyyy-MM-dd')} onChange={e=>setDate(new Date(e.target.value))} className="border rounded px-2 py-1" />
+        {range==='day' && (
+          <input type="date" value={format(date,'yyyy-MM-dd')} onChange={e=>setDate(new Date(e.target.value))} className="border rounded px-2 py-1" />
+        )}
+        {range==='month' && (
+          <input type="month" value={monthStr} onChange={e=>setMonthStr(e.target.value)} className="border rounded px-2 py-1" />
+        )}
+        {range==='year' && (
+          <input type="number" min={2000} max={2100} value={yearStr} onChange={e=>setYearStr(e.target.value)} className="border rounded px-2 py-1 w-24" />
+        )}
         <input placeholder="Nom ou Prénom" value={q} onChange={e=>setQ(e.target.value)} className="border rounded px-2 py-1" />
         <select value={payment} onChange={e=>setPayment(e.target.value)} className="border rounded px-2 py-1">
           <option value="">Tous paiements</option>
@@ -110,6 +127,33 @@ export default function ReservationsAdminPage(){
             <div className="p-4 text-sm text-red-600">Erreur de chargement des réservations.</div>
           )}
           {!isLoading && !error && (
+          <>
+          <div className="flex items-center justify-end p-2">
+            <button className="border rounded px-3 py-1 bg-slate-100 hover:bg-slate-200" onClick={()=>{
+              const headers = ['Date','Heure','Client','Email','Pax','Langue','Paiement','Statut Paiement']
+              const rows = bookings.map((b:any)=>[
+                format(new Date(b.startTime),'yyyy-MM-dd'),
+                format(new Date(b.startTime),'HH:mm'),
+                `${b.user?.firstName||''} ${b.user?.lastName||''}`.trim(),
+                b.user?.email||'',
+                String(b.numberOfPeople||0),
+                b.language||'',
+                `${b.payments?.[0]?.provider||''}${b.payments?.[0]?.methodType?` (${b.payments[0].methodType})`:''}`,
+                `${b.payments?.[0]?.status||''}`
+              ])
+              const csv = [headers, ...rows].map(r=> r.map(v => {
+                const s = String(v).replace(/"/g,'""')
+                return `"${s}"`
+              }).join(',')).join('\n')
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+              const url = URL.createObjectURL(blob)
+              const a = document.createElement('a')
+              const suffix = range==='day' ? format(date,'yyyy-MM-dd') : (range==='month' ? monthStr : yearStr)
+              a.href = url; a.download = `reservations_${range}_${suffix}.csv`
+              document.body.appendChild(a); a.click(); document.body.removeChild(a)
+              URL.revokeObjectURL(url)
+            }}>Exporter CSV</button>
+          </div>
           <table className="min-w-full text-sm">
           <thead>
             <tr className="text-left border-b">
@@ -119,6 +163,7 @@ export default function ReservationsAdminPage(){
               <th className="p-3">Pax</th>
               <th className="p-3">Langue</th>
               <th className="p-3">Paiement</th>
+              <th className="p-3">Statut Paiement</th>
             </tr>
           </thead>
           <tbody>
@@ -137,10 +182,12 @@ export default function ReservationsAdminPage(){
                     <button className="border rounded px-2 py-1" onClick={async (e)=>{e.stopPropagation(); const ok = window.confirm('Confirmer la suppression ?'); if(!ok) return; const resp = await fetch(`/api/bookings/${b.id}`, { method:'DELETE' }); if(resp.ok){ mutate(); setToasts(t=>[...t,{id:Date.now(),type:'success',message:'Réservation supprimée'}]) }}}>Supprimer</button>
                   </div>
                 </td>
+                <td className="p-3">{b.payments?.[0]?.status || '—'}</td>
               </tr>
             ))}
           </tbody>
           </table>
+          </>
           )}
         </div>
         <div className="space-y-4">
@@ -395,6 +442,7 @@ export default function ReservationsAdminPage(){
               <div>Pax: {showView.numberOfPeople} (A {showView.adults} / E {showView.children} / B {showView.babies})</div>
               <div>Langue: {showView.language}</div>
               <div>Paiement: {(showView.payments?.[0]?.provider || '—')}{showView.payments?.[0]?.methodType ? ` (${showView.payments[0].methodType})` : ''}</div>
+              <div>Statut paiement: {showView.payments?.[0]?.status || '—'}</div>
             </div>
           </div>
         </div>
