@@ -884,9 +884,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     </button>
                  </div>
             )}
+                {/* Modal for contact forms */}
+                <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang as any} />
+                </div>
         </div>
-    </div>
-        {/* Modal for contact forms */}
-        <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang as any} />
-  )
+    )
 }
