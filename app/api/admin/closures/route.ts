@@ -19,6 +19,7 @@ export async function POST(req: Request) {
   const entries = await prisma.paymentLedger.findMany({ where: { occurredAt: { gte: start, lte: end } } })
   const totals: Record<string, number> = {}
   const vouchers: Record<string, number> = {}
+  const vatTotals: { net: number; vat: number; gross: number } = { net: 0, vat: 0, gross: 0 }
   entries.forEach(e => {
     if (e.provider === 'voucher') {
       const key = e.methodType || 'voucher'
@@ -26,11 +27,16 @@ export async function POST(req: Request) {
     } else {
       totals[e.provider] = (totals[e.provider] || 0) + Math.round((e.amount || 0))
     }
+    if (e.netAmount && e.vatAmount && e.grossAmount) {
+      vatTotals.net += e.netAmount
+      vatTotals.vat += e.vatAmount
+      vatTotals.gross += e.grossAmount
+    }
   })
-  const snapshot = { totals, vouchers, count: entries.length }
+  const snapshot = { totals, vouchers, count: entries.length, vat: vatTotals }
   const json = JSON.stringify(snapshot)
   const hash = crypto.createHash('sha256').update(json).digest('hex')
 
-  const closure = await prisma.dailyClosure.create({ data: { day: start, closedById, totalsJson: json, hash } })
+  const closure = await prisma.dailyClosure.create({ data: { day: start, closedById, totalsJson: json, hash, locked: true } })
   return NextResponse.json(closure)
 }

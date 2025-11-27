@@ -184,11 +184,16 @@ model PaymentLedger {
   paymentId   String?
   provider    String   // cash, card, paypal, applepay, googlepay, voucher
   methodType  String?  // ANCV, CityPass for voucher
-  amount      Int      // cents
+  amount      Int      // cents (gross)
   currency    String   // EUR
   actorId     String?  // admin user performing action
   occurredAt  DateTime @default(now())
-  receiptNo   Int?
+  receiptNo   Int?     // sequential receipt number
+  // VAT breakdown (optional for voucher/cash when no VAT)
+  vatRate     Float?
+  netAmount   Int?     // cents
+  vatAmount   Int?     // cents
+  grossAmount Int?     // cents
   note        String?
 }
 
@@ -222,6 +227,14 @@ model DailyClosure {
   closedById  String?
   totalsJson  String   // snapshot totals per method/vouchers, VAT etc.
   hash        String   // integrity hash of snapshot payload
+  locked      Boolean  @default(true) // indicates period is locked for edits
+}
+
+// Generic sequencing for receipts or other counters
+model Sequence {
+  name     String  @id
+  current  Int     @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 // Contact requests captured from public forms (private/group, etc.)

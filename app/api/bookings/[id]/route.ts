@@ -107,14 +107,23 @@ export async function PATCH(
       }
     })
 
-    // Ensure payment record if marking paid and method provided
+    // If period is locked (daily closure exists for booking day), block time/payment edits
+    const dayStart = new Date(updatedBooking.startTime); dayStart.setUTCHours(0,0,0,0)
+    const closedDay = await prisma.dailyClosure.findFirst({ where: { day: dayStart, locked: true } })
+    if (closedDay) {
+      if (start || (date && time) || newIsPaid !== undefined) {
+        return NextResponse.json({ error: 'Période clôturée: modifications interdites' }, { status: 403 })
+      }
+    }
+
+    // Ensure payment record and ledger if marking paid and method provided
     if (newIsPaid === true && paymentMethod && typeof paymentMethod === 'object') {
       const existing = await prisma.payment.findFirst({ where: { bookingId: id } })
       if (!existing) {
         const provider = paymentMethod.provider
         const methodType = paymentMethod.methodType
         const isVoucher = provider === 'voucher' || methodType === 'ANCV' || methodType === 'CityPass'
-        await prisma.payment.create({
+        const pay = await prisma.payment.create({
           data: {
             bookingId: id,
             provider: provider || 'manual',
@@ -125,6 +134,27 @@ export async function PATCH(
           }
         })
         logMessage += `PaymentRecord=${provider}${methodType?`:${methodType}`:''}. `
+
+        // Append ledger entry with VAT breakdown (example VAT 10%)
+        const gross = Math.round((updatedBooking.totalPrice || 0) * 100)
+        const vatRateEnv = process.env.VAT_RATE ? parseFloat(process.env.VAT_RATE) : 10.0
+        const vatRate = isFinite(vatRateEnv) ? vatRateEnv : 10.0
+        const net = Math.round(gross / (1 + vatRate/100))
+        const vat = gross - net
+        // Allocate sequential receipt number in a transaction
+        const ledgerEntry = await prisma.$transaction(async (tx) => {
+          const seq = await tx.sequence.upsert({
+            where: { name: 'receipt' },
+            create: { name: 'receipt', current: 1 },
+            update: { current: { increment: 1 } }
+          })
+          const receiptNo = seq.current
+          return tx.paymentLedger.create({ data: {
+            eventType: 'PAID', bookingId: id, paymentId: pay.id,
+            provider, methodType, amount: gross, currency: 'EUR', actorId: (session.user as any)?.id || null,
+            vatRate, netAmount: net, vatAmount: vat, grossAmount: gross, receiptNo
+          }})
+        })
       }
     }
 
