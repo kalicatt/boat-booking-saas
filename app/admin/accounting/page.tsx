@@ -9,8 +9,8 @@ export default function AccountingAdminPage(){
   const { data: ledger } = useSWR('/api/admin/ledger', fetcher)
   const { data: cash } = useSWR('/api/admin/cash', fetcher)
   const { data: closures, mutate: mutateClosures } = useSWR('/api/admin/closures', fetcher)
-  const [openingFloat, setOpeningFloat] = useState(0)
-  const [closingCount, setClosingCount] = useState(0)
+  const [openingFloatEuros, setOpeningFloatEuros] = useState('')
+  const [closingCountEuros, setClosingCountEuros] = useState('')
   const [csvUrl, setCsvUrl] = useState<string|undefined>(undefined)
   const [selectedDay, setSelectedDay] = useState<string>(()=> new Date().toISOString().slice(0,10))
 
@@ -21,17 +21,22 @@ export default function AccountingAdminPage(){
         <div className="rounded-xl border bg-white p-4">
           <div className="font-semibold mb-2">Caisse</div>
           <div className="space-y-2">
-            <input type="number" className="border rounded px-2 py-1" value={openingFloat} onChange={e=>setOpeningFloat(parseInt(e.target.value||'0',10))} placeholder="Fond de caisse (cents)" />
+            <label className="block text-sm text-gray-600">Fond de caisse (en euros, ex: 150.00)</label>
+            <input type="number" step="0.01" min="0" className="border rounded px-2 py-1" value={openingFloatEuros} onChange={e=>setOpeningFloatEuros(e.target.value)} placeholder="Saisir le fond de caisse en €" />
             <button className="border rounded px-3 py-1" onClick={async ()=>{
-              await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'open', openingFloat }) })
+              const cents = Math.round(parseFloat(openingFloatEuros || '0') * 100)
+              await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'open', openingFloat: isNaN(cents) ? 0 : cents }) })
             }}>Ouvrir Caisse</button>
-            <input type="number" className="border rounded px-2 py-1" value={closingCount} onChange={e=>setClosingCount(parseInt(e.target.value||'0',10))} placeholder="Comptage (cents)" />
+            <label className="block text-sm text-gray-600">Comptage (en euros, ex: 198.50)</label>
+            <input type="number" step="0.01" min="0" className="border rounded px-2 py-1" value={closingCountEuros} onChange={e=>setClosingCountEuros(e.target.value)} placeholder="Saisir le comptage en €" />
             <button className="border rounded px-3 py-1" onClick={async ()=>{
               const latest = Array.isArray(cash) ? cash[0] : null
               if (!latest) return
-              await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'close', sessionId: latest.id, closingCount }) })
+              const cents = Math.round(parseFloat(closingCountEuros || '0') * 100)
+              await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'close', sessionId: latest.id, closingCount: isNaN(cents) ? 0 : cents }) })
             }}>Clore Caisse</button>
           </div>
+          <p className="mt-2 text-xs text-gray-500">La caisse ne concerne que les espèces. Les paiements CB et en ligne sont visibles dans le ledger mais n'affectent pas le comptage de caisse.</p>
           <div className="mt-3 text-sm">
             <div className="font-semibold">Sessions</div>
             <ul className="mt-2 space-y-1">
