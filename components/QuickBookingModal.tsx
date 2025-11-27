@@ -132,7 +132,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     }, [onClose])
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-[99] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
+        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
             <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" role="document">
                 
                 {/* Header */}
