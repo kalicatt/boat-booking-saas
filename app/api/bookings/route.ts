@@ -112,7 +112,9 @@ export async function POST(request: Request) {
         userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`;
     }
 
-    const txResult = await prisma.$transaction(async (tx) => {
+    let txResult: any
+    try {
+    txResult = await prisma.$transaction(async (tx) => {
       // verrou de transaction par (boatId, slotKey)
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(${targetBoat.id}, ${slotKey})`;
 
@@ -172,6 +174,10 @@ export async function POST(request: Request) {
 
       return { ok: true as const, id: newBooking.id, status: newBooking.status, finalPrice }
     })
+    } catch (e: any) {
+      console.error('Transaction booking failed:', e?.message || e)
+      return NextResponse.json({ error: 'Erreur technique (transaction)', details: String(e?.message || e) }, { status: 500 })
+    }
 
     if (!('ok' in txResult) || !txResult.ok) {
       return NextResponse.json({ error: `Conflit sur ${targetBoat.name}` }, { status: 409 })
@@ -199,7 +205,10 @@ export async function POST(request: Request) {
           await prisma.payment.create({ data: { provider: 'voucher', methodType: method, bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         }
       }
-    } catch (e) { console.error('Erreur enregistrement paiement guichet', e) }
+    } catch (e: any) { 
+      console.error('Erreur enregistrement paiement guichet', e?.message || e)
+      return NextResponse.json({ error: 'Erreur paiement', details: String(e?.message || e) }, { status: 500 })
+    }
 
     // 9. EMAIL
     try {
