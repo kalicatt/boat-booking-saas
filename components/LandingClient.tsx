@@ -175,9 +175,6 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       <div className="wave-divider" aria-hidden="true">
         <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,80 L0,40 C160,10 320,10 480,30 C640,50 800,70 960,60 C1120,50 1280,20 1440,30 L1440,80 Z" /></svg>
       </div>
-      <section id="contact" className="py-24 px-6 bg-white">
-        <ContactForms lang={currentLang} dict={liveDict} />
-      </section>
       <section id="reservation" className="py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
           <div className="absolute w-96 h-96 bg-yellow-500 rounded-full blur-[120px] -top-20 -left-20"></div>
@@ -192,44 +189,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
       </section>
 
-      {/* Contact shortcut placed right below reservation */}
-      <section className="py-12 px-6 bg-white">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-          <div className="text-slate-700 text-sm">
-            Besoin d'un devis groupe ou d'une privatisation ?
-          </div>
-          <div className="flex gap-2">
-            <button
-              className="px-4 py-2 rounded border border-slate-200 text-sm hover:bg-slate-50"
-              onClick={() => {
-                const el = document.getElementById('contact-group') || document.getElementById('contact')
-                if (el) {
-                  history.pushState(null, '', '#contact-group')
-                  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                } else {
-                  window.location.hash = '#contact-group'
-                }
-              }}
-            >
-              👥 Demande groupe
-            </button>
-            <button
-              className="px-4 py-2 rounded border border-slate-200 text-sm hover:bg-slate-50"
-              onClick={() => {
-                const el = document.getElementById('contact-private') || document.getElementById('contact')
-                if (el) {
-                  history.pushState(null, '', '#contact-private')
-                  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                } else {
-                  window.location.hash = '#contact-private'
-                }
-              }}
-            >
-              ✨ Demande de privatisation
-            </button>
-          </div>
-        </div>
-      </section>
+      {/* Contact forms are now shown as a modal from BookingWidget; no standalone section */}
 
       <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">

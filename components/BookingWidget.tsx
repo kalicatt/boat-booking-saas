@@ -6,6 +6,8 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
+import dynamic from 'next/dynamic'
+const ContactModal = dynamic(() => import('@/components/ContactModal'), { ssr: false })
 import PaymentElementWrapper from '@/components/PaymentElementWrapper'
 import StripeWalletButton from '@/components/StripeWalletButton'
 import PayPalButton from '@/components/PayPalButton'
@@ -47,7 +49,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
   const [babies, setBabies] = useState(0)
-  const [isPrivate, setIsPrivate] = useState(false) // Option barque privative
+    const [isPrivate, setIsPrivate] = useState(false) // Option barque privative
+    const [contactOpen, setContactOpen] = useState(false)
+    const [contactMode, setContactMode] = useState<'group'|'private'>('group')
   
   // API & Slots
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
@@ -496,18 +500,17 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             </div>
                         </div>
 
-                        {!isGroup && (
-                            <div className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${isPrivate ? 'bg-blue-50 border-blue-500' : 'bg-slate-50 border-slate-200 hover:border-blue-300'}`}
-                                 onClick={() => setIsPrivate(!isPrivate)}>
-                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${isPrivate ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300'}`}>
-                                    {isPrivate && <span className="text-white text-xs">✓</span>}
-                                </div>
-                                <div>
-                                    <span className={`block text-sm font-bold ${isPrivate ? 'text-blue-800' : 'text-slate-600'}`}>✨ {dict.booking.widget.private_toggle_title}</span>
-                                    <span className="text-xs text-slate-500">{dict.booking.widget.private_toggle_subtitle}</span>
-                                </div>
-                            </div>
-                        )}
+                                                {/* Replace inline private toggle with modal triggers */}
+                                                <div className="flex gap-2">
+                                                    <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
+                                                        onClick={()=>{ setContactMode('group'); setContactOpen(true) }}>
+                                                        👥 {dict.booking.widget.group_badge}
+                                                    </button>
+                                                    <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
+                                                        onClick={()=>{ setContactMode('private'); setContactOpen(true) }}>
+                                                        ✨ {dict.booking.widget.private_toggle_title}
+                                                    </button>
+                                                </div>
 
                         <div>
                             <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{dict.booking.widget.language}</label>
@@ -577,7 +580,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             )}
 
             {/* --- ÉTAPE 3 / CONTACT --- */}
-            {(step === STEPS.CONTACT || step === STEPS.GROUP_CONTACT || step === STEPS.PRIVATE_CONTACT) && (
+            {(step === STEPS.CONTACT) && (
                 <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
                     <button onClick={() => setStep(step === STEPS.CONTACT ? STEPS.SLOTS : STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {dict.booking.widget.back_btn || "Retour"}</button>
                     
@@ -592,8 +595,6 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     
                     <form 
                         onSubmit={
-                            step === STEPS.GROUP_CONTACT ? handleGroupSubmit : 
-                            step === STEPS.PRIVATE_CONTACT ? handlePrivateSubmit : 
                             handleBookingSubmit
                         } 
                         className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4"
@@ -885,5 +886,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             )}
         </div>
     </div>
+        {/* Modal for contact forms */}
+        <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang as any} />
   )
 }
