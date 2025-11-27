@@ -115,8 +115,12 @@ export async function POST(request: Request) {
     let txResult: any
     try {
     txResult = await prisma.$transaction(async (tx) => {
-      // verrou de transaction par (boatId, slotKey)
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${targetBoat.id}, ${slotKey})`;
+      // verrou de transaction par (boatId, slotKey) – tolérant en environnement serverless
+      try {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${targetBoat.id}, ${slotKey})`;
+      } catch (e) {
+        console.warn('Advisory lock unavailable, continuing without lock:', e)
+      }
 
       // Re-vérifier les conflits sous verrou
       const conflicts = await tx.booking.findMany({
