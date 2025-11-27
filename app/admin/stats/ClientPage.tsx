@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import type React from "react"
 import Link from "next/link"
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns"
 
@@ -375,7 +376,7 @@ function AccountingTable({ items, formatCurrency }: { items: Array<{ bookingId: 
         </thead>
         <tbody className="divide-y">
           {(() => {
-            const rows: JSX.Element[] = []
+            const rows: React.ReactElement[] = []
             let currentDate = ''
             let dayPeople = 0
             let dayTotal = 0
