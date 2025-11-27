@@ -44,7 +44,7 @@ function applySecurityHeaders(res: NextResponse) {
 }
 
 // --- CONFIG I18N ---
-const locales = ["en", "fr", "de"];
+const locales = ["en", "fr", "de", "es", "it"];
 const defaultLocale = "en"; // Anglais par défaut
 
 function getLocale(request: NextRequest) {

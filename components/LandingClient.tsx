@@ -63,7 +63,7 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
                 <ul role="listbox" className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
                   {['fr','en','de','es','it'].map(code => (
                     <li key={code}>
-                      <Link href={`/${code}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>setLangOpen(false)}>{code.toUpperCase()}</Link>
+                      <Link prefetch={false} href={`/${code}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>setLangOpen(false)}>{code.toUpperCase()}</Link>
                     </li>
                   ))}
                 </ul>
