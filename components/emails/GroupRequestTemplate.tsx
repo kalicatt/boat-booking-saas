@@ -6,7 +6,12 @@ interface GroupRequestProps {
   email: string;
   phone: string;
   message: string;
-  people: number; // Ajout du champ manquant
+  people: number;
+  company?: string;
+  reason?: string;
+  eventDate?: string;
+  eventTime?: string;
+  budget?: string;
 }
 
 export const GroupRequestTemplate: React.FC<Readonly<GroupRequestProps>> = ({
@@ -16,6 +21,11 @@ export const GroupRequestTemplate: React.FC<Readonly<GroupRequestProps>> = ({
   phone,
   message,
   people,
+  company,
+  reason,
+  eventDate,
+  eventTime,
+  budget,
 }) => (
   <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', maxWidth: '600px', margin: '0 auto', border: '1px solid #ddd', borderRadius: '8px' }}>
     
@@ -39,6 +49,12 @@ export const GroupRequestTemplate: React.FC<Readonly<GroupRequestProps>> = ({
             <p style={{ margin: '5px 0' }}><strong>📧 Email :</strong> <a href={`mailto:${email}`} style={{ color: '#2563eb' }}>{email}</a></p>
             <p style={{ margin: '5px 0' }}><strong>📞 Téléphone :</strong> <a href={`tel:${phone}`} style={{ color: '#2563eb' }}>{phone}</a></p>
             <p style={{ margin: '5px 0' }}><strong>👥 Groupe :</strong> {people} personnes</p>
+            {company && <p style={{ margin: '5px 0' }}><strong>🏢 Entreprise :</strong> {company}</p>}
+            {reason && <p style={{ margin: '5px 0' }}><strong>🎯 Motif :</strong> {reason}</p>}
+            {(eventDate || eventTime) && (
+              <p style={{ margin: '5px 0' }}><strong>🗓️ Souhait :</strong> {eventDate || '—'} {eventTime ? `à ${eventTime}` : ''}</p>
+            )}
+            {budget && <p style={{ margin: '5px 0' }}><strong>💶 Budget :</strong> {budget}</p>}
         </div>
 
         <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Message du client :</h3>

@@ -12,6 +12,11 @@ export async function submitGroupRequest(payload: {
   phone?: string
   message?: string
   people: number
+  company?: string
+  reason?: string
+  eventDate?: string
+  eventTime?: string
+  budget?: string
   captchaToken: string
 }, lang?: Lang) {
   const effectiveLang = lang || (typeof window !== 'undefined' ? deriveLangFromPath(window.location.pathname) : undefined)

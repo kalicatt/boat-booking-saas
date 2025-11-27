@@ -501,7 +501,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         </div>
 
                                                 {/* Replace inline private toggle with modal triggers */}
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-3 justify-center mt-2">
                                                     <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
                                                         onClick={()=>{ setContactMode('group'); setContactOpen(true) }}>
                                                         👥 {dict.booking.widget.group_badge}

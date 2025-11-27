@@ -121,12 +121,22 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
       setLoading(true)
       if (active === 'group') {
         const people = parseInt(String(fd.get('people') || '0'), 10) || 0
+        const company = (fd.get('company') as string || '').trim()
+        const reason = (fd.get('reason') as string || '').trim()
+        const eventDate = (fd.get('eventDate') as string || '').trim()
+        const eventTime = (fd.get('eventTime') as string || '').trim()
+        const budget = (fd.get('budget') as string || '').trim()
+        // Simple client-side validation
+        if (people >= 12 && !company) { setError('Veuillez indiquer votre entreprise/raison sociale pour les groupes de 12+'); setLoading(false); return }
+        if (eventDate && !/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) { setError('Format de date invalide (YYYY-MM-DD)'); setLoading(false); return }
+        if (eventTime && !/^\d{2}:\d{2}$/.test(eventTime)) { setError('Format d\'heure invalide (HH:MM)'); setLoading(false); return }
         const captchaToken = siteKey ? groupToken : 'nocaptcha'
         if (siteKey && !captchaToken) { setError(tr.captcha); setLoading(false); return }
-        await submitGroupRequest({ ...base, people, captchaToken }, lang)
+        await submitGroupRequest({ ...base, people, company, reason, eventDate, eventTime, budget, captchaToken }, lang)
       } else {
         const people = parseInt(String(fd.get('people') || '0'), 10) || undefined
         const date = (fd.get('date') as string || '').trim() || undefined
+        if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) { setError('Format de date invalide (YYYY-MM-DD)'); setLoading(false); return }
         const captchaToken = siteKey ? privateToken : 'nocaptcha'
         if (siteKey && !captchaToken) { setError(tr.captcha); setLoading(false); return }
         await submitPrivateRequest({ ...base, people, date, captchaToken }, lang)
@@ -175,10 +185,32 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
             <textarea name="message" rows={3} className="w-full p-2 border rounded" placeholder={tr.messagePlaceholder} />
           </div>
           {active==='group' ? (
-            <div>
-              <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-              <input name="people" type="number" min={1} className="w-full p-2 border rounded" required defaultValue={prefill.people ?? ''} />
-            </div>
+            <>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
+                <input name="people" type="number" min={1} className="w-full p-2 border rounded" required defaultValue={prefill.people ?? ''} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Entreprise / Raison sociale</label>
+                <input name="company" className="w-full p-2 border rounded" placeholder="Nom de l'entreprise" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Occasion / Motif</label>
+                <input name="reason" className="w-full p-2 border rounded" placeholder="Séminaire, anniversaire, EVJF, etc." />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Date souhaitée</label>
+                <input name="eventDate" className="w-full p-2 border rounded" placeholder="YYYY-MM-DD" defaultValue={prefill.date ?? ''} />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Heure souhaitée</label>
+                <input name="eventTime" className="w-full p-2 border rounded" placeholder="HH:MM" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-1">Budget indicatif</label>
+                <input name="budget" className="w-full p-2 border rounded" placeholder="Ex: 500€" />
+              </div>
+            </>
           ) : (
             <>
               <div>

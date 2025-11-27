@@ -24,12 +24,21 @@ export async function POST(request: Request) {
       phone: z.string().max(30).default(''),
       message: z.string().max(1500).default(''),
       people: z.number().int().min(1).max(500),
+      company: z.string().max(120).default(''),
+      reason: z.string().max(200).default(''),
+      eventDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal('').default('')),
+      eventTime: z.string().regex(/^\d{2}:\d{2}$/).optional().or(z.literal('').default('')),
+      budget: z.string().max(40).default(''),
       captchaToken: z.string().min(10),
       lang: z.enum(['fr','en','de','es','it']).optional()
+    }).superRefine((val, ctx) => {
+      if (val.people >= 12 && !val.company) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Entreprise requise pour les groupes de 12+', path: ['company'] })
+      }
     })
     const parsed = schema.safeParse(json)
     if (!parsed.success) return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
-    let { firstName, lastName, email, phone, message, people, captchaToken, lang } = parsed.data
+    let { firstName, lastName, email, phone, message, people, company, reason, eventDate, eventTime, budget, captchaToken, lang } = parsed.data
     const supported = ['fr','en','de','es','it'] as const
     type Lang = typeof supported[number]
     const referer = request.headers.get('referer') || ''
@@ -68,14 +77,19 @@ export async function POST(request: Request) {
       subject: `Demande de Groupe - ${firstName} ${lastName}`,
       replyTo: email, // Pour répondre directement au client en cliquant sur "Répondre"
       // 👇 FIX : Ajout de 'await' ici aussi
-      react: await GroupRequestTemplate({ 
+        react: await GroupRequestTemplate({ 
           firstName, 
           lastName, 
           email, 
           phone, 
           message, 
-          people 
-      })
+          people,
+          company,
+          reason,
+          eventDate,
+          eventTime,
+          budget
+        })
     })
 
     if (error) {
