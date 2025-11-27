@@ -176,6 +176,54 @@ model Payment {
   @@index([orderId])
 }
 
+// Immutable accounting ledger: append-only events for audit
+model PaymentLedger {
+  id          String   @id @default(cuid())
+  eventType   String   // SALE, PAID, REFUND, VOID, ADJUSTMENT
+  bookingId   String?
+  paymentId   String?
+  provider    String   // cash, card, paypal, applepay, googlepay, voucher
+  methodType  String?  // ANCV, CityPass for voucher
+  amount      Int      // cents
+  currency    String   // EUR
+  actorId     String?  // admin user performing action
+  occurredAt  DateTime @default(now())
+  receiptNo   Int?
+  note        String?
+}
+
+// Cash management: track opening float and movements
+model CashSession {
+  id           String   @id @default(cuid())
+  openedAt     DateTime @default(now())
+  openedById   String?
+  openingFloat Int      // cents
+  closedAt     DateTime?
+  closedById   String?
+  closingCount Int?     // cents counted at close
+  movements    CashMovement[]
+}
+
+model CashMovement {
+  id           String   @id @default(cuid())
+  session      CashSession @relation(fields: [sessionId], references: [id])
+  sessionId    String
+  kind         String   // SALE, PAID_IN, PAID_OUT, CORRECTION
+  amount       Int      // cents (+/-)
+  note         String?
+  occurredAt   DateTime @default(now())
+}
+
+// Daily closure snapshot for Z-report
+model DailyClosure {
+  id          String   @id @default(cuid())
+  day         DateTime // date-only normalized at midnight UTC
+  closedAt    DateTime @default(now())
+  closedById  String?
+  totalsJson  String   // snapshot totals per method/vouchers, VAT etc.
+  hash        String   // integrity hash of snapshot payload
+}
+
 // Contact requests captured from public forms (private/group, etc.)
 model ContactRequest {
   id        String        @id @default(cuid())
