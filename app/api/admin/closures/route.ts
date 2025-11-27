@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
+export const runtime = 'nodejs'
 
 export async function GET() {
   try {
