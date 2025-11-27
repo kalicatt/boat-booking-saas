@@ -93,11 +93,11 @@ export async function getStats(filters: StatsFilters = {}) {
     if (hasANCV) ANCVCount += (b.numberOfPeople||0)
   }
   const breakdown = {
-    cash: sumCents(paymentsAll.filter(p=> (p.provider === 'cash'))) / 100,
-    card: sumCents(paymentsAll.filter(p=> (p.provider === 'card' || p.provider === 'stripe'))) / 100,
-    paypal: sumCents(paymentsAll.filter(p=> (p.provider === 'paypal'))) / 100,
-    applepay: sumCents(paymentsAll.filter(p=> (p.provider === 'applepay' || (p.provider||'').toLowerCase().includes('apple')))) / 100,
-    googlepay: sumCents(paymentsAll.filter(p=> (p.provider === 'googlepay' || (p.provider||'').toLowerCase().includes('google')))) / 100,
+    cash: sumCents(paymentsAll.filter(p=> ((p.provider||'').toLowerCase() === 'cash'))) / 100,
+    card: sumCents(paymentsAll.filter(p=> { const prov = (p.provider||'').toLowerCase(); return prov === 'card' || prov === 'stripe' })) / 100,
+    paypal: sumCents(paymentsAll.filter(p=> ((p.provider||'').toLowerCase() === 'paypal'))) / 100,
+    applepay: sumCents(paymentsAll.filter(p=> { const prov = (p.provider||'').toLowerCase(); return prov === 'applepay' || prov.includes('apple') })) / 100,
+    googlepay: sumCents(paymentsAll.filter(p=> { const prov = (p.provider||'').toLowerCase(); return prov === 'googlepay' || prov.includes('google') })) / 100,
     ANCV: ANCVCount,           // counts, not euros
     CityPass: CityPassCount,   // counts, not euros
   }
