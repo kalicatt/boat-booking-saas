@@ -19,6 +19,11 @@ export async function getStats(filters: StatsFilters = {}) {
 
   const bookings = await prisma.booking.findMany({ where, include: { payments: true, user: true, boat: true } })
 
+  const isPaidStatus = (s?: string) => {
+    const v = (s || '').toLowerCase()
+    return v === 'succeeded' || v === 'completed' || v === 'paid' || v === 'captured' || v === 'authorized' || v === 'settled'
+  }
+
   const kpis = {
     bookings: bookings.length,
     embarked: bookings.filter(b => b.checkinStatus === 'EMBARQUED').length,
@@ -30,8 +35,13 @@ export async function getStats(filters: StatsFilters = {}) {
     babies: bookings.reduce((s,b)=> s + (b.babies||0), 0),
     revenue: (() => {
       // Compute cashier total from payments excluding vouchers (ANCV/CityPass)
-      const payments = bookings.flatMap(b=> b.payments||[]).filter(p=> p.status === 'succeeded')
-      const cashier = payments.filter(p=> !(p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')))
+      const payments = bookings.flatMap(b=> b.payments||[]).filter(p=> isPaidStatus(p.status))
+      const cashier = payments.filter(p=> {
+        const prov = (p.provider||'').toLowerCase()
+        const meth = (p.methodType||'').toLowerCase()
+        const isVoucher = prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('city') || prov.includes('ancv')
+        return !isVoucher
+      })
       return Math.round(cashier.reduce((s,p)=> s + (p.amount||0), 0) / 100)
     })(),
     avgPerBooking: (()=>{ const count = bookings.length; const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return count ? Math.round(total / count) : 0 })(),
@@ -70,13 +80,13 @@ export async function getStats(filters: StatsFilters = {}) {
   Object.keys(byHourMap).sort().forEach(k => byHour.push({ hour: k, count: byHourMap[k].count, revenue: byHourMap[k].revenue }))
 
   // Build payment breakdown
-  const paymentsAll = bookings.flatMap(b=> b.payments||[]).filter(p=> p.status === 'succeeded')
+  const paymentsAll = bookings.flatMap(b=> b.payments||[]).filter(p=> isPaidStatus(p.status))
   const sumCents = (arr: any[]) => Math.round(arr.reduce((s,p)=> s + (p.amount||0), 0))
   // Monetary breakdown (excluding vouchers from caisse total), vouchers counted as quantities
   let ANCVCount = 0
   let CityPassCount = 0
   for (const b of bookings) {
-    const ps = (b.payments||[]).filter(p=> p.status === 'succeeded')
+    const ps = (b.payments||[]).filter(p=> isPaidStatus(p.status))
     const hasCityPass = ps.some(p=> (p.provider === 'voucher' && p.methodType === 'CityPass') || (p.methodType||'').toLowerCase().includes('city'))
     const hasANCV = ps.some(p=> (p.provider === 'voucher' && p.methodType === 'ANCV') || (p.methodType||'').toLowerCase().includes('ancv'))
     if (hasCityPass) CityPassCount += (b.adults||0)
@@ -104,7 +114,7 @@ export async function getStats(filters: StatsFilters = {}) {
       return [] as any[]
     }
     return b.payments
-      .filter(p => p.status === 'succeeded')
+      .filter(p => isPaidStatus(p.status))
       .map(p => {
         let method = p.provider
         if (p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')) method = p.methodType
