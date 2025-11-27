@@ -293,9 +293,14 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             setGlobalErrors([msg])
             throw new Error(msg)
         }
-        bId = dataPending.bookingId
-        setPendingBookingId(bId)
-        return bId
+        const newId: string | null = dataPending.bookingId || null
+        if (!newId) {
+            const nf = dict.booking.widget.booking_not_found || 'Réservation introuvable'
+            setGlobalErrors([nf])
+            throw new Error(nf)
+        }
+        setPendingBookingId(newId)
+        return newId
     }
 
   // VALIDATION GROUPE
