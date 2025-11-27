@@ -168,10 +168,7 @@ export default function ClientPlanningPage() {
     if (duration > 5 * 60 * 1000) return
 
     const s = new Date(slotInfo.start)
-    const startTime = new Date(
-          payments: b.payments || [],
-      Date.UTC(s.getFullYear(), s.getMonth(), s.getDate(), s.getHours(), s.getMinutes())
-    )
+    const startTime = new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate(), s.getHours(), s.getMinutes()))
     const boatId = slotInfo.resourceId
 
     const conflicts = events.some(
