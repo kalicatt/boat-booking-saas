@@ -67,7 +67,10 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">Sweet <span className="text-[#eab308]">Narcisse</span></div>
+          <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">
+            <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-8 w-auto rounded-sm" />
+            <span>Sweet <span className="text-[#eab308]">Narcisse</span></span>
+          </div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{liveDict.nav.experience}</a>
             <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300 uppercase">{liveDict.partners?.nav || 'Partners'}</a>
@@ -194,7 +197,10 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">Sweet <span className="text-[#eab308]">Narcisse</span></h5>
+            <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">
+              <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-6 w-auto rounded-sm" />
+              <span>Sweet <span className="text-[#eab308]">Narcisse</span></span>
+            </h5>
             <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer.departure_label}</p>
             <p className="leading-relaxed">10 Rue de la Herse<br/>68000 Colmar, France</p>
             <p className="mt-4 font-bold text-white">📞 +33 3 89 20 68 92</p>
