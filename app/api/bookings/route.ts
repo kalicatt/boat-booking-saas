@@ -191,7 +191,7 @@ export async function POST(request: Request) {
               firstName: userDetails.firstName,
               date, time, people, adults, children, babies,
               totalPrice: finalPrice,
-              bookingId: newBooking.id
+              bookingId: txResult.id
             })
           })
       }
