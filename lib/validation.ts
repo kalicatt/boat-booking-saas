@@ -91,7 +91,8 @@ export const BookingRequestSchema = z.object({
   captchaToken: z.string().optional(),
   message: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v,1000)!) : undefined),
   paymentMethod: z.enum(['cash','card','paypal','applepay','googlepay','ANCV','CityPass']).optional(),
-  pendingOnly: z.boolean().optional()
+  pendingOnly: z.boolean().optional(),
+  groupChain: z.number().int().min(0).optional()
 }).refine(v => (v.adults + v.children + v.babies) > 0, { message: 'Au moins une personne requise' })
 
 // Simple helper to safely parse numbers

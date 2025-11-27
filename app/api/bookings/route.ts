@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
     const pendingOnly = Boolean((json as any)?.pendingOnly)
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod } = parsed.data as any
+    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod, groupChain, inheritPaymentForChain } = parsed.data as any
 
     // 1. CAPTCHA
     if (!isStaffOverride) {
@@ -143,7 +143,7 @@ export async function POST(request: Request) {
         return { ok: false as const, conflict: true as const }
       }
 
-      // Création sous verrou
+      // Création
       const newBooking = await tx.booking.create({
         data: {
           date: new Date(`${date}T00:00:00.000Z`),
@@ -184,6 +184,204 @@ export async function POST(request: Request) {
 
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
+
+    // Group chaining: chain consecutive boat slots for large groups
+    const chainCreated: Array<{ index: number, boatId: string, start: string, end: string, people: number }> = []
+    const overlaps: Array<{ index: number, start: string, end: string, reason: string }> = []
+    if (isStaffOverride && groupChain && groupChain > targetBoat.capacity) {
+      const chunks = Math.ceil(groupChain / targetBoat.capacity)
+      for (let i = 1; i < chunks; i++) {
+        const startChain = addMinutes(myStart, i * INTERVAL)
+        const endChain = addMinutes(startChain, TOUR_DURATION)
+        let remainingForSlot = Math.min(targetBoat.capacity, groupChain - i * targetBoat.capacity)
+
+        // Conflict check for each chained slot
+        const conflicting = await prisma.booking.findFirst({
+          where: {
+            boatId: targetBoat.id,
+            date: new Date(`${date}T00:00:00.000Z`),
+            startTime: { lt: endChain },
+            endTime: { gt: startChain },
+            status: { in: ['PENDING', 'CONFIRMED'] }
+          },
+          select: { id: true, startTime: true, endTime: true }
+        })
+
+        if (conflicting) {
+          // Try multi-boat distribution: iterate through all other boats by capacity
+          const otherBoats = await prisma.boat.findMany({
+            where: { id: { not: targetBoat.id }, capacity: { gte: chunkPeople } },
+            orderBy: { capacity: 'desc' }
+          })
+          let placedAny = false
+          for (const ob of otherBoats) {
+            const otherConflict = await prisma.booking.findFirst({
+              where: {
+                boatId: ob.id,
+                date: new Date(`${date}T00:00:00.000Z`),
+                startTime: { lt: endChain },
+                endTime: { gt: startChain },
+                status: { in: ['PENDING', 'CONFIRMED'] }
+              },
+              select: { id: true }
+            })
+            if (otherConflict) continue
+            const allocation = Math.min(ob.capacity, remainingForSlot)
+            try {
+              const chainedAlt = await prisma.booking.create({
+                data: {
+                  date: new Date(`${date}T00:00:00.000Z`),
+                  startTime: startChain,
+                  endTime: endChain,
+                  numberOfPeople: allocation,
+                  adults: allocation, children: 0, babies: 0,
+                  language,
+                  totalPrice: allocation * PRICE_ADULT,
+                  status: 'CONFIRMED',
+                  boat: { connect: { id: ob.id } },
+                  user: {
+                    connectOrCreate: {
+                      where: { email: userEmailToUse },
+                      create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
+                    }
+                  },
+                  isPaid: Boolean(inheritPaymentForChain && paymentMethod)
+                }
+              })
+              chainCreated.push({ index: i, boatId: ob.id, start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
+              if (inheritPaymentForChain && paymentMethod) {
+                await prisma.payment.create({
+                  data: {
+                    bookingId: chainedAlt.id,
+                    provider: paymentMethod.provider || 'manual',
+                    methodType: paymentMethod.methodType || 'unknown',
+                    amount: chainedAlt.totalPrice,
+                    currency: 'EUR',
+                    status: 'PENDING'
+                  }
+                })
+              }
+              remainingForSlot -= allocation
+              placedAny = true
+              if (remainingForSlot <= 0) break
+            } catch (e) {
+              continue
+            }
+          }
+          if (remainingForSlot > 0) {
+            overlaps.push({ index: i, start: startChain.toISOString(), end: endChain.toISOString(), reason: `Unplaced people ${remainingForSlot}` })
+          }
+          continue
+        }
+
+        try {
+          // Primary boat free: allocate on primary first (up to capacity)
+          const allocationPrimary = Math.min(targetBoat.capacity, remainingForSlot)
+          const chained = await prisma.booking.create({
+            data: {
+              date: new Date(`${date}T00:00:00.000Z`),
+              startTime: startChain,
+              endTime: endChain,
+              numberOfPeople: allocationPrimary,
+              adults: allocationPrimary, children: 0, babies: 0,
+              language,
+              totalPrice: allocationPrimary * PRICE_ADULT,
+              status: 'CONFIRMED',
+              boat: { connect: { id: targetBoat.id } },
+              user: {
+                connectOrCreate: {
+                  where: { email: userEmailToUse },
+                  create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
+                }
+              },
+              isPaid: Boolean(inheritPaymentForChain && paymentMethod)
+            }
+          })
+          chainCreated.push({ index: i, boatId: targetBoat.id, start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
+          // Optionally inherit payment metadata to chained bookings (record intent, not actual capture)
+          if (inheritPaymentForChain && paymentMethod) {
+            await prisma.payment.create({
+              data: {
+                bookingId: chained.id,
+                provider: paymentMethod.provider || 'manual',
+                methodType: paymentMethod.methodType || 'unknown',
+                amount: chained.totalPrice,
+                currency: 'EUR',
+                status: 'PENDING'
+              }
+            })
+          }
+          remainingForSlot -= allocationPrimary
+          // If remaining people for this slot, iterate other boats to place them at same time
+          if (remainingForSlot > 0) {
+            const otherBoats = await prisma.boat.findMany({
+              where: { id: { not: targetBoat.id }, capacity: { gt: 0 } },
+              orderBy: { capacity: 'desc' }
+            })
+            for (const ob of otherBoats) {
+              const otherConflict = await prisma.booking.findFirst({
+                where: {
+                  boatId: ob.id,
+                  date: new Date(`${date}T00:00:00.000Z`),
+                  startTime: { lt: endChain },
+                  endTime: { gt: startChain },
+                  status: { in: ['PENDING', 'CONFIRMED'] }
+                },
+                select: { id: true }
+              })
+              if (otherConflict) continue
+              const allocation = Math.min(ob.capacity, remainingForSlot)
+              if (allocation <= 0) break
+              const chainedExtra = await prisma.booking.create({
+                data: {
+                  date: new Date(`${date}T00:00:00.000Z`),
+                  startTime: startChain,
+                  endTime: endChain,
+                  numberOfPeople: allocation,
+                  adults: allocation, children: 0, babies: 0,
+                  language,
+                  totalPrice: allocation * PRICE_ADULT,
+                  status: 'CONFIRMED',
+                  boat: { connect: { id: ob.id } },
+                  user: {
+                    connectOrCreate: {
+                      where: { email: userEmailToUse },
+                      create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
+                    }
+                  },
+                  isPaid: Boolean(inheritPaymentForChain && paymentMethod)
+                }
+              })
+              chainCreated.push({ index: i, boatId: ob.id, start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
+              if (inheritPaymentForChain && paymentMethod) {
+                await prisma.payment.create({
+                  data: {
+                    bookingId: chainedExtra.id,
+                    provider: paymentMethod.provider || 'manual',
+                    methodType: paymentMethod.methodType || 'unknown',
+                    amount: chainedExtra.totalPrice,
+                    currency: 'EUR',
+                    status: 'PENDING'
+                  }
+                })
+              }
+              remainingForSlot -= allocation
+              if (remainingForSlot <= 0) break
+            }
+            if (remainingForSlot > 0) {
+              overlaps.push({ index: i, start: startChain.toISOString(), end: endChain.toISOString(), reason: `Unplaced people ${remainingForSlot}` })
+            }
+          }
+        } catch (e) {
+          overlaps.push({ index: i, start: startChain.toISOString(), end: endChain.toISOString(), reason: 'Creation error' })
+        }
+      }
+      if (overlaps.length) {
+        await createLog('GROUP_CHAIN_OVERLAPS', `Chain overlaps: ${overlaps.map(o => `#${o.index} ${o.start}-${o.end} ${o.reason}`).join(', ')}`)
+      }
+    }
+
+    return NextResponse.json({ booking: newBooking, chainCreated, overlaps })
 
     // 8. Enregistrer le paiement si guichet
     try {
