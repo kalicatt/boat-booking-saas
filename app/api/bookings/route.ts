@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     }
     const pendingOnly = Boolean((json as any)?.pendingOnly)
     const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod, groupChain, inheritPaymentForChain } = parsed.data as any
+    let newBooking: any
 
     // 1. CAPTCHA
     if (!isStaffOverride) {
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
       }
 
       // Création
-      const newBooking = await tx.booking.create({
+      newBooking = await tx.booking.create({
         data: {
           date: new Date(`${date}T00:00:00.000Z`),
           startTime: myStart,
