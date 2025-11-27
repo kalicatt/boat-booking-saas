@@ -1,14 +1,22 @@
 import 'server-only'
+import fs from 'fs'
+import path from 'path'
 
-import en from '@/dictionaries/en.json'
-import fr from '@/dictionaries/fr.json'
-import de from '@/dictionaries/de.json'
-import es from '@/dictionaries/es.json'
-import it from '@/dictionaries/it.json'
+export const SUPPORTED_LOCALES = ['en','fr','de','es','it'] as const
+export type SupportedLocale = typeof SUPPORTED_LOCALES[number]
 
-const dictionaries = { en, fr, de, es, it }
-export type SupportedLocale = keyof typeof dictionaries
+function readJson(locale: SupportedLocale) {
+  const filePath = path.join(process.cwd(), 'dictionaries', `${locale}.json`)
+  const raw = fs.readFileSync(filePath, 'utf8')
+  return JSON.parse(raw)
+}
 
 export function getDictionary(locale: SupportedLocale) {
-  return dictionaries[locale] || dictionaries.en
+  try {
+    if(!SUPPORTED_LOCALES.includes(locale)) return readJson('en')
+    return readJson(locale)
+  } catch (e) {
+    // Fallback francophone first if english missing unexpectedly
+    try { return readJson('fr') } catch { return readJson('en') }
+  }
 }
