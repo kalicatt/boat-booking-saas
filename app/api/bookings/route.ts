@@ -387,8 +387,6 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ booking: newBooking, chainCreated, overlaps })
-
     // 8. Enregistrer le paiement si guichet
     try {
       if (isStaffOverride && txResult.ok) {
@@ -433,7 +431,7 @@ export async function POST(request: Request) {
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
 
-    return NextResponse.json({ success: true, bookingId: txResult.id, status: txResult.status })
+    return NextResponse.json({ success: true, bookingId: txResult.id, status: txResult.status, booking: newBooking, chainCreated, overlaps })
   } catch (error) {
     console.error("ERREUR API:", error)
     return NextResponse.json({ error: "Erreur technique" }, { status: 500 })
