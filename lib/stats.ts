@@ -17,7 +17,7 @@ export async function getStats(filters: StatsFilters = {}) {
   if (filters.status && filters.status.length) where.status = { in: filters.status }
   if (filters.language && filters.language.length) where.language = { in: filters.language }
 
-  const bookings = await prisma.booking.findMany({ where })
+  const bookings = await prisma.booking.findMany({ where, include: { payments: true } })
 
   const kpis = {
     bookings: bookings.length,
@@ -28,9 +28,14 @@ export async function getStats(filters: StatsFilters = {}) {
     adults: bookings.reduce((s,b)=> s + (b.adults||0), 0),
     children: bookings.reduce((s,b)=> s + (b.children||0), 0),
     babies: bookings.reduce((s,b)=> s + (b.babies||0), 0),
-    revenue: bookings.reduce((s,b)=> s + (b.totalPrice||0), 0),
-    avgPerBooking: bookings.length ? Math.round(bookings.reduce((s,b)=> s + (b.totalPrice||0), 0) / bookings.length) : 0,
-    avgPerPerson: (() => { const ppl = bookings.reduce((s,b)=> s + b.numberOfPeople,0); return ppl ? Math.round(bookings.reduce((s,b)=> s + (b.totalPrice||0),0)/ppl) : 0 })(),
+    revenue: (() => {
+      // Compute cashier total from payments excluding vouchers (ANCV/CityPass)
+      const payments = bookings.flatMap(b=> b.payments||[]).filter(p=> p.status === 'succeeded')
+      const cashier = payments.filter(p=> !(p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')))
+      return Math.round(cashier.reduce((s,p)=> s + (p.amount||0), 0) / 100)
+    })(),
+    avgPerBooking: (()=>{ const count = bookings.length; const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return count ? Math.round(total / count) : 0 })(),
+    avgPerPerson: (() => { const ppl = bookings.reduce((s,b)=> s + b.numberOfPeople,0); const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return ppl ? Math.round(total/ppl) : 0 })(),
   }
 
   const statusDist: Record<string, number> = {}
@@ -64,5 +69,37 @@ export async function getStats(filters: StatsFilters = {}) {
   })
   Object.keys(byHourMap).sort().forEach(k => byHour.push({ hour: k, count: byHourMap[k].count, revenue: byHourMap[k].revenue }))
 
-  return { kpis, statusDist, langDist, seriesDaily, byHour }
+  // Build payment breakdown
+  const paymentsAll = bookings.flatMap(b=> b.payments||[]).filter(p=> p.status === 'succeeded')
+  const sumCents = (arr: any[]) => Math.round(arr.reduce((s,p)=> s + (p.amount||0), 0))
+  const breakdown = {
+    cash: sumCents(paymentsAll.filter(p=> p.provider === 'cash'))/100,
+    card: sumCents(paymentsAll.filter(p=> p.provider === 'card'))/100,
+    paypal: sumCents(paymentsAll.filter(p=> p.provider === 'paypal'))/100,
+    applepay: sumCents(paymentsAll.filter(p=> p.provider === 'applepay'))/100,
+    googlepay: sumCents(paymentsAll.filter(p=> p.provider === 'googlepay'))/100,
+    ANCV: sumCents(paymentsAll.filter(p=> p.provider === 'voucher' && p.methodType === 'ANCV'))/100,
+    CityPass: sumCents(paymentsAll.filter(p=> p.provider === 'voucher' && p.methodType === 'CityPass'))/100,
+  }
+
+  // Build client-friendly structure
+  const byLanguage = Object.entries(langDist).map(([language, count])=> ({ language, _count: { id: count } }))
+  const statusDistOut = statusDist
+  const seriesDailyOut = seriesDaily
+  const byHourOut = byHour
+
+  return {
+    revenue: kpis.revenue,
+    passengers: kpis.people,
+    bookingsCount: kpis.bookings,
+    noShow: kpis.noShow,
+    cancelled: kpis.cancelled,
+    avgPerBooking: kpis.avgPerBooking,
+    avgPerPerson: kpis.avgPerPerson,
+    byLanguage,
+    statusDist: statusDistOut,
+    seriesDaily: seriesDailyOut,
+    byHour: byHourOut,
+    paymentBreakdown: breakdown
+  }
 }

@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
     const pendingOnly = Boolean((json as any)?.pendingOnly)
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message } = parsed.data
+    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod } = parsed.data as any
 
     // 1. CAPTCHA
     if (!isStaffOverride) {
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
         }
       })
 
-      return { ok: true as const, id: newBooking.id, status: newBooking.status }
+      return { ok: true as const, id: newBooking.id, status: newBooking.status, finalPrice }
     })
 
     if (!('ok' in txResult) || !txResult.ok) {
@@ -180,7 +180,28 @@ export async function POST(request: Request) {
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
 
-    // 8. EMAIL
+    // 8. Enregistrer le paiement si guichet
+    try {
+      if (isStaffOverride && txResult.ok) {
+        const amountMinor = Math.round((txResult as any).finalPrice * 100)
+        const method = paymentMethod as string | undefined
+        if (method === 'cash') {
+          await prisma.payment.create({ data: { provider: 'cash', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        } else if (method === 'card') {
+          await prisma.payment.create({ data: { provider: 'card', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        } else if (method === 'paypal') {
+          await prisma.payment.create({ data: { provider: 'paypal', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        } else if (method === 'applepay') {
+          await prisma.payment.create({ data: { provider: 'applepay', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        } else if (method === 'googlepay') {
+          await prisma.payment.create({ data: { provider: 'googlepay', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        } else if (method === 'ANCV' || method === 'CityPass') {
+          await prisma.payment.create({ data: { provider: 'voucher', methodType: method, bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        }
+      }
+    } catch (e) { console.error('Erreur enregistrement paiement guichet', e) }
+
+    // 9. EMAIL
     try {
       if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@')) {
           await resend.emails.send({

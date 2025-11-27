@@ -33,6 +33,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [adults, setAdults] = useState(2);
     const [children, setChildren] = useState(0);
     const [babies, setBabies] = useState(0);
+    const [paymentMethod, setPaymentMethod] = useState<'cash'|'card'|'paypal'|'applepay'|'googlepay'|'ANCV'|'CityPass'>('cash')
 
     // Infos calculées
     const totalPeople = adults + children + babies;
@@ -81,6 +82,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             people: totalPeople,
             language: 'FR', 
             message: message, // <--- 2. ON ENVOIE LE MESSAGE À L'API
+            paymentMethod,
             userDetails: {
                 firstName: finalFirstName,
                 lastName: finalLastName,
@@ -238,6 +240,25 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                             className="w-full border rounded p-2 bg-slate-50 text-sm h-20 resize-none outline-none focus:border-blue-600"
                         />
                     </div>
+
+                                        {/* 4b. MODE DE PAIEMENT */}
+                                        <div>
+                                                <label className="block text-xs font-bold text-slate-500 mb-1">MODE DE PAIEMENT</label>
+                                                <select
+                                                    value={paymentMethod}
+                                                    onChange={(e)=> setPaymentMethod(e.target.value as any)}
+                                                    className="w-full border rounded p-2 bg-slate-50"
+                                                >
+                                                    <option value="cash">Espèces</option>
+                                                    <option value="card">Carte bancaire (TPE)</option>
+                                                    <option value="paypal">PayPal</option>
+                                                    <option value="applepay">Apple Pay</option>
+                                                    <option value="googlepay">Google Pay</option>
+                                                    <option value="ANCV">ANCV</option>
+                                                    <option value="CityPass">City Pass</option>
+                                                </select>
+                                                <p className="mt-1 text-xs text-slate-600">ANCV et City Pass seront comptés à part et exclus du total caisse.</p>
+                                        </div>
 
                     {/* 5. FOOTER & PRIX */}
                     <div className="pt-2 flex items-center justify-between border-t border-slate-100 mt-4">

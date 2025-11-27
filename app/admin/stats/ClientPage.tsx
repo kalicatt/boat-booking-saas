@@ -122,6 +122,30 @@ export default function ClientStatsPage() {
               </div>
             </div>
 
+            {/* Breakdown by payment method */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800 mb-6">Caisse par mode de paiement</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <BreakdownRow label="Espèces" value={formatCurrency((data.paymentBreakdown?.cash)||0)} />
+                  <BreakdownRow label="Carte bancaire" value={formatCurrency((data.paymentBreakdown?.card)||0)} />
+                  <BreakdownRow label="PayPal" value={formatCurrency((data.paymentBreakdown?.paypal)||0)} />
+                  <BreakdownRow label="Apple Pay" value={formatCurrency((data.paymentBreakdown?.applepay)||0)} />
+                  <BreakdownRow label="Google Pay" value={formatCurrency((data.paymentBreakdown?.googlepay)||0)} />
+                </div>
+                <div className="mt-4 text-xs text-slate-500">
+                  Note: ANCV et City Pass ne sont pas inclus dans la caisse.
+                </div>
+              </div>
+              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-800 mb-6">Vouchers (hors caisse)</h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <BreakdownRow label="ANCV" value={formatCurrency((data.paymentBreakdown?.ANCV)||0)} />
+                  <BreakdownRow label="City Pass" value={formatCurrency((data.paymentBreakdown?.CityPass)||0)} />
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
               <KPI title="No-Show" value={data.noShow || 0} />
               <KPI title="Annulés" value={data.cancelled || 0} />
@@ -194,6 +218,15 @@ function Section({ title, children }: any) {
     <div className="mt-6">
       <h3 className="text-sm font-bold text-slate-600 mb-2">{title}</h3>
       <div className="p-4 bg-white border rounded">{children}</div>
+    </div>
+  )
+}
+
+function BreakdownRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between">
+      <span className="text-slate-600 font-medium">{label}</span>
+      <span className="font-bold text-slate-800">{value}</span>
     </div>
   )
 }
