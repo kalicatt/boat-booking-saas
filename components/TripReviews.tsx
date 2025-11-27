@@ -4,7 +4,7 @@ import { pickFeatured, AGGREGATE_RATING, REVIEWS } from '@/lib/reviews'
 
 interface Props {
   dict: any
-  lang: 'fr' | 'en' | 'de'
+  lang: 'fr' | 'en' | 'de' | 'es' | 'it'
 }
 
 export default function TripReviews({ dict, lang }: Props) {

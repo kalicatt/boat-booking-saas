@@ -2,11 +2,15 @@ import 'server-only'
 
 // Types pour TypeScript (facultatif mais conseillé)
 const dictionaries = {
-  en: () => import('@/dictionaries/en.json').then((module) => module.default),
-  fr: () => import('@/dictionaries/fr.json').then((module) => module.default),
-  de: () => import('@/dictionaries/de.json').then((module) => module.default),
+  en: () => import('@/dictionaries/en.json').then((m) => m.default),
+  fr: () => import('@/dictionaries/fr.json').then((m) => m.default),
+  de: () => import('@/dictionaries/de.json').then((m) => m.default),
+  es: () => import('@/dictionaries/es.json').then((m) => m.default),
+  it: () => import('@/dictionaries/it.json').then((m) => m.default),
 }
 
-export const getDictionary = async (locale: 'en' | 'fr' | 'de') => {
+export type SupportedLocale = keyof typeof dictionaries
+
+export const getDictionary = async (locale: SupportedLocale) => {
   return dictionaries[locale]?.() ?? dictionaries.en()
 }

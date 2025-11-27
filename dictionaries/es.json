@@ -1,0 +1,18 @@
+{
+  "nav": {"experience": "LA EXPERIENCIA", "contact": "CONTACTO", "book": "RESERVAR 🎟️"},
+  "hero": {"title": "Vive Colmar de otra manera", "subtitle": "Disfruta de un momento tranquilo sobre el agua, sin multitudes ni estrés – una pausa auténtica en el corazón de la Pequeña Venecia.", "cta": "RESERVAR MI PLAZA"},
+  "presentation": {"title": "La Venecia de Alsacia como nunca la has visto.", "text": "Déjate mecer por el murmullo del río Lauch. Nuestros barqueros apasionados te guiarán por los barrios históricos de curtidores y pescaderos. Una vista única de las casas entramadas y coloridas, lejos del bullicio.", "points": ["Guías multilingües (FR, EN, DE, ES)", "Barcas tradicionales de fondo plano", "Recorrido de 25 minutos en pleno centro"]},
+  "bento": {"title": "¿Por qué elegir nuestro paseo?", "subtitle": "Un formato pensado para maximizar tu placer y reducir fricciones.", "cards": [
+    {"title": "⏱ Duración ideal", "text": "25 minutos: suficiente para desconectar, fácil de encajar."},
+    {"title": "🌿 Bajo impacto", "text": "Navegación suave respetuosa con patrimonio y entorno."},
+    {"title": "🗣 Guías humanos", "text": "Historias locales reales, no un audio genérico."},
+    {"title": "📍 Salida céntrica", "text": "En el corazón histórico. Sin desplazamientos extra."},
+    {"title": "🎫 Sin fricción", "text": "Reserva sencilla, pago en sitio u online."},
+    {"title": "👥 Grupo & privado", "text": "Opciones para familias, eventos, escuelas."}
+  ]},
+  "social": {"title": "Les encantó", "subtitle": "Cientos de viajeros sorprendidos al redescubrir Colmar desde el agua.", "cta": "Ver más reseñas", "sourceLink": "Ver en TripAdvisor", "aggregatePrefix": "Valoración global", "reviewsLabel": "reseñas"},
+  "logos": {"title": "Socios & Confianza"},
+  "booking": {"title": "Reserva tu salida", "subtitle": "Elige tu horario abajo. Pago en sitio u online.", "widget": {"date": "FECHA", "passengers": "PASAJEROS", "language": "IDIOMA", "choose": "Elegir hora", "reserve": "RESERVAR", "no_slot": "No hay salidas disponibles.", "form_title": "Datos de contacto", "form_subtitle": "Último paso para confirmar.", "confirm": "CONFIRMAR", "adults": "Adultos", "children": "Niños (4-10)", "babies": "Bebés (-3)", "free": "Gratis (0,00 €)", "step_criteria_title": "Configura tu salida", "step_slots_title": "Elige tu hora", "slots_subtitle": "Horarios disponibles para", "step_success": "¡Reserva confirmada!", "loading": "Buscando...", "submitting": "Procesando...", "btn_search": "Ver disponibilidad", "btn_continue_group": "Solicitud grupo →", "btn_continue_private": "Solicitud privado →", "btn_validate_slot": "Confirmar hora", "private_toggle_title": "Privatizar barca", "private_toggle_subtitle": "Tour exclusivo (bajo presupuesto)", "private_badge": "Privado", "group_badge": "Grupo", "summary_details": "Detalles", "summary_departure": "Salida", "summary_title_standard": "Tu Reserva", "help_text": "¿Necesitas ayuda?", "modify_btn": "Modificar", "duration_text": "Duración: ~25 min", "back_btn": "Volver"}},
+  "footer": {"hours_title": "Horario", "open_days": "Abierto cada día", "morning_label": "Mañana:", "morning_hours": "10:00 - 11:45", "afternoon_label": "Tarde:", "afternoon_hours": "13:30 - 17:45", "infos": "Información", "legal": "Aviso Legal", "cgv": "Condiciones", "employee_access": "Acceso Empleado 🔒", "rights": "© 2025 Sweet Narcisse. Todos los derechos reservados."},
+  "partners": {"nav": "Socios", "title": "Nuestros Socios Locales", "subtitle": "Colaboramos con artesanos e iniciativas eco y culturales de Colmar.", "list_title": "Selección", "learn_more": "Saber más", "back_home": "← Volver"}
+}

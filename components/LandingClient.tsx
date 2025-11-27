@@ -4,8 +4,9 @@ import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useState } from 'react'
 import TripReviews from '@/components/TripReviews'
 
-export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de' }) {
+export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
   const [scrolled, setScrolled] = useState(false)
+  const [langOpen, setLangOpen] = useState(false)
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -25,14 +26,24 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
           <div className="text-2xl font-serif font-bold text-[#0f172a]">Sweet <span className="text-[#eab308]">Narcisse</span></div>
-          <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600">
+          <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{dict.nav.experience}</a>
             <a href={`/${lang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>
             <a href="#contact" className="hover:text-[#eab308] transition duration-300">{dict.nav.contact}</a>
-            <div className="flex gap-2 ml-4 border-l pl-4 border-slate-300">
-              <a href="/fr" className={`hover:text-blue-600 ${lang === 'fr' ? 'font-bold text-black' : 'text-slate-400'}`}>FR</a>
-              <a href="/en" className={`hover:text-blue-600 ${lang === 'en' ? 'font-bold text-black' : 'text-slate-400'}`}>EN</a>
-              <a href="/de" className={`hover:text-blue-600 ${lang === 'de' ? 'font-bold text-black' : 'text-slate-400'}`}>DE</a>
+            <div className="relative ml-4 border-l pl-4 border-slate-300">
+              <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
+                <span>{lang.toUpperCase()}</span>
+                <span className="text-[10px]">▾</span>
+              </button>
+              {langOpen && (
+                <ul role="listbox" className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
+                  {['fr','en','de','es','it'].map(code => (
+                    <li key={code}>
+                      <a href={`/${code}`} role="option" aria-selected={lang===code} className={`block px-3 py-2 hover:bg-slate-50 ${lang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`}>{code.toUpperCase()}</a>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
           <a href="#reservation" className="bg-[#0f172a] text-[#eab308] px-6 py-2 rounded-full font-bold text-sm hover:bg-black transition shadow-lg transform hover:scale-105">{dict.nav.book}</a>
@@ -95,8 +106,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       <section className="py-24 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12 text-center fade-in">
-            <h2 className="text-4xl font-serif font-bold mb-4">Pourquoi choisir notre balade ?</h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">Un format pensé pour maximiser votre plaisir et minimiser les frictions.</p>
+            <h2 className="text-4xl font-serif font-bold mb-4">{dict.bento?.title}</h2>
+            <p className="text-slate-600 max-w-2xl mx-auto">{dict.bento?.subtitle}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
             {dict.bento?.cards?.map((c: any, idx: number) => (

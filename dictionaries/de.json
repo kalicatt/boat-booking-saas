@@ -15,6 +15,8 @@
     "points": ["Mehrsprachige Führer (FR, EN, DE)", "Traditionelle Flachbodenboote", "25-minütige Fahrt im Stadtzentrum"]
   },
   "bento": {
+    "title": "Warum unsere Bootsfahrt wählen?",
+    "subtitle": "Ein Format, das Freude maximiert und Reibung minimiert.",
     "cards": [
       {"title": "⏱ Ideale Länge", "text": "25 Minuten: genügend Abschalten, leicht integrierbar."},
       {"title": "🌿 Sanfter Einfluss", "text": "Schonende Fahrt – respektvoll gegenüber Erbe & Umwelt."},
