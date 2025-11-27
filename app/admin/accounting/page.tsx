@@ -142,7 +142,7 @@ export default function AccountingAdminPage(){
               const snapshot = JSON.parse(c.totalsJson)
               return (
                 <tr key={c.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={()=>{
-                  const dayStr = new Date(c.day).toISOString().slice(0,10)
+                  const dayStr = format(new Date(c.day), 'yyyy-MM-dd')
                   window.location.href = `/admin/accounting/${dayStr}`
                 }}>
                   <td className="p-2">{format(new Date(c.day),'dd/MM/yyyy')}</td>

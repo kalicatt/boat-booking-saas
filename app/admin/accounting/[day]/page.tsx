@@ -12,12 +12,12 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
 
   const closure = useMemo(()=>{
     if (!Array.isArray(closures)) return null
-    return closures.find((c:any)=> new Date(c.day).toISOString().slice(0,10) === dayParam) || null
+    return closures.find((c:any)=> format(new Date(c.day), 'yyyy-MM-dd') === dayParam) || null
   }, [closures, dayParam])
 
   const entriesForDay = useMemo(()=>{
     if (!Array.isArray(ledger)) return []
-    return ledger.filter((e:any)=> new Date(e.occurredAt).toISOString().slice(0,10) === dayParam)
+    return ledger.filter((e:any)=> format(new Date(e.occurredAt), 'yyyy-MM-dd') === dayParam)
   }, [ledger, dayParam])
 
   if (!closure) {
