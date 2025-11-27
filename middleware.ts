@@ -19,10 +19,10 @@ function applySecurityHeaders(res: NextResponse) {
   // Directives de base communes
   const baseDirectives: string[] = [
     "default-src 'self'",
-    "img-src 'self' data: blob:",
+    "img-src 'self' data: blob: https://www.google.com https://www.gstatic.com",
     "font-src 'self' data:",
     "connect-src 'self' https://www.google.com https://www.gstatic.com https://api.resend.com",
-    "frame-src 'self' https://www.google.com",
+    "frame-src 'self' https://www.google.com https://www.recaptcha.net",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'"
@@ -31,11 +31,11 @@ function applySecurityHeaders(res: NextResponse) {
   // Scripts / Styles selon l'environnement
   if (isProd) {
     // Mode production (plus strict) – pas d'eval, on garde inline si Next injecte des scripts data
-    baseDirectives.push("script-src 'self' 'unsafe-inline'")
+    baseDirectives.push("script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
   } else {
     // Dev: autoriser eval pour outils React / sourcemaps
-    baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval'")
+    baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
   }
 

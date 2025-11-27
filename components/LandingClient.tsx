@@ -61,7 +61,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">Sweet <span className="text-[#eab308]">Narcisse</span></div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{liveDict.nav.experience}</a>
-            <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{liveDict.partners?.nav || 'Partners'}</a>
+            <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300 uppercase">{liveDict.partners?.nav || 'Partners'}</a>
             <a href="#contact" className="hover:text-[#eab308] transition duration-300">{liveDict.nav.contact}</a>
             <div className="relative ml-4 border-l pl-4 border-slate-300" ref={dropdownRef}>
               <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
