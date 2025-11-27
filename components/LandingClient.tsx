@@ -4,12 +4,15 @@ import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function LandingClient({ dict, lang, debugLang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it', debugLang?: string }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement|null>(null)
-  const currentLang: 'en'|'fr'|'de'|'es'|'it' = (['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en'
+  const pathname = usePathname()
+  const routeLang = (pathname?.split('/')[1] || '') as 'en'|'fr'|'de'|'es'|'it'|''
+  const [currentLang, setCurrentLang] = useState<'en'|'fr'|'de'|'es'|'it'>((['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en')
   const [liveDict, setLiveDict] = useState(dict)
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -34,6 +37,12 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
     window.addEventListener('click', onClickOutside)
     return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside) }
   },[])
+
+  // Sync currentLang with URL on client navigation
+  useEffect(()=>{
+    const code = (['en','fr','de','es','it'] as const).includes(routeLang as any) ? (routeLang as any) : undefined
+    if (code && code !== currentLang) setCurrentLang(code)
+  }, [routeLang])
 
   // Re-fetch dictionary client-side when currentLang changes (soft navigation)
   useEffect(()=>{
