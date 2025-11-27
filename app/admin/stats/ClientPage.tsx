@@ -4,22 +4,29 @@ import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear } from "date-fns"
 
-type TimeRange = "day" | "month" | "year"
+type TimeRange = "day" | "month" | "year" | "custom"
 
 export default function ClientStatsPage() {
   const [range, setRange] = useState<TimeRange>("month")
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [customStart, setCustomStart] = useState<string>("")
+  const [customEnd, setCustomEnd] = useState<string>("")
+  const [appliedStart, setAppliedStart] = useState<string>("")
+  const [appliedEnd, setAppliedEnd] = useState<string>("")
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
     setError(null)
 
     const now = new Date()
-    let start, end
+    let start: Date, end: Date
 
-    if (range === "day") {
+    if (range === "custom" && customStart && customEnd) {
+      start = new Date(`${customStart}T00:00:00.000Z`)
+      end = new Date(`${customEnd}T23:59:59.999Z`)
+    } else if (range === "day") {
       start = startOfDay(now)
       end = endOfDay(now)
     } else if (range === "month") {
@@ -41,13 +48,15 @@ export default function ClientStatsPage() {
 
       const json = await res.json()
       setData(json)
+      setAppliedStart(start.toISOString().slice(0,10))
+      setAppliedEnd(end.toISOString().slice(0,10))
     } catch (e: any) {
       console.error("Erreur chargement stats:", e)
       setError(e.message || "Erreur inconnue")
     } finally {
       setLoading(false)
     }
-  }, [range])
+  }, [range, customStart, customEnd])
 
   useEffect(() => {
     fetchStats()
@@ -92,8 +101,61 @@ export default function ClientStatsPage() {
           >
             Cette Année
           </button>
+          <button
+            onClick={() => setRange("custom")}
+            className={`px-4 py-2 text-sm font-bold rounded-md transition ${
+              range === "custom" ? "bg-blue-600 text-white shadow" : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Personnalisé
+          </button>
+        </div>
+        <div>
+          <button
+            onClick={() => window.print()}
+            className="text-xs bg-white border px-3 py-1 rounded hover:bg-slate-50 font-bold"
+          >
+            🖨️ Imprimer / PDF
+          </button>
+          <button
+            onClick={() => exportAccountingCSV(data?.accounting || [])}
+            className="ml-2 text-xs bg-white border px-3 py-1 rounded hover:bg-slate-50 font-bold"
+          >
+            ⬇️ Export CSV
+          </button>
         </div>
         </div>
+
+        {/* Print header (visible only on print) */}
+        <div className="hidden print:block border border-slate-300 bg-white rounded p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-12 w-auto" />
+              <div>
+                <div className="text-xl font-bold">Sweet Narcisse</div>
+                <div className="text-xs text-slate-600">Comptabilité - Détails des paiements</div>
+              </div>
+            </div>
+            <div className="text-sm text-slate-700">
+              Période: {appliedStart || '—'} → {appliedEnd || '—'}
+            </div>
+          </div>
+        </div>
+
+        {/* Custom date range form */}
+        {range === 'custom' && (
+          <div className="mb-4 bg-white p-4 border rounded shadow-sm flex items-end gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Début</label>
+              <input type="date" value={customStart} onChange={(e)=> setCustomStart(e.target.value)} className="border p-2 rounded" />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 mb-1">Fin</label>
+              <input type="date" value={customEnd} onChange={(e)=> setCustomEnd(e.target.value)} className="border p-2 rounded" />
+            </div>
+            <button onClick={()=> fetchStats()} className="h-9 px-4 bg-blue-600 text-white rounded font-bold">Appliquer</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-20 text-slate-400 animate-pulse">Chargement des données...</div>
@@ -197,6 +259,11 @@ export default function ClientStatsPage() {
             <Section title="Par heure">
               <Bar data={toHourBar(data.byHour || [])} />
             </Section>
+
+            <Section title="Comptabilité (détails imprimables)">
+              <AccountingTable items={data.accounting || []} formatCurrency={formatCurrency} />
+              <TotalsSummary paymentBreakdown={data.paymentBreakdown || {}} formatCurrency={formatCurrency} />
+            </Section>
           </>
         ) : null}
       </div>
@@ -283,4 +350,158 @@ function toLineData(arr: Array<{ date: string; bookings: number; revenue: number
 
 function toHourBar(arr: Array<{ hour: string; count: number; revenue: number }>) {
   return arr.map((a) => ({ label: a.hour, value: a.count }))
+}
+
+function AccountingTable({ items, formatCurrency }: { items: Array<{ bookingId: string; boat?: string; date: string; time: string; name: string; people: number; amount: number; method: string }>; formatCurrency: (n:number)=>string }) {
+  if (!items.length) {
+    return <div className="text-slate-400 text-sm italic">Aucune ligne de paiement sur la période.</div>
+  }
+  const grandTotal = items.reduce((s,it)=> s + (it.amount||0), 0)
+  const grandPeople = items.reduce((s,it)=> s + (it.people||0), 0)
+  return (
+    <div className="overflow-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 text-slate-600 font-bold border-b">
+          <tr>
+            <th className="p-2 text-left">Booking</th>
+            <th className="p-2 text-left">Bateau</th>
+            <th className="p-2 text-left">Date</th>
+            <th className="p-2 text-left">Heure</th>
+            <th className="p-2 text-left">Client</th>
+            <th className="p-2 text-right">Pers.</th>
+            <th className="p-2 text-right">Montant</th>
+            <th className="p-2 text-left">Mode</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {(() => {
+            const rows: JSX.Element[] = []
+            let currentDate = ''
+            let dayPeople = 0
+            let dayTotal = 0
+            const flushSubtotal = () => {
+              if (!currentDate) return
+              rows.push(
+                <tr key={`subtotal-${currentDate}`} className="bg-slate-50 font-bold">
+                  <td className="p-2">Sous-total</td>
+                  <td className="p-2"></td>
+                  <td className="p-2">{currentDate}</td>
+                  <td className="p-2"></td>
+                  <td className="p-2"></td>
+                  <td className="p-2 text-right">{dayPeople}</td>
+                  <td className="p-2 text-right">{formatCurrency(dayTotal)}</td>
+                  <td className="p-2"></td>
+                </tr>
+              )
+            }
+            items.forEach((it, idx) => {
+              if (it.date !== currentDate) {
+                // new day begins; flush previous subtotal
+                if (currentDate) flushSubtotal()
+                currentDate = it.date
+                dayPeople = 0
+                dayTotal = 0
+              }
+              dayPeople += (it.people||0)
+              dayTotal += (it.amount||0)
+              rows.push(
+                <tr key={idx}>
+                  <td className="p-2">{it.bookingId}</td>
+                  <td className="p-2">{it.boat || '-'}</td>
+                  <td className="p-2">{it.date}</td>
+                  <td className="p-2">{it.time}</td>
+                  <td className="p-2">{it.name}</td>
+                  <td className="p-2 text-right">{it.people}</td>
+                  <td className="p-2 text-right">{formatCurrency(it.amount)}</td>
+                  <td className="p-2">{it.method}</td>
+                </tr>
+              )
+              if (idx === items.length - 1) {
+                flushSubtotal()
+              }
+            })
+            return rows
+          })()}
+        </tbody>
+        <tfoot>
+          <tr className="border-t font-bold bg-slate-50">
+            <td className="p-2">TOTAL</td>
+            <td className="p-2"></td>
+            <td className="p-2"></td>
+            <td className="p-2"></td>
+            <td className="p-2"></td>
+            <td className="p-2 text-right">{grandPeople}</td>
+            <td className="p-2 text-right">{formatCurrency(grandTotal)}</td>
+            <td className="p-2"></td>
+          </tr>
+        </tfoot>
+      </table>
+      <div className="mt-2 text-xs text-slate-500">Astuce: utilisez le bouton Imprimer pour sauvegarder en PDF.</div>
+    </div>
+  )
+}
+
+function exportAccountingCSV(items: Array<{ bookingId: string; boat?: string; date: string; time: string; name: string; people: number; amount: number; method: string }>) {
+  if (!items?.length) return
+  const headers = ['BookingId','Boat','Date','Time','Client','People','AmountEUR','Method']
+  const escape = (s: any) => {
+    const str = String(s ?? '')
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"'
+    }
+    return str
+  }
+  const rows = [headers.join(',')]
+  for (const it of items) {
+    rows.push([
+      escape(it.bookingId),
+      escape(it.boat || ''),
+      escape(it.date),
+      escape(it.time),
+      escape(it.name),
+      it.people,
+      (it.amount ?? 0).toFixed(2),
+      escape(it.method)
+    ].join(','))
+  }
+  // Totals
+  const grandPeople = items.reduce((s,it)=> s+(it.people||0), 0)
+  const grandTotal = items.reduce((s,it)=> s+(it.amount||0), 0)
+  const byMethod: Record<string, number> = {}
+  for (const it of items) {
+    byMethod[it.method] = (byMethod[it.method]||0) + (it.amount||0)
+  }
+  rows.push('')
+  rows.push(['TOTAL','','','','', grandPeople, grandTotal.toFixed(2), ''].join(','))
+  for (const [method, amount] of Object.entries(byMethod)) {
+    rows.push([`TOTAL_${method}`,'','','','', '', amount.toFixed(2), method].join(','))
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `accounting_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function TotalsSummary({ paymentBreakdown, formatCurrency }: { paymentBreakdown: any; formatCurrency: (n:number)=>string }) {
+  const caisse = (paymentBreakdown.cash||0) + (paymentBreakdown.card||0) + (paymentBreakdown.paypal||0) + (paymentBreakdown.applepay||0) + (paymentBreakdown.googlepay||0)
+  const vouchers = (paymentBreakdown.ANCV||0) + (paymentBreakdown.CityPass||0)
+  return (
+    <div className="mt-4 bg-slate-50 border border-slate-200 rounded p-4">
+      <div className="text-xs text-slate-600 font-bold uppercase mb-2">Totaux</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+        <BreakdownRow label="Caisse (incl. CB/PayPal/Apple/Google)" value={formatCurrency(caisse)} />
+        <BreakdownRow label="Vouchers (ANCV + City Pass)" value={formatCurrency(vouchers)} />
+        <BreakdownRow label="Espèces" value={formatCurrency(paymentBreakdown.cash||0)} />
+        <BreakdownRow label="Carte bancaire" value={formatCurrency(paymentBreakdown.card||0)} />
+        <BreakdownRow label="PayPal" value={formatCurrency(paymentBreakdown.paypal||0)} />
+        <BreakdownRow label="Apple Pay" value={formatCurrency(paymentBreakdown.applepay||0)} />
+        <BreakdownRow label="Google Pay" value={formatCurrency(paymentBreakdown.googlepay||0)} />
+        <BreakdownRow label="ANCV" value={formatCurrency(paymentBreakdown.ANCV||0)} />
+        <BreakdownRow label="City Pass" value={formatCurrency(paymentBreakdown.CityPass||0)} />
+      </div>
+    </div>
+  )
 }

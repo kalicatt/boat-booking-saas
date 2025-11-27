@@ -21,7 +21,12 @@ export const GroupRequestTemplate: React.FC<Readonly<GroupRequestProps>> = ({
     
     {/* Header */}
     <div style={{ backgroundColor: '#0f172a', padding: '20px', textAlign: 'center', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
-        <h1 style={{ color: '#eab308', margin: 0, fontSize: '20px' }}>Sweet Narcisse</h1>
+        {/* Compute base URL for absolute image rendering in emails */}
+        {(() => {
+          const base = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
+          const src = base ? `${base}/images/logo.jpg` : ''
+          return src ? <img src={src} alt="Sweet Narcisse" width={140} height={42} style={{ display:'block', margin:'0 auto 6px', maxWidth:'100%' }} /> : <h1 style={{ color: '#eab308', margin: 0, fontSize: '20px' }}>Sweet Narcisse</h1>
+        })()}
         <p style={{ color: 'white', margin: '5px 0 0', fontSize: '14px' }}>Nouvelle demande reçue</p>
     </div>
 
@@ -48,5 +53,23 @@ export const GroupRequestTemplate: React.FC<Readonly<GroupRequestProps>> = ({
             </a>
         </div>
     </div>
+    {/* Footer with logo + address + socials */}
+    {(() => {
+      const base = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
+      const src = base ? `${base}/images/logo.jpg` : ''
+      return (
+        <div style={{ borderTop: '1px solid #e5e7eb', marginTop: '24px', paddingTop: '16px', textAlign:'center' }}>
+          {src && <img src={src} alt="Sweet Narcisse" width={110} height={34} style={{ display:'block', margin:'0 auto 8px', opacity:0.9 }} />}
+          <div style={{ fontSize: '12px', color: '#6b7280' }}>
+            Pont Saint‑Pierre, 68000 Colmar · +33 3 89 20 68 92 · contact@sweet-narcisse.fr
+          </div>
+          <div style={{ marginTop: '6px' }}>
+            <a href="https://www.instagram.com/" style={{ fontSize:12, color:'#2563eb', marginRight:12 }}>Instagram</a>
+            <a href="https://www.facebook.com/" style={{ fontSize:12, color:'#2563eb', marginRight:12 }}>Facebook</a>
+            <a href="https://sweet-narcisse.fr/" style={{ fontSize:12, color:'#2563eb' }}>Site web</a>
+          </div>
+        </div>
+      )
+    })()}
   </div>
 );

@@ -70,7 +70,10 @@ export default function LegalPage({ params }: { params: { lang: keyof typeof leg
   const now = new Date()
   return (
     <main className="max-w-3xl mx-auto px-6 py-12 prose prose-slate">
-      <h1>{c.title}</h1>
+      <div className="not-prose mb-6 flex items-center gap-3">
+        <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-10 w-auto" />
+        <h1 className="m-0">{c.title}</h1>
+      </div>
       {c.sections.map((sec, idx) => (
         <section key={idx}>
           <h2>{sec[0]}</h2>

@@ -29,6 +29,9 @@ export default function LoginPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-slate-900">
       <div className="w-full max-w-sm p-8 bg-white rounded-xl shadow-2xl">
+        <div className="flex flex-col items-center mb-4">
+          <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-10 w-auto" />
+        </div>
         <h1 className="mb-6 text-2xl font-serif font-bold text-center text-[#0f172a]">
             Sweet <span className="text-[#eab308]">Admin</span> 🔒
         </h1>

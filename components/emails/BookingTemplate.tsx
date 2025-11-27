@@ -20,15 +20,21 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
 }) => {
   
   const mapLink = "https://maps.app.goo.gl/v2S3t2Wq83B7k6996"; // Lien vers Pont-Saint Pierre
+    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
+    const logoSrc = baseUrl ? `${baseUrl}/images/logo.jpg` : undefined
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', maxWidth: '600px', margin: '0 auto', border: '1px solid #ddd', borderRadius: '8px' }}>
       
       {/* HEADER */}
-      <div style={{ backgroundColor: '#0f172a', padding: '20px', textAlign: 'center', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
-        <h1 style={{ color: '#eab308', margin: 0, fontSize: '24px' }}>Sweet Narcisse</h1>
-        <p style={{ color: 'white', margin: '5px 0 0', fontSize: '14px' }}>Confirmation de votre réservation</p>
-      </div>
+            <div style={{ backgroundColor: '#0f172a', padding: '20px', textAlign: 'center', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
+                {logoSrc ? (
+                    <img src={logoSrc} alt="Sweet Narcisse" width={160} height={48} style={{ display: 'block', margin: '0 auto 6px', maxWidth: '100%' }} />
+                ) : (
+                    <h1 style={{ color: '#eab308', margin: 0, fontSize: '24px' }}>Sweet Narcisse</h1>
+                )}
+                <p style={{ color: 'white', margin: '5px 0 0', fontSize: '14px' }}>Confirmation de votre réservation</p>
+            </div>
 
       <div style={{ padding: '20px' }}>
         <h2>Bonjour {firstName},</h2>
@@ -115,6 +121,19 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                     <p style={{ margin: '0 0 6px' }}>Politique d’annulation (rappel) : &gt;48h : 100% • 48–24h : 50% • &lt;24h / no‑show : 0%.</p>
                     <p style={{ margin: '0 0 6px' }}>Météo sévère (alerte orange/rouge) : remboursement intégral.</p>
                     <p style={{ margin: 0 }}>Merci de vous présenter 10 minutes avant le départ. Sweet Narcisse – À bientôt !</p>
+                </div>
+
+                {/* EMAIL FOOTER WITH LOGO + ADDRESS + SOCIALS */}
+                <div style={{ borderTop: '1px solid #e5e7eb', marginTop: '24px', paddingTop: '16px', textAlign: 'center' }}>
+                    {logoSrc && <img src={logoSrc} alt="Sweet Narcisse" width={120} height={36} style={{ display:'block', margin:'0 auto 8px', opacity: 0.9 }} />}
+                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        Pont Saint‑Pierre, 68000 Colmar · +33 3 89 20 68 92 · contact@sweet-narcisse.fr
+                    </div>
+                    <div style={{ marginTop: '6px' }}>
+                        <a href="https://www.instagram.com/" style={{ fontSize:12, color:'#2563eb', marginRight:12 }}>Instagram</a>
+                        <a href="https://www.facebook.com/" style={{ fontSize:12, color:'#2563eb', marginRight:12 }}>Facebook</a>
+                        <a href="https://sweet-narcisse.fr/" style={{ fontSize:12, color:'#2563eb' }}>Site web</a>
+                    </div>
                 </div>
       </div>
     </div>

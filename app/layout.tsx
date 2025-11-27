@@ -7,6 +7,11 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-body' })
 export const metadata = {
   title: 'Sweet Narcisse Admin',
   description: 'Interface de gestion',
+  icons: {
+    icon: '/images/logo.jpg',
+    shortcut: '/images/logo.jpg',
+    apple: '/images/logo.jpg',
+  },
 }
 
 export default function RootLayout({

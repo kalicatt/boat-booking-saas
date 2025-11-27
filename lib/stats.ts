@@ -17,7 +17,7 @@ export async function getStats(filters: StatsFilters = {}) {
   if (filters.status && filters.status.length) where.status = { in: filters.status }
   if (filters.language && filters.language.length) where.language = { in: filters.language }
 
-  const bookings = await prisma.booking.findMany({ where, include: { payments: true } })
+  const bookings = await prisma.booking.findMany({ where, include: { payments: true, user: true, boat: true } })
 
   const kpis = {
     bookings: bookings.length,
@@ -82,6 +82,40 @@ export async function getStats(filters: StatsFilters = {}) {
     CityPass: sumCents(paymentsAll.filter(p=> p.provider === 'voucher' && p.methodType === 'CityPass'))/100,
   }
 
+  // Accounting lines per payment (paper trace)
+  const accounting = bookings.flatMap(b => {
+    const d = new Date(b.startTime)
+    const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
+    const time = `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
+    const name = `${(b as any).user?.lastName || ''} ${(b as any).user?.firstName || ''}`.trim() || '-' 
+    const boatName = (b as any).boat?.name || '-'
+    const people = b.numberOfPeople
+    if (!b.payments || b.payments.length === 0) {
+      return [] as any[]
+    }
+    return b.payments
+      .filter(p => p.status === 'succeeded')
+      .map(p => {
+        let method = p.provider
+        if (p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')) method = p.methodType
+        if (p.provider === 'card') method = 'Card'
+        if (p.provider === 'cash') method = 'Cash'
+        if (p.provider === 'paypal') method = 'PayPal'
+        if (p.provider === 'applepay') method = 'Apple Pay'
+        if (p.provider === 'googlepay') method = 'Google Pay'
+        return {
+          bookingId: b.id,
+          boat: boatName,
+          date,
+          time,
+          name,
+          people,
+          amount: (p.amount || 0) / 100,
+          method,
+        }
+      })
+  }).sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time))
+
   // Build client-friendly structure
   const byLanguage = Object.entries(langDist).map(([language, count])=> ({ language, _count: { id: count } }))
   const statusDistOut = statusDist
@@ -100,6 +134,7 @@ export async function getStats(filters: StatsFilters = {}) {
     statusDist: statusDistOut,
     seriesDaily: seriesDailyOut,
     byHour: byHourOut,
-    paymentBreakdown: breakdown
+    paymentBreakdown: breakdown,
+    accounting
   }
 }
