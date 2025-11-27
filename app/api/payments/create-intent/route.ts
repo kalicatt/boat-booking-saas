@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     const stripeSecret = process.env.STRIPE_SECRET_KEY
     if (!stripeSecret) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2024-11-20' })
+    const stripe = new Stripe(stripeSecret)
 
     // Amount in cents from booking.totalPrice
     const amountCents = Math.round((booking.totalPrice || 0) * 100)

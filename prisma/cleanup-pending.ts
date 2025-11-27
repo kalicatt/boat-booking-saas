@@ -10,7 +10,7 @@ async function main() {
   console.log(`🧹 Cleanup pending bookings older than ${ttlMin} minutes (before ${cutoff.toISOString()})`)
 
   const stripeKey = process.env.STRIPE_SECRET_KEY
-  const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: '2024-11-20' }) : null
+  const stripe = stripeKey ? new Stripe(stripeKey) : null
 
   const stale = await prisma.booking.findMany({
     where: { status: 'PENDING', isPaid: false, createdAt: { lt: cutoff } },
