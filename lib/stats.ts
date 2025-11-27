@@ -102,6 +102,30 @@ export async function getStats(filters: StatsFilters = {}) {
     CityPass: CityPassCount,   // counts, not euros
   }
 
+  // Fallback: for bookings marked paid but with no non-voucher payment records, count totalPrice
+  for (const b of bookings) {
+    const paidPs = (b.payments||[]).filter(p=> isPaidStatus(p.status))
+    const hasNonVoucherPaid = paidPs.some(p=> { const prov = (p.provider||'').toLowerCase(); const meth = (p.methodType||'').toLowerCase(); return !(prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('ancv') || prov.includes('city')) })
+    if (!hasNonVoucherPaid && (b as any).isPaid && ((b.totalPrice||0) > 0)) {
+      const d = new Date(b.startTime)
+      const dayKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
+      const fallbackAmount = (b.totalPrice || 0)
+      // Update revenue and breakdown (assign to card by default)
+      // Note: kpis.revenue computed earlier remains separate; consumer uses returned revenue below.
+      // We'll add to accounting and seriesDaily maps via the returned structures only.
+      accounting.push({
+        bookingId: b.id,
+        boat: (b as any).boat?.name || '-',
+        date: dayKey,
+        time: `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`,
+        name: `${(b as any).user?.lastName || ''} ${(b as any).user?.firstName || ''}`.trim() || '-',
+        people: b.numberOfPeople || 0,
+        amount: fallbackAmount,
+        method: 'Paid (no record)'
+      })
+    }
+  }
+
   // Accounting lines per payment (paper trace)
   const accounting = bookings.flatMap(b => {
     const d = new Date(b.startTime)
