@@ -1,21 +1,32 @@
 "use client"
 import useSWR from 'swr'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
 
 export default function AccountingAdminPage(){
-  const { data: ledger } = useSWR('/api/admin/ledger', fetcher)
-  const { data: cash } = useSWR('/api/admin/cash', fetcher)
+  const { data: ledger, mutate: mutateLedger } = useSWR('/api/admin/ledger', fetcher)
+  const { data: cash, mutate: mutateCash } = useSWR('/api/admin/cash', fetcher)
   const { data: closures, mutate: mutateClosures } = useSWR('/api/admin/closures', fetcher)
   const [openingFloatEuros, setOpeningFloatEuros] = useState('')
   const [closingCountEuros, setClosingCountEuros] = useState('')
   const [csvUrl, setCsvUrl] = useState<string|undefined>(undefined)
   const [selectedDay, setSelectedDay] = useState<string>(()=> new Date().toISOString().slice(0,10))
+  const [toast, setToast] = useState<{type:'success'|'error', message:string}|null>(null)
+  useEffect(()=>{
+    if (!toast) return
+    const t = setTimeout(()=> setToast(null), 2500)
+    return ()=> clearTimeout(t)
+  }, [toast])
 
   return (
     <div className="p-6 space-y-6">
+      {toast && (
+        <div className={`fixed top-4 right-4 z-50 rounded px-4 py-2 shadow ${toast.type==='success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {toast.message}
+        </div>
+      )}
       <h1 className="text-2xl font-bold">Comptabilité</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="rounded-xl border bg-white p-4">
@@ -24,16 +35,34 @@ export default function AccountingAdminPage(){
             <label className="block text-sm text-gray-600">Fond de caisse (en euros, ex: 150.00)</label>
             <input type="number" step="0.01" min="0" className="border rounded px-2 py-1" value={openingFloatEuros} onChange={e=>setOpeningFloatEuros(e.target.value)} placeholder="Saisir le fond de caisse en €" />
             <button className="border rounded px-3 py-1" onClick={async ()=>{
-              const cents = Math.round(parseFloat(openingFloatEuros || '0') * 100)
-              await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'open', openingFloat: isNaN(cents) ? 0 : cents }) })
+              if (!window.confirm('Confirmer l\'ouverture de la caisse ?')) return
+              try {
+                const cents = Math.round(parseFloat(openingFloatEuros || '0') * 100)
+                const res = await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'open', openingFloat: isNaN(cents) ? 0 : cents }) })
+                if (!res.ok) throw new Error('Open cash failed')
+                await mutateCash()
+                await mutateLedger()
+                setToast({ type:'success', message:'Caisse ouverte avec succès' })
+              } catch (e) {
+                setToast({ type:'error', message:'Erreur lors de l\'ouverture de la caisse' })
+              }
             }}>Ouvrir Caisse</button>
             <label className="block text-sm text-gray-600">Comptage (en euros, ex: 198.50)</label>
             <input type="number" step="0.01" min="0" className="border rounded px-2 py-1" value={closingCountEuros} onChange={e=>setClosingCountEuros(e.target.value)} placeholder="Saisir le comptage en €" />
             <button className="border rounded px-3 py-1" onClick={async ()=>{
+              if (!window.confirm('Confirmer la clôture de la caisse ?')) return
               const latest = Array.isArray(cash) ? cash[0] : null
-              if (!latest) return
-              const cents = Math.round(parseFloat(closingCountEuros || '0') * 100)
-              await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'close', sessionId: latest.id, closingCount: isNaN(cents) ? 0 : cents }) })
+              if (!latest) { setToast({ type:'error', message:'Aucune session de caisse ouverte' }); return }
+              try {
+                const cents = Math.round(parseFloat(closingCountEuros || '0') * 100)
+                const res = await fetch('/api/admin/cash', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'close', sessionId: latest.id, closingCount: isNaN(cents) ? 0 : cents }) })
+                if (!res.ok) throw new Error('Close cash failed')
+                await mutateCash()
+                await mutateLedger()
+                setToast({ type:'success', message:'Caisse clôturée avec succès' })
+              } catch (e) {
+                setToast({ type:'error', message:'Erreur lors de la clôture de la caisse' })
+              }
             }}>Clore Caisse</button>
           </div>
           <p className="mt-2 text-xs text-gray-500">La caisse ne concerne que les espèces. Les paiements CB et en ligne sont visibles dans le ledger mais n'affectent pas le comptage de caisse.</p>
@@ -74,9 +103,17 @@ export default function AccountingAdminPage(){
         <div className="flex items-center gap-2">
         <input type="date" className="border rounded px-2 py-1" value={selectedDay} onChange={e=> setSelectedDay(e.target.value)} />
         <button className="border rounded px-3 py-1" onClick={async ()=>{
-          const d = new Date(selectedDay+'T00:00:00Z'); const day = d; day.setUTCHours(0,0,0,0)
-          await fetch('/api/admin/closures', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ day }) })
-          mutateClosures()
+          if (!window.confirm(`Clôturer la journée du ${selectedDay} ?`)) return
+          try {
+            const d = new Date(selectedDay+'T00:00:00Z'); const day = d; day.setUTCHours(0,0,0,0)
+            const res = await fetch('/api/admin/closures', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ day }) })
+            if (!res.ok) throw new Error('Closure failed')
+            await mutateClosures()
+            await mutateLedger()
+            setToast({ type:'success', message:'Clôture journalière enregistrée et sauvegardée en base' })
+          } catch (e) {
+            setToast({ type:'error', message:'Erreur lors de la clôture journalière' })
+          }
         }}>Clôturer la journée</button>
         <button className="ml-2 border rounded px-3 py-1" onClick={()=>{
           if (!Array.isArray(closures) || closures.length===0) return
