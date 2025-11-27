@@ -1,12 +1,14 @@
 "use client"
 import Image from 'next/image'
 import BookingWidget from '@/components/BookingWidget'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
+import Link from 'next/link'
 
 export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement|null>(null)
   const currentLang: 'en'|'fr'|'de'|'es'|'it' = (['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en'
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -19,7 +21,17 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     }
     window.addEventListener('scroll', reveal)
     reveal()
-    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal) }
+    const onKey = (e: KeyboardEvent) => {
+      if(e.key === 'Escape') setLangOpen(false)
+    }
+    const onClickOutside = (e: MouseEvent) => {
+      if(langOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setLangOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('click', onClickOutside)
+    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside) }
   },[])
 
   return (
@@ -31,7 +43,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{dict.nav.experience}</a>
             <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>
             <a href="#contact" className="hover:text-[#eab308] transition duration-300">{dict.nav.contact}</a>
-            <div className="relative ml-4 border-l pl-4 border-slate-300">
+            <div className="relative ml-4 border-l pl-4 border-slate-300" ref={dropdownRef}>
               <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
                 <span>{currentLang.toUpperCase()}</span>
                 <span className="text-[10px]">▾</span>
@@ -40,7 +52,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
                 <ul role="listbox" className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
                   {['fr','en','de','es','it'].map(code => (
                     <li key={code}>
-                      <a href={`/${code}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`}>{code.toUpperCase()}</a>
+                      <Link href={`/${code}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>setLangOpen(false)}>{code.toUpperCase()}</Link>
                     </li>
                   ))}
                 </ul>
@@ -63,7 +75,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
           <div className="flex flex-col items-center justify-center gap-5">
             <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{dict.hero.cta}</a>
-            <a href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{dict.partners?.nav}</a>
+            <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{dict.partners?.nav}</Link>
           </div>
         </div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
@@ -127,7 +139,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <p className="text-slate-600 max-w-xl mx-auto">{dict.social?.subtitle}</p>
         </div>
         <div className="max-w-6xl mx-auto">
-          <TripReviews dict={dict} lang={lang} />
+          <TripReviews dict={dict} lang={currentLang} />
         </div>
       </section>
 
@@ -179,7 +191,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           </div>
         </div>
         <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50 flex flex-col items-center gap-2">
-          <a href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{dict.partners?.nav || 'Partners'}</a>
+          <Link href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{dict.partners?.nav || 'Partners'}</Link>
           <span>{dict.footer.rights}</span>
         </div>
       </footer>
