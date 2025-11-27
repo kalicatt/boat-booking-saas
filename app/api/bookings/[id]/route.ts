@@ -31,6 +31,8 @@ export async function DELETE(
   const { id } = await params 
 
   try {
+    // Delete dependent payments first to avoid FK constraint errors
+    await prisma.payment.deleteMany({ where: { bookingId: id } })
     await prisma.booking.delete({ where: { id } })
 
     const userName = user.firstName || 'Admin'

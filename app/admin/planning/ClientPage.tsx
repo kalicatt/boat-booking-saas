@@ -38,6 +38,7 @@ interface BookingDetails {
   isPaid: boolean;
   status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
   message?: string | null;
+  payments?: Array<{ id: string; provider: string; methodType?: string | null; amount: number; currency: string; status: string; createdAt: string }>
 }
 
 const fetcher = (url: string) => fetch(url).then((res) => {
@@ -168,6 +169,7 @@ export default function ClientPlanningPage() {
 
     const s = new Date(slotInfo.start)
     const startTime = new Date(
+          payments: b.payments || [],
       Date.UTC(s.getFullYear(), s.getMonth(), s.getDate(), s.getHours(), s.getMinutes())
     )
     const boatId = slotInfo.resourceId
@@ -486,6 +488,19 @@ export default function ClientPlanningPage() {
                 <p className="font-bold">{booking.checkinStatus}</p>
               </div>
             </div>
+
+            {booking.payments && booking.payments.length > 0 && (
+              <div className="mt-3 p-3 rounded border bg-white">
+                <p className="text-xs font-bold uppercase text-slate-500">Détails Paiement</p>
+                <ul className="mt-1 text-sm text-slate-700 list-disc pl-4">
+                  {booking.payments.map((p) => (
+                    <li key={p.id}>
+                      {p.provider}{p.methodType ? ` (${p.methodType})` : ''} • {(p.amount/100).toFixed(2)} {p.currency} • {p.status}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
           <div className="p-5 flex flex-wrap justify-end gap-2 border-t bg-gray-50 rounded-b-xl">
             <button

@@ -44,6 +44,9 @@ export async function GET(request: Request) {
         },
         user: {
           select: { firstName: true, lastName: true, email: true, phone: true, role: true }
+        },
+        payments: {
+          select: { id: true, provider: true, methodType: true, amount: true, currency: true, status: true, createdAt: true }
         }
       },
       orderBy: {
