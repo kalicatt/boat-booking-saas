@@ -12,13 +12,8 @@ export default async function HoursPage() {
     redirect('/login')
   }
 
-  if (role !== 'ADMIN' && role !== 'SUPERADMIN') {
-    await createLog(
-      'UNAUTHORIZED_HOURS',
-      `User ${user?.email || user?.id || 'unknown'} with role ${role} attempted /admin/hours`
-    )
-    redirect('/admin')
-  }
+  const canManage = role === 'ADMIN' || role === 'SUPERADMIN'
+  const ownOnly = !canManage
 
-  return <ClientHoursPage />
+  return <ClientHoursPage canManage={canManage} ownOnly={ownOnly} />
 }

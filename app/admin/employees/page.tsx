@@ -12,10 +12,8 @@ export default async function EmployeesPage() {
     redirect('/login')
   }
 
-  if (role !== 'ADMIN' && role !== 'SUPERADMIN') {
-    await createLog('UNAUTHORIZED_EMPLOYEES', `User ${user?.email || user?.id || 'unknown'} with role ${role} attempted /admin/employees`)
-    redirect('/admin')
-  }
+  // Allow EMPLOYEE to access in read-only mode
+  const canManage = role === 'ADMIN' || role === 'SUPERADMIN'
 
-  return <ClientEmployeesPage />
+  return <ClientEmployeesPage canManage={canManage} />
 }

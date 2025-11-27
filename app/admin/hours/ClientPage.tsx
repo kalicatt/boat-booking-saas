@@ -3,12 +3,18 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
-export default function ClientHoursPage() {
+type Props = {
+  canManage?: boolean
+  ownOnly?: boolean
+}
+
+export default function ClientHoursPage({ canManage = false, ownOnly = false }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
   const [report, setReport] = useState<any[]>([])
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [role, setRole] = useState<string>('GUEST')
+  const [me, setMe] = useState<{ id: string } | null>(null)
   const [openUsers, setOpenUsers] = useState<Record<string, boolean>>({})
   const [editingShift, setEditingShift] = useState<any | null>(null)
 
@@ -33,12 +39,16 @@ export default function ClientHoursPage() {
     try {
       const res = await fetch(`/api/admin/hours?month=${currentMonth}`)
       const data = await res.json()
-      setReport(data)
-      setEmployees(data.map((r: any) => r.user))
-      if (data.length > 0 && !form.userId)
-        setForm((prev) => ({ ...prev, userId: data[0].user.id }))
+      const filtered = ownOnly && me?.id ? data.filter((r: any) => r.user.id === me.id) : data
+      setReport(filtered)
+      const emps = filtered.map((r: any) => r.user)
+      setEmployees(emps)
+      const defaultUserId = ownOnly && me?.id ? me.id : (emps[0]?.id || '')
+      if (!form.userId && defaultUserId) {
+        setForm((prev) => ({ ...prev, userId: defaultUserId }))
+      }
       const initOpen: Record<string, boolean> = {}
-      data.forEach((r: any, idx: number) => {
+      filtered.forEach((r: any, idx: number) => {
         initOpen[r.user.id] = idx === 0
       })
       setOpenUsers(initOpen)
@@ -60,6 +70,7 @@ export default function ClientHoursPage() {
         if (res.ok) {
           const data = await res.json()
           setRole(data.role || 'GUEST')
+          if (data.id) setMe({ id: data.id })
         }
       } catch {}
     })()
@@ -263,7 +274,7 @@ export default function ClientHoursPage() {
           <div className="lg:col-span-1 print:hidden">
             <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200 sticky top-8">
               <h3 className="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Saisir une journée</h3>
-              {role !== 'ADMIN' && role !== 'SUPER_ADMIN' && (
+              {!canManage && (
                 <div className="mb-4 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded p-3">
                   Seuls les administrateurs peuvent modifier les heures.
                 </div>
@@ -284,6 +295,7 @@ export default function ClientHoursPage() {
                     className="w-full p-2 border rounded bg-slate-50 font-medium"
                     value={form.userId}
                     onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                    disabled={ownOnly}
                   >
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
@@ -351,7 +363,7 @@ export default function ClientHoursPage() {
 
                 <button
                   type="submit"
-                  disabled={role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'SUPERADMIN'}
+                  disabled={!canManage}
                   className="w-full bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm"
                 >
                   Enregistrer le pointage
@@ -415,7 +427,7 @@ export default function ClientHoursPage() {
                               <th className="p-2">Horaires</th>
                               <th className="p-2">Pause</th>
                               <th className="p-2 text-right pr-4">Total Net</th>
-                              {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN') && (
+                              {canManage && (
                                 <th className="p-2 text-right pr-4">Actions</th>
                               )}
                             </tr>
@@ -474,7 +486,7 @@ export default function ClientHoursPage() {
                                         <td className="p-2 pr-4 text-right font-bold text-slate-700">
                                           {netH} h
                                         </td>
-                                        {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN') && (
+                                        {canManage && (
                                           <td className="p-2 pr-4 text-right">
                                             <button
                                               onClick={() => startEdit(shift)}
@@ -493,7 +505,7 @@ export default function ClientHoursPage() {
                                       <td className="p-2 pr-4 text-right font-bold text-blue-700">
                                         {dayTotalH} h
                                       </td>
-                                      {(role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN') && (
+                                      {canManage && (
                                         <td></td>
                                       )}
                                     </tr>
@@ -513,7 +525,7 @@ export default function ClientHoursPage() {
         </div>
       </div>
 
-      {editingShift && (
+      {editingShift && canManage && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white w-full max-w-md rounded-xl shadow-lg p-6">
             <h3 className="text-lg font-bold mb-4">Modifier le shift</h3>
