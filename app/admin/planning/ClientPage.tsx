@@ -57,6 +57,7 @@ export default function ClientPlanningPage() {
 
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [detailsMarkPaid, setDetailsMarkPaid] = useState<{ provider: string, methodType?: string }|null>(null)
 
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
@@ -206,6 +207,10 @@ export default function ClientPlanningPage() {
     const body: any = {}
     if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
     if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
+    // If marking as paid and we have a selected payment method from details modal, include it
+    if (newIsPaid === true && detailsMarkPaid?.provider) {
+      body.paymentMethod = { provider: detailsMarkPaid.provider, methodType: detailsMarkPaid.provider==='voucher' ? detailsMarkPaid.methodType : undefined }
+    }
 
     if (selectedBooking) {
       setSelectedBooking({
@@ -501,11 +506,49 @@ export default function ClientPlanningPage() {
           </div>
           <div className="p-5 flex flex-wrap justify-end gap-2 border-t bg-gray-50 rounded-b-xl">
             <button
-              onClick={() => handleStatusUpdate(booking.id, undefined, !booking.isPaid)}
+              onClick={() => {
+                if (!booking.isPaid) {
+                  setDetailsMarkPaid({ provider: '', methodType: undefined })
+                } else {
+                  handleStatusUpdate(booking.id, undefined, false)
+                }
+              }}
               className="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700"
             >
               {booking.isPaid ? 'Marquer Non Payé' : 'Marquer Payé'}
             </button>
+            {detailsMarkPaid && (
+              <div className="w-full mt-2 p-2 border rounded bg-white">
+                <div className="text-xs mb-1">Sélectionnez le moyen de paiement</div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select className="border rounded px-2 py-1" value={detailsMarkPaid.provider} onChange={e=>{
+                    const val = e.target.value
+                    setDetailsMarkPaid(prev=> prev ? { ...prev, provider: val, methodType: (val==='voucher' ? (prev.methodType||'ANCV') : undefined) } : null)
+                  }}>
+                    <option value="">-- moyen --</option>
+                    <option value="cash">Espèces</option>
+                    <option value="card">Carte</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="applepay">Apple Pay</option>
+                    <option value="googlepay">Google Pay</option>
+                    <option value="voucher">ANCV / CityPass</option>
+                  </select>
+                  {detailsMarkPaid.provider==='voucher' && (
+                    <select className="border rounded px-2 py-1" value={detailsMarkPaid.methodType||'ANCV'} onChange={e=> setDetailsMarkPaid(prev=> prev ? { ...prev, methodType: e.target.value } : prev)}>
+                      <option value="ANCV">ANCV</option>
+                      <option value="CityPass">CityPass</option>
+                    </select>
+                  )}
+                  <button className="border rounded px-2 py-1 bg-green-600 text-white" onClick={async ()=>{
+                    if (!detailsMarkPaid.provider) { alert('Sélectionnez un moyen de paiement'); return }
+                    await handleStatusUpdate(booking.id, undefined, true)
+                    setDetailsMarkPaid(null)
+                    setShowDetailsModal(false)
+                  }}>Valider</button>
+                  <button className="border rounded px-2 py-1" onClick={()=> setDetailsMarkPaid(null)}>Annuler</button>
+                </div>
+              </div>
+            )}
             {booking.checkinStatus === 'CONFIRMED' && (
               <>
                 <button
