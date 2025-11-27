@@ -16,7 +16,7 @@ interface ExtendedUser {
 // --- DELETE : Supprimer une réservation ---
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Le middleware NextAuth est censé protéger cette route.
   // On utilise 'auth' pour vérifier la session.
@@ -28,7 +28,7 @@ export async function DELETE(
 
   // Casting de l'utilisateur
   const user = session.user as ExtendedUser
-  const { id } = params 
+  const { id } = await params 
 
   try {
     // Delete dependent payments first to avoid FK constraint errors
@@ -48,14 +48,14 @@ export async function DELETE(
 // --- PATCH : Mettre à jour une réservation ---
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   if (!session || !session.user) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
   }
   
-  const { id } = params
+  const { id } = await params
   const user = session.user as ExtendedUser
 
   try {
