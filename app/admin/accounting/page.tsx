@@ -141,7 +141,10 @@ export default function AccountingAdminPage(){
             {(closures||[]).map((c:any)=>{
               const snapshot = JSON.parse(c.totalsJson)
               return (
-                <tr key={c.id} className="border-t">
+                <tr key={c.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={()=>{
+                  const dayStr = new Date(c.day).toISOString().slice(0,10)
+                  window.location.href = `/admin/accounting/${dayStr}`
+                }}>
                   <td className="p-2">{format(new Date(c.day),'dd/MM/yyyy')}</td>
                   <td className="p-2">{c.hash.slice(0,12)}…</td>
                   <td className="p-2">{Object.entries(snapshot.totals).map(([k,v])=> `${k}: ${(Number(v)/100).toFixed(2)}€`).join(' • ')} | Vouchers: {Object.entries(snapshot.vouchers).map(([k,v])=> `${k}: ${Number(v)}`).join(' • ')} | TVA: Net {(Number(snapshot.vat?.net||0)/100).toFixed(2)}€ • TVA {(Number(snapshot.vat?.vat||0)/100).toFixed(2)}€ • Brut {(Number(snapshot.vat?.gross||0)/100).toFixed(2)}€</td>

@@ -35,6 +35,25 @@ body {
   --color-foam: #e0f4ff; /* light foam */
 }
 
+/* Print-friendly styles */
+@media print {
+  /* Hide elements marked as no-print */
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+
+  /* Simplify page visuals for printing */
+  body { background: #ffffff !important; color: #111827; }
+  .p-6 { padding: 0 !important; }
+  .rounded-xl.border { border: none !important; box-shadow: none !important; }
+  header, nav, footer { display: none !important; }
+
+  /* Tables: compact typography */
+  table { font-size: 12px; }
+  th, td { padding: 6px 8px !important; }
+
+  /* Page margins */
+  @page { margin: 12mm; }
+}
 .bg-water-gradient {
   background: radial-gradient(circle at 30% 30%, rgba(27,73,101,0.5), transparent 60%),
               linear-gradient(135deg, var(--color-deep), var(--color-water));
