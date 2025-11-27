@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
 
 export default function ReservationsAdminPage(){
+  const toWall = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), d.getUTCHours(), d.getUTCMinutes(), 0, 0))
   const [range, setRange] = useState<'day'|'month'|'year'>('day')
   const [date, setDate] = useState(()=> new Date())
   const [monthStr, setMonthStr] = useState<string>(()=> format(new Date(),'yyyy-MM'))
@@ -133,16 +134,18 @@ export default function ReservationsAdminPage(){
           <div className="flex items-center justify-end p-2">
             <button className="border rounded px-3 py-1 bg-slate-100 hover:bg-slate-200" onClick={()=>{
               const headers = ['Date','Heure','Client','Email','Pax','Langue','Paiement','Statut Paiement']
-              const rows = bookings.map((b:any)=>[
-                format(new Date(b.startTime),'yyyy-MM-dd'),
-                format(new Date(b.startTime),'HH:mm'),
+              const rows = bookings.map((b:any)=>{
+                const wall = toWall(new Date(b.startTime))
+                return [
+                format(wall,'yyyy-MM-dd'),
+                format(wall,'HH:mm'),
                 `${b.user?.firstName||''} ${b.user?.lastName||''}`.trim(),
                 b.user?.email||'',
                 String(b.numberOfPeople||0),
                 b.language||'',
                 `${b.payments?.[0]?.provider||''}${b.payments?.[0]?.methodType?` (${b.payments[0].methodType})`:''}`,
                 `${b.payments?.[0]?.status||''}`
-              ])
+              ]})
               const csv = [headers, ...rows].map(r=> r.map(v => {
                 const s = String(v).replace(/"/g,'""')
                 return `"${s}"`
@@ -171,8 +174,8 @@ export default function ReservationsAdminPage(){
           <tbody>
             {bookings.map((b:any)=>(
               <tr key={b.id} className={`border-b hover:bg-slate-50 ${selectedId===b.id?'bg-yellow-50':''}`} onClick={()=>setSelectedId(b.id)}>
-                <td className="p-3">{format(new Date(b.startTime),'dd/MM/yyyy')}</td>
-                <td className="p-3">{format(new Date(b.startTime),'HH:mm')}</td>
+                <td className="p-3">{format(toWall(new Date(b.startTime)),'dd/MM/yyyy')}</td>
+                <td className="p-3">{format(toWall(new Date(b.startTime)),'HH:mm')}</td>
                 <td className="p-3">{b.user?.firstName} {b.user?.lastName}</td>
                 <td className="p-3">{b.numberOfPeople}</td>
                 <td className="p-3">{b.language}</td>
@@ -473,7 +476,7 @@ export default function ReservationsAdminPage(){
               <button onClick={()=>setShowView(null)}>✕</button>
             </div>
             <div className="space-y-2 text-sm">
-              <div>Date: {format(new Date(showView.startTime),'dd/MM/yyyy')} {format(new Date(showView.startTime),'HH:mm')}</div>
+              <div>Date: {format(toWall(new Date(showView.startTime)),'dd/MM/yyyy')} {format(toWall(new Date(showView.startTime)),'HH:mm')}</div>
               <div>Client: {showView.user?.firstName} {showView.user?.lastName} ({showView.user?.email})</div>
               <div>Pax: {showView.numberOfPeople} (A {showView.adults} / E {showView.children} / B {showView.babies})</div>
               <div>Langue: {showView.language}</div>
