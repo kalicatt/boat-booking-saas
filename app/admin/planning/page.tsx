@@ -383,8 +383,8 @@ export default function AdminPlanning() {
     const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
     
     return (
-        <div className="fixed inset-0 bg-black/70 z-[1000] flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl">
                 <div className="p-5 border-b flex justify-between items-center bg-blue-50 rounded-t-xl">
                     <h3 className="text-xl font-bold text-blue-900">Détails {format(booking.start, 'HH:mm')}</h3>
                     <button onClick={onClose} className="text-xl text-slate-500 hover:text-black">✕</button>

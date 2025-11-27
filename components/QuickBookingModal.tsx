@@ -132,8 +132,8 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     }, [onClose])
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
-            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200" role="document">
+        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
+            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden" role="document">
                 
                 {/* Header */}
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
@@ -145,7 +145,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                     <button onClick={onClose} className="text-white/70 hover:text-white text-2xl font-bold">×</button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-5 space-y-5">
+                <form onSubmit={handleSubmit} className="p-5 space-y-5 text-slate-900">
                     
                     {/* 1. HORAIRE */}
                     <div className="flex items-center gap-4">
