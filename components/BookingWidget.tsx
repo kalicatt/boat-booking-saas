@@ -541,6 +541,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     
                     <div className="flex-1 bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                         {availableSlots.length > 0 ? (
+                            <>
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 overflow-y-auto pr-2 custom-scrollbar">
                                 {availableSlots.map(slot => (
                                     <button key={slot} onClick={() => setSelectedSlot(slot)}
@@ -612,6 +613,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                         </button>
                                     </div>
                                 </div>
+                            </>
 
                                                 ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
