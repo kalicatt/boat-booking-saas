@@ -32,7 +32,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
     const pendingOnly = Boolean((json as any)?.pendingOnly)
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod, groupChain, inheritPaymentForChain } = parsed.data as any
+    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod, groupChain, inheritPaymentForChain, private: isPrivate } = parsed.data as any
     let newBooking: any
 
     // 1. CAPTCHA
@@ -144,16 +144,21 @@ export async function POST(request: Request) {
         return { ok: false as const, conflict: true as const }
       }
 
-      // Création
+      // Création (privatisation remplit la capacité pour fermer le créneau)
+      const paxAdults = isPrivate ? targetBoat.capacity : adults
+      const paxChildren = isPrivate ? 0 : children
+      const paxBabies = isPrivate ? 0 : babies
+      const paxTotal = paxAdults + paxChildren + paxBabies
+      const priceTotal = (paxAdults * PRICE_ADULT) + (paxChildren * PRICE_CHILD) + (paxBabies * PRICE_BABY)
       newBooking = await tx.booking.create({
         data: {
           date: new Date(`${date}T00:00:00.000Z`),
           startTime: myStart,
           endTime: myEnd,
-          numberOfPeople: people,
-          adults, children, babies,
+          numberOfPeople: paxTotal,
+          adults: paxAdults, children: paxChildren, babies: paxBabies,
           language,
-          totalPrice: finalPrice,
+          totalPrice: priceTotal,
           status: pendingOnly ? 'PENDING' : 'CONFIRMED',
           message: message || null,
           boat: { connect: { id: targetBoat.id } },
@@ -172,7 +177,7 @@ export async function POST(request: Request) {
         }
       })
 
-      return { ok: true as const, id: newBooking.id, status: newBooking.status, finalPrice }
+      return { ok: true as const, id: newBooking.id, status: newBooking.status, finalPrice: priceTotal }
     })
     } catch (e: any) {
       console.error('Transaction booking failed:', e?.message || e)
@@ -184,7 +189,7 @@ export async function POST(request: Request) {
     }
 
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
-    await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
+    await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${isPrivate ? targetBoat.capacity : people}p${isPrivate ? ' PRIVATISATION' : ''}) sur ${targetBoat.name}`)
 
     // Group chaining: chain consecutive boat slots for large groups
     const chainCreated: Array<{ index: number, boatId: string, start: string, end: string, people: number }> = []

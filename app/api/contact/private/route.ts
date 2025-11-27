@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 import { GroupRequestTemplate } from '@/components/emails/GroupRequestTemplate'
-import { CustomerAcknowledgement } from '@/components/emails/CustomerAcknowledgement'
 import { createLog } from '@/lib/logger'
 import { z } from 'zod'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
@@ -135,19 +134,28 @@ export async function POST(request: Request) {
       `Demande privatisation de ${firstName} ${lastName}${people ? ` (${people} pers)` : ''}${date ? ` pour ${date}` : ''} – ip:${ip} lang:${userLang} ref:${referer ? new URL(referer).pathname : ''}`
     )
 
-    // CUSTOMER ACK (non-blocking)
+    // CUSTOMER ACK (non-blocking) – send as plain text to avoid missing template
     try {
+      const subjects = {
+        fr: 'Demande reçue – Sweet Narcisse',
+        en: 'Request received – Sweet Narcisse',
+        de: 'Anfrage eingegangen – Sweet Narcisse',
+        es: 'Solicitud recibida – Sweet Narcisse',
+        it: 'Richiesta ricevuta – Sweet Narcisse'
+      } as const
+      const greetings = {
+        fr: `Bonjour ${firstName},\n\nNous avons bien reçu votre demande de privatisation${date ? ` pour la date ${date}` : ''}${typeof people === 'number' ? ` pour ${people} personnes` : ''}. Nous revenons vers vous rapidement.\n\n— Équipe Sweet Narcisse`,
+        en: `Hello ${firstName},\n\nWe received your private booking request${date ? ` for ${date}` : ''}${typeof people === 'number' ? ` for ${people} people` : ''}. We will get back to you shortly.\n\n— Sweet Narcisse Team`,
+        de: `Hallo ${firstName},\n\nWir haben Ihre Privatisierungsanfrage erhalten${date ? ` für ${date}` : ''}${typeof people === 'number' ? ` für ${people} Personen` : ''}. Wir melden uns in Kürze.\n\n— Team Sweet Narcisse`,
+        es: `Hola ${firstName},\n\nHemos recibido su solicitud de privatización${date ? ` para ${date}` : ''}${typeof people === 'number' ? ` para ${people} personas` : ''}. Nos pondremos en contacto pronto.\n\n— Equipo Sweet Narcisse`,
+        it: `Ciao ${firstName},\n\nAbbiamo ricevuto la tua richiesta di privatizzazione${date ? ` per ${date}` : ''}${typeof people === 'number' ? ` per ${people} persone` : ''}. Ti ricontatteremo a breve.\n\n— Team Sweet Narcisse`
+      } as const
+
       await resend.emails.send({
         from: EMAIL_FROM,
         to: [email],
-        subject: ({
-          fr: 'Demande reçue – Sweet Narcisse',
-          en: 'Request received – Sweet Narcisse',
-          de: 'Anfrage eingegangen – Sweet Narcisse',
-          es: 'Solicitud recibida – Sweet Narcisse',
-          it: 'Richiesta ricevuta – Sweet Narcisse'
-        } as const)[userLang],
-        react: await CustomerAcknowledgement({ firstName, kind: 'private', people, date, lang: userLang })
+        subject: subjects[userLang],
+        text: greetings[userLang]
       })
     } catch (e) {
       console.warn('Ack email (private) failed for', email, e)

@@ -29,7 +29,7 @@ export default function ReservationsAdminPage(){
   const params = new URLSearchParams({ start: startISO, end: endISO })
   if (q) params.set('q', q)
   if (payment) params.set('payment', payment)
-  const { data } = useSWR(`/api/admin/reservations?${params.toString()}`, fetcher)
+  const { data, mutate } = useSWR(`/api/admin/reservations?${params.toString()}`, fetcher)
 
   const bookings = Array.isArray(data)
     ? data : []
@@ -38,9 +38,66 @@ export default function ReservationsAdminPage(){
   const [chainResult, setChainResult] = useState<{ created: number, overlaps: number, details?: Array<{ index: number, start: string, end: string, reason: string }>, createdAlloc?: Array<{ index: number, boatId: string, start: string, end: string, people: number }> }|null>(null)
   const [toasts, setToasts] = useState<Array<{ id: number, type: 'success'|'warning', message: string }>>([])
 
+  const [showCreate, setShowCreate] = useState(false)
+  const [createTab, setCreateTab] = useState<'normal'|'private'|'group'|'contact'>('normal')
+  const [contacts, setContacts] = useState<any[]>([])
+  const [selectedContactId, setSelectedContactId] = useState<string>('')
+  const [contactStatus, setContactStatus] = useState<'NEW'|'CONTACTED'|'CLOSED'|''>('')
+  const [showView, setShowView] = useState<any|null>(null)
+  const [showEdit, setShowEdit] = useState<any|null>(null)
+  const [form, setForm] = useState({
+    date: format(new Date(),'yyyy-MM-dd'),
+    time: '10:00',
+    adults: 2,
+    children: 0,
+    babies: 0,
+    language: 'fr',
+    firstName: '',
+    lastName: '',
+    email: '',
+    notes: ''
+  })
+  const [creating, setCreating] = useState(false)
+  function EditForm({ booking, onClose, onSaved }: any){
+    const [ed, setEd] = useState({
+      date: format(new Date(booking.startTime),'yyyy-MM-dd'),
+      time: format(new Date(booking.startTime),'HH:mm'),
+      adults: booking.adults,
+      children: booking.children,
+      babies: booking.babies,
+      language: booking.language
+    })
+    return (
+      <div>
+        <div className="space-y-3">
+          <input className="border rounded px-2 py-1 w-full" value={ed.date} onChange={e=>setEd({...ed, date:e.target.value})} />
+          <input className="border rounded px-2 py-1 w-full" value={ed.time} onChange={e=>setEd({...ed, time:e.target.value})} />
+          <div className="grid grid-cols-3 gap-2">
+            <input type="number" className="border rounded px-2 py-1" value={ed.adults} onChange={e=>setEd({...ed, adults: parseInt(e.target.value||'0',10)})} />
+            <input type="number" className="border rounded px-2 py-1" value={ed.children} onChange={e=>setEd({...ed, children: parseInt(e.target.value||'0',10)})} />
+            <input type="number" className="border rounded px-2 py-1" value={ed.babies} onChange={e=>setEd({...ed, babies: parseInt(e.target.value||'0',10)})} />
+          </div>
+          <input className="border rounded px-2 py-1 w-full" value={ed.language} onChange={e=>setEd({...ed, language:e.target.value})} />
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          <button className="border rounded px-3 py-1" onClick={onClose}>Annuler</button>
+          <button className="border rounded px-3 py-1 bg-blue-600 text-white" onClick={async ()=>{
+            const payload:any = { adults: ed.adults, children: ed.children, babies: ed.babies, language: ed.language }
+            // Changing date/time via PATCH: send ISO if provided
+            if (ed.date && ed.time) { payload.date = ed.date; payload.time = ed.time }
+            const resp = await fetch(`/api/bookings/${booking.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+            if (resp.ok) { onSaved() } else { onClose() }
+          }}>Enregistrer</button>
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold">Liste des réservations</h1>
+      <h1 className="text-2xl font-bold">Tuile – Liste des réservations</h1>
+      <div className="mt-2">
+        <button className="border rounded px-3 py-1" onClick={()=>setShowCreate(true)}>Créer une réservation</button>
+      </div>
       <div className="mt-4 flex flex-wrap gap-3">
         <select value={range} onChange={e=>setRange(e.target.value as any)} className="border rounded px-2 py-1">
           <option value="day">Jour</option>
@@ -89,6 +146,7 @@ export default function ReservationsAdminPage(){
               <th className="p-2">Pax</th>
               <th className="p-2">Langue</th>
               <th className="p-2">Paiement</th>
+              <th className="p-2">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -100,6 +158,11 @@ export default function ReservationsAdminPage(){
                 <td className="p-2">{b.numberOfPeople}</td>
                 <td className="p-2">{b.language}</td>
                 <td className="p-2">{(b.payments?.[0]?.provider || '—')}{b.payments?.[0]?.methodType ? ` (${b.payments[0].methodType})` : ''}</td>
+                <td className="p-2">
+                  <button className="border rounded px-2 py-1 mr-2" onClick={(e)=>{e.stopPropagation(); setShowView(b)}}>Voir</button>
+                  <button className="border rounded px-2 py-1 mr-2" onClick={(e)=>{e.stopPropagation(); setShowEdit(b)}}>Modifier</button>
+                  <button className="border rounded px-2 py-1" onClick={async (e)=>{ e.stopPropagation(); await fetch(`/api/bookings/${b.id}`, { method: 'DELETE' }); mutate(); }}>Supprimer</button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -165,6 +228,48 @@ export default function ReservationsAdminPage(){
           )}
         </div>
       )}
+      {showView && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={()=>setShowView(null)}>
+          <div className="bg-white rounded shadow p-4 w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <div className="font-semibold">Détails réservation</div>
+              <button onClick={()=>setShowView(null)}>✕</button>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div>Date: {format(new Date(showView.startTime),'dd/MM/yyyy')} {format(new Date(showView.startTime),'HH:mm')}</div>
+              <div>Client: {showView.user?.firstName} {showView.user?.lastName} ({showView.user?.email})</div>
+              <div>Pax: {showView.numberOfPeople} (A {showView.adults} / E {showView.children} / B {showView.babies})</div>
+              <div>Langue: {showView.language}</div>
+              <div>Paiement: {(showView.payments?.[0]?.provider || '—')}{showView.payments?.[0]?.methodType ? ` (${showView.payments[0].methodType})` : ''}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEdit && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={()=>setShowEdit(null)}>
+          <div className="bg-white rounded shadow p-4 w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-3">
+              <div className="font-semibold">Modifier réservation</div>
+              <button onClick={()=>setShowEdit(null)}>✕</button>
+            </div>
+            <div className="space-y-3">
+              <input className="border rounded px-2 py-1 w-full" defaultValue={format(new Date(showEdit.startTime),'yyyy-MM-dd')} />
+              <input className="border rounded px-2 py-1 w-full" defaultValue={format(new Date(showEdit.startTime),'HH:mm')} />
+              <div className="grid grid-cols-3 gap-2">
+                <input type="number" className="border rounded px-2 py-1" defaultValue={showEdit.adults} />
+                <input type="number" className="border rounded px-2 py-1" defaultValue={showEdit.children} />
+                <input type="number" className="border rounded px-2 py-1" defaultValue={showEdit.babies} />
+              </div>
+              <input className="border rounded px-2 py-1 w-full" defaultValue={showEdit.language} />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="border rounded px-3 py-1" onClick={()=>setShowEdit(null)}>Annuler</button>
+              <button className="border rounded px-3 py-1 bg-blue-600 text-white" onClick={()=>{ /* TODO: wire PATCH */ setShowEdit(null); }}>Enregistrer</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toasts.length>0 && (
         <div className="fixed bottom-4 right-4 space-y-2">
@@ -187,6 +292,113 @@ export default function ReservationsAdminPage(){
               <li key={c.index}>#{c.index} {c.start} - {c.end} • {c.people}p</li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white rounded shadow p-4 w-full max-w-xl">
+            <div className="flex justify-between items-center mb-3">
+              <div className="font-semibold">Créer une réservation</div>
+              <button onClick={()=>setShowCreate(false)}>✕</button>
+            </div>
+            <div className="tabs mb-3">
+              <button className={`tab tab-bordered ${createTab==='normal'?'tab-active':''}`} onClick={()=>setCreateTab('normal')}>Normale</button>
+              <button className={`tab tab-bordered ${createTab==='private'?'tab-active':''}`} onClick={()=>setCreateTab('private')}>Privatisation</button>
+              <button className={`tab tab-bordered ${createTab==='group'?'tab-active':''}`} onClick={()=>setCreateTab('group')}>Groupe</button>
+              <button className={`tab tab-bordered ${createTab==='contact'?'tab-active':''}`} onClick={async()=>{ setCreateTab('contact'); const qs = contactStatus?`?status=${contactStatus}`:''; const r = await fetch(`/api/admin/contacts${qs}`); const c = await r.json(); setContacts(Array.isArray(c)?c:[]) }}>Depuis contact</button>
+            </div>
+            <div className="space-y-3">
+              <input className="border rounded px-2 py-1 w-full" value={form.date} onChange={e=>setForm({...form, date:e.target.value})} placeholder="Date (YYYY-MM-DD)" />
+              <input className="border rounded px-2 py-1 w-full" value={form.time} onChange={e=>setForm({...form, time:e.target.value})} placeholder="Heure (HH:mm)" />
+              <div className="grid grid-cols-3 gap-2">
+                <input type="number" className="border rounded px-2 py-1" value={form.adults} onChange={e=>setForm({...form, adults: parseInt(e.target.value||'0',10)})} placeholder="Adultes" />
+                <input type="number" className="border rounded px-2 py-1" value={form.children} onChange={e=>setForm({...form, children: parseInt(e.target.value||'0',10)})} placeholder="Enfants" />
+                <input type="number" className="border rounded px-2 py-1" value={form.babies} onChange={e=>setForm({...form, babies: parseInt(e.target.value||'0',10)})} placeholder="Bébés" />
+              </div>
+              <input className="border rounded px-2 py-1 w-full" value={form.language} onChange={e=>setForm({...form, language:e.target.value})} placeholder="Langue (fr/en/de/...)" />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="border rounded px-2 py-1" value={form.firstName} onChange={e=>setForm({...form, firstName:e.target.value})} placeholder="Prénom" />
+                <input className="border rounded px-2 py-1" value={form.lastName} onChange={e=>setForm({...form, lastName:e.target.value})} placeholder="Nom" />
+              </div>
+              <input className="border rounded px-2 py-1 w-full" value={form.email} onChange={e=>setForm({...form, email:e.target.value})} placeholder="Email" />
+              {createTab==='contact' && (
+                <div>
+                  <div className="text-sm mb-2">Sélectionnez un contact à convertir</div>
+                  <div className="flex gap-2 mb-2">
+                    <select className="border rounded px-2 py-1" value={contactStatus} onChange={async e=>{ const v = e.target.value as any; setContactStatus(v); const qs = v?`?status=${v}`:''; const r = await fetch(`/api/admin/contacts${qs}`); const c = await r.json(); setContacts(Array.isArray(c)?c:[]) }}>
+                      <option value="">Tous</option>
+                      <option value="NEW">Nouveaux</option>
+                      <option value="CONTACTED">Contactés</option>
+                      <option value="CLOSED">Fermés</option>
+                    </select>
+                    <button className="border rounded px-2" onClick={async ()=>{ const qs = contactStatus?`?status=${contactStatus}`:''; const r = await fetch(`/api/admin/contacts${qs}`); const c = await r.json(); setContacts(Array.isArray(c)?c:[]) }}>Rafraîchir</button>
+                  </div>
+                  <select className="border rounded px-2 py-1 w-full" value={selectedContactId} onChange={e=>setSelectedContactId(e.target.value)}>
+                    <option value="">— choisir —</option>
+                    {contacts.map((c:any)=> (
+                      <option key={c.id} value={c.id}>{c.kind} • {c.firstName} {c.lastName} • {c.people||''}p • {c.date||''}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {createTab==='group' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input type="number" className="border rounded px-2 py-1" value={groupChain} onChange={e=>setGroupChain(parseInt(e.target.value||'0',10))} placeholder="Taille du groupe" />
+                  <label className="flex items-center gap-2"><input type="checkbox" checked={inheritPaymentForChain} onChange={e=>setInheritPaymentForChain(e.target.checked)} /> Hériter paiement</label>
+                </div>
+              )}
+              {createTab==='private' && (
+                <div className="text-sm text-gray-600">Privatisation: le créneau sera fermé (capacité complète).</div>
+              )}
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button className="border rounded px-3 py-1" onClick={()=>setShowCreate(false)}>Annuler</button>
+              <button disabled={creating} className="border rounded px-3 py-1 bg-blue-600 text-white" onClick={async ()=>{
+                setCreating(true)
+                const basePayload:any = {
+                  date: form.date,
+                  time: form.time,
+                  adults: form.adults,
+                  children: form.children,
+                  babies: form.babies,
+                  language: form.language,
+                  userDetails: { firstName: form.firstName, lastName: form.lastName, email: form.email },
+                  isStaffOverride: true
+                }
+                let payload = basePayload
+                if (createTab==='group') {
+                  payload = { ...basePayload, groupChain, inheritPaymentForChain }
+                }
+                if (createTab==='private') {
+                  // fill capacity via adults set; server will prevent overlap by capacity
+                  payload = { ...basePayload, private: true }
+                }
+                if (createTab==='contact') {
+                  const respC = await fetch('/api/admin/contacts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contactId: selectedContactId }) })
+                  const ok = respC.ok
+                  setCreating(false)
+                  if (ok) { setShowCreate(false); mutate(); setToasts(t=>[...t,{ id: Date.now(), type: 'success', message: 'Contact converti' }]) } else { setToasts(t=>[...t,{ id: Date.now(), type: 'warning', message: 'Échec conversion contact' }]) }
+                  return
+                }
+                const resp = await fetch('/api/bookings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                if (resp.ok) { setShowCreate(false); mutate(); setToasts(t=>[...t,{ id: Date.now(), type: 'success', message: 'Réservation créée' }]) }
+                else { setToasts(t=>[...t,{ id: Date.now(), type: 'warning', message: 'Échec de création' }]) }
+                setCreating(false)
+              }}>Créer</button>
+                  {showEdit && (
+                    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={()=>setShowEdit(null)}>
+                      <div className="bg-white rounded shadow p-4 w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="font-semibold">Modifier réservation</div>
+                          <button onClick={()=>setShowEdit(null)}>✕</button>
+                        </div>
+                        <EditForm booking={showEdit} onClose={()=>setShowEdit(null)} onSaved={()=>{ setShowEdit(null); mutate(); }} />
+                      </div>
+                    </div>
+                  )}
+            </div>
+          </div>
         </div>
       )}
     </div>
