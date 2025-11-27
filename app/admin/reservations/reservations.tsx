@@ -31,7 +31,7 @@ export default function ReservationsAdminPage(){
   if (payment) params.set('payment', payment)
   const { data } = useSWR(`/api/admin/reservations?${params.toString()}`, fetcher)
 
-  const bookings = Array.isArray(data)?.
+  const bookings = Array.isArray(data)
     ? data : []
   const [selectedId, setSelectedId] = useState<string>('')
   const [inheritPaymentForChain, setInheritPaymentForChain] = useState(false)
