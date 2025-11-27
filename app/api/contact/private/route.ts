@@ -6,6 +6,7 @@ import { createLog } from '@/lib/logger'
 import { z } from 'zod'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { normalizeIncoming } from '@/lib/phone'
+import { prisma } from '@/lib/prisma'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -17,13 +18,13 @@ export async function POST(request: Request) {
 
     const json = await request.json()
     const schema = z.object({
-      firstName: z.string().min(1).max(60),
-      lastName: z.string().min(1).max(60),
-      email: z.string().email().max(120),
-      phone: z.string().max(30).default(''),
-      message: z.string().max(1500).default(''),
+      firstName: z.string().trim().min(1).max(60),
+      lastName: z.string().trim().min(1).max(60),
+      email: z.string().trim().email().max(120),
+      phone: z.string().trim().max(30).default(''),
+      message: z.string().trim().max(1500).default(''),
       people: z.number().int().min(1).max(500).optional(),
-      date: z.string().max(120).optional(),
+      date: z.string().trim().max(120).optional(),
       captchaToken: z.string().min(10),
       lang: z.enum(['fr','en','de','es','it']).optional()
     })
@@ -45,23 +46,74 @@ export async function POST(request: Request) {
     })()
     const userLang: Lang = (lang as Lang) || urlLang || headerLang || 'fr'
     if (phone) phone = normalizeIncoming(phone)
+    if (message) message = message.replace(/\r?\n/g, '\n')
 
     // CAPTCHA
     if (!captchaToken) {
       return NextResponse.json({ error: 'Captcha manquant.' }, { status: 400 })
     }
-    const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
-    const captchaRes = await fetch(verifyUrl, { method: 'POST' })
-    const captchaData = await captchaRes.json()
+    const verifyBody = new URLSearchParams({
+      secret: process.env.RECAPTCHA_SECRET_KEY || '',
+      response: captchaToken,
+      remoteip: ip || ''
+    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    const captchaRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: verifyBody.toString(),
+      signal: controller.signal
+    }).catch((e) => {
+      console.warn('Captcha verify failed', e)
+      return undefined as any
+    })
+    clearTimeout(timeout)
+    const captchaData = captchaRes ? await captchaRes.json() : { success: false }
     if (!captchaData.success) {
       return NextResponse.json({ error: 'Validation Captcha échouée.' }, { status: 400 })
     }
 
+    // Additional per-email rate limit (after validation & captcha)
+    const rlEmail = rateLimit({ key: `contact:private:email:${email.toLowerCase()}`, limit: 3, windowMs: 300_000 })
+    if (!rlEmail.allowed) return NextResponse.json({ error: 'Trop de demandes pour cet email', retryAfter: rlEmail.retryAfter }, { status: 429 })
+
+    // Email addresses
+    const EMAIL_FROM = process.env.EMAIL_FROM || 'Sweet Narcisse <onboarding@resend.dev>'
+    const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim()
+    if (!process.env.RESEND_API_KEY) {
+      console.warn('RESEND_API_KEY is not set')
+    }
+    if (!ADMIN_EMAIL) {
+      console.warn('ADMIN_EMAIL is not configured; using placeholder address')
+    }
+
+    // Persist contact request (non-blocking for email send)
+    try {
+      await prisma.contactRequest.create({
+        data: {
+          kind: 'private',
+          firstName,
+          lastName,
+          email,
+          phone: phone || null,
+          message: message || null,
+          people: typeof people === 'number' ? people : null,
+          date: date || null,
+          lang: userLang,
+          ip: ip || null,
+          referer: referer || null,
+        }
+      })
+    } catch (e) {
+      console.warn('ContactRequest persist failed', e)
+    }
+
     // ADMIN EMAIL (reuse GroupRequestTemplate)
     const { error } = await resend.emails.send({
-      from: 'Sweet Narcisse <onboarding@resend.dev>',
-      to: [process.env.ADMIN_EMAIL || 'votre-email-admin@example.com'],
-      subject: `Demande de Privatisation - ${firstName} ${lastName}`,
+      from: EMAIL_FROM,
+      to: [ADMIN_EMAIL || 'votre-email-admin@example.com'],
+      subject: `Demande de Privatisation - ${firstName} ${lastName}${typeof people === 'number' ? ` - ${people}p` : ''}${date ? ` - ${date}` : ''}`,
       replyTo: email,
       react: await GroupRequestTemplate({
         firstName,
@@ -78,12 +130,15 @@ export async function POST(request: Request) {
     }
 
     // LOG
-    await createLog('CONTACT_PRIVATE', `Demande de privatisation reçue de ${firstName} ${lastName}${people ? ` (${people} pers)` : ''}${date ? ` pour ${date}` : ''}`)
+    await createLog(
+      'CONTACT_PRIVATE',
+      `Demande privatisation de ${firstName} ${lastName}${people ? ` (${people} pers)` : ''}${date ? ` pour ${date}` : ''} – ip:${ip} lang:${userLang} ref:${referer ? new URL(referer).pathname : ''}`
+    )
 
     // CUSTOMER ACK (non-blocking)
     try {
       await resend.emails.send({
-        from: 'Sweet Narcisse <onboarding@resend.dev>',
+        from: EMAIL_FROM,
         to: [email],
         subject: ({
           fr: 'Demande reçue – Sweet Narcisse',

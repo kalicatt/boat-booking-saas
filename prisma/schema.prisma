@@ -175,3 +175,30 @@ model Payment {
   @@index([intentId])
   @@index([orderId])
 }
+
+// Contact requests captured from public forms (private/group, etc.)
+model ContactRequest {
+  id        String        @id @default(cuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  kind      String        // 'private' | 'group' | etc.
+  status    ContactStatus @default(NEW)
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+  message   String?
+  people    Int?
+  date      String?
+  lang      String        // 'fr' | 'en' | 'de' | ...
+  ip        String?
+  referer   String?
+}
+
+enum ContactStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
