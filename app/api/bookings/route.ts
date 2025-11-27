@@ -352,7 +352,7 @@ export async function POST(request: Request) {
                   isPaid: Boolean(inheritPaymentForChain && paymentMethod)
                 }
               })
-              chainCreated.push({ index: i, boatId: ob.id, start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
+              chainCreated.push({ index: i, boatId: String(ob.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
               if (inheritPaymentForChain && paymentMethod) {
                 await prisma.payment.create({
                   data: {
