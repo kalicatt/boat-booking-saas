@@ -188,7 +188,7 @@ export default function ReservationsAdminPage(){
                     <div className="mt-2 p-2 border rounded bg-slate-50" onClick={e=>e.stopPropagation()}>
                       <div className="text-xs mb-1">Sélectionnez le moyen de paiement</div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <select className="border rounded px-2 py-1" value={markPaid.provider} onChange={e=>{
+                        <select className="border rounded px-2 py-1" value={markPaid?.provider || ''} onChange={e=>{
                           const val = e.target.value
                           setMarkPaid(prev=> prev ? { ...prev, provider: val, methodType: (val==='voucher' ? (prev.methodType||'ANCV') : undefined) } : null)
                         }}>
@@ -200,8 +200,8 @@ export default function ReservationsAdminPage(){
                           <option value="googlepay">Google Pay</option>
                           <option value="voucher">ANCV / CityPass</option>
                         </select>
-                        {markPaid.provider==='voucher' && (
-                          <select className="border rounded px-2 py-1" value={markPaid.methodType||'ANCV'} onChange={e=> setMarkPaid(prev=> prev ? { ...prev, methodType: e.target.value } : prev)}>
+                        {markPaid?.provider==='voucher' && (
+                          <select className="border rounded px-2 py-1" value={markPaid?.methodType||'ANCV'} onChange={e=> setMarkPaid(prev=> prev ? { ...prev, methodType: e.target.value } : prev)}>
                             <option value="ANCV">ANCV</option>
                             <option value="CityPass">CityPass</option>
                           </select>
