@@ -7,6 +7,7 @@ import TripReviews from '@/components/TripReviews'
 export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const currentLang: 'en'|'fr'|'de'|'es'|'it' = (['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en'
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -28,18 +29,18 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <div className="text-2xl font-serif font-bold text-[#0f172a]">Sweet <span className="text-[#eab308]">Narcisse</span></div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{dict.nav.experience}</a>
-            <a href={`/${lang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>
+            <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>
             <a href="#contact" className="hover:text-[#eab308] transition duration-300">{dict.nav.contact}</a>
             <div className="relative ml-4 border-l pl-4 border-slate-300">
               <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
-                <span>{lang.toUpperCase()}</span>
+                <span>{currentLang.toUpperCase()}</span>
                 <span className="text-[10px]">▾</span>
               </button>
               {langOpen && (
                 <ul role="listbox" className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
                   {['fr','en','de','es','it'].map(code => (
                     <li key={code}>
-                      <a href={`/${code}`} role="option" aria-selected={lang===code} className={`block px-3 py-2 hover:bg-slate-50 ${lang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`}>{code.toUpperCase()}</a>
+                      <a href={`/${code}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`}>{code.toUpperCase()}</a>
                     </li>
                   ))}
                 </ul>
@@ -62,7 +63,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
           <div className="flex flex-col items-center justify-center gap-5">
             <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{dict.hero.cta}</a>
-            <a href={`/${lang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{dict.partners?.nav}</a>
+            <a href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{dict.partners?.nav}</a>
           </div>
         </div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
@@ -143,7 +144,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <p className="text-slate-400 text-lg">{dict.booking.subtitle}</p>
         </div>
         <div className="relative z-10 fade-in">
-          <BookingWidget dict={dict} initialLang={lang} />
+          <BookingWidget dict={dict} initialLang={currentLang} />
         </div>
       </section>
 
@@ -178,7 +179,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           </div>
         </div>
         <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50 flex flex-col items-center gap-2">
-          <a href={`/${lang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{dict.partners?.nav || 'Partners'}</a>
+          <a href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{dict.partners?.nav || 'Partners'}</a>
           <span>{dict.footer.rights}</span>
         </div>
       </footer>
