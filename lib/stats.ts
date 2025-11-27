@@ -42,7 +42,17 @@ export async function getStats(filters: StatsFilters = {}) {
         const isVoucher = prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('city') || prov.includes('ancv')
         return !isVoucher
       })
-      return Math.round(cashier.reduce((s,p)=> s + (p.amount||0), 0) / 100)
+      const euroFromPayments = cashier.reduce((s,p)=> s + (p.amount||0), 0) / 100
+      // Fallback: bookings marked paid with no non-voucher payments
+      let euroFallback = 0
+      for (const b of bookings) {
+        const paidPs = (b.payments||[]).filter(p=> isPaidStatus(p.status))
+        const hasNonVoucherPaid = paidPs.some(p=> { const prov = (p.provider||'').toLowerCase(); const meth = (p.methodType||'').toLowerCase(); return !(prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('ancv') || prov.includes('city')) })
+        if (!hasNonVoucherPaid && (b as any).isPaid && ((b.totalPrice||0) > 0)) {
+          euroFallback += (b.totalPrice || 0)
+        }
+      }
+      return Math.round(euroFromPayments + euroFallback)
     })(),
     avgPerBooking: (()=>{ const count = bookings.length; const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return count ? Math.round(total / count) : 0 })(),
     avgPerPerson: (() => { const ppl = bookings.reduce((s,b)=> s + b.numberOfPeople,0); const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return ppl ? Math.round(total/ppl) : 0 })(),
