@@ -2,8 +2,12 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
-  const entries = await prisma.paymentLedger.findMany({ orderBy: { occurredAt: 'desc' }, take: 200 })
-  return NextResponse.json(entries)
+  try {
+    const entries = await prisma.paymentLedger.findMany({ orderBy: { occurredAt: 'desc' }, take: 200 })
+    return NextResponse.json(entries)
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Ledger fetch failed', details: String(e?.message||e) }, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {

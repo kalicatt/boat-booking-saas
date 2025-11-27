@@ -3,8 +3,12 @@ import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 
 export async function GET() {
-  const closures = await prisma.dailyClosure.findMany({ orderBy: { day: 'desc' }, take: 60 })
-  return NextResponse.json(closures)
+  try {
+    const closures = await prisma.dailyClosure.findMany({ orderBy: { day: 'desc' }, take: 60 })
+    return NextResponse.json(closures)
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Closures fetch failed', details: String(e?.message||e) }, { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
@@ -16,7 +20,12 @@ export async function POST(req: Request) {
   end.setUTCHours(23,59,59,999)
 
   // Compute totals from PaymentLedger for the day
-  const entries = await prisma.paymentLedger.findMany({ where: { occurredAt: { gte: start, lte: end } } })
+  let entries: any[] = []
+  try {
+    entries = await prisma.paymentLedger.findMany({ where: { occurredAt: { gte: start, lte: end } } })
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Ledger read failed', details: String(e?.message||e) }, { status: 500 })
+  }
   const totals: Record<string, number> = {}
   const vouchers: Record<string, number> = {}
   const vatTotals: { net: number; vat: number; gross: number } = { net: 0, vat: 0, gross: 0 }
@@ -37,6 +46,10 @@ export async function POST(req: Request) {
   const json = JSON.stringify(snapshot)
   const hash = crypto.createHash('sha256').update(json).digest('hex')
 
-  const closure = await prisma.dailyClosure.create({ data: { day: start, closedById, totalsJson: json, hash, locked: true } })
-  return NextResponse.json(closure)
+  try {
+    const closure = await prisma.dailyClosure.create({ data: { day: start, closedById, totalsJson: json, hash, locked: true } })
+    return NextResponse.json(closure)
+  } catch (e: any) {
+    return NextResponse.json({ error: 'Closure write failed', details: String(e?.message||e) }, { status: 500 })
+  }
 }
