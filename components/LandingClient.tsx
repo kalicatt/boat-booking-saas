@@ -16,6 +16,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
   const routeLang = (pathname?.split('/')[1] || '') as 'en'|'fr'|'de'|'es'|'it'|''
   const [currentLang, setCurrentLang] = useState<'en'|'fr'|'de'|'es'|'it'>((['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en')
   const [liveDict, setLiveDict] = useState(dict)
+  const [currentHash, setCurrentHash] = useState('')
+  const [currentSearch, setCurrentSearch] = useState('')
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -37,7 +39,12 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('click', onClickOutside)
-    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside) }
+    const onHash = () => setCurrentHash(window.location.hash || '')
+    const onSearch = () => setCurrentSearch(window.location.search || '')
+    window.addEventListener('hashchange', onHash)
+    onHash()
+    onSearch()
+    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside); window.removeEventListener('hashchange', onHash) }
   },[])
 
   // Sync currentLang with URL on client navigation
@@ -74,7 +81,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
                 <ul role="listbox" className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
                   {['fr','en','de','es','it'].map(code => (
                     <li key={code}>
-                      <Link prefetch={false} href={`/${code}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>setLangOpen(false)}>{code.toUpperCase()}</Link>
+                      <Link prefetch={false} href={`/${code}${currentSearch}${currentHash}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>setLangOpen(false)}>{code.toUpperCase()}</Link>
                     </li>
                   ))}
                 </ul>
@@ -182,6 +189,45 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
         <div className="relative z-10 fade-in">
           <BookingWidget dict={liveDict} initialLang={currentLang} />
+        </div>
+      </section>
+
+      {/* Contact shortcut placed right below reservation */}
+      <section className="py-12 px-6 bg-white">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+          <div className="text-slate-700 text-sm">
+            Besoin d'un devis groupe ou d'une privatisation ?
+          </div>
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 rounded border border-slate-200 text-sm hover:bg-slate-50"
+              onClick={() => {
+                const el = document.getElementById('contact-group') || document.getElementById('contact')
+                if (el) {
+                  history.pushState(null, '', '#contact-group')
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                } else {
+                  window.location.hash = '#contact-group'
+                }
+              }}
+            >
+              👥 Demande groupe
+            </button>
+            <button
+              className="px-4 py-2 rounded border border-slate-200 text-sm hover:bg-slate-50"
+              onClick={() => {
+                const el = document.getElementById('contact-private') || document.getElementById('contact')
+                if (el) {
+                  history.pushState(null, '', '#contact-private')
+                  el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                } else {
+                  window.location.hash = '#contact-private'
+                }
+              }}
+            >
+              ✨ Demande de privatisation
+            </button>
+          </div>
         </div>
       </section>
 

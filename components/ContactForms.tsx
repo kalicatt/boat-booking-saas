@@ -43,6 +43,7 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
   const privateWidgetId = useRef<number | null>(null)
   const [groupToken, setGroupToken] = useState('')
   const [privateToken, setPrivateToken] = useState('')
+  const [prefill, setPrefill] = useState<{ people?: number; date?: string }>({})
 
   useEffect(()=>{
     if (!siteKey) return
@@ -80,6 +81,30 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
       })
     }
   }, [siteKey])
+
+  // Deep-link handling via hash (#contact-group or #contact-private)
+  useEffect(()=>{
+    const applyFromHash = () => {
+      const h = window.location.hash
+      if (h === '#contact-private') setActive('private')
+      else if (h === '#contact-group') setActive('group')
+    }
+    applyFromHash()
+    window.addEventListener('hashchange', applyFromHash)
+    return () => window.removeEventListener('hashchange', applyFromHash)
+  }, [])
+
+  // Prefill from URL query (?people=..&date=YYYY-MM-DD)
+  useEffect(()=>{
+    try {
+      const sp = new URLSearchParams(window.location.search)
+      const p = sp.get('people')
+      const d = sp.get('date')
+      const people = p ? Math.max(1, Math.min(999, parseInt(p, 10) || 0)) : undefined
+      const date = d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined
+      setPrefill({ people, date })
+    } catch {}
+  }, [])
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -119,12 +144,12 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto" id="contact">
       <div className="text-center mb-8">
         <h3 className="text-3xl font-serif font-bold text-slate-800">{tr.heading}</h3>
       </div>
       <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
-        <div className="flex">
+        <div className="flex" id={active==='group' ? 'contact-group' : 'contact-private'}>
           <button className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide ${active==='group' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`} onClick={()=>setActive('group')} type="button">{tr.groupTab}</button>
           <button className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide ${active==='private' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`} onClick={()=>setActive('private')} type="button">{tr.privateTab}</button>
         </div>
@@ -152,17 +177,17 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
           {active==='group' ? (
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-              <input name="people" type="number" min={1} className="w-full p-2 border rounded" required />
+              <input name="people" type="number" min={1} className="w-full p-2 border rounded" required defaultValue={prefill.people ?? ''} />
             </div>
           ) : (
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-                <input name="people" type="number" min={1} className="w-full p-2 border rounded" />
+                <input name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.date}</label>
-                <input name="date" className="w-full p-2 border rounded" placeholder="YYYY-MM-DD" />
+                <input name="date" className="w-full p-2 border rounded" placeholder="YYYY-MM-DD" defaultValue={prefill.date ?? ''} />
               </div>
             </>
           )}
