@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 
-export default function EmployeesPage() {
+type Props = { canManage?: boolean }
+
+export default function ClientEmployeesPage({ canManage = false }: Props) {
     const [employees, setEmployees] = useState<any[]>([])
     const [myRole, setMyRole] = useState<string>('')
     const [loading, setLoading] = useState(true)
@@ -61,20 +63,21 @@ export default function EmployeesPage() {
         if (res.ok) setEmployees((prev) => prev.filter(e => e.id !== id))
     }
 
-    const canManage = myRole === 'SUPERADMIN' || myRole === 'ADMIN'
+    // Prefer server-provided canManage flag; fallback to role check client-side
+    const localCanManage = canManage || myRole === 'SUPERADMIN' || myRole === 'ADMIN'
 
     return (
         <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                     <Link href="/admin" className="text-slate-600 hover:text-slate-800">← Retour Tableau de bord</Link>
-                    {!canManage && !loading && (
+                    {!localCanManage && !loading && (
                         <p className="text-sm text-orange-600 mt-1 font-bold bg-orange-50 inline-block px-2 py-1 rounded border border-orange-200">
                             🔒 Mode Lecture Seule
                         </p>
                     )}
                 </div>
-                {canManage && (
+                {localCanManage && (
                     <button onClick={()=>setShowCreateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded shadow-sm">+ Nouveau collaborateur</button>
                 )}
             </div>
@@ -129,7 +132,7 @@ export default function EmployeesPage() {
                                             )}
                                         </td>
                                         <td className="p-4 text-right align-top space-x-2">
-                                            {isSuperAdmin && emp.role !== 'SUPERADMIN' && (
+                                            {localCanManage && emp.role !== 'SUPERADMIN' && (
                                                 <>
                                                     <button 
                                                         onClick={() => { setEditTarget(emp); setEditErrors([]); }}
