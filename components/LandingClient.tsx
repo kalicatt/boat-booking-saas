@@ -4,12 +4,15 @@ import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement|null>(null)
-  const currentLang: 'en'|'fr'|'de'|'es'|'it' = (['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en'
+  const pathname = usePathname()
+  const pathLang = (pathname?.split('/')[1] || 'en') as 'en'|'fr'|'de'|'es'|'it'
+  const currentLang: 'en'|'fr'|'de'|'es'|'it' = (['en','fr','de','es','it'] as const).includes(pathLang) ? pathLang : 'en'
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)

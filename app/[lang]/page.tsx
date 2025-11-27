@@ -1,4 +1,7 @@
 import { getDictionary, SupportedLocale } from '@/lib/get-dictionary'
+
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 import LandingClient from '@/components/LandingClient'
 
 // Server component: loads dictionary then renders client landing shell
