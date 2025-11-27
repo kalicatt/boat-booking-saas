@@ -5,7 +5,7 @@ import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
 
-export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
+export default function LandingClient({ dict, lang, debugLang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it', debugLang?: string }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement|null>(null)
@@ -38,7 +38,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="text-2xl font-serif font-bold text-[#0f172a]">Sweet <span className="text-[#eab308]">Narcisse</span></div>
+          <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">Sweet <span className="text-[#eab308]">Narcisse</span><span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-100 text-slate-500">{debugLang}:{lang}</span></div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
             <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{dict.nav.experience}</a>
             <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>

@@ -11,6 +11,8 @@ export default async function LandingPage({ params }: { params: { lang: string }
     const rawLang = params.lang
     const supported: SupportedLocale[] = ['en','fr','de','es','it']
     const safeLang: SupportedLocale = supported.includes(rawLang as SupportedLocale) ? rawLang as SupportedLocale : 'en'
+    // TEMP debug log (remove later)
+    console.log('[LandingPage] rawLang=', rawLang, 'safeLang=', safeLang)
     const dict = getDictionary(safeLang)
-    return <LandingClient dict={dict} lang={safeLang} />
+    return <LandingClient dict={dict} lang={safeLang} debugLang={rawLang} />
 }
