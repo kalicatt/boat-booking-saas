@@ -74,7 +74,21 @@
       "help_text": "Need help?",
       "modify_btn": "Modify",
       "duration_text": "Duration: ~25 min",
-      "back_btn": "Back"
+      "back_btn": "Back",
+      "btn_pay_now": "Pay Now",
+      "payment_title": "Payment",
+      "init_payment_hint": "Click to initiate payment",
+      "payment_error_network": "Payment network error",
+      "payment_error_generic": "Payment error",
+      "payment_stripe_not_confirmed": "Stripe payment not confirmed. Status: {status}",
+      "payment_stripe_verify_failed": "Unable to verify Stripe payment.",
+      "booking_create_failed": "Unable to create booking",
+      "booking_not_found": "Booking not found",
+      "payment_paypal_capture_failed": "PayPal capture failed",
+      "payment_paypal_processing_error": "Error while processing PayPal",
+      "payment_paypal_network_error": "Network error during PayPal association.",
+      "payment_paypal_not_configured": "PayPal not configured",
+      "payment_paypal_sdk_load_failed": "Failed to load PayPal SDK"
     }
   },
   "group_form": {

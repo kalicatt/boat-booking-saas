@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
+    const pendingOnly = Boolean((json as any)?.pendingOnly)
     const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message } = parsed.data
 
     // 1. CAPTCHA
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
         adults, children, babies,
         language,
         totalPrice: finalPrice,
-        status: 'CONFIRMED',
+        status: pendingOnly ? 'PENDING' : 'CONFIRMED',
         message: message || null,
         boat: { connect: { id: targetBoat.id } },
         user: {
@@ -156,7 +157,8 @@ export async function POST(request: Request) {
                 phone: userDetails.phone || null,
             }
           }
-        }
+        },
+        isPaid: pendingOnly ? false : true
       }
     })
 
@@ -165,7 +167,7 @@ export async function POST(request: Request) {
 
     // 8. EMAIL
     try {
-      if (userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@')) {
+      if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@')) {
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userEmailToUse],
@@ -183,7 +185,7 @@ export async function POST(request: Request) {
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
 
-    return NextResponse.json({ success: true, bookingId: newBooking.id })
+    return NextResponse.json({ success: true, bookingId: newBooking.id, status: newBooking.status })
   } catch (error) {
     console.error("ERREUR API:", error)
     return NextResponse.json({ error: "Erreur technique" }, { status: 500 })

@@ -6,6 +6,9 @@ import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
+import PaymentElementWrapper from '@/components/PaymentElementWrapper'
+import StripeWalletButton from '@/components/StripeWalletButton'
+import PayPalButton from '@/components/PayPalButton'
 
 interface WizardProps {
   dict: any
@@ -80,6 +83,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const recaptchaRef = useRef<ReCAPTCHA>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+    const [clientSecret, setClientSecret] = useState<string | null>(null)
+    const [stripeError, setStripeError] = useState<string | null>(null)
+    const [paymentSucceeded, setPaymentSucceeded] = useState<boolean>(false)
+        const [paymentProvider, setPaymentProvider] = useState<null | 'stripe' | 'paypal'>(null)
+    const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null)
+        const [stripeIntentId, setStripeIntentId] = useState<string | null>(null)
+        const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
 
   // Calculs
   const totalPeople = adults + children + babies
@@ -172,10 +182,38 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // VALIDATION STANDARD
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
+                if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
+                if (!paymentSucceeded) { setGlobalErrors(["Veuillez finaliser le paiement avant confirmation."]); return }
     
     setIsSubmitting(true)
     try {
+        // If Stripe flow with pending booking, verify and finish
+        if (paymentProvider === 'stripe' && stripeIntentId && pendingBookingId) {
+            try {
+                const verifyRes = await fetch('/api/payments/verify-stripe-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: stripeIntentId }) })
+                const verify = await verifyRes.json()
+                if (!verifyRes.ok || verify.status !== 'succeeded') {
+                    const msg = (dict.booking.widget.payment_stripe_not_confirmed || 'Paiement Stripe non confirmé. Statut: {status}').replace('{status}', String(verify?.status || 'inconnu'))
+                    setGlobalErrors([msg])
+                    setIsSubmitting(false)
+                    return
+                }
+            } catch {
+                setGlobalErrors([dict.booking.widget.payment_stripe_verify_failed || 'Impossible de vérifier le paiement Stripe.'])
+                setIsSubmitting(false)
+                return
+            }
+            setGlobalErrors([])
+            setStep(STEPS.SUCCESS)
+            return
+        }
+
+        // If PayPal flow with pending booking already captured, just finish
+        if (paymentProvider === 'paypal' && pendingBookingId && paymentSucceeded) {
+            setGlobalErrors([])
+            setStep(STEPS.SUCCESS)
+            return
+        }
         // 👇 CORRECTION ICI : '/api/bookings' (pluriel) au lieu de '/api/booking'
         const res = await fetch('/api/bookings', {
             method: 'POST',
@@ -188,11 +226,34 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 babies,
                 language,
                 userDetails: { ...formData, phone: buildE164() },
-                captchaToken
+                captchaToken,
+                isPaid: true,
+                payment: { provider: paymentProvider || 'stripe', method: paymentProvider === 'paypal' ? 'paypal_button' : 'payment_element', intentId: stripeIntentId || undefined, orderId: paypalOrderId || undefined }
             })
         })
         
         if (res.ok) {
+            const result = await res.json().catch(()=>({}))
+            const newBookingId = result?.bookingId
+            // If PayPal was used, attach/capture and link payment to booking
+            if (paymentProvider === 'paypal' && paypalOrderId && newBookingId) {
+                try {
+                    const cap = await fetch('/api/payments/paypal/capture-order', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderId: paypalOrderId, bookingId: newBookingId })
+                    })
+                    if (!cap.ok) {
+                            const errCap = await cap.json().catch(()=>({error:(dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')}))
+                            setGlobalErrors([(dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')])
+                        setIsSubmitting(false)
+                        return
+                    }
+                } catch (e) {
+                    setGlobalErrors(["Erreur réseau lors de l'association PayPal."])
+                    setIsSubmitting(false)
+                    return
+                }
+            }
             setGlobalErrors([])
             setStep(STEPS.SUCCESS)
         } else {
@@ -207,6 +268,35 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         setIsSubmitting(false)
     }
   }
+
+    // Helper to ensure a pending booking exists (used by Stripe wallets)
+    const ensurePendingBooking = async (): Promise<string> => {
+        let bId = pendingBookingId
+        if (bId) return bId
+        const resPending = await fetch('/api/bookings', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date,
+                time: selectedSlot,
+                adults,
+                children,
+                babies,
+                language,
+                userDetails: { ...formData, phone: buildE164() },
+                captchaToken,
+                pendingOnly: true
+            })
+        })
+        const dataPending = await resPending.json()
+        if (!resPending.ok) {
+            const msg = dataPending?.error || (dict.booking.widget.booking_create_failed || 'Impossible de créer la réservation')
+            setGlobalErrors([msg])
+            throw new Error(msg)
+        }
+        bId = dataPending.bookingId
+        setPendingBookingId(bId)
+        return bId
+    }
 
   // VALIDATION GROUPE
   const handleGroupSubmit = async (e: React.FormEvent) => {
@@ -597,6 +687,135 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                 onChange={(token) => setCaptchaToken(token)}
                             />
                         </div>
+
+                                                {/* Paiement (Stripe Payment Element placeholder) */}
+                                                {step === STEPS.CONTACT && (
+                                                    <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <h4 className="text-sm font-bold text-slate-700">{dict.booking.widget.payment_title || 'Paiement'}</h4>
+                                                            <button type="button" className="text-xs underline" onClick={async()=>{
+                                                                setStripeError(null)
+                                                                try {
+                                                                    let bId = pendingBookingId
+                                                                    if (!bId) {
+                                                                        const resPending = await fetch('/api/bookings', {
+                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({
+                                                                                date,
+                                                                                time: selectedSlot,
+                                                                                adults,
+                                                                                children,
+                                                                                babies,
+                                                                                language,
+                                                                                userDetails: { ...formData, phone: buildE164() },
+                                                                                captchaToken,
+                                                                                pendingOnly: true
+                                                                            })
+                                                                        })
+                                                                        const dataPending = await resPending.json()
+                                                                        if (!resPending.ok) { setStripeError(dataPending.error || (dict.booking.widget.booking_create_failed || 'Impossible de créer la réservation')); return }
+                                                                        bId = dataPending.bookingId
+                                                                        setPendingBookingId(bId)
+                                                                    }
+                                                                    if (!bId) { setStripeError(dict.booking.widget.booking_not_found || 'Réservation introuvable'); return }
+                                                                    const res = await fetch('/api/payments/create-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: bId }) })
+                                                                    const data = await res.json()
+                                                                    if (res.ok && data.clientSecret) {
+                                                                        setClientSecret(data.clientSecret)
+                                                                        setPaymentProvider('stripe')
+                                                                    } else {
+                                                                        setStripeError(data.error || (dict.booking.widget.payment_error_generic || 'Erreur paiement'))
+                                                                    }
+                                                                } catch { setStripeError(dict.booking.widget.payment_error_network || 'Erreur de connexion paiement') }
+                                                            }}>{dict.booking.widget.btn_pay_now || 'Payer maintenant'}</button>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500">
+                                                            {clientSecret ? (
+                                                                <PaymentElementWrapper clientSecret={clientSecret} onSuccess={(intentId)=>{
+                                                                    setGlobalErrors([])
+                                                                    setStripeIntentId(intentId)
+                                                                    setPaymentSucceeded(true)
+                                                                    setPaymentProvider('stripe')
+                                                                }} />
+                                                            ) : (
+                                                                (dict.booking.widget.init_payment_hint || 'Cliquez pour initier le paiement')
+                                                            )}
+                                                            {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
+                                                        </div>
+
+                                                        {/* Alternative: PayPal */}
+                                                        <div>
+                                                            <PayPalButton
+                                                                amount={totalPrice}
+                                                                messages={{
+                                                                    notConfigured: dict.booking.widget.payment_paypal_not_configured || 'PayPal not configured',
+                                                                    genericError: dict.booking.widget.payment_error_generic || 'Payment error',
+                                                                    sdkLoadFailed: dict.booking.widget.payment_paypal_sdk_load_failed || 'Failed to load PayPal SDK'
+                                                                }}
+                                                                onSuccess={async (oid)=>{
+                                                                    try {
+                                                                        setPaypalOrderId(oid)
+                                                                        setPaymentProvider('paypal')
+                                                                        // Ensure pending booking exists
+                                                                        let bId = pendingBookingId
+                                                                        if (!bId) {
+                                                                            const resPending = await fetch('/api/bookings', {
+                                                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                                body: JSON.stringify({
+                                                                                    date,
+                                                                                    time: selectedSlot,
+                                                                                    adults,
+                                                                                    children,
+                                                                                    babies,
+                                                                                    language,
+                                                                                    userDetails: { ...formData, phone: buildE164() },
+                                                                                    captchaToken,
+                                                                                    pendingOnly: true
+                                                                                })
+                                                                            })
+                                                                            const dataPending = await resPending.json()
+                                                                            if (!resPending.ok) { setGlobalErrors([dataPending.error || (dict.booking.widget.booking_create_failed || 'Impossible de créer la réservation')]); return }
+                                                                            bId = dataPending.bookingId
+                                                                            setPendingBookingId(bId)
+                                                                        }
+                                                                        if (!bId) { setGlobalErrors([dict.booking.widget.booking_not_found || 'Réservation introuvable']); return }
+                                                                        // Capture and link payment
+                                                                        const cap = await fetch('/api/payments/paypal/capture-order', {
+                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({ orderId: oid, bookingId: bId })
+                                                                        })
+                                                                        const capData = await cap.json().catch(()=>({}))
+                                                                        if (!cap.ok) { setGlobalErrors([capData?.error || (dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')]); return }
+                                                                        setPaymentSucceeded(true)
+                                                                        setGlobalErrors([])
+                                                                        setStep(STEPS.SUCCESS)
+                                                                    } catch (e) {
+                                                                        setGlobalErrors([dict.booking.widget.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
+                                                                    }
+                                                                }}
+                                                                onError={(msg)=> setGlobalErrors([msg]) }
+                                                            />
+                                                        </div>
+
+                                                        {/* Apple Pay / Google Pay via Stripe Payment Request */}
+                                                        <div className="mt-3">
+                                                            <StripeWalletButton
+                                                                amount={totalPrice * 100}
+                                                                currency="eur"
+                                                                country="FR"
+                                                                label="Sweet Narcisse"
+                                                                ensurePendingBooking={ensurePendingBooking}
+                                                                onSuccess={(intentId)=>{
+                                                                    setGlobalErrors([])
+                                                                    setStripeIntentId(intentId)
+                                                                    setPaymentSucceeded(true)
+                                                                    setPaymentProvider('stripe')
+                                                                }}
+                                                                onError={(msg)=> setGlobalErrors([msg])}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                )}
                         
                         <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
                             className="w-full bg-[#0f172a] text-[#eab308] py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-lg mt-4">

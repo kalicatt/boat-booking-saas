@@ -78,6 +78,8 @@ model Booking {
   userId      String
   boat        Boat      @relation(fields: [boatId], references: [id])
   boatId      Int
+
+  payments    Payment[]
 }
 
 model BlockedInterval {
@@ -152,4 +154,24 @@ enum CheckinStatus {
 enum EmploymentStatus {
   PERMANENT
   TEMPORARY
+}
+
+model Payment {
+  id           String   @id @default(cuid())
+  provider     String   // 'stripe' | 'paypal'
+  bookingId    String
+  booking      Booking  @relation(fields: [bookingId], references: [id])
+  intentId     String?  // Stripe PaymentIntent id
+  orderId      String?  // PayPal order id
+  amount       Int      // minor units (e.g., cents)
+  currency     String   // e.g., 'EUR'
+  status       String   // created | requires_action | succeeded | failed | cancelled | refunded
+  methodType   String?
+  rawPayload   Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([intentId])
+  @@index([orderId])
 }

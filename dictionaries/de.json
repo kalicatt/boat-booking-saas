@@ -74,7 +74,21 @@
       "help_text": "Brauchen Sie Hilfe?",
       "modify_btn": "Ändern",
       "duration_text": "Dauer: ~25 Min.",
-      "back_btn": "Zurück"
+      "back_btn": "Zurück",
+      "btn_pay_now": "Jetzt bezahlen",
+      "payment_title": "Zahlung",
+      "init_payment_hint": "Zum Starten der Zahlung klicken",
+      "payment_error_network": "Zahlungsnetzwerkfehler",
+      "payment_error_generic": "Zahlungsfehler",
+      "payment_stripe_not_confirmed": "Stripe-Zahlung nicht bestätigt. Status: {status}",
+      "payment_stripe_verify_failed": "Stripe-Zahlung konnte nicht geprüft werden.",
+      "booking_create_failed": "Buchung konnte nicht erstellt werden",
+      "booking_not_found": "Buchung nicht gefunden",
+      "payment_paypal_capture_failed": "PayPal-Capture fehlgeschlagen",
+      "payment_paypal_processing_error": "Fehler bei der PayPal-Verarbeitung",
+      "payment_paypal_network_error": "Netzwerkfehler bei der PayPal-Verknüpfung.",
+      "payment_paypal_not_configured": "PayPal nicht konfiguriert",
+      "payment_paypal_sdk_load_failed": "PayPal-SDK konnte nicht geladen werden"
     }
   },
   "group_form": {

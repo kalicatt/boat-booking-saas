@@ -74,7 +74,21 @@
       "help_text": "Besoin d'aide ?",
       "modify_btn": "Modifier",
       "duration_text": "Durée : ~25 min",
-      "back_btn": "Retour"
+      "back_btn": "Retour",
+      "btn_pay_now": "Payer maintenant",
+      "payment_title": "Paiement",
+      "init_payment_hint": "Cliquez pour initier le paiement",
+      "payment_error_network": "Erreur de connexion paiement",
+      "payment_error_generic": "Erreur paiement",
+      "payment_stripe_not_confirmed": "Paiement Stripe non confirmé. Statut: {status}",
+      "payment_stripe_verify_failed": "Impossible de vérifier le paiement Stripe.",
+      "booking_create_failed": "Impossible de créer la réservation",
+      "booking_not_found": "Réservation introuvable",
+      "payment_paypal_capture_failed": "Capture PayPal échouée",
+      "payment_paypal_processing_error": "Erreur lors du traitement PayPal",
+      "payment_paypal_network_error": "Erreur réseau lors de l'association PayPal.",
+      "payment_paypal_not_configured": "PayPal non configuré",
+      "payment_paypal_sdk_load_failed": "Échec du chargement du SDK PayPal"
     }
   },
   "group_form": {

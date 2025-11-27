@@ -17,6 +17,10 @@ Write-Host "--- DÉBUT MAINTENANCE ---" -ForegroundColor Cyan
 Write-Host "1. Nettoyage des données > 1 an..."
 call npx tsx prisma/prune.ts
 
+# 1.b. Annulation des réservations en attente trop anciennes
+Write-Host "1.b. Annulation des réservations PENDING trop anciennes..."
+call npx tsx prisma/cleanup-pending.ts
+
 # 2. SAUVEGARDE (DUMP)
 Write-Host "2. Création de la sauvegarde : $filename"
 # Note: On utilise docker exec pour extraire les données
