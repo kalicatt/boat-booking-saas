@@ -20,6 +20,8 @@ read -p "Stripe public key (pk_live_...): " STRIPE_PUBLIC_KEY
 read -p "Stripe secret key (sk_live_...): " STRIPE_SECRET_KEY
 read -p "PayPal client id: " PAYPAL_CLIENT_ID
 read -p "PayPal client secret: " PAYPAL_CLIENT_SECRET
+read -p "PayPal mode (live/sandbox) [live]: " PAYPAL_MODE
+PAYPAL_MODE=${PAYPAL_MODE:-live}
 
 if [ -z "${NEXTAUTH_SECRET}" ]; then
   NEXTAUTH_SECRET=$(openssl rand -hex 32)
@@ -51,6 +53,7 @@ NEXT_PUBLIC_STRIPE_KEY=${STRIPE_PUBLIC_KEY}
 STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
 PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
 PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+PAYPAL_MODE=${PAYPAL_MODE}
 EOF
 
 echo "Written .env.production.local"

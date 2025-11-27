@@ -12,6 +12,7 @@ Param(
   [string]$StripeSecretKey,
   [string]$PaypalClientId,
   [string]$PaypalClientSecret,
+  [string]$PaypalMode,
   [string]$PostgresUser = "snarcisse",
   [string]$PostgresPassword = "changeMe",
   [string]$PostgresDb = "snarcisse"
@@ -31,6 +32,7 @@ if (-not $StripePublicKey) { $StripePublicKey = Read-Host "Enter STRIPE public k
 if (-not $StripeSecretKey) { $StripeSecretKey = Read-Host "Enter STRIPE secret key (sk_live_...)" }
 if (-not $PaypalClientId) { $PaypalClientId = Read-Host "Enter PAYPAL client id" }
 if (-not $PaypalClientSecret) { $PaypalClientSecret = Read-Host "Enter PAYPAL client secret" }
+if (-not $PaypalMode) { $PaypalMode = Read-Host "PayPal mode (live/sandbox)" }
 
 $NextAuthUrl = "https://$Domain"
 
@@ -59,6 +61,7 @@ NEXT_PUBLIC_STRIPE_KEY=$StripePublicKey
 STRIPE_SECRET_KEY=$StripeSecretKey
 PAYPAL_CLIENT_ID=$PaypalClientId
 PAYPAL_CLIENT_SECRET=$PaypalClientSecret
+PAYPAL_MODE=$PaypalMode
 "@
 
 $envPath = Join-Path $PSScriptRoot "..\.env.production.local"
