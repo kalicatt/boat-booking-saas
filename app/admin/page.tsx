@@ -117,16 +117,16 @@ export default async function AdminDashboard() {
             </p>
           </Link>
 
-          {/* 2. LISTE DU JOUR */}
-          <Link href="/admin/today" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-green-300 transition-all cursor-pointer transform hover:-translate-y-1">
+          {/* 2. LISTE DES RÉSERVATIONS */}
+          <Link href="/admin/reservations" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-green-300 transition-all cursor-pointer transform hover:-translate-y-1">
             <div className="w-16 h-16 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
               📋
             </div>
             <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-green-600">
-              Liste du Jour
+              Liste des Réservations
             </h2>
             <p className="text-slate-500 text-sm leading-relaxed">
-              Voir tous les départs d'aujourd'hui avec téléphones et emails (Format liste).
+              Créer, consulter, modifier, convertir depuis les contacts et chaîner des groupes.
             </p>
           </Link>
 
