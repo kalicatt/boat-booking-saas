@@ -69,6 +69,7 @@ export default function ClientPlanningPage() {
     revalidateOnFocus: true,
     keepPreviousData: true
   })
+  const { data: closures } = useSWR('/api/admin/closures', fetcher)
 
   const events = useMemo(() => {
     if (!rawBookings || !Array.isArray(rawBookings)) return []
@@ -204,6 +205,12 @@ export default function ClientPlanningPage() {
     newCheckinStatus?: string,
     newIsPaid?: boolean
   ) => {
+    const bookingDateStr = format(selectedBooking?.start || new Date(), 'yyyy-MM-dd')
+    const isLocked = Array.isArray(closures) && closures.some((c:any)=> format(new Date(c.day),'yyyy-MM-dd')===bookingDateStr && c.locked)
+    if (isLocked) {
+      alert('Période verrouillée: la journée est clôturée, modification impossible.')
+      return
+    }
     const body: any = {}
     if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
     if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
@@ -233,6 +240,9 @@ export default function ClientPlanningPage() {
   }
 
   const handleDelete = async (id: string, title: string) => {
+    const bookingDateStr = format(selectedBooking?.start || new Date(), 'yyyy-MM-dd')
+    const isLocked = Array.isArray(closures) && closures.some((c:any)=> format(new Date(c.day),'yyyy-MM-dd')===bookingDateStr && c.locked)
+    if (isLocked) { alert('Période verrouillée: suppression impossible (journée clôturée).'); return }
     if (!confirm(`ANNULER la réservation de ${title} ?`)) return
     const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
     if (res.status === 401) {
@@ -249,6 +259,9 @@ export default function ClientPlanningPage() {
   }
 
   const handleEditTime = async (booking: BookingDetails) => {
+    const bookingDateStr = format(booking.start, 'yyyy-MM-dd')
+    const isLocked = Array.isArray(closures) && closures.some((c:any)=> format(new Date(c.day),'yyyy-MM-dd')===bookingDateStr && c.locked)
+    if (isLocked) { alert('Période verrouillée: modification d\'heure impossible (journée clôturée).'); return }
     try {
       const defaultTime = format(booking.start, 'HH:mm')
       const input = prompt('Nouvelle heure (HH:mm)', defaultTime) || ''

@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
 import { parseISO } from 'date-fns'
 import { getStats } from '@/lib/stats'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
+  const session = await auth()
+  const role = (session?.user as { role?: string })?.role || 'GUEST'
+  if (!['ADMIN','SUPERADMIN','SUPER_ADMIN','EMPLOYEE'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   try {
     const { searchParams } = new URL(request.url)
     const start = searchParams.get('start') || undefined

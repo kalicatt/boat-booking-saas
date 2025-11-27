@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { auth } from '@/auth'
 
 export async function GET() {
+  const session = await auth()
+  const role = (session?.user as { role?: string })?.role || 'GUEST'
+  if (!['ADMIN','SUPERADMIN','SUPER_ADMIN','EMPLOYEE'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   try {
     // On récupère les barques
     const boats = await prisma.boat.findMany({
@@ -24,6 +30,11 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const session = await auth()
+  const role = (session?.user as { role?: string })?.role || 'GUEST'
+  if (!['ADMIN','SUPERADMIN','SUPER_ADMIN'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   try {
     const body = await request.json()
     const updatedBoat = await prisma.boat.update({

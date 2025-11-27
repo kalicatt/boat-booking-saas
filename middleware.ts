@@ -39,6 +39,8 @@ function applySecurityHeaders(res: NextResponse) {
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
   }
 
+  // Tighten embedding: disallow all ancestors
+  baseDirectives.push("frame-ancestors 'none'")
   res.headers.set('Content-Security-Policy', baseDirectives.join('; '))
   return res
 }

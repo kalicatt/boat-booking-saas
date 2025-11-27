@@ -2,6 +2,7 @@
 import useSWR from 'swr'
 import { useMemo } from 'react'
 import { format } from 'date-fns'
+import { business } from '@/lib/business'
 
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
 
@@ -36,9 +37,9 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
       {/* Print header (appears only in print) */}
       <div className="print-only">
         <div style={{ textAlign:'center', marginBottom: '12px' }}>
-          <div style={{ fontSize: '18px', fontWeight: 700 }}>Sweet Narcisse</div>
-          <div style={{ fontSize: '12px' }}>10 RUE DE LA HERSE – 68000 COLMAR • Tél. 03 89 41 01 94</div>
-          <div style={{ fontSize: '12px' }}>N° SIRET : 41191878200037</div>
+          <div style={{ fontSize: '18px', fontWeight: 700 }}>{business.name}</div>
+          <div style={{ fontSize: '12px' }}>{business.address} • Tél. {business.phone}</div>
+          <div style={{ fontSize: '12px' }}>N° SIRET : {business.siret}</div>
         </div>
         <div style={{ display:'flex', justifyContent:'space-between', fontSize:'12px', marginBottom:'8px' }}>
           <div>Date: {format(new Date(closure.day),'dd/MM/yyyy')}</div>
@@ -52,11 +53,16 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
           <button className="border rounded px-3 py-1 no-print" onClick={()=>{
             const snap = JSON.parse(closure.totalsJson)
             const rows: string[][] = []
+            rows.push(['Entreprise', business.name])
+            rows.push(['Adresse', business.address])
+            rows.push(['Téléphone', business.phone])
+            rows.push(['SIRET', business.siret])
+            rows.push([])
             rows.push(['Date', format(new Date(closure.day),'yyyy-MM-dd')])
             rows.push(['Hash', closure.hash])
             rows.push(['Totaux', ...Object.entries(snap.totals).map(([k,v]: any)=> `${k}:${(Number(v)/100).toFixed(2)}€`)])
             rows.push(['Vouchers', ...Object.entries(snap.vouchers).map(([k,v]: any)=> `${k}:${Number(v)}`)])
-            rows.push(['VAT', `Net:${(Number(snap.vat?.net||0)/100).toFixed(2)}€`, `VAT:${(Number(snap.vat?.vat||0)/100).toFixed(2)}€`, `Gross:${(Number(snap.vat?.gross||0)/100).toFixed(2)}€`])
+            rows.push(['TVA', `Net:${(Number(snap.vat?.net||0)/100).toFixed(2)}€`, `TVA:${(Number(snap.vat?.vat||0)/100).toFixed(2)}€`, `Brut:${(Number(snap.vat?.gross||0)/100).toFixed(2)}€`])
             rows.push([])
             rows.push(['Heure','Reçu','Type','Provider','Méthode','Montant','Devise','Réservation'])
             for (const e of entriesForDay){

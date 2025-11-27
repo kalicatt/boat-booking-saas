@@ -2,6 +2,7 @@
 import useSWR from 'swr'
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
+import { business } from '@/lib/business'
 
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
 
@@ -14,6 +15,8 @@ export default function AccountingAdminPage(){
   const [csvUrl, setCsvUrl] = useState<string|undefined>(undefined)
   const [selectedDay, setSelectedDay] = useState<string>(()=> new Date().toISOString().slice(0,10))
   const [toast, setToast] = useState<{type:'success'|'error', message:string}|null>(null)
+  const [exportPeriod, setExportPeriod] = useState<'week'|'month'>('month')
+  const [exportAnchor, setExportAnchor] = useState<string>(()=> new Date().toISOString().slice(0,7))
   useEffect(()=>{
     if (!toast) return
     const t = setTimeout(()=> setToast(null), 2500)
@@ -69,17 +72,29 @@ export default function AccountingAdminPage(){
           <div className="mt-3 text-sm">
             <div className="font-semibold">Sessions</div>
             <ul className="mt-2 space-y-1">
-              {(cash||[]).map((s:any)=> (
-                <li key={s.id} className="flex justify-between">
-                  <span>Ouverte: {format(new Date(s.openedAt),'dd/MM HH:mm')} • Float: {s.openingFloat}</span>
-                  <span>Fermée: {s.closedAt ? format(new Date(s.closedAt),'dd/MM HH:mm') : '—'} • Comptage: {s.closingCount ?? '—'}</span>
-                </li>
-              ))}
+              {(cash||[]).map((s:any)=> {
+                const expected = s.movements?.reduce((sum:number,m:any)=> sum + (m.amount||0), s.openingFloat||0) || (s.openingFloat||0)
+                const variance = typeof s.closingCount === 'number' ? (s.closingCount - expected) : null
+                return (
+                  <li key={s.id} className="flex justify-between">
+                    <span>Ouverte: {format(new Date(s.openedAt),'dd/MM HH:mm')} • Float: {(s.openingFloat/100).toFixed(2)}€</span>
+                    <span>
+                      Fermée: {s.closedAt ? format(new Date(s.closedAt),'dd/MM HH:mm') : '—'} • Comptage: {typeof s.closingCount==='number' ? (s.closingCount/100).toFixed(2)+'€' : '—'}
+                      {variance!==null && (
+                        <span className={Math.abs(variance)>0 ? 'ml-2 text-red-600' : 'ml-2 text-green-600'}>Écart: {(variance/100).toFixed(2)}€</span>
+                      )}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         </div>
         <div className="rounded-xl border bg-white p-4 lg:col-span-2">
           <div className="font-semibold mb-2">Ledger (dernier 200)</div>
+          <div className="mb-2 text-sm">
+            <a href="/admin/accounting/reconciliation" className="underline text-blue-600">Aller au rapprochement</a>
+          </div>
           <table className="w-full text-sm">
             <thead><tr><th className="p-2">Date</th><th className="p-2">#Reçu</th><th className="p-2">Type</th><th className="p-2">Provider</th><th className="p-2">Method</th><th className="p-2">Montant</th><th className="p-2">Booking</th></tr></thead>
             <tbody>
@@ -120,11 +135,16 @@ export default function AccountingAdminPage(){
           const c = closures.find((x:any)=> new Date(x.day).toISOString().slice(0,10)===selectedDay) || closures[0]
           const snap = JSON.parse(c.totalsJson)
           const rows = [
+            ['Entreprise', business.name],
+            ['Adresse', business.address],
+            ['Téléphone', business.phone],
+            ['SIRET', business.siret],
+            [],
             ['Date', format(new Date(c.day),'yyyy-MM-dd')],
             ['Hash', c.hash],
             ['Totaux', ...Object.entries(snap.totals).map(([k,v]: any)=> `${k}:${(Number(v)/100).toFixed(2)}€`)],
             ['Vouchers', ...Object.entries(snap.vouchers).map(([k,v]: any)=> `${k}:${Number(v)}`)],
-            ['VAT', `Net:${(Number(snap.vat?.net||0)/100).toFixed(2)}€`, `VAT:${(Number(snap.vat?.vat||0)/100).toFixed(2)}€`, `Gross:${(Number(snap.vat?.gross||0)/100).toFixed(2)}€`]
+            ['TVA', `Net:${(Number(snap.vat?.net||0)/100).toFixed(2)}€`, `TVA:${(Number(snap.vat?.vat||0)/100).toFixed(2)}€`, `Brut:${(Number(snap.vat?.gross||0)/100).toFixed(2)}€`]
           ]
           const csv = rows.map(r=> r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
           const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
@@ -153,6 +173,85 @@ export default function AccountingAdminPage(){
             })}
           </tbody>
         </table>
+      </div>
+      <div className="rounded-xl border bg-white p-4">
+        <div className="font-semibold mb-2">Exports Hebdo/Mensuel</div>
+        <div className="flex items-center gap-2">
+          <select className="border rounded px-2 py-1" value={exportPeriod} onChange={e=> setExportPeriod(e.target.value as 'week'|'month')}>
+            <option value="week">Hebdomadaire</option>
+            <option value="month">Mensuel</option>
+          </select>
+          {exportPeriod==='month' ? (
+            <input type="month" className="border rounded px-2 py-1" value={exportAnchor} onChange={e=> setExportAnchor(e.target.value)} />
+          ) : (
+            <input type="date" className="border rounded px-2 py-1" value={exportAnchor.length===10?exportAnchor: new Date().toISOString().slice(0,10)} onChange={e=> setExportAnchor(e.target.value)} />
+          )}
+          <button className="border rounded px-3 py-1" onClick={()=>{
+            if (!Array.isArray(ledger) || ledger.length===0) return
+            // Compute start/end
+            let start: Date, end: Date
+            if (exportPeriod==='month'){
+              const [y,m] = exportAnchor.split('-').map(Number)
+              start = new Date(Date.UTC(y, m-1, 1, 0,0,0))
+              end = new Date(Date.UTC(y, m, 0, 23,59,59))
+            } else {
+              const d = new Date(exportAnchor+'T00:00:00Z')
+              const dow = d.getUTCDay() // 0=Sun
+              const diffToMonday = (dow===0? -6 : 1 - dow)
+              start = new Date(d); start.setUTCDate(d.getUTCDate()+diffToMonday); start.setUTCHours(0,0,0,0)
+              end = new Date(start); end.setUTCDate(start.getUTCDate()+6); end.setUTCHours(23,59,59,999)
+            }
+            const entries = ledger.filter((e:any)=>{
+              const t = new Date(e.occurredAt)
+              return t >= start && t <= end
+            })
+            const totalCents = entries.reduce((sum:number,e:any)=> sum + (e.amount||0), 0)
+            const byMethod: Record<string, number> = {}
+            const byType: Record<string, number> = {}
+            const counts: Record<string, number> = {}
+            for (const e of entries){
+              const m = e.methodType || '—'
+              byMethod[m] = (byMethod[m]||0) + (e.amount||0)
+              byType[e.eventType] = (byType[e.eventType]||0) + (e.amount||0)
+              counts[e.eventType] = (counts[e.eventType]||0) + 1
+            }
+            const periodLabel = exportPeriod==='month' ? exportAnchor : `${format(start,'yyyy-MM-dd')} à ${format(end,'yyyy-MM-dd')}`
+            const rows: any[] = [
+              ['Entreprise', business.name],
+              ['Adresse', business.address],
+              ['Téléphone', business.phone],
+              ['SIRET', business.siret],
+              [],
+              ['Période', periodLabel],
+              ['Total brut', (totalCents/100).toFixed(2)+'€'],
+              ['Par méthode', ...Object.entries(byMethod).map(([k,v])=> `${k}:${(v/100).toFixed(2)}€`)],
+              ['Par type', ...Object.entries(byType).map(([k,v])=> `${k}:${(v/100).toFixed(2)}€`)],
+              ['Comptes', ...Object.entries(counts).map(([k,v])=> `${k}:${v}`)],
+              [],
+              ['Détails'],
+              ['Date','Reçu','Type','Provider','Méthode','Montant','Devise','Booking']
+            ]
+            for (const e of entries){
+              rows.push([
+                format(new Date(e.occurredAt),'yyyy-MM-dd HH:mm'),
+                e.receiptNo ? `${new Date(e.occurredAt).getUTCFullYear()}-${String(e.receiptNo).padStart(6,'0')}` : '—',
+                e.eventType,
+                e.provider,
+                e.methodType || '—',
+                (e.amount/100).toFixed(2),
+                e.currency,
+                e.bookingId || '—'
+              ])
+            }
+            const csv = rows.map((r:any)=> r.map((v:any)=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+            const url = URL.createObjectURL(blob)
+            setCsvUrl(url)
+            const name = exportPeriod==='month' ? `export_${exportAnchor}.csv` : `export_${format(start,'yyyy-MM-dd')}_${format(end,'yyyy-MM-dd')}.csv`
+            const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a)
+            setTimeout(()=>{ URL.revokeObjectURL(url); setCsvUrl(undefined) }, 2000)
+          }}>Exporter CSV</button>
+        </div>
       </div>
     </div>
   )

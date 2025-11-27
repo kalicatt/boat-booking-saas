@@ -135,17 +135,19 @@ export async function PATCH(
         })
         logMessage += `PaymentRecord=${provider}${methodType?`:${methodType}`:''}. `
 
-        // Append ledger entry with VAT breakdown (example VAT 10%)
+        // Append ledger entry with VAT breakdown (VAT from env, default 20%)
         const gross = Math.round((updatedBooking.totalPrice || 0) * 100)
-        const vatRateEnv = process.env.VAT_RATE ? parseFloat(process.env.VAT_RATE) : 10.0
-        const vatRate = isFinite(vatRateEnv) ? vatRateEnv : 10.0
+        const vatRateEnv = process.env.VAT_RATE ? parseFloat(process.env.VAT_RATE) : 20.0
+        const vatRate = isFinite(vatRateEnv) ? vatRateEnv : 20.0
         const net = Math.round(gross / (1 + vatRate/100))
         const vat = gross - net
-        // Allocate sequential receipt number in a transaction
+        // Allocate year-scoped sequential receipt number in a transaction
         const ledgerEntry = await prisma.$transaction(async (tx) => {
+          const year = new Date().getUTCFullYear()
+          const seqName = `receipt_${year}`
           const seq = await tx.sequence.upsert({
-            where: { name: 'receipt' },
-            create: { name: 'receipt', current: 1 },
+            where: { name: seqName },
+            create: { name: seqName, current: 1 },
             update: { current: { increment: 1 } }
           })
           const receiptNo = seq.current

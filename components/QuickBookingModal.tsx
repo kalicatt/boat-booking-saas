@@ -17,6 +17,23 @@ const PRICE_CHILD = 4;
 export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess }: QuickBookingModalProps) {
     const [isLoading, setIsLoading] = useState(false);
     const dialogRef = useRef<HTMLDivElement|null>(null)
+    const [isLocked, setIsLocked] = useState(false)
+    useEffect(()=>{
+        // Fetch closures and mark ribbon locked if selected date is before latest closed day
+        (async ()=>{
+            try {
+                const res = await fetch('/api/admin/closures')
+                if(!res.ok) return
+                const data = await res.json()
+                if(Array.isArray(data) && data.length>0){
+                    const latest = data.reduce((acc:any,c:any)=> new Date(c.day) > new Date(acc.day) ? c : acc, data[0])
+                    const sel = new Date(Date.UTC(slotStart.getUTCFullYear(), slotStart.getUTCMonth(), slotStart.getUTCDate()))
+                    const latestDay = new Date(latest.day)
+                    if(sel <= latestDay){ setIsLocked(true) }
+                }
+            } catch {}
+        })()
+    }, [slotStart])
     
     // États du formulaire
     const [time, setTime] = useState(() => {
@@ -147,6 +164,9 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     return (
         <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
             <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden" role="document">
+                {isLocked && (
+                    <div className="bg-red-600 text-white text-center text-sm font-semibold py-1">Période verrouillée — modifications interdites</div>
+                )}
                 
                 {/* Header */}
                 <div className="bg-blue-900 p-4 flex justify-between items-center">
@@ -259,6 +279,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 type="checkbox"
                                 checked={markAsPaid}
                                 onChange={(e)=> setMarkAsPaid(e.target.checked)}
+                                disabled={isLocked}
                             />
                             <span className="font-bold text-slate-700">Marquer la réservation comme payée</span>
                         </label>
@@ -270,6 +291,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     onChange={(e)=> setPaymentMethod(e.target.value as any)}
                                     className="w-full border rounded p-2 bg-slate-50"
                                     required={markAsPaid}
+                                    disabled={isLocked}
                                 >
                                     <option value="cash">Espèces</option>
                                     <option value="card">Carte bancaire (TPE)</option>
@@ -292,7 +314,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         </div>
                         <button 
                             type="submit" 
-                            disabled={isLoading || totalPeople === 0}
+                            disabled={isLoading || totalPeople === 0 || isLocked}
                             className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-green-700 transition transform active:scale-95"
                         >
                             {isLoading ? "..." : "VALIDER ✅"}
