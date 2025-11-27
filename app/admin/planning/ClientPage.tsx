@@ -244,6 +244,40 @@ export default function ClientPlanningPage() {
     }
   }
 
+  const handleEditTime = async (booking: BookingDetails) => {
+    try {
+      const defaultTime = format(booking.start, 'HH:mm')
+      const input = prompt('Nouvelle heure (HH:mm)', defaultTime) || ''
+      const m = input.trim().match(/^(\d{1,2}):(\d{2})$/)
+      if (!m) return
+      let hh = parseInt(m[1], 10)
+      const mm = parseInt(m[2], 10)
+      if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return
+
+      const d = booking.start
+      const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), hh, mm, 0))
+
+      const res = await fetch(`/api/bookings/${booking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start: utcStart.toISOString() })
+      })
+      if (!res.ok) {
+        alert("Échec de la mise à jour de l'heure")
+        return
+      }
+      mutate()
+      // if details modal is open, update local state time for snappy UX
+      if (selectedBooking && selectedBooking.id === booking.id) {
+        const wall = new Date(d)
+        wall.setHours(hh, mm, 0, 0)
+        setSelectedBooking({ ...selectedBooking, start: wall })
+      }
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
   const AddButtonWrapper = ({ children, value, resource }: any) => {
     const onClick = () => {
       const v = new Date(value)
