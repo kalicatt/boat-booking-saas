@@ -819,6 +819,19 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                 onError={(msg)=> setGlobalErrors([msg])}
                                                             />
                                                         </div>
+
+                                                        {/* Cancellation summary */}
+                                                        <div className="pt-2 text-[11px] text-slate-500 leading-snug">
+                                                            {(() => {
+                                                                const l = (initialLang || 'fr').toLowerCase()
+                                                                const link = `/${(initialLang || 'fr')}/cgv`
+                                                                if (l === 'en') return (<span>Cancellation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Severe weather: full refund. <a className="underline" href={link} target="_blank" rel="noreferrer">See T&amp;Cs</a>.</span>)
+                                                                if (l === 'de') return (<span>Stornierung: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Unwetter: volle Erstattung. <a className="underline" href={link} target="_blank" rel="noreferrer">Siehe AGB</a>.</span>)
+                                                                if (l === 'es') return (<span>Cancelación: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: reembolso total. <a className="underline" href={link} target="_blank" rel="noreferrer">Ver Términos</a>.</span>)
+                                                                if (l === 'it') return (<span>Annullamento: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: rimborso totale. <a className="underline" href={link} target="_blank" rel="noreferrer">Vedi Termini</a>.</span>)
+                                                                return (<span>Annulation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Météo sévère: remboursement intégral. <a className="underline" href={link} target="_blank" rel="noreferrer">Voir CGV</a>.</span>)
+                                                            })()}
+                                                        </div>
                                                     </div>
                                                 )}
                         
@@ -848,6 +861,21 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             : dict.group_form.sent_message
                         }
                     </p>
+                    {(
+                        step === STEPS.SUCCESS || step === STEPS.GROUP_SUCCESS || step === STEPS.PRIVATE_SUCCESS
+                    ) && (
+                        <div className="text-[11px] text-slate-500 mb-6 max-w-md">
+                            {(() => {
+                                const l = (initialLang || 'fr').toLowerCase()
+                                const link = `/${(initialLang || 'fr')}/cgv`
+                                if (l === 'en') return (<span>Cancellation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Severe weather: full refund. <a className="underline" href={link} target="_blank" rel="noreferrer">See T&amp;Cs</a>.</span>)
+                                if (l === 'de') return (<span>Stornierung: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Unwetter: volle Erstattung. <a className="underline" href={link} target="_blank" rel="noreferrer">Siehe AGB</a>.</span>)
+                                if (l === 'es') return (<span>Cancelación: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: reembolso total. <a className="underline" href={link} target="_blank" rel="noreferrer">Ver Términos</a>.</span>)
+                                if (l === 'it') return (<span>Annullamento: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: rimborso totale. <a className="underline" href={link} target="_blank" rel="noreferrer">Vedi Termini</a>.</span>)
+                                return (<span>Annulation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Météo sévère: remboursement intégral. <a className="underline" href={link} target="_blank" rel="noreferrer">Voir CGV</a>.</span>)
+                            })()}
+                        </div>
+                    )}
                     <button onClick={() => window.location.reload()} className="px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition">
                         {dict.group_form.sent_button}
                     </button>

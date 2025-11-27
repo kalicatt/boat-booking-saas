@@ -3,6 +3,8 @@ import Image from 'next/image'
 import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
+import dynamic from 'next/dynamic'
+const ContactForms = dynamic(() => import('@/components/ContactForms'), { ssr: false })
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -166,6 +168,9 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       <div className="wave-divider" aria-hidden="true">
         <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,80 L0,40 C160,10 320,10 480,30 C640,50 800,70 960,60 C1120,50 1280,20 1440,30 L1440,80 Z" /></svg>
       </div>
+      <section id="contact" className="py-24 px-6 bg-white">
+        <ContactForms lang={currentLang} dict={liveDict} />
+      </section>
       <section id="reservation" className="py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
           <div className="absolute w-96 h-96 bg-yellow-500 rounded-full blur-[120px] -top-20 -left-20"></div>
@@ -180,7 +185,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
       </section>
 
-      <footer id="contact" className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+      <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">Sweet <span className="text-[#eab308]">Narcisse</span></h5>
@@ -199,9 +204,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           </div>
           <div className="fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.infos}</h5>
-            <a href="#" className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.legal}</a>
-            <a href="#" className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.cgv}</a>
-            <a href="/admin" className="inline-block bg-slate-800 text-slate-400 px-3 py-1 rounded hover:bg-slate-700 hover:text-white mt-4 text-xs transition">{liveDict.footer.employee_access}</a>
+            <Link href={`/${currentLang}/legal`} className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.legal}</Link>
+            <Link href={`/${currentLang}/cgv`} className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.cgv}</Link>
           </div>
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.access_map}</h5>

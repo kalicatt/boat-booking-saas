@@ -57,6 +57,16 @@ function getLocale(request: NextRequest) {
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
+  // 0. BASIC AUTH GUARD: require login for /admin/employees (role checked server-side for logging)
+  if (pathname.startsWith('/admin/employees')) {
+    const user: any = (req as any).auth?.user
+    if (!user) {
+      const url = req.nextUrl.clone()
+      url.pathname = '/login'
+      return applySecurityHeaders(NextResponse.redirect(url))
+    }
+  }
+
   // 1. GESTION DES ROUTES SPÉCIALES (Ignorées par I18N)
   // On ne redirige pas les fichiers systèmes, les APIs, ou les routes admin/login
   if (

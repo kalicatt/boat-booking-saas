@@ -15,4 +15,27 @@
   "booking": {"title": "Reserva tu salida", "subtitle": "Elige tu horario abajo. Pago en sitio u online.", "widget": {"date": "FECHA", "passengers": "PASAJEROS", "language": "IDIOMA", "choose": "Elegir hora", "reserve": "RESERVAR", "no_slot": "No hay salidas disponibles.", "form_title": "Datos de contacto", "form_subtitle": "Último paso para confirmar.", "confirm": "CONFIRMAR", "adults": "Adultos", "children": "Niños (4-10)", "babies": "Bebés (-3)", "free": "Gratis (0,00 €)", "step_criteria_title": "Configura tu salida", "step_slots_title": "Elige tu hora", "slots_subtitle": "Horarios disponibles para", "step_success": "¡Reserva confirmada!", "loading": "Buscando...", "submitting": "Procesando...", "btn_search": "Ver disponibilidad", "btn_continue_group": "Solicitud grupo →", "btn_continue_private": "Solicitud privado →", "btn_validate_slot": "Confirmar hora", "private_toggle_title": "Privatizar barca", "private_toggle_subtitle": "Tour exclusivo (bajo presupuesto)", "private_badge": "Privado", "group_badge": "Grupo", "summary_details": "Detalles", "summary_departure": "Salida", "summary_title_standard": "Tu Reserva", "help_text": "¿Necesitas ayuda?", "modify_btn": "Modificar", "duration_text": "Duración: ~25 min", "back_btn": "Volver", "btn_pay_now": "Pagar ahora", "payment_title": "Pago", "init_payment_hint": "Haz clic para iniciar el pago", "payment_error_network": "Error de red en el pago", "payment_error_generic": "Error de pago", "payment_stripe_not_confirmed": "Pago de Stripe no confirmado. Estado: {status}", "payment_stripe_verify_failed": "No se pudo verificar el pago de Stripe.", "booking_create_failed": "No se pudo crear la reserva", "booking_not_found": "Reserva no encontrada", "payment_paypal_capture_failed": "La captura de PayPal ha fallado", "payment_paypal_processing_error": "Error al procesar PayPal", "payment_paypal_network_error": "Error de red durante la asociación con PayPal.", "payment_paypal_not_configured": "PayPal no está configurado", "payment_paypal_sdk_load_failed": "Fallo al cargar el SDK de PayPal"}},
   "footer": {"hours_title": "Horario", "open_days": "Abierto cada día", "morning_label": "Mañana:", "morning_hours": "10:00 - 11:45", "afternoon_label": "Tarde:", "afternoon_hours": "13:30 - 17:45", "infos": "Información", "legal": "Aviso Legal", "cgv": "Condiciones", "employee_access": "Acceso Empleado 🔒", "rights": "© 2025 Sweet Narcisse. Todos los derechos reservados.", "access_map": "Mapa de acceso", "departure_label": "Salida: Pont Saint-Pierre", "map_title": "Ubicación del embarcadero Sweet Narcisse"},
   "partners": {"nav": "Socios", "title": "Nuestros Socios Locales", "subtitle": "Colaboramos con artesanos e iniciativas eco y culturales de Colmar.", "list_title": "Selección", "learn_more": "Saber más", "back_home": "← Volver"}
+  ,
+  "group_form": {
+    "title": "Solicitud de Grupo (+{people} personas)",
+    "subtitle": "Para grupos grandes organizamos salidas privadas. Rellena este formulario para ser contactado.",
+    "placeholder_firstname": "Nombre",
+    "placeholder_lastname": "Apellido",
+    "placeholder_email": "Email",
+    "placeholder_phone": "Teléfono",
+    "placeholder_message": "Especifica tu solicitud (hora, necesidades...)",
+    "button_send": "ENVIAR SOLICITUD",
+    "sent_title": "¡Solicitud enviada!",
+    "sent_message": "Te contactaremos en 24h.",
+    "sent_button": "Nueva solicitud"
+  },
+  "private_form": {
+    "title": "Solicitud de Privatización",
+    "subtitle": "Rellena este formulario para recibir un presupuesto personalizado para un tour privado en barca.",
+    "placeholder_message": "Hora deseada, ocasión especial, champagne, peticiones especiales...",
+    "message_label": "Mensaje / Peticiones especiales",
+    "button_send": "SOLICITAR PRESUPUESTO",
+    "sent_title": "¡Solicitud recibida!",
+    "sent_message": "Hemos recibido tu solicitud de privatización. Te contactaremos muy pronto."
+  }
 }

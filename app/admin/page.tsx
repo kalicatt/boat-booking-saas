@@ -156,18 +156,7 @@ export default async function AdminDashboard() {
             </p>
           </Link>
 
-          {/* 5. GESTION ÉQUIPE */}
-          <Link href="/admin/employees" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer transform hover:-translate-y-1">
-            <div className="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-4xl mb-6 group-hover:scale-110 transition duration-300">
-              👥
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-indigo-600">
-              Équipe & Comptes
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Gérer les collaborateurs, les rôles et les accès au système.
-            </p>
-          </Link>
+          {/* L'entrée "Équipe & Comptes" est volontairement masquée pour renforcer la discrétion. L'accès direct reste /admin/employees. */}
 
           {/* 6. MOUCHARD (Logs) */}
           <Link href="/admin/logs" className="group block bg-white p-8 rounded-2xl shadow-md border border-slate-200 hover:shadow-xl hover:border-slate-400 transition-all cursor-pointer transform hover:-translate-y-1">

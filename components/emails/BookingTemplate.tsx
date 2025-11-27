@@ -111,10 +111,11 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
 
 
         <hr style={{ borderColor: '#ddd', margin: '30px 0' }} />
-        <p style={{ fontSize: '12px', color: '#888', textAlign: 'center' }}>
-            Merci de vous présenter 10 minutes avant le départ. <br/>
-            Sweet Narcisse - À bientôt !
-        </p>
+                <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', lineHeight: 1.5 }}>
+                    <p style={{ margin: '0 0 6px' }}>Politique d’annulation (rappel) : &gt;48h : 100% • 48–24h : 50% • &lt;24h / no‑show : 0%.</p>
+                    <p style={{ margin: '0 0 6px' }}>Météo sévère (alerte orange/rouge) : remboursement intégral.</p>
+                    <p style={{ margin: 0 }}>Merci de vous présenter 10 minutes avant le départ. Sweet Narcisse – À bientôt !</p>
+                </div>
       </div>
     </div>
   )

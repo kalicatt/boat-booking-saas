@@ -16,111 +16,35 @@ export default function BookingList() {
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalPeople: 0, count: 0 })
   
-  // Nouveaux états pour la gestion du temps
-  const [currentDate, setCurrentDate] = useState(new Date())
-  const [viewMode, setViewMode] = useState<ViewMode>('day')
+  import { auth } from '@/auth'
+  import { redirect } from 'next/navigation'
+  import { createLog } from '@/lib/logger'
+  import dynamic from 'next/dynamic'
 
-  // Calcul des dates de début et fin selon le mode
-  const dateRange = useMemo(() => {
-    const now = currentDate
-    switch (viewMode) {
-      case 'week':
-        return { start: startOfWeek(now, { locale: fr }), end: endOfWeek(now, { locale: fr }) }
-      case 'month':
-        return { start: startOfMonth(now), end: endOfMonth(now) }
-      case 'day':
-      default:
-        return { start: startOfDay(now), end: endOfDay(now) }
+  const ClientPage = dynamic(() => import('./ClientPage'), { ssr: false })
+
+  export default async function TodayPage() {
+    const session = await auth()
+
+    if (!session || !session.user) {
+      return redirect('/login')
     }
-  }, [currentDate, viewMode])
 
-  // Fonction de chargement
-  const fetchBookings = async () => {
-    setLoading(true)
-    const { start, end } = dateRange
+    const role = (session.user as any).role
+    const isAllowed = role === 'ADMIN' || role === 'SUPERADMIN'
 
-    try {
-      const res = await fetch(`/api/admin/all-bookings?start=${start.toISOString()}&end=${end.toISOString()}&t=${Date.now()}`)
-      const data = await res.json()
-      
-      // Tri par date croissante (important pour les vues semaine/mois)
-      const sortedData = data.sort((a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
-
-      setBookings(sortedData)
-      
-      const people = sortedData.reduce((acc: number, b: any) => acc + b.numberOfPeople, 0)
-      setStats({ totalPeople: people, count: sortedData.length })
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoading(false)
+    if (!isAllowed) {
+      await createLog('UNAUTHORIZED_TODAY', {
+        userId: session.user.id,
+        email: session.user.email,
+        role,
+        path: '/admin/today'
+      })
+      return redirect('/admin')
     }
+
+    return <ClientPage />
   }
-
-  // Recharge quand la date ou le mode change
-  useEffect(() => {
-    fetchBookings()
-  }, [dateRange])
-
-  // Navigation Temporelle
-  const handleNavigate = (direction: 'prev' | 'next') => {
-    if (viewMode === 'day') {
-      setCurrentDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1))
-    } else if (viewMode === 'week') {
-      setCurrentDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1))
-    } else {
-      setCurrentDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1))
-    }
-  }
-
-  const goToToday = () => setCurrentDate(new Date())
-
-  // Formatage du titre de la période
-  const getPeriodTitle = () => {
-    if (viewMode === 'day') return format(currentDate, 'EEEE d MMMM yyyy', { locale: fr })
-    if (viewMode === 'week') {
-        return `Semaine du ${format(dateRange.start, 'd MMM')} au ${format(dateRange.end, 'd MMM yyyy', { locale: fr })}`
-    }
-    return format(currentDate, 'MMMM yyyy', { locale: fr })
-  }
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        
-        {/* EN-TÊTE ET NAVIGATION */}
-        <div className="mb-8 print:hidden">
-            <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-4 inline-block">← Retour Tableau de bord</Link>
-            
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-800 capitalize">{getPeriodTitle()} 🗓️</h1>
-                    <p className="text-slate-500 text-sm mt-1">
-                        Vue : {viewMode === 'day' ? 'Journalière' : viewMode === 'week' ? 'Hebdomadaire' : 'Mensuelle'}
-                    </p>
-                </div>
-
-                {/* Contrôles */}
-                <div className="flex flex-col items-end gap-3">
-                    {/* Selecteur de Mode */}
-                    <div className="bg-white rounded-lg shadow-sm border p-1 flex">
-                        <button onClick={() => setViewMode('day')} className={`px-3 py-1 text-sm rounded ${viewMode === 'day' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}>Jour</button>
-                        <button onClick={() => setViewMode('week')} className={`px-3 py-1 text-sm rounded ${viewMode === 'week' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}>Semaine</button>
-                        <button onClick={() => setViewMode('month')} className={`px-3 py-1 text-sm rounded ${viewMode === 'month' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'}`}>Mois</button>
-                    </div>
-
-                    {/* Navigation Précédent / Aujourd'hui / Suivant */}
-                    <div className="flex gap-2">
-                        <button onClick={() => handleNavigate('prev')} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50">◀</button>
-                        <button onClick={goToToday} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50 text-sm font-bold">Aujourd'hui</button>
-                        <button onClick={() => handleNavigate('next')} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50">▶</button>
-                        <button onClick={() => window.print()} className="ml-2 bg-slate-800 text-white px-3 py-1 rounded shadow-sm hover:bg-slate-700 text-sm">🖨️ Imprimer</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* RÉSUMÉ (STATS) */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-4">
             <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
                 <div className="text-xs text-slate-500 uppercase font-bold">Réservations</div>

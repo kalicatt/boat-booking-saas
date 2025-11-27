@@ -100,29 +100,8 @@ export async function POST(request: Request) {
 
     if (!targetBoat) return NextResponse.json({ error: "Erreur rotation barque." }, { status: 409 })
 
-    // 5. CONFLITS
-    const conflicts = await prisma.booking.findMany({
-      where: {
-        boatId: targetBoat.id,
-        status: { not: 'CANCELLED' },
-        AND: [ { startTime: { lt: myTotalEnd } }, { endTime: { gt: myStart } } ]
-      }
-    })
-    const realConflicts = conflicts.filter(b => {
-        const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
-        return areIntervalsOverlapping({ start: myStart, end: myTotalEnd }, { start: b.startTime, end: busyEnd })
-    })
-
-    let canBook = false
-    if (realConflicts.length === 0) canBook = true 
-    else {
-        const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
-        const isSameLang = realConflicts.every(b => b.language === language)
-        const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-        if (isExactStart && isSameLang && (totalPeople + people <= targetBoat.capacity) || isStaffOverride === true) canBook = true
-    }
-
-    if (!canBook) return NextResponse.json({ error: `Conflit sur ${targetBoat.name}` }, { status: 409 })
+    // 5. VERROU + CONFLITS (transaction)
+    const slotKey = Math.floor(myStart.getTime() / 60000) // minutes epoch (int32)
 
     // 6. CLIENT UNIQUE
     let userEmailToUse = userDetails.email;
@@ -133,34 +112,70 @@ export async function POST(request: Request) {
         userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`;
     }
 
-    // 7. ENREGISTREMENT
-    const newBooking = await prisma.booking.create({
-      data: {
-        // Date du jour en UTC "flottant" pour être cohérent avec les heures stockées
-        date: new Date(`${date}T00:00:00.000Z`),
-        startTime: myStart,
-        endTime: myEnd,
-        numberOfPeople: people,
-        adults, children, babies,
-        language,
-        totalPrice: finalPrice,
-        status: pendingOnly ? 'PENDING' : 'CONFIRMED',
-        message: message || null,
-        boat: { connect: { id: targetBoat.id } },
-        user: {
-          connectOrCreate: {
-            where: { email: userEmailToUse },
-            create: { 
-                firstName: userDetails.firstName,
-                lastName: userDetails.lastName,
-                email: userEmailToUse,
-                phone: userDetails.phone || null,
-            }
-          }
-        },
-        isPaid: pendingOnly ? false : true
+    const txResult = await prisma.$transaction(async (tx) => {
+      // verrou de transaction par (boatId, slotKey)
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(${targetBoat.id}, ${slotKey})`;
+
+      // Re-vérifier les conflits sous verrou
+      const conflicts = await tx.booking.findMany({
+        where: {
+          boatId: targetBoat.id,
+          status: { not: 'CANCELLED' },
+          AND: [ { startTime: { lt: myTotalEnd } }, { endTime: { gt: myStart } } ]
+        }
+      })
+      const realConflicts = conflicts.filter(b => {
+          const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
+          return areIntervalsOverlapping({ start: myStart, end: myTotalEnd }, { start: b.startTime, end: busyEnd })
+      })
+
+      let canBook = false
+      if (realConflicts.length === 0) canBook = true 
+      else {
+          const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
+          const isSameLang = realConflicts.every(b => b.language === language)
+          const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
+          if ((isExactStart && isSameLang && (totalPeople + people <= targetBoat.capacity)) || isStaffOverride === true) canBook = true
       }
+
+      if (!canBook) {
+        return { ok: false as const, conflict: true as const }
+      }
+
+      // Création sous verrou
+      const newBooking = await tx.booking.create({
+        data: {
+          date: new Date(`${date}T00:00:00.000Z`),
+          startTime: myStart,
+          endTime: myEnd,
+          numberOfPeople: people,
+          adults, children, babies,
+          language,
+          totalPrice: finalPrice,
+          status: pendingOnly ? 'PENDING' : 'CONFIRMED',
+          message: message || null,
+          boat: { connect: { id: targetBoat.id } },
+          user: {
+            connectOrCreate: {
+              where: { email: userEmailToUse },
+              create: { 
+                  firstName: userDetails.firstName,
+                  lastName: userDetails.lastName,
+                  email: userEmailToUse,
+                  phone: userDetails.phone || null,
+              }
+            }
+          },
+          isPaid: pendingOnly ? false : true
+        }
+      })
+
+      return { ok: true as const, id: newBooking.id, status: newBooking.status }
     })
+
+    if (!('ok' in txResult) || !txResult.ok) {
+      return NextResponse.json({ error: `Conflit sur ${targetBoat.name}` }, { status: 409 })
+    }
 
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p) sur ${targetBoat.name}`)
@@ -185,7 +200,7 @@ export async function POST(request: Request) {
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
 
-    return NextResponse.json({ success: true, bookingId: newBooking.id, status: newBooking.status })
+    return NextResponse.json({ success: true, bookingId: txResult.id, status: txResult.status })
   } catch (error) {
     console.error("ERREUR API:", error)
     return NextResponse.json({ error: "Erreur technique" }, { status: 500 })
