@@ -471,7 +471,10 @@ function EditForm({ booking, onClose, onSaved }: any){
     adults: booking.adults ?? booking.numberOfPeople,
     children: booking.children ?? 0,
     babies: booking.babies ?? 0,
-    language: booking.language || 'fr'
+    language: booking.language || 'fr',
+    isPaid: booking.isPaid || false,
+    paymentProvider: booking.payments?.[0]?.provider || '',
+    paymentMethodType: booking.payments?.[0]?.methodType || ''
   })
   return (
     <div>
@@ -484,12 +487,40 @@ function EditForm({ booking, onClose, onSaved }: any){
           <input type="number" className="border rounded px-2 py-1" value={ed.babies} onChange={e=>setEd({...ed, babies: parseInt(e.target.value||'0',10)})} />
         </div>
         <input className="border rounded px-2 py-1 w-full" value={ed.language} onChange={e=>setEd({...ed, language:e.target.value})} />
+        <div className="flex items-center gap-2 mt-2">
+          <label className="text-sm font-semibold">Payé ?</label>
+          <input type="checkbox" checked={ed.isPaid} onChange={e=>setEd({...ed, isPaid: e.target.checked})} />
+          {ed.isPaid && (
+            <select className="border rounded px-2 py-1" value={ed.paymentProvider} onChange={e=>{
+              const val = e.target.value
+              setEd({...ed, paymentProvider: val, paymentMethodType: (val==='voucher'? (ed.paymentMethodType||'ANCV') : '') })
+            }}>
+              <option value="">-- moyen --</option>
+              <option value="cash">Espèces</option>
+              <option value="card">Carte</option>
+              <option value="paypal">PayPal</option>
+              <option value="applepay">Apple Pay</option>
+              <option value="googlepay">Google Pay</option>
+              <option value="voucher">ANCV / CityPass</option>
+            </select>
+          )}
+          {ed.isPaid && ed.paymentProvider==='voucher' && (
+            <select className="border rounded px-2 py-1" value={ed.paymentMethodType} onChange={e=>setEd({...ed, paymentMethodType: e.target.value})}>
+              <option value="ANCV">ANCV</option>
+              <option value="CityPass">CityPass</option>
+            </select>
+          )}
+        </div>
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button className="border rounded px-3 py-1" onClick={onClose}>Annuler</button>
         <button className="border rounded px-3 py-1 bg-blue-600 text-white" onClick={async ()=>{
-          const payload:any = { adults: ed.adults, children: ed.children, babies: ed.babies, language: ed.language }
+          const payload:any = { adults: ed.adults, children: ed.children, babies: ed.babies, language: ed.language, newIsPaid: ed.isPaid }
           if (ed.date && ed.time) { payload.date = ed.date; payload.time = ed.time }
+          if (ed.isPaid) {
+            if (!ed.paymentProvider) { alert('Sélectionnez un moyen de paiement'); return }
+            payload.paymentMethod = { provider: ed.paymentProvider, methodType: ed.paymentProvider==='voucher' ? ed.paymentMethodType : undefined }
+          }
           const ok = window.confirm('Confirmer la modification de cette réservation ?');
           if (!ok) return;
           const resp = await fetch(`/api/bookings/${booking.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })

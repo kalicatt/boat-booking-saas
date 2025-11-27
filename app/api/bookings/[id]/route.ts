@@ -16,7 +16,7 @@ interface ExtendedUser {
 // --- DELETE : Supprimer une réservation ---
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string }> } // Next.js 15
+  { params }: { params: { id: string } }
 ) {
   // Le middleware NextAuth est censé protéger cette route.
   // On utilise 'auth' pour vérifier la session.
@@ -28,7 +28,7 @@ export async function DELETE(
 
   // Casting de l'utilisateur
   const user = session.user as ExtendedUser
-  const { id } = await params 
+  const { id } = params 
 
   try {
     // Delete dependent payments first to avoid FK constraint errors
@@ -48,28 +48,33 @@ export async function DELETE(
 // --- PATCH : Mettre à jour une réservation ---
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const session = await auth()
   if (!session || !session.user) {
     return NextResponse.json({ error: "Accès refusé" }, { status: 403 })
   }
   
-  const { id } = await params
+  const { id } = params
   const user = session.user as ExtendedUser
 
   try {
     const body = await request.json()
-    const { start, newCheckinStatus, newIsPaid } = body
+    const { start, date, time, newCheckinStatus, newIsPaid, adults, children, babies, language, paymentMethod } = body
 
     const dataToUpdate: any = {}
     const userName = user.firstName || 'Admin'
     let logMessage = `Admin ${userName} met à jour réservation ${id}: `
 
-    if (start) {
-      const startTime = new Date(start)
+    // Time update: either explicit 'start' ISO or 'date' + 'time'
+    if (start || (date && time)) {
+      let startTime: Date
+      if (start) {
+        startTime = new Date(start)
+      } else {
+        startTime = new Date(`${date}T${time}:00.000Z`)
+      }
       const endTime = addMinutes(startTime, TOUR_DURATION)
-      
       dataToUpdate.startTime = startTime
       dataToUpdate.endTime = endTime
       logMessage += `Nouvelle heure → ${format(startTime, 'HH:mm')}. `
@@ -85,14 +90,43 @@ export async function PATCH(
       logMessage += `Paiement = ${newIsPaid}. `
     }
 
+    if (adults !== undefined) { dataToUpdate.adults = adults; logMessage += `Adultes=${adults}. ` }
+    if (children !== undefined) { dataToUpdate.children = children; logMessage += `Enfants=${children}. ` }
+    if (babies !== undefined) { dataToUpdate.babies = babies; logMessage += `Bebes=${babies}. ` }
+    if (language !== undefined) { dataToUpdate.language = language; logMessage += `Langue=${language}. ` }
+
     if (Object.keys(dataToUpdate).length === 0) {
       return NextResponse.json({ error: "Aucune donnée à mettre à jour." }, { status: 400 })
     }
 
     const updatedBooking = await prisma.booking.update({
       where: { id },
-      data: dataToUpdate
+      data: {
+        ...dataToUpdate,
+        numberOfPeople: (dataToUpdate.adults ?? 0) + (dataToUpdate.children ?? 0) + (dataToUpdate.babies ?? 0)
+      }
     })
+
+    // Ensure payment record if marking paid and method provided
+    if (newIsPaid === true && paymentMethod && typeof paymentMethod === 'object') {
+      const existing = await prisma.payment.findFirst({ where: { bookingId: id } })
+      if (!existing) {
+        const provider = paymentMethod.provider
+        const methodType = paymentMethod.methodType
+        const isVoucher = provider === 'voucher' || methodType === 'ANCV' || methodType === 'CityPass'
+        await prisma.payment.create({
+          data: {
+            bookingId: id,
+            provider: provider || 'manual',
+            methodType: methodType || (isVoucher ? methodType : undefined),
+            amount: Math.round((updatedBooking.totalPrice || 0) * 100),
+            currency: 'EUR',
+            status: 'succeeded'
+          }
+        })
+        logMessage += `PaymentRecord=${provider}${methodType?`:${methodType}`:''}. `
+      }
+    }
 
     await createLog('UPDATE_BOOKING_ADMIN', logMessage)
 
