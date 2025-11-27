@@ -10,6 +10,7 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
   const [langOpen, setLangOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement|null>(null)
   const currentLang: 'en'|'fr'|'de'|'es'|'it' = (['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en'
+  const [liveDict, setLiveDict] = useState(dict)
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -34,15 +35,25 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
     return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside) }
   },[])
 
+  // Re-fetch dictionary client-side when currentLang changes (soft navigation)
+  useEffect(()=>{
+    let cancelled = false
+    fetch(`/api/dict/${currentLang}`)
+      .then(r=>r.json())
+      .then(data=>{ if(!cancelled && data?.dict) setLiveDict(data.dict) })
+      .catch(()=>{})
+    return ()=>{ cancelled = true }
+  },[currentLang])
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
           <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">Sweet <span className="text-[#eab308]">Narcisse</span><span className="text-[10px] font-mono px-2 py-1 rounded bg-slate-100 text-slate-500">{debugLang}:{lang}</span></div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
-            <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{dict.nav.experience}</a>
-            <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{dict.partners?.nav || 'Partners'}</a>
-            <a href="#contact" className="hover:text-[#eab308] transition duration-300">{dict.nav.contact}</a>
+            <a href="#presentation" className="hover:text-[#eab308] transition duration-300">{liveDict.nav.experience}</a>
+            <a href={`/${currentLang}/partners`} className="hover:text-[#eab308] transition duration-300">{liveDict.partners?.nav || 'Partners'}</a>
+            <a href="#contact" className="hover:text-[#eab308] transition duration-300">{liveDict.nav.contact}</a>
             <div className="relative ml-4 border-l pl-4 border-slate-300" ref={dropdownRef}>
               <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
                 <span>{currentLang.toUpperCase()}</span>
@@ -74,8 +85,8 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{dict.hero.title}</h1>
           <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{dict.hero.subtitle}</p>
           <div className="flex flex-col items-center justify-center gap-5">
-            <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{dict.hero.cta}</a>
-            <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{dict.partners?.nav}</Link>
+            <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero.cta}</a>
+            <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{liveDict.partners?.nav}</Link>
           </div>
         </div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
@@ -85,10 +96,10 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div className="space-y-6 fade-in">
             <h4 className="text-[#eab308] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
-            <h2 className="text-4xl font-serif font-bold text-deep">{dict.presentation.title}</h2>
-            <p className="text-slate-600 leading-relaxed text-lg text-justify">{dict.presentation.text}</p>
+            <h2 className="text-4xl font-serif font-bold text-deep">{liveDict.presentation.title}</h2>
+            <p className="text-slate-600 leading-relaxed text-lg text-justify">{liveDict.presentation.text}</p>
             <ul className="space-y-3 pt-4">
-              {dict.presentation.points.map((item: string) => (
+              {liveDict.presentation.points.map((item: string) => (
                 <li key={item} className="flex items-center gap-3 text-slate-700 font-medium">
                   <span className="w-6 h-6 rounded-full bg-yellow-100 text-[#eab308] flex items-center justify-center font-bold">✓</span>
                   {item}
@@ -119,11 +130,11 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
       <section className="py-24 px-6 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12 text-center fade-in">
-            <h2 className="text-4xl font-serif font-bold mb-4">{dict.bento?.title}</h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">{dict.bento?.subtitle}</p>
+            <h2 className="text-4xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
+            <p className="text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
-            {dict.bento?.cards?.map((c: any, idx: number) => (
+            {liveDict.bento?.cards?.map((c: any, idx: number) => (
               <div key={idx} className={`fade-in rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col justify-between bg-gradient-to-br from-slate-50 to-slate-100 hover:shadow-lg transition group ${idx===0||idx===3? 'md:row-span-2' : ''}`}>
                 <h3 className="font-serif text-xl font-bold mb-2 text-[#0f172a] group-hover:text-[#eab308] transition">{c.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{c.text}</p>
@@ -135,11 +146,11 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
 
       <section className="py-24 px-6 bg-sand-gradient" id="reviews">
         <div className="max-w-5xl mx-auto text-center mb-12 fade-in">
-          <h2 className="text-4xl font-serif font-bold mb-3">{dict.social?.title}</h2>
-          <p className="text-slate-600 max-w-xl mx-auto">{dict.social?.subtitle}</p>
+          <h2 className="text-4xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
+          <p className="text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
         </div>
         <div className="max-w-6xl mx-auto">
-          <TripReviews dict={dict} lang={currentLang} />
+          <TripReviews dict={liveDict} lang={currentLang} />
         </div>
       </section>
 
@@ -152,11 +163,11 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
           <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
         </div>
         <div className="relative z-10 max-w-6xl mx-auto text-center mb-12">
-          <h2 className="text-4xl font-serif font-bold text-white mb-4">{dict.booking.title}</h2>
-          <p className="text-slate-400 text-lg">{dict.booking.subtitle}</p>
+          <h2 className="text-4xl font-serif font-bold text-white mb-4">{liveDict.booking.title}</h2>
+          <p className="text-slate-400 text-lg">{liveDict.booking.subtitle}</p>
         </div>
         <div className="relative z-10 fade-in">
-          <BookingWidget dict={dict} initialLang={currentLang} />
+          <BookingWidget dict={liveDict} initialLang={currentLang} />
         </div>
       </section>
 
@@ -170,18 +181,18 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
             <p>📧 contact@sweet-narcisse.fr</p>
           </div>
           <div className="fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4">{dict.footer.hours_title}</h5>
-            <p>{dict.footer.open_days}</p>
+            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.hours_title}</h5>
+            <p>{liveDict.footer.open_days}</p>
             <div className="mt-2 space-y-1">
-              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{dict.footer.morning_label}</span> <span>{dict.footer.morning_hours}</span></p>
-              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{dict.footer.afternoon_label}</span> <span>{dict.footer.afternoon_hours}</span></p>
+              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{liveDict.footer.morning_label}</span> <span>{liveDict.footer.morning_hours}</span></p>
+              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{liveDict.footer.afternoon_label}</span> <span>{liveDict.footer.afternoon_hours}</span></p>
             </div>
           </div>
           <div className="fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4">{dict.footer.infos}</h5>
-            <a href="#" className="block hover:text-[#eab308] transition mb-2">{dict.footer.legal}</a>
-            <a href="#" className="block hover:text-[#eab308] transition mb-2">{dict.footer.cgv}</a>
-            <a href="/admin" className="inline-block bg-slate-800 text-slate-400 px-3 py-1 rounded hover:bg-slate-700 hover:text-white mt-4 text-xs transition">{dict.footer.employee_access}</a>
+            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.infos}</h5>
+            <a href="#" className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.legal}</a>
+            <a href="#" className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.cgv}</a>
+            <a href="/admin" className="inline-block bg-slate-800 text-slate-400 px-3 py-1 rounded hover:bg-slate-700 hover:text-white mt-4 text-xs transition">{liveDict.footer.employee_access}</a>
           </div>
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4">Plan d'Accès</h5>
@@ -191,8 +202,8 @@ export default function LandingClient({ dict, lang, debugLang }: { dict: any, la
           </div>
         </div>
         <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50 flex flex-col items-center gap-2">
-          <Link href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{dict.partners?.nav || 'Partners'}</Link>
-          <span>{dict.footer.rights}</span>
+          <Link href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{liveDict.partners?.nav || 'Partners'}</Link>
+          <span>{liveDict.footer.rights}</span>
         </div>
       </footer>
     </div>
