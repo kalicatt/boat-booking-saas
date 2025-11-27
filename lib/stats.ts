@@ -72,14 +72,24 @@ export async function getStats(filters: StatsFilters = {}) {
   // Build payment breakdown
   const paymentsAll = bookings.flatMap(b=> b.payments||[]).filter(p=> p.status === 'succeeded')
   const sumCents = (arr: any[]) => Math.round(arr.reduce((s,p)=> s + (p.amount||0), 0))
+  // Monetary breakdown (excluding vouchers from caisse total), vouchers counted as quantities
+  let ANCVCount = 0
+  let CityPassCount = 0
+  for (const b of bookings) {
+    const ps = (b.payments||[]).filter(p=> p.status === 'succeeded')
+    const hasCityPass = ps.some(p=> (p.provider === 'voucher' && p.methodType === 'CityPass') || (p.methodType||'').toLowerCase().includes('city'))
+    const hasANCV = ps.some(p=> (p.provider === 'voucher' && p.methodType === 'ANCV') || (p.methodType||'').toLowerCase().includes('ancv'))
+    if (hasCityPass) CityPassCount += (b.adults||0)
+    if (hasANCV) ANCVCount += (b.numberOfPeople||0)
+  }
   const breakdown = {
-    cash: sumCents(paymentsAll.filter(p=> p.provider === 'cash'))/100,
-    card: sumCents(paymentsAll.filter(p=> p.provider === 'card'))/100,
-    paypal: sumCents(paymentsAll.filter(p=> p.provider === 'paypal'))/100,
-    applepay: sumCents(paymentsAll.filter(p=> p.provider === 'applepay'))/100,
-    googlepay: sumCents(paymentsAll.filter(p=> p.provider === 'googlepay'))/100,
-    ANCV: sumCents(paymentsAll.filter(p=> p.provider === 'voucher' && p.methodType === 'ANCV'))/100,
-    CityPass: sumCents(paymentsAll.filter(p=> p.provider === 'voucher' && p.methodType === 'CityPass'))/100,
+    cash: sumCents(paymentsAll.filter(p=> (p.provider === 'cash'))) / 100,
+    card: sumCents(paymentsAll.filter(p=> (p.provider === 'card' || p.provider === 'stripe'))) / 100,
+    paypal: sumCents(paymentsAll.filter(p=> (p.provider === 'paypal'))) / 100,
+    applepay: sumCents(paymentsAll.filter(p=> (p.provider === 'applepay' || (p.provider||'').toLowerCase().includes('apple')))) / 100,
+    googlepay: sumCents(paymentsAll.filter(p=> (p.provider === 'googlepay' || (p.provider||'').toLowerCase().includes('google')))) / 100,
+    ANCV: ANCVCount,           // counts, not euros
+    CityPass: CityPassCount,   // counts, not euros
   }
 
   // Accounting lines per payment (paper trace)
@@ -103,6 +113,7 @@ export async function getStats(filters: StatsFilters = {}) {
         if (p.provider === 'paypal') method = 'PayPal'
         if (p.provider === 'applepay') method = 'Apple Pay'
         if (p.provider === 'googlepay') method = 'Google Pay'
+        const isVoucher = p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')
         return {
           bookingId: b.id,
           boat: boatName,
@@ -110,7 +121,7 @@ export async function getStats(filters: StatsFilters = {}) {
           time,
           name,
           people,
-          amount: (p.amount || 0) / 100,
+          amount: isVoucher ? 0 : (p.amount || 0) / 100,
           method,
         }
       })

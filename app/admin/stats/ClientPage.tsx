@@ -201,11 +201,13 @@ export default function ClientStatsPage() {
                 </div>
               </div>
               <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                <h3 className="text-lg font-bold text-slate-800 mb-6">Vouchers (hors caisse)</h3>
+                <h3 className="text-lg font-bold text-slate-800 mb-1">Vouchers (hors caisse)</h3>
+                <div className="text-xs text-slate-500 mb-5">Comptés en nombre, pas en €</div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <BreakdownRow label="ANCV" value={formatCurrency((data.paymentBreakdown?.ANCV)||0)} />
-                  <BreakdownRow label="City Pass" value={formatCurrency((data.paymentBreakdown?.CityPass)||0)} />
+                  <BreakdownRow label="ANCV (nombre)" value={`${(data.paymentBreakdown?.ANCV)||0}`} />
+                  <BreakdownRow label="City Pass (nombre)" value={`${(data.paymentBreakdown?.CityPass)||0}`} />
                 </div>
+                <div className="mt-3 text-xs text-slate-500">Règle City Pass: enfants inclus avec l'adulte ; compteur = nombre d'adultes par réservation.</div>
               </div>
             </div>
 
@@ -488,20 +490,20 @@ function exportAccountingCSV(items: Array<{ bookingId: string; boat?: string; da
 
 function TotalsSummary({ paymentBreakdown, formatCurrency }: { paymentBreakdown: any; formatCurrency: (n:number)=>string }) {
   const caisse = (paymentBreakdown.cash||0) + (paymentBreakdown.card||0) + (paymentBreakdown.paypal||0) + (paymentBreakdown.applepay||0) + (paymentBreakdown.googlepay||0)
-  const vouchers = (paymentBreakdown.ANCV||0) + (paymentBreakdown.CityPass||0)
+  const vouchersCount = (paymentBreakdown.ANCV||0) + (paymentBreakdown.CityPass||0)
   return (
     <div className="mt-4 bg-slate-50 border border-slate-200 rounded p-4">
       <div className="text-xs text-slate-600 font-bold uppercase mb-2">Totaux</div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
         <BreakdownRow label="Caisse (incl. CB/PayPal/Apple/Google)" value={formatCurrency(caisse)} />
-        <BreakdownRow label="Vouchers (ANCV + City Pass)" value={formatCurrency(vouchers)} />
+        <BreakdownRow label="Vouchers (ANCV + City Pass)" value={`${vouchersCount}`} />
         <BreakdownRow label="Espèces" value={formatCurrency(paymentBreakdown.cash||0)} />
         <BreakdownRow label="Carte bancaire" value={formatCurrency(paymentBreakdown.card||0)} />
         <BreakdownRow label="PayPal" value={formatCurrency(paymentBreakdown.paypal||0)} />
         <BreakdownRow label="Apple Pay" value={formatCurrency(paymentBreakdown.applepay||0)} />
         <BreakdownRow label="Google Pay" value={formatCurrency(paymentBreakdown.googlepay||0)} />
-        <BreakdownRow label="ANCV" value={formatCurrency(paymentBreakdown.ANCV||0)} />
-        <BreakdownRow label="City Pass" value={formatCurrency(paymentBreakdown.CityPass||0)} />
+        <BreakdownRow label="ANCV (nombre)" value={`${paymentBreakdown.ANCV||0}`} />
+        <BreakdownRow label="City Pass (nombre)" value={`${paymentBreakdown.CityPass||0}`} />
       </div>
     </div>
   )
