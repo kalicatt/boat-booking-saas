@@ -31,15 +31,19 @@ export async function POST(request: Request) {
     if (!parsed.success) return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     let { firstName, lastName, email, phone, message, people, date, captchaToken, lang } = parsed.data
     const supported = ['fr','en','de','es','it'] as const
+    type Lang = typeof supported[number]
     const referer = request.headers.get('referer') || ''
     const accept = request.headers.get('accept-language') || ''
-    const urlLang = (()=>{
-      const m = referer.match(/\/([a-z]{2})(?:\/|$)/i); const c = m?.[1]?.toLowerCase(); return supported.includes(c as any) ? (c as any) : undefined
+    const urlLang: Lang | undefined = (()=>{
+      const m = referer.match(/\/([a-z]{2})(?:\/|$)/i);
+      const c = m?.[1]?.toLowerCase() as Lang | undefined
+      return supported.includes(c as Lang) ? (c as Lang) : undefined
     })()
-    const headerLang = (()=>{
-      const first = accept.split(',')[0]?.trim().slice(0,2).toLowerCase(); return supported.includes(first as any) ? (first as any) : undefined
+    const headerLang: Lang | undefined = (()=>{
+      const first = accept.split(',')[0]?.trim().slice(0,2).toLowerCase() as Lang | undefined
+      return supported.includes(first as Lang) ? (first as Lang) : undefined
     })()
-    const userLang = (lang as any) || urlLang || headerLang || 'fr'
+    const userLang: Lang = (lang as Lang) || urlLang || headerLang || 'fr'
     if (phone) phone = normalizeIncoming(phone)
 
     // CAPTCHA

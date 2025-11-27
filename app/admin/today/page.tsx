@@ -5,6 +5,7 @@ import ClientPage from './ClientPage'
 
 export default async function TodayPage() {
   const session = await auth()
+  const user = session?.user as any
 
   if (!session || !session.user) {
     return redirect('/login')
@@ -14,12 +15,10 @@ export default async function TodayPage() {
   const isAllowed = role === 'ADMIN' || role === 'SUPERADMIN'
 
   if (!isAllowed) {
-    await createLog('UNAUTHORIZED_TODAY', {
-      userId: session.user.id,
-      email: session.user.email,
-      role,
-      path: '/admin/today'
-    })
+    await createLog(
+      'UNAUTHORIZED_TODAY',
+      `User ${user?.email || user?.id || 'unknown'} with role ${role} attempted /admin/today`
+    )
     return redirect('/admin')
   }
 
