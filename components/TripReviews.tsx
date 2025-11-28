@@ -1,9 +1,29 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { pickFeatured, AGGREGATE_RATING, REVIEWS } from '@/lib/reviews'
+import { pickFeatured, AGGREGATE_RATING, REVIEWS, ReviewExcerpt } from '@/lib/reviews'
+
+type FeaturedFeed = {
+  featured?: string[]
+  aggregate?: {
+    reviewCount?: number
+  }
+}
+
+interface SocialCopy {
+  title?: string
+  subtitle?: string
+  cta?: string
+  sourceLink?: string
+  aggregatePrefix?: string
+  reviewsLabel?: string
+}
+
+interface CopyDictionary {
+  social?: SocialCopy
+}
 
 interface Props {
-  dict: any
+  dict: CopyDictionary
   lang: 'fr' | 'en' | 'de' | 'es' | 'it'
 }
 
@@ -13,29 +33,35 @@ export default function TripReviews({ dict, lang }: Props) {
   const viewportRef = useRef<HTMLDivElement|null>(null)
   const [index, setIndex] = useState(0)
   const autoplayRef = useRef<number | null>(null)
-  const visible = useMemo(() => reviews.slice(0, 3), [reviews])
+  const preferredLang = useMemo<ReviewExcerpt['language']>(() => {
+    if (lang === 'de') return 'de'
+    if (lang === 'en') return 'en'
+    return 'fr'
+  }, [lang])
+  const localized = useMemo(() => {
+    const matches = reviews.filter(r => r.language === preferredLang)
+    const others = reviews.filter(r => r.language !== preferredLang)
+    return [...matches, ...others]
+  }, [reviews, preferredLang])
+  const visible = localized.slice(0, 3)
   const angleStep = visible.length ? 360 / visible.length : 0
   const radius = 420
-
-  useEffect(() => {
-    if (!visible.length) return
-    setIndex(i => i % visible.length)
-  }, [visible.length])
 
   // Optional rotation each mount (could be improved later)
   useEffect(() => {
     // Attempt to fetch daily featured IDs produced by maintenance script
     fetch('/reviews-featured.json')
-      .then(r => r.ok ? r.json() : null)
+      .then<FeaturedFeed | null>(r => (r.ok ? r.json() : null))
       .then(data => {
         if (data?.featured?.length) {
           const mapped = data.featured
             .map((id: string) => REVIEWS.find(r => r.id === id))
-            .filter(Boolean)
-          if (mapped.length) setReviews(mapped as typeof reviews)
+            .filter((value): value is ReviewExcerpt => Boolean(value))
+          if (mapped.length) setReviews(mapped)
         }
-        if (data?.aggregate?.reviewCount) {
-          setAggregate(a => ({ ...a, reviewCount: data.aggregate.reviewCount }))
+        if (typeof data?.aggregate?.reviewCount === 'number') {
+          const nextCount = data.aggregate.reviewCount
+          setAggregate(a => ({ ...a, reviewCount: nextCount }))
         }
       })
       .catch(() => { /* silent fallback */ })
@@ -106,7 +132,14 @@ export default function TripReviews({ dict, lang }: Props) {
               <meta itemProp="bestRating" content="5" />
               <meta itemProp="worstRating" content="1" />
             </div>
-            <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-3 text-[11px] text-slate-400 hover:text-[#0f172a] underline decoration-[#0ea5e9] decoration-2 underline-offset-2">{dict.social?.sourceLink || 'Voir sur TripAdvisor'}</a>
+            <a
+              href={r.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 text-[11px] text-slate-400 hover:text-[#0f172a] underline decoration-[#0ea5e9] decoration-2 underline-offset-2"
+            >
+              {dict.social?.sourceLink || 'Voir sur TripAdvisor'}
+            </a>
                 </article>
               )
             })}
