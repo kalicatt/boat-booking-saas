@@ -45,3 +45,7 @@ node_modules
 next-env.d.ts
 
 /app/generated/prisma
+
+sweetnarcisse-image.tar
+
+*.tar
