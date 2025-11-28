@@ -16,6 +16,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
   const firstLinkRef = useRef<HTMLAnchorElement|null>(null)
   const panelRef = useRef<HTMLDivElement|null>(null)
   const menuButtonRef = useRef<HTMLButtonElement|null>(null)
+  const [activeSection, setActiveSection] = useState<string>('')
   const closeMenu = () => {
     if(menuOpen){
       setMenuClosing(true)
@@ -57,6 +58,21 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     onHash()
     onSearch()
     return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside); window.removeEventListener('hashchange', onHash) }
+  },[])
+
+  // Observe sections to highlight active link
+  useEffect(()=>{
+    const ids = ['presentation','reviews','reservation']
+    const options: IntersectionObserverInit = { root: null, rootMargin: '0px 0px -55% 0px', threshold: [0,0.25,0.5,0.75,1] }
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting) {
+          setActiveSection(entry.target.id)
+        }
+      })
+    }, options)
+    ids.forEach(id => { const el = document.getElementById(id); if(el) observer.observe(el) })
+    return ()=> observer.disconnect()
   },[])
 
   // Body scroll lock + initial focus for menu
@@ -118,8 +134,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
-      <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+      <nav className={`fixed w-full z-40 transition-all ${scrolled ? 'backdrop-blur-md bg-white/90 shadow-sm border-b border-slate-200 h-16' : 'bg-transparent h-20'} `}>
+        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <button ref={menuButtonRef} aria-label="Menu" onClick={()=>{ setMenuOpen(true); }} className="p-2 rounded-md border border-slate-300 bg-white hover:bg-slate-100 active:scale-95 transition flex flex-col justify-center gap-[5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
               <span className="block w-5 h-0.5 bg-slate-700" />
@@ -134,13 +150,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
               <img src="/images/logo.jpg" alt="Sweet Narcisse" className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} />
             </Link>
           </div>
-          <a
-            href="#reservation"
-            className={`sn-btn-primary rounded-full flex items-center justify-center !py-0 font-bold tracking-wide transition-all ${scrolled ? 'h-10 px-5 text-base' : 'h-12 px-6 text-lg'}`}
-            style={{ lineHeight: 1.1 }}
-          >
-            {liveDict.nav.book}
-          </a>
+          {/* All navigation links removed from header; accessible only via offcanvas menu */}
         </div>
         {/* Off-canvas menu */}
       </nav>
