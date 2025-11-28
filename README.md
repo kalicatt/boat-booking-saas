@@ -1,60 +1,94 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+**SweetNarcisse Demo**
 
-## Getting Started
+Production-ready Next.js app with booking, payments (Stripe + PayPal), Prisma, and Dockerized deployment for VPS. This README covers local setup, testing, building, Docker workflows, release/versioning, and troubleshooting.
 
-First, run the development server:
+## Prerequisites
+- Node `>= 22`
+- npm `>= 10`
+- Docker `>= 24`
+- OpenSSL-compatible base (Debian/Ubuntu recommended for Prisma)
+- Optional: `git`, `stripe` account, PayPal account
 
+## Quick Start (Local Dev)
+- Install dependencies:
+```bash
+npm install --legacy-peer-deps
+```
+- Configure environment: copy `.env.example` to `.env.local` and fill values. See `DEPLOYMENT.md` for variable descriptions.
+- Run dev server:
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Open `http://localhost:3000`.
+
+## Testing
+- Unit tests (Vitest):
+```bash
+npm test
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Build (Production)
+```bash
+npm run build
+npm run start
+```
+Notes:
+- PostCSS/Tailwind plugin may be disabled in `next.config.ts` for compatibility; re-enable when your environment supports it.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Docker (Local)
+Build multi-stage image and run:
+```bash
+docker build -t sweetnarcisse:local .
+docker run -p 3000:3000 --env-file .env.production --name sweetnarcisse sweetnarcisse:local
+```
+Save image to tar for transfer (do NOT commit tars):
+```bash
+docker save sweetnarcisse:local -o sweetnarcisse-image.tar
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deployment (VPS)
+Two options are documented in `DEPLOYMENT.md`:
+- Registry: push/pull via Docker Hub or GHCR with versioned tags.
+- Tar transfer: `scp` the saved tar and `docker load -i sweetnarcisse-image.tar`.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Reverse proxy, systemd service files, and TLS scripts are provided under `systemd/` and `scripts/`.
 
 ## Payments
+- Stripe: Cards + Apple Pay + Google Pay via Payment Request. Webhook finalizes server state; `daily-maintenance.ps1` cleans stale pending bookings.
+- PayPal: Standard button integration for alternative checkout.
 
-Stripe (cards, Apple Pay, Google Pay via Payment Request) and PayPal are integrated with booking-linked flows. A webhook finalizes state on the server, and daily maintenance cancels stale pending bookings.
+Apple Pay domain association:
+- Add domain in Stripe; download `apple-developer-merchantid-domain-association` and place at `public/.well-known/apple-developer-merchantid-domain-association`.
 
-### Apple Pay / Google Pay (Stripe Payment Request)
+## Versioning & Releases
+- Semantic versioning: `MAJOR.MINOR.PATCH` (e.g., `1.0.0`).
+- Bump version and update changelog:
+```bash
+npm run release
+```
+- Tag the release and push:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+- Optional CI: build/push images only on tags.
 
-- UI: A wallet button renders when the browser supports Apple Pay (Safari/macOS/iOS) or Google Pay (Chrome/Android). It appears in the booking payment section.
-- Flow: On wallet approval the app creates a pending booking, then a booking-linked PaymentIntent, confirms with the wallet token, and verifies server-side before success.
+## Repository Hygiene
+- `.gitignore` includes `*.tar`; do not commit Docker image tar files.
+- History was rewritten to remove large tar; force-push completed. If you previously cloned, re-clone or reset to `origin/master`.
+- Consider branch protection on `master` to disallow force pushes and require PRs.
 
-Setup steps:
-- Enable Apple Pay and Google Pay in Stripe Dashboard > Payments > Payment methods.
-- Apple Pay domain verification (required):
-	- In Stripe Dashboard, add your domain and download the `apple-developer-merchantid-domain-association` file.
-	- Place it at `public/.well-known/apple-developer-merchantid-domain-association` and re-verify in Stripe.
-- Environment:
-	- Set `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
-	- Serve the site over HTTPS in production.
-- Security headers: CSP allows `js.stripe.com`, `api.stripe.com`, `pay.google.com`, `payments.google.com`, and `apple-pay-gateway.apple.com`.
+## Troubleshooting
+- Prisma/OpenSSL errors in Alpine: use Debian/Ubuntu base or Node `bookworm` images.
+- Missing `RESEND_API_KEY`: email routes are guarded; set the key or rely on Nodemailer fallback.
+- Stripe API version literal: repository pins a tested version for type safety.
+- Turbopack build complaints: ensure Next 16 route handler signatures match `NextRequest` and promise-based params.
 
-Notes:
-- The wallet button hides automatically if the device/browser isn’t eligible.
-- Use Apple Wallet or a Google Pay profile for testing on real devices; Stripe test mode is supported.
+## Docs
+- `DEPLOYMENT.md`: VPS setup, registry vs tar, reverse proxy, TLS.
+- `RELEASE.md`: Release workflow, pre-commit hook to block `*.tar`.
+- `SECURITY.md`: Security practices and contact.
+
+## License
+Proprietary demo; redistribution restricted. Contact the owner for usage.
 

@@ -5,11 +5,13 @@ Concise steps to cut a new version (e.g., 1.1.0), build Docker images, and deplo
 ## 1) Bump version and tag
 
 ```powershell
-# Edit package.json version to 1.1.0
-git add package.json
+# Edit package.json version to 1.1.0 or run the helper
+npm run release
+git add .
 git commit -m "release: v1.1.0"
 git tag v1.1.0
-git push origin master --tags
+git push origin master
+git push origin v1.1.0
 ```
 
 ## 2) Build Docker images (versioned + latest)
@@ -50,6 +52,35 @@ docker run -d -p 3000:3000 --name sweetnarcisse yourrepo/sweetnarcisse:1.1.0
 docker rm -f sweetnarcisse || true
 docker run -d -p 3000:3000 --name sweetnarcisse yourrepo/sweetnarcisse:1.0.0
 ```
+
+---
+
+## Branch Protection (Recommended)
+- Protect `master`: require pull requests, code review, and disallow force-pushes.
+- Enable required status checks (CI build/tests) before merge.
+- Restrict who can push to `master` directly.
+
+## CI: Tag-Based Docker Builds
+When you push a tag like `v1.0.0`, GitHub Actions will build and push a Docker image:
+- Workflow file: `.github/workflows/docker-release.yml`
+- Choose registry:
+	- GHCR: set repository variable `REGISTRY=ghcr.io` (Settings > Secrets and variables > Actions > Variables). Uses `GITHUB_TOKEN`.
+	- Docker Hub: set `REGISTRY=docker.io` and add secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
+- Image tags:
+	- GHCR: `ghcr.io/<org-or-user>/sweetnarcisse:<tag>` and `:latest`
+	- Docker Hub: `<username>/sweetnarcisse:<tag>` and `:latest`
+
+## Prevent Committing Large Artifacts
+- Keep `*.tar` in `.gitignore`.
+- Optional pre-commit hook (blocks tars):
+```
+#!/usr/bin/env bash
+blocked=$(git diff --cached --name-only | grep -E '\\.tar$' || true)
+if [ -n "$blocked" ]; then
+	echo "Error: refusing to commit tar files:\n$blocked"; exit 1
+fi
+```
+Save as `.git/hooks/pre-commit` and `chmod +x .git/hooks/pre-commit`.
 
 ## Notes
 - Maintain `CHANGELOG.md` for each release.
