@@ -7,10 +7,10 @@ export const fetchCache = 'force-no-store'
 import LandingClient from '@/components/LandingClient'
 
 // Server component: loads dictionary then renders client landing shell
-export default async function LandingPage({ params }: { params: { lang: string } }) {
-    const rawLang = params.lang
+export default async function LandingPage({ params }: { params: Promise<{ lang: string }> }) {
+    const { lang: rawLang } = await params
     const supported: SupportedLocale[] = ['en','fr','de','es','it']
     const safeLang: SupportedLocale = supported.includes(rawLang as SupportedLocale) ? rawLang as SupportedLocale : 'en'
-    const dict = getDictionary(safeLang)
+    const dict = await getDictionary(safeLang)
     return <LandingClient dict={dict} lang={safeLang} />
 }
