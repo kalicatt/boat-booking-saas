@@ -1,4 +1,4 @@
-import "../globals.css";
+// Global CSS is already imported in root layout; avoid duplicate import here.
 import { ReactNode } from 'react';
 
 // 1. Définition du type avec Promise pour params (Spécifique Next.js 15)
