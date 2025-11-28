@@ -69,12 +69,12 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
           <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">
             <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-8 w-auto rounded-sm shadow-sm" />
-            <span>Sweet <span className="text-[#eab308]">Narcisse</span></span>
+            <span>Sweet <span className="text-[#0ea5e9]">Narcisse</span></span>
           </div>
           <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
-            <a href="#presentation" className="nav-link hover:text-[#eab308] transition duration-300">{liveDict.nav.experience}</a>
-            <a href={`/${currentLang}/partners`} className="nav-link hover:text-[#eab308] transition duration-300 uppercase">{liveDict.partners?.nav || 'Partners'}</a>
-            <a href="#contact" className="nav-link hover:text-[#eab308] transition duration-300">{liveDict.nav.contact}</a>
+            <a href="#presentation" className="nav-link hover:text-[#0ea5e9] transition duration-300">{liveDict.nav.experience}</a>
+            <a href={`/${currentLang}/partners`} className="nav-link hover:text-[#0ea5e9] transition duration-300 uppercase">{liveDict.partners?.nav || 'Partners'}</a>
+            <a href="#contact" className="nav-link hover:text-[#0ea5e9] transition duration-300">{liveDict.nav.contact}</a>
             <div className="relative ml-4 border-l pl-4 border-slate-300" ref={dropdownRef}>
               <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
                 <span>{currentLang.toUpperCase()}</span>
@@ -100,42 +100,68 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <Image src="/images/hero-bg.jpg" alt="Colmar Petite Venise" fill className="object-cover" priority />
           {/* Subtle vignette & warm overlay instead of heavy blue */}
           <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.35)] via-[rgba(0,0,0,0.25)] to-[rgba(0,0,0,0.55)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(234,179,8,0.25),transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(14,165,233,0.25),transparent_60%)]" />
+          {/* Bottom drip to break straight edge */}
+          <div className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none">
+            <svg viewBox="0 0 1440 160" preserveAspectRatio="none" className="w-full h-full">
+              <defs>
+                <linearGradient id="dripGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0)"/>
+                  <stop offset="100%" stopColor="#ffffff"/>
+                </linearGradient>
+                <filter id="dripShadow" x="-10%" y="-10%" width="120%" height="120%">
+                  <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
+                  <feOffset in="blur" dx="0" dy="4" result="offset" />
+                  <feColorMatrix in="offset" type="matrix" values="0 0 0 0 0.05  0 0 0 0 0.08  0 0 0 0 0.12  0 0 0 0.35 0" result="shadow" />
+                  <feMerge>
+                    <feMergeNode in="shadow" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              {/* shadow for depth */}
+              <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
+                    fill="rgba(13,27,42,0.20)" filter="url(#dripShadow)" />
+              {/* soft drip with asymmetry to look organic */}
+              <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
+                    fill="url(#dripGrad)" />
+            </svg>
+          </div>
         </div>
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto fade-in">
           <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{liveDict.hero.title}</h1>
           <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{liveDict.hero.subtitle}</p>
           <div className="flex flex-col items-center justify-center gap-5">
-            <a href="#reservation" className="bg-[#eab308] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero.cta}</a>
-            <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#eab308] decoration-2 underline-offset-4">{liveDict.partners?.nav}</Link>
+            <a href="#reservation" className="bg-[#0ea5e9] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero.cta}</a>
+            <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#0ea5e9] decoration-2 underline-offset-4">{liveDict.partners?.nav}</Link>
           </div>
         </div>
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
       </header>
 
-      <section id="presentation" className="py-24 px-6 bg-sand-gradient">
+      <section id="presentation" className="py-24 px-6 bg-sand-gradient section-top-blend">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div className="space-y-6 fade-in">
-            <h4 className="text-[#eab308] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
+            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
             <h2 className="text-4xl font-serif font-bold text-deep">{liveDict.presentation.title}</h2>
             <p className="text-slate-600 leading-relaxed text-lg text-justify">{liveDict.presentation.text}</p>
             <ul className="space-y-3 pt-4">
               {liveDict.presentation.points.map((item: string) => (
                 <li key={item} className="flex items-center gap-3 text-slate-700 font-medium">
-                  <span className="w-6 h-6 rounded-full bg-yellow-100 text-[#eab308] flex items-center justify-center font-bold">✓</span>
+                  <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold">✓</span>
                   {item}
                 </li>
               ))}
             </ul>
           </div>
           <div className="relative group fade-in">
-            <div className="absolute -inset-4 bg-[#eab308]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
+            <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
             <Image src="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
           </div>
         </div>
       </section>
 
-      <section className="py-8 px-6 bg-white">
+      <section className="py-8 px-6 bg-white section-top-blend">
         <div className="max-w-6xl mx-auto text-center mb-6 fade-in">
           <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{liveDict.logos?.title}</h3>
         </div>
@@ -147,7 +173,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
       </section>
 
-      <section className="py-24 px-6 bg-white">
+      <section className="py-24 px-6 bg-white section-top-blend">
         <div className="max-w-7xl mx-auto">
           <div className="mb-12 text-center fade-in">
             <h2 className="text-4xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
@@ -156,7 +182,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
             {liveDict.bento?.cards?.map((c: any, idx: number) => (
               <div key={idx} className={`fade-in sn-card p-5 flex flex-col justify-between bg-gradient-to-br from-slate-50 to-slate-100 hover:shadow-lg transition group ${idx===0||idx===3? 'md:row-span-2' : ''}`}>
-                <h3 className="font-serif text-xl font-bold mb-2 text-[#0f172a] group-hover:text-[#eab308] transition">{c.title}</h3>
+                <h3 className="font-serif text-xl font-bold mb-2 text-[#0f172a] group-hover:text-[#0ea5e9] transition">{c.title}</h3>
                 <p className="text-sm text-slate-600 leading-relaxed">{c.text}</p>
               </div>
             ))}
@@ -164,7 +190,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         </div>
       </section>
 
-      <section className="py-24 px-6 bg-sand-gradient" id="reviews">
+      <section className="py-24 px-6 bg-sand-gradient section-top-blend" id="reviews">
         <div className="max-w-5xl mx-auto text-center mb-12 fade-in">
           <h2 className="text-4xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
           <p className="text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
@@ -175,11 +201,11 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       </section>
 
       <div className="wave-divider" aria-hidden="true">
-        <svg viewBox="0 0 1440 80" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,80 L0,40 C160,10 320,10 480,30 C640,50 800,70 960,60 C1120,50 1280,20 1440,30 L1440,80 Z" /></svg>
+        <svg viewBox="0 0 1440 100" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,100 L0,50 C160,20 320,20 480,40 C640,60 800,80 960,70 C1120,60 1280,30 1440,40 L1440,100 Z" /></svg>
       </div>
-      <section id="reservation" className="py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in">
+      <section id="reservation" className="-mt-6 py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in section-top-blend section-top-blend-dark">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-          <div className="absolute w-96 h-96 bg-yellow-500 rounded-full blur-[120px] -top-20 -left-20"></div>
+          <div className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20"></div>
           <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
         </div>
         <div className="relative z-10 max-w-6xl mx-auto text-center mb-12">
@@ -200,7 +226,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">
               <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-6 w-auto rounded-sm" />
-              <span>Sweet <span className="text-[#eab308]">Narcisse</span></span>
+              <span>Sweet <span className="text-[#0ea5e9]">Narcisse</span></span>
             </h5>
             <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer.departure_label}</p>
             <p className="leading-relaxed">10 Rue de la Herse<br/>68000 Colmar, France</p>
@@ -217,8 +243,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           </div>
           <div className="fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.infos}</h5>
-            <Link href={`/${currentLang}/legal`} className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.legal}</Link>
-            <Link href={`/${currentLang}/cgv`} className="block hover:text-[#eab308] transition mb-2">{liveDict.footer.cgv}</Link>
+            <Link href={`/${currentLang}/legal`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer.legal}</Link>
+            <Link href={`/${currentLang}/cgv`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer.cgv}</Link>
           </div>
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.access_map}</h5>
@@ -228,7 +254,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
           </div>
         </div>
         <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50 flex flex-col items-center gap-2">
-          <Link href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#eab308] transition text-xs font-semibold">{liveDict.partners?.nav || 'Partners'}</Link>
+          <Link href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#0ea5e9] transition text-xs font-semibold">{liveDict.partners?.nav || 'Partners'}</Link>
           <span>{liveDict.footer.rights}</span>
         </div>
       </footer>

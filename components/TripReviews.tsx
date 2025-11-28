@@ -36,7 +36,7 @@ export default function TripReviews({ dict, lang }: Props) {
         {reviews.map(r => (
           <article key={r.id} className="fade-in sn-card p-6 flex flex-col" itemScope itemType="https://schema.org/Review">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-[#eab308]/20 flex items-center justify-center font-bold text-[#0f172a]"><span aria-hidden>{r.author[0]}</span></div>
+              <div className="w-10 h-10 rounded-full bg-sky-100 flex items-center justify-center font-bold text-[#0f172a]"><span aria-hidden>{r.author[0]}</span></div>
               <span className="font-semibold" itemProp="author">{r.author}</span>
             </div>
             <p className="text-sm text-slate-600 leading-relaxed flex-1" itemProp="reviewBody">“{r.excerpt}”</p>
@@ -47,7 +47,7 @@ export default function TripReviews({ dict, lang }: Props) {
               <meta itemProp="bestRating" content="5" />
               <meta itemProp="worstRating" content="1" />
             </div>
-            <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-3 text-[11px] text-slate-400 hover:text-[#0f172a] underline decoration-[#eab308] decoration-2 underline-offset-2">{dict.social?.sourceLink || 'Voir sur TripAdvisor'}</a>
+            <a href={r.sourceUrl} target="_blank" rel="noopener noreferrer" className="mt-3 text-[11px] text-slate-400 hover:text-[#0f172a] underline decoration-[#0ea5e9] decoration-2 underline-offset-2">{dict.social?.sourceLink || 'Voir sur TripAdvisor'}</a>
           </article>
         ))}
       </div>

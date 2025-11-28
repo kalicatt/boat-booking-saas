@@ -34,7 +34,7 @@ a:hover { text-decoration: none; }
   --color-deep: #0d1b2a; /* deep water/navy */
   --color-mid: #1e3a5f; /* mid blue */
   --color-water: #1b4965; /* teal water */
-  --color-accent: #eab308; /* golden accent (already used) */
+  --color-accent: #0ea5e9; /* sky blue accent */
   --color-sand: #f3e5c7; /* soft sand */
   --color-foam: #e0f4ff; /* light foam */
   --nav-underline: linear-gradient(90deg, transparent 0%, var(--color-accent) 20%, var(--color-accent) 80%, transparent 100%);
@@ -65,7 +65,8 @@ a:hover { text-decoration: none; }
 }
 
 .bg-sand-gradient {
-  background: linear-gradient(160deg, var(--color-sand), #fff 60%);
+  /* Shift from beige sand to light foam/white for blue-friendly look */
+  background: linear-gradient(160deg, var(--color-foam), #ffffff 60%);
 }
 
 .text-water { color: var(--color-water); }
@@ -75,6 +76,13 @@ a:hover { text-decoration: none; }
 /* Simple wave divider utility */
 .wave-divider { position: relative; width:100%; height:80px; overflow:hidden; }
 .wave-divider svg { position:absolute; top:0; left:0; width:100%; height:100%; }
+
+/* Top blend utility to remove visible demarcation under waves */
+.section-top-blend { position: relative; }
+.section-top-blend::before { content:""; position:absolute; left:0; right:0; top:0; height:28px; pointer-events:none; background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0)); }
+
+/* Dark variant: blend from the same dark color used below */
+.section-top-blend.section-top-blend-dark::before { background: linear-gradient(to bottom, #0d1b2a, rgba(13,27,42,0)); }
 
 /* Smooth focus outlines for accessibility */
 *:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
@@ -89,7 +97,7 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 .sn-card-body { padding:20px; }
 .sn-card h1, .sn-card h2, .sn-card h3 { color:#0f172a; }
 .sn-card p, .sn-card span, .sn-card li { color:#334155; }
-.sn-btn-primary { background:#0f172a; color:#eab308; border-radius:10px; padding:10px 18px; font-weight:700; transition:transform .08s ease, box-shadow .2s ease; }
+.sn-btn-primary { background:#0f172a; color:#ffffff; border-radius:10px; padding:10px 18px; font-weight:700; transition:transform .08s ease, box-shadow .2s ease; }
 .sn-btn-primary:hover { background:#000; box-shadow:0 10px 24px rgba(13,27,42,0.25); }
 .sn-btn-primary:active { transform:translateY(1px); }
 .sn-section { padding:32px 16px; }
