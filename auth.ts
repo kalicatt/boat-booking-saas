@@ -23,14 +23,12 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
-  interface JWT {
-    role?: string
-    firstName?: string
-    lastName?: string
-    id?: string
-    image?: string | null
-  }
+type ExtendedToken = {
+  role?: string
+  firstName?: string
+  lastName?: string
+  id?: string
+  image?: string | null
 }
 
 // --- 2. SCHÉMA DE VALIDATION ZOD ---
@@ -87,24 +85,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
+      const extended = token as typeof token & ExtendedToken
       if (user) {
-        token.role = user.role
-        token.firstName = user.firstName
-        token.lastName = user.lastName
-        token.id = user.id
-        token.image = user.image 
+        extended.role = user.role
+        extended.firstName = user.firstName
+        extended.lastName = user.lastName
+        extended.id = user.id
+        extended.image = user.image 
       }
-      return token
+      return extended
     },
     async session({ session, token }) {
+      const extended = token as typeof token & ExtendedToken
       if (session.user && token) {
         // Plus besoin de @ts-ignore grâce au module declare plus haut !
-        session.user.role = (token.role as string | undefined)
-        session.user.firstName = (token.firstName as string | undefined)
-        session.user.lastName = (token.lastName as string | undefined)
+        session.user.role = (extended.role as string | undefined)
+        session.user.firstName = (extended.firstName as string | undefined)
+        session.user.lastName = (extended.lastName as string | undefined)
         // FIX: On force le type string pour l'ID
-        session.user.id = token.id as string
-        session.user.image = (token.image as string | null | undefined) ?? null
+        session.user.id = extended.id as string
+        session.user.image = (extended.image as string | null | undefined) ?? null
       }
       return session
     }
