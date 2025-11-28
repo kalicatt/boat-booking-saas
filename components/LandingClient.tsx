@@ -91,7 +91,13 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
               )}
             </div>
           </div>
-          <a href="#reservation" className="sn-btn-primary rounded-full">{liveDict.nav.book}</a>
+          <a
+            href="#reservation"
+            className={`sn-btn-primary rounded-full flex items-center justify-center ${scrolled ? 'h-10' : 'h-12'} px-6 !py-0 text-sm md:text-base tracking-wide`}
+            style={{ lineHeight: 1 }}
+          >
+            {liveDict.nav.book}
+          </a>
         </div>
       </nav>
 
