@@ -397,7 +397,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   }
 
     return (
-        <div className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col-reverse md:flex-row min-h-[600px]">
+        <div className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col md:flex-row min-h-[600px]">
         
         {/* === COLONNE GAUCHE : RÉCAPITULATIF === */}
         <div className="bg-[#0f172a] p-8 text-white md:w-1/3 flex flex-col relative transition-all duration-500 order-2 md:order-1">
