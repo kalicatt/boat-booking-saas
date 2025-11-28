@@ -18,6 +18,7 @@ declare module "next-auth" {
       firstName?: string
       lastName?: string
       id?: string
+      image?: string | null
     } & import("next-auth").DefaultSession["user"]
   }
 }
@@ -28,6 +29,7 @@ declare module "@auth/core/jwt" {
     firstName?: string
     lastName?: string
     id?: string
+    image?: string | null
   }
 }
 
@@ -97,12 +99,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       if (session.user && token) {
         // Plus besoin de @ts-ignore grâce au module declare plus haut !
-        session.user.role = token.role
-        session.user.firstName = token.firstName
-        session.user.lastName = token.lastName
+        session.user.role = (token.role as string | undefined)
+        session.user.firstName = (token.firstName as string | undefined)
+        session.user.lastName = (token.lastName as string | undefined)
         // FIX: On force le type string pour l'ID
         session.user.id = token.id as string
-        session.user.image = token.image as string | null | undefined
+        session.user.image = (token.image as string | null | undefined) ?? null
       }
       return session
     }

@@ -18,10 +18,20 @@ function tDict(dict: any, lang: Lang) {
     lastName: group.placeholder_lastname || fallback({ fr: 'Nom', en: 'Last name', de: 'Nachname', es: 'Apellido', it: 'Cognome' }),
     email: group.placeholder_email || fallback({ fr: 'Email', en: 'Email', de: 'E‑Mail', es: 'Email', it: 'Email' }),
     phone: group.placeholder_phone || fallback({ fr: 'Téléphone', en: 'Phone', de: 'Telefon', es: 'Teléfono', it: 'Telefono' }),
-    people: fallback({ fr: 'Nombre de personnes', en: 'People', de: 'Personen', es: 'Personas', it: 'Persone' }),
-    date: fallback({ fr: 'Date souhaitée', en: 'Requested date', de: 'Wunschtermin', es: 'Fecha solicitada', it: 'Data richiesta' }),
-    messageLabel: priv.message_label || fallback({ fr: 'Message / Souhaits particuliers', en: 'Message / Special Wishes', de: 'Nachricht / Sonderwünsche', es: 'Mensaje / Peticiones especiales', it: 'Messaggio / Richieste speciali' }),
-    messagePlaceholder: priv.placeholder_message || group.placeholder_message || fallback({ fr: 'Message', en: 'Message', de: 'Nachricht', es: 'Mensaje', it: 'Messaggio' }),
+    people: group.label_people || priv.label_people || fallback({ fr: 'Nombre de personnes', en: 'People', de: 'Personen', es: 'Personas', it: 'Persone' }),
+    date: priv.label_date || fallback({ fr: 'Date souhaitée', en: 'Requested date', de: 'Wunschtermin', es: 'Fecha solicitada', it: 'Data richiesta' }),
+    messageLabel: group.message_label || priv.message_label || fallback({ fr: 'Message / Souhaits particuliers', en: 'Message / Special Wishes', de: 'Nachricht / Sonderwünsche', es: 'Mensaje / Peticiones especiales', it: 'Messaggio / Richieste speciali' }),
+    messagePlaceholder: group.placeholder_message || priv.placeholder_message || fallback({ fr: 'Message', en: 'Message', de: 'Nachricht', es: 'Mensaje', it: 'Messaggio' }),
+    companyLabel: group.label_company || fallback({ fr: 'Entreprise / Raison sociale', en: 'Company / Business name', de: 'Firma / Unternehmensname', es: 'Empresa / Razón social', it: 'Azienda / Ragione sociale' }),
+    companyPlaceholder: group.placeholder_company || fallback({ fr: "Nom de l'entreprise", en: 'Company name', de: 'Firmenname', es: 'Nombre de la empresa', it: "Nome dell'azienda" }),
+    reasonLabel: group.label_reason || fallback({ fr: 'Occasion / Motif', en: 'Occasion / Reason', de: 'Anlass / Grund', es: 'Ocasión / Motivo', it: 'Occasione / Motivo' }),
+    reasonPlaceholder: group.placeholder_reason || fallback({ fr: 'Séminaire, anniversaire, EVJF, etc.', en: 'Seminar, birthday, bachelorette, etc.', de: 'Seminar, Geburtstag, Junggesellinnenabschied, usw.', es: 'Seminario, cumpleaños, despedida de soltera, etc.', it: 'Seminario, compleanno, addio al nubilato, ecc.' }),
+    eventDateLabel: group.label_event_date || fallback({ fr: 'Date souhaitée', en: 'Requested date', de: 'Wunschtermin', es: 'Fecha solicitada', it: 'Data richiesta' }),
+    eventDatePlaceholder: group.placeholder_event_date || fallback({ fr: 'YYYY-MM-DD', en: 'YYYY-MM-DD', de: 'YYYY-MM-DD', es: 'YYYY-MM-DD', it: 'YYYY-MM-DD' }),
+    eventTimeLabel: group.label_event_time || fallback({ fr: 'Heure souhaitée', en: 'Requested time', de: 'Gewünschte Uhrzeit', es: 'Hora solicitada', it: 'Orario richiesto' }),
+    eventTimePlaceholder: group.placeholder_event_time || fallback({ fr: 'HH:MM', en: 'HH:MM', de: 'HH:MM', es: 'HH:MM', it: 'HH:MM' }),
+    budgetLabel: group.label_budget || fallback({ fr: 'Budget indicatif', en: 'Indicative budget', de: 'Richtbudget', es: 'Presupuesto indicativo', it: 'Budget indicativo' }),
+    budgetPlaceholder: group.placeholder_budget || fallback({ fr: 'Ex: 500€', en: 'Ex: €500', de: 'Z. B.: 500€', es: 'Ej: 500€', it: 'Es: 500€' }),
     submitGroup: group.button_send || fallback({ fr: 'Envoyer', en: 'Send', de: 'Senden', es: 'Enviar', it: 'Invia' }),
     submitPrivate: priv.button_send || fallback({ fr: 'Envoyer', en: 'Send', de: 'Senden', es: 'Enviar', it: 'Invia' }),
     sentText: fallback({ fr: 'Demande envoyée ✅', en: 'Request sent ✅', de: 'Anfrage gesendet ✅', es: 'Solicitud enviada ✅', it: 'Richiesta inviata ✅' }),
@@ -32,6 +42,9 @@ function tDict(dict: any, lang: Lang) {
 
 export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) {
   const tr = tDict(dict, lang)
+    const group = dict.group_form || {}
+    const priv = dict.private_form || {}
+    const fallback = (map: Record<Lang, string>) => map[lang]
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
   const [active, setActive] = useState<'group'|'private'>('group')
   const [loading, setLoading] = useState(false)
@@ -191,35 +204,35 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
                 <input name="people" type="number" min={1} className="w-full p-2 border rounded" required defaultValue={prefill.people ?? ''} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Entreprise / Raison sociale</label>
-                <input name="company" className="w-full p-2 border rounded" placeholder="Nom de l'entreprise" />
+                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.companyLabel}</label>
+                 <input name="company" className="w-full p-2 border rounded" placeholder={tr.companyPlaceholder} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Occasion / Motif</label>
-                <input name="reason" className="w-full p-2 border rounded" placeholder="Séminaire, anniversaire, EVJF, etc." />
+                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.reasonLabel}</label>
+                 <input name="reason" className="w-full p-2 border rounded" placeholder={tr.reasonPlaceholder} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Date souhaitée</label>
-                <input name="eventDate" className="w-full p-2 border rounded" placeholder="YYYY-MM-DD" defaultValue={prefill.date ?? ''} />
+                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.eventDateLabel}</label>
+                 <input name="eventDate" className="w-full p-2 border rounded" placeholder={tr.eventDatePlaceholder} defaultValue={prefill.date ?? ''} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Heure souhaitée</label>
-                <input name="eventTime" className="w-full p-2 border rounded" placeholder="HH:MM" />
+                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.eventTimeLabel}</label>
+                 <input name="eventTime" className="w-full p-2 border rounded" placeholder={tr.eventTimePlaceholder} />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-500 mb-1">Budget indicatif</label>
-                <input name="budget" className="w-full p-2 border rounded" placeholder="Ex: 500€" />
+                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.budgetLabel}</label>
+                 <input name="budget" className="w-full p-2 border rounded" placeholder={tr.budgetPlaceholder} />
               </div>
             </>
           ) : (
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-                <input name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} />
+                <input name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} placeholder={priv.placeholder_people || ''} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.date}</label>
-                <input name="date" className="w-full p-2 border rounded" placeholder="YYYY-MM-DD" defaultValue={prefill.date ?? ''} />
+                <input name="date" className="w-full p-2 border rounded" placeholder={priv.placeholder_date || 'YYYY-MM-DD'} defaultValue={prefill.date ?? ''} />
               </div>
             </>
           )}
