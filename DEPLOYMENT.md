@@ -98,6 +98,8 @@ Verify site (HTTP): `curl -I http://yourdomain` → 200.
 - `NODE_ENV`: should be `production`.
 - `NEXT_TELEMETRY_DISABLED`: set to `1` to disable Next.js telemetry.
 - `NEXTAUTH_SECRET`: required by NextAuth; use a strong secret.
+- `AUTH_URL`: base URL for Auth.js (use your domain in prod, `http://localhost:3000` in dev).
+- `AUTH_TRUST_HOST`: set to `true` to trust the host (required by Auth.js v5 when behind proxies or non-standard hosts).
 - `EMAIL_SENDER`: default sender address for emails.
 - `ADMIN_EMAIL`: admin notification address for contact forms.
 - `RESEND_API_KEY`: set if you use Resend for emails. If not set, the app gracefully falls back or returns a configured error on specific routes.
