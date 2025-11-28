@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -50,6 +50,37 @@ export default function ClientPlanningPage() {
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
   const [compactZoom, setCompactZoom] = useState(false)
+  const [denseZoom, setDenseZoom] = useState(false)
+  const [preset, setPreset] = useState<'standard'|'morning'|'fullday'>('standard')
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const containerRef = useRef<HTMLDivElement|null>(null)
+
+  useEffect(()=>{
+    const el = containerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+        e.stopPropagation()
+        const delta = e.deltaY
+        setZoomLevel(prev => {
+          const next = Math.min(1.0, Math.max(0.1, prev + (delta > 0 ? -0.05 : 0.05)))
+          return Number(next.toFixed(2))
+        })
+      }
+    }
+    const onGestureStart = (e: any) => {
+      // Safari/iOS specific pinch gesture
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('gesturestart', onGestureStart as any, { passive: false })
+    return ()=>{
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('gesturestart', onGestureStart as any)
+    }
+  }, [])
 
   const [currentDate, setCurrentDate] = useState(startOfDay(new Date()))
   const [currentView, setCurrentView] = useState(Views.DAY as 'day' | 'week' | 'month' | 'work_week')
@@ -387,7 +418,7 @@ export default function ClientPlanningPage() {
               remaining === 0
                 ? 'bg-red-500 text-white'
                 : remaining <= 2
-                ? 'bg-amber-500 text-black'
+                ? 'bg-sky-500 text-white'
                 : 'bg-white/30 text-white'
             return (
               <span
@@ -620,7 +651,7 @@ export default function ClientPlanningPage() {
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${
               !rawBookings && !error
-                ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                ? 'bg-sky-100 text-sky-700 border-sky-200'
                 : 'bg-green-100 text-green-700 border-green-200'
             }`}
           >
@@ -644,27 +675,6 @@ export default function ClientPlanningPage() {
           >
             Actualiser 🔄
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600">Zoom</span>
-            <button
-              onClick={() => setCompactZoom(false)}
-              className={`px-2 py-1 rounded text-sm font-bold border ${
-                !compactZoom ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700'
-              }`}
-              title="Vue standard"
-            >
-              100%
-            </button>
-            <button
-              onClick={() => setCompactZoom(true)}
-              className={`px-2 py-1 rounded text-sm font-bold border ${
-                compactZoom ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700'
-              }`}
-              title="Vue compacte (journée entière)"
-            >
-              Compacte
-            </button>
-          </div>
           <button
             onClick={() => logout()}
             className="px-4 py-2 bg-red-50 border border-red-100 shadow-sm rounded hover:bg-red-100 text-sm font-bold text-red-600 transition flex items-center gap-2"
@@ -674,13 +684,18 @@ export default function ClientPlanningPage() {
         </div>
       </div>
 
-      <div className={`flex-1 min-h-0 sn-card p-4 ${compactZoom ? 'sn-compact' : ''}`}>
+      <div
+        className={`flex-1 min-h-0 sn-card p-4 sn-zoom ${compactZoom ? 'sn-compact' : ''} ${denseZoom ? 'sn-dense' : ''}`}
+        onWheelCapture={(e)=>{ if (e.ctrlKey) { e.preventDefault(); e.stopPropagation() } }}
+        tabIndex={0}
+        ref={containerRef}
+      >
         {!loadingBoats && resources.length === 0 ? (
           <div className="h-full flex items-center justify-center text-red-500 font-bold">
             ⚠️ Aucune barque trouvée. Relancez le seed.
           </div>
         ) : (
-          <div className="h-full">
+          <div className="h-full overflow-auto" style={{ ['--slotH' as any]: `${Math.round(40 * zoomLevel)}px` }}>
           <Calendar
             localizer={localizer}
             events={events}
@@ -701,8 +716,8 @@ export default function ClientPlanningPage() {
             resourceTitleAccessor="title"
             step={5}
             timeslots={1}
-            min={new Date(0, 0, 0, 10, 0, 0)}
-            max={new Date(0, 0, 0, 18, 30, 0)}
+            min={preset==='morning' ? new Date(0,0,0,10,0,0) : new Date(0, 0, 0, 10, 0, 0)}
+            max={preset==='morning' ? new Date(0,0,0,12,0,0) : new Date(0, 0, 0, 18, 30, 0)}
             culture="fr"
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
             slotPropGetter={slotPropGetter}
@@ -717,8 +732,8 @@ export default function ClientPlanningPage() {
               }
               if (event.checkinStatus === 'EMBARQUED') style.backgroundColor = '#1f4068'
               else if (event.checkinStatus === 'NO_SHOW') {
-                style.backgroundColor = '#e69900'
-                style.color = 'black'
+                style.backgroundColor = '#60a5fa'
+                style.color = 'white'
               } else if (event.resourceId === 2) style.backgroundColor = '#008b8b'
               else if (event.resourceId === 3) style.backgroundColor = '#7c3aed'
               else if (event.resourceId === 4) style.backgroundColor = '#d97706'
@@ -729,7 +744,11 @@ export default function ClientPlanningPage() {
         )}
       </div>
 
+      
+
       <style jsx>{`
+        .sn-zoom { overscroll-behavior: contain; }
+        .sn-zoom { touch-action: none; }
         .sn-compact :global(.rbc-time-slot) { height: 6px; }
         .sn-compact :global(.rbc-time-gutter .rbc-time-slot) { height: 6px; }
         .sn-compact :global(.rbc-timeslot-group) { border-bottom-width: 0; }
@@ -739,6 +758,16 @@ export default function ClientPlanningPage() {
         .sn-compact :global(.rbc-label) { font-size: 9px; line-height: 1; }
         .sn-compact :global(.rbc-row) { min-height: 0; }
         .sn-compact :global(.rbc-time-view) { overflow: hidden; }
+        .sn-dense :global(.rbc-time-slot) { height: 10px; }
+        .sn-dense :global(.rbc-time-gutter .rbc-time-slot) { height: 10px; }
+        .sn-dense :global(.rbc-time-header) { font-size: 12px; }
+        .sn-dense :global(.rbc-event) { padding: 3px 5px; }
+        .sn-zoom :global(.rbc-time-slot) { height: var(--slotH, 40px); }
+        .sn-zoom :global(.rbc-time-gutter .rbc-time-slot) { height: var(--slotH, 40px); }
+        :global(.rbc-time-content) { scrollbar-width: thin; }
+        :global(.rbc-time-content) { background-image: linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 100% 20px; }
+        :global(.rbc-time-gutter .rbc-time-slot) { border-right: 1px solid #e5e7eb; }
+        :global(.rbc-time-content .rbc-time-slot) { border-top-color: #eef2f7; }
         @media (max-width: 640px) {
           :global(.rbc-toolbar) { padding: 4px 0; }
           :global(.rbc-toolbar .rbc-btn-group) { gap: 4px; }

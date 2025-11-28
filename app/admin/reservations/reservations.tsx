@@ -173,7 +173,7 @@ export default function ReservationsAdminPage(){
           </thead>
           <tbody className="dark:divide-slate-700">
             {bookings.map((b:any)=>(
-              <tr key={b.id} className={`border-b hover:bg-slate-50 ${selectedId===b.id?'bg-yellow-50':''} dark:hover:bg-slate-800 dark:border-slate-700`} onClick={()=>setSelectedId(b.id)}>
+              <tr key={b.id} className={`border-b hover:bg-slate-50 ${selectedId===b.id?'bg-sky-50':''} dark:hover:bg-slate-800 dark:border-slate-700`} onClick={()=>setSelectedId(b.id)}>
                 <td className="p-3">{format(toWall(new Date(b.startTime)),'dd/MM/yyyy')}</td>
                 <td className="p-3">{format(toWall(new Date(b.startTime)),'HH:mm')}</td>
                 <td className="p-3">{b.user?.firstName} {b.user?.lastName}</td>
@@ -290,9 +290,9 @@ export default function ReservationsAdminPage(){
       </div>
 
       {toasts.length>0 && (
-        <div className="fixed bottom-4 right-4 space-y-2">
+            <div className="fixed bottom-4 right-4 space-y-2">
           {toasts.map(t=> (
-            <div key={t.id} className={`rounded-lg shadow px-4 py-2 text-sm ${t.type==='success'?'bg-green-600 text-white':'bg-yellow-500 text-white'}`}>
+            <div key={t.id} className={`rounded-lg shadow px-4 py-2 text-sm ${t.type==='success'?'bg-green-600 text-white':'bg-sky-600 text-white'}`}>
               <div className="flex items-center justify-between gap-3">
                 <span>{t.message}</span>
                 <button className="text-white/80" onClick={()=> setToasts(prev=> prev.filter(x=>x.id!==t.id))}>✕</button>
