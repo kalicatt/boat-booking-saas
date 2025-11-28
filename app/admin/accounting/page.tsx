@@ -10,6 +10,8 @@ export default function AccountingAdminPage(){
   const { data: ledger, mutate: mutateLedger } = useSWR('/api/admin/ledger', fetcher)
   const { data: cash, mutate: mutateCash } = useSWR('/api/admin/cash', fetcher)
   const { data: closures, mutate: mutateClosures } = useSWR('/api/admin/closures', fetcher)
+  const toArray = (x:any) => Array.isArray(x) ? x : (Array.isArray(x?.closures) ? x.closures : (Array.isArray(x?.data) ? x.data : []))
+  const closuresList = toArray(closures)
   const [openingFloatEuros, setOpeningFloatEuros] = useState('')
   const [closingCountEuros, setClosingCountEuros] = useState('')
   const [csvUrl, setCsvUrl] = useState<string|undefined>(undefined)
@@ -131,8 +133,8 @@ export default function AccountingAdminPage(){
           }
         }}>Clôturer la journée</button>
         <button className="ml-2 border rounded px-3 py-1" onClick={()=>{
-          if (!Array.isArray(closures) || closures.length===0) return
-          const c = closures.find((x:any)=> new Date(x.day).toISOString().slice(0,10)===selectedDay) || closures[0]
+          if (!Array.isArray(closuresList) || closuresList.length===0) return
+          const c = closuresList.find((x:any)=> new Date(x.day).toISOString().slice(0,10)===selectedDay) || closuresList[0]
           const snap = JSON.parse(c.totalsJson)
           const rows = [
             ['Entreprise', business.name],
@@ -158,7 +160,7 @@ export default function AccountingAdminPage(){
         <table className="w-full text-sm mt-3">
           <thead><tr><th className="p-2">Date</th><th className="p-2">Hash</th><th className="p-2">Totaux</th></tr></thead>
           <tbody>
-            {(closures||[]).map((c:any)=>{
+            {closuresList.map((c:any)=>{
               const snapshot = JSON.parse(c.totalsJson)
               return (
                 <tr key={c.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={()=>{
