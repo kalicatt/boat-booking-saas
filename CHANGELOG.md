@@ -4,22 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and adheres to Semantic Versioning (MAJOR.MINOR.PATCH).
 
-## [1.0.0] - 2025-11-28
-- Initial production-ready build.
-- Docker multi-stage build (Node 22 bookworm) with Prisma compatibility.
-- Email routes guarded when `RESEND_API_KEY` is missing.
-- Vitest configuration with `@` alias resolution.
-- Stripe webhook route updated to current API version literal.
+## [Unreleased]
+- Pending changes will be listed here until the next tag.
 
+---
+
+## [1.0.2] - 2025-11-29
 ### Added
-- Deployment guide with tar-transfer and registry workflows.
-- Systemd unit examples and Nginx reverse proxy notes.
+- Flag icons displayed in the mobile/off-canvas language selector to make locale choices clear at a glance.
 
-### Fixed
-- Build issues with route handler signatures and React email rendering.
-
-### Security
-- Notes on TLS, secret management, and Prisma/OpenSSL compatibility.
+### Changed
+- Centralised language metadata (labels, flags) to keep navigation and future locales consistent.
 
 ---
 
@@ -43,5 +38,21 @@ The format is based on Keep a Changelog and adheres to Semantic Versioning (MAJO
 
 ---
 
-## Unreleased
-- Pending changes will be listed here until the next tag.
+## [1.0.0] - 2025-11-28
+- Initial production-ready build.
+- Docker multi-stage build (Node 22 bookworm) with Prisma compatibility.
+- Email routes guarded when `RESEND_API_KEY` is missing.
+- Vitest configuration with `@` alias resolution.
+- Stripe webhook route updated to current API version literal.
+
+### Added
+- Deployment guide with tar-transfer and registry workflows.
+- Systemd unit examples and Nginx reverse proxy notes.
+
+### Fixed
+- Build issues with route handler signatures and React email rendering.
+
+### Security
+- Notes on TLS, secret management, and Prisma/OpenSSL compatibility.
+
+---
