@@ -120,8 +120,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
                 </filter>
               </defs>
               {/* shadow for depth */}
-              <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
-                    fill="rgba(13,27,42,0.20)" filter="url(#dripShadow)" />
+                <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
+                  fill="rgba(13,27,42,0.12)" filter="url(#dripShadow)" />
               {/* soft drip with asymmetry to look organic */}
               <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
                     fill="url(#dripGrad)" />
@@ -180,12 +180,37 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
             <p className="text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
-            {liveDict.bento?.cards?.map((c: any, idx: number) => (
-              <div key={idx} className={`fade-in sn-card p-5 flex flex-col justify-between bg-gradient-to-br from-slate-50 to-slate-100 hover:shadow-lg transition group ${idx===0||idx===3? 'md:row-span-2' : ''}`}>
-                <h3 className="font-serif text-xl font-bold mb-2 text-[#0f172a] group-hover:text-[#0ea5e9] transition">{c.title}</h3>
-                <p className="text-sm text-slate-600 leading-relaxed">{c.text}</p>
-              </div>
-            ))}
+            {liveDict.bento?.cards?.map((c: any, idx: number) => {
+              const originalTitle = String(c.title || '').trim();
+              const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
+              // Use normalized display title for matching so "Frictionless" remap is honored
+              const t = title.toLowerCase();
+              // Map images by semantic title across locales
+              let bg = '/images/presentation.jpg';
+              if (/(perfect|longueur|perfetto|perfecto)/i.test(t)) bg = '/images/perfectlength.jpg';
+              else if (/(impact|empreinte|impatto)/i.test(t)) bg = '/images/low-impact.jpg';
+              else if (/(guide|humain|guida|humano)/i.test(t)) bg = '/images/human-guide.jpg';
+              else if (/(group|groupe|gruppo|grupo|privat)/i.test(t)) bg = '/images/group-private.jpg';
+              else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
+              else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.jpg';
+                return (
+                  <div
+                    key={idx}
+                    className={`fade-in sn-card p-5 overflow-hidden hover:shadow-lg transition group ${idx===0||idx===3? 'md:row-span-2' : ''}`}
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.20), rgba(0,0,0,0.12)), url(${bg})`,
+                      backgroundSize: 'cover',
+                    backgroundPosition: 'center top',
+                    backgroundBlendMode: 'normal'
+                    }}
+                  >
+                    <div className="bg-white/85 rounded-md px-3 py-2 inline-block shadow-sm max-w-[85%]">
+                      <h3 className="font-serif text-lg font-bold mb-0.5 text-[#0f172a] group-hover:text-[#0ea5e9] transition">{title}</h3>
+                      <p className="text-[13px] text-slate-700 leading-relaxed">{c.text}</p>
+                  </div>
+                  </div>
+                );
+            })}
           </div>
         </div>
       </section>

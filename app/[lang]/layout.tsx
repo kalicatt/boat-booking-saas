@@ -24,10 +24,10 @@ export default async function LangLayout({
         id="sn-water-bg"
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 -z-10"
+        suppressHydrationWarning={true}
         style={{
           backgroundRepeat: 'repeat',
           backgroundSize: '1600px 1200px',
-          backgroundPosition: '0px 0px',
           filter: 'saturate(1.1) contrast(1.02)'
         }}
       />
@@ -70,7 +70,8 @@ export default async function LangLayout({
                 if(rafId) return;
                 rafId = requestAnimationFrame(function(){ rafId = null; update(lastY); });
               };
-              update(0);
+              // Initialize after hydration to avoid SSR/client mismatch
+              requestAnimationFrame(function(){ onScroll(); });
               window.addEventListener('scroll', onScroll, { passive: true });
             })();
           `,
