@@ -18,6 +18,7 @@ read -p "Postgres DB [snarcisse]: " POSTGRES_DB
 POSTGRES_DB=${POSTGRES_DB:-snarcisse}
 read -p "Stripe public key (pk_live_...): " STRIPE_PUBLIC_KEY
 read -p "Stripe secret key (sk_live_...): " STRIPE_SECRET_KEY
+read -p "Stripe webhook secret (whsec_...): " STRIPE_WEBHOOK_SECRET
 read -p "PayPal client id: " PAYPAL_CLIENT_ID
 read -p "PayPal client secret: " PAYPAL_CLIENT_SECRET
 read -p "PayPal mode (live/sandbox) [live]: " PAYPAL_MODE
@@ -51,6 +52,7 @@ SMTP_USER=${SMTP_USER}
 SMTP_PASS=${SMTP_PASS}
 NEXT_PUBLIC_STRIPE_KEY=${STRIPE_PUBLIC_KEY}
 STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
 PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
 PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
 PAYPAL_MODE=${PAYPAL_MODE}

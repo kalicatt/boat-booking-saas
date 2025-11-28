@@ -1,0 +1,11 @@
+[Unit]
+Description=Renew Let's Encrypt certificates for Sweet Narcisse (dockerized certbot)
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/sweetnarcisse
+ExecStart=/usr/bin/docker compose run --rm certbot renew --webroot -w /var/www/certbot --quiet
+ExecStartPost=/usr/bin/docker compose exec nginx nginx -s reload
+StandardOutput=journal
+StandardError=journal

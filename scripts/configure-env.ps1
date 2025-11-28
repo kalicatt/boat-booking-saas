@@ -10,6 +10,7 @@ Param(
   [string]$SmtpPass,
   [string]$StripePublicKey,
   [string]$StripeSecretKey,
+  [string]$StripeWebhookSecret,
   [string]$PaypalClientId,
   [string]$PaypalClientSecret,
   [string]$PaypalMode,
@@ -30,6 +31,7 @@ if (-not $SmtpUser) { $SmtpUser = Read-Host "Enter SMTP username (full email)" }
 if (-not $SmtpPass) { $SmtpPass = Read-Host "Enter SMTP password" }
 if (-not $StripePublicKey) { $StripePublicKey = Read-Host "Enter STRIPE public key (pk_live_...)" }
 if (-not $StripeSecretKey) { $StripeSecretKey = Read-Host "Enter STRIPE secret key (sk_live_...)" }
+if (-not $StripeWebhookSecret) { $StripeWebhookSecret = Read-Host "Enter STRIPE webhook secret (whsec_...)" }
 if (-not $PaypalClientId) { $PaypalClientId = Read-Host "Enter PAYPAL client id" }
 if (-not $PaypalClientSecret) { $PaypalClientSecret = Read-Host "Enter PAYPAL client secret" }
 if (-not $PaypalMode) { $PaypalMode = Read-Host "PayPal mode (live/sandbox)" }
@@ -50,7 +52,7 @@ POSTGRES_USER=$PostgresUser
 POSTGRES_PASSWORD=$PostgresPassword
 POSTGRES_DB=$PostgresDb
 
-DATABASE_URL=postgres://$PostgresUser:$PostgresPassword@localhost:5432/$PostgresDb
+DATABASE_URL=postgres://${PostgresUser}:${PostgresPassword}@localhost:5432/${PostgresDb}
 NEXT_PUBLIC_BASE_URL=$NextAuthUrl
 EMAIL_SENDER=$EmailSender
 SMTP_HOST=$SmtpHost
@@ -59,6 +61,7 @@ SMTP_USER=$SmtpUser
 SMTP_PASS=$SmtpPass
 NEXT_PUBLIC_STRIPE_KEY=$StripePublicKey
 STRIPE_SECRET_KEY=$StripeSecretKey
+STRIPE_WEBHOOK_SECRET=$StripeWebhookSecret
 PAYPAL_CLIENT_ID=$PaypalClientId
 PAYPAL_CLIENT_SECRET=$PaypalClientSecret
 PAYPAL_MODE=$PaypalMode

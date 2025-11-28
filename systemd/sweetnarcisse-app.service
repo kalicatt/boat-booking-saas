@@ -1,0 +1,18 @@
+[Unit]
+Description=Sweet Narcisse Next.js + Postgres stack (docker-compose)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/sweetnarcisse
+EnvironmentFile=/opt/sweetnarcisse/.env.production.local
+ExecStart=/usr/bin/docker compose up -d --build
+ExecStop=/usr/bin/docker compose down
+TimeoutStartSec=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

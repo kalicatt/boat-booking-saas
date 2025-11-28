@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily certificate renewal check for Sweet Narcisse
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+
+[Install]
+WantedBy=timers.target
