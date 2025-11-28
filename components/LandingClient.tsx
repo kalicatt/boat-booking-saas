@@ -11,6 +11,18 @@ import { usePathname } from 'next/navigation'
 export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuClosing, setMenuClosing] = useState(false)
+  const firstLinkRef = useRef<HTMLAnchorElement|null>(null)
+  const panelRef = useRef<HTMLDivElement|null>(null)
+  const menuButtonRef = useRef<HTMLButtonElement|null>(null)
+  const closeMenu = () => {
+    if(menuOpen){
+      setMenuClosing(true)
+      setMenuOpen(false)
+      setTimeout(()=>{ setMenuClosing(false); menuButtonRef.current?.focus() }, 340)
+    }
+  }
   const dropdownRef = useRef<HTMLDivElement|null>(null)
   const pathname = usePathname()
   const routeLang = (pathname?.split('/')[1] || '') as 'en'|'fr'|'de'|'es'|'it'|''
@@ -47,6 +59,47 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside); window.removeEventListener('hashchange', onHash) }
   },[])
 
+  // Body scroll lock + initial focus for menu
+  useEffect(()=>{
+    if(menuOpen) {
+      document.body.classList.add('lock-scroll')
+      setMenuClosing(false)
+      setTimeout(()=>{ if(firstLinkRef.current) firstLinkRef.current.focus() }, 50)
+    } else {
+      document.body.classList.remove('lock-scroll')
+    }
+  },[menuOpen])
+
+  // Focus trap within offcanvas
+  useEffect(()=>{
+    if(!menuOpen) return
+    const trap = (e: KeyboardEvent) => {
+      if(e.key !== 'Tab') return
+      const container = panelRef.current
+      if(!container) return
+      const selectors = 'a[href], button:not([disabled]), [tabindex]:not([-1]), select, input, textarea'
+      const nodes = Array.from(container.querySelectorAll<HTMLElement>(selectors)).filter(el => !el.hasAttribute('disabled'))
+      if(nodes.length === 0) return
+      const first = nodes[0]
+      const last = nodes[nodes.length - 1]
+      const active = document.activeElement as HTMLElement
+      if(e.shiftKey) {
+        if(active === first) { e.preventDefault(); last.focus() }
+      } else {
+        if(active === last) { e.preventDefault(); first.focus() }
+      }
+    }
+    window.addEventListener('keydown', trap)
+    return ()=> window.removeEventListener('keydown', trap)
+  },[menuOpen])
+
+  // ESC closes menu if open
+  useEffect(()=>{
+    const onEsc = (e: KeyboardEvent) => { if(e.key==='Escape' && menuOpen) { setMenuOpen(false) } }
+    window.addEventListener('keydown', onEsc)
+    return ()=> window.removeEventListener('keydown', onEsc)
+  },[menuOpen])
+
   // Sync currentLang with URL on client navigation
   useEffect(()=>{
     const code = (['en','fr','de','es','it'] as const).includes(routeLang as any) ? (routeLang as any) : undefined
@@ -67,39 +120,78 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       <nav className={`fixed w-full z-40 backdrop-blur-md transition-all ${scrolled ? 'bg-white/80 shadow-md h-16' : 'bg-white/90 h-20'} border-b border-slate-100`}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-          <div className="text-2xl font-serif font-bold text-[#0f172a] flex items-center gap-3">
-            <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-8 w-auto rounded-sm shadow-sm" />
-            <span>Sweet <span className="text-[#0ea5e9]">Narcisse</span></span>
-          </div>
-          <div className="hidden md:flex gap-8 text-sm font-semibold tracking-wide text-slate-600 items-center">
-            <a href="#presentation" className="nav-link hover:text-[#0ea5e9] transition duration-300">{liveDict.nav.experience}</a>
-            <a href={`/${currentLang}/partners`} className="nav-link hover:text-[#0ea5e9] transition duration-300 uppercase">{liveDict.partners?.nav || 'Partners'}</a>
-            <a href="#contact" className="nav-link hover:text-[#0ea5e9] transition duration-300">{liveDict.nav.contact}</a>
-            <div className="relative ml-4 border-l pl-4 border-slate-300" ref={dropdownRef}>
-              <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="px-3 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center gap-2 text-xs font-bold">
-                <span>{currentLang.toUpperCase()}</span>
-                <span className="text-[10px]">▾</span>
-              </button>
-              {langOpen && (
-                <ul role="listbox" className="absolute right-0 mt-2 w-32 bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
-                  {['fr','en','de','es','it'].map(code => (
-                    <li key={code}>
-                      <Link prefetch={false} href={`/${code}${currentSearch}${currentHash}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>setLangOpen(false)}>{code.toUpperCase()}</Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+          <div className="flex items-center gap-4">
+            <button ref={menuButtonRef} aria-label="Menu" onClick={()=>{ setMenuOpen(true); }} className="p-2 rounded-md border border-slate-300 bg-white hover:bg-slate-100 active:scale-95 transition flex flex-col justify-center gap-[5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+              <span className="block w-5 h-0.5 bg-slate-700" />
+              <span className="block w-5 h-0.5 bg-slate-700" />
+              <span className="block w-5 h-0.5 bg-slate-700" />
+            </button>
+            <Link
+              href={`/${currentLang}`}
+              aria-label={liveDict?.nav?.home || 'Accueil'}
+              className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-sm"
+            >
+              <img src="/images/logo.jpg" alt="Sweet Narcisse" className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} />
+            </Link>
           </div>
           <a
             href="#reservation"
-            className={`sn-btn-primary rounded-full flex items-center justify-center ${scrolled ? 'h-10' : 'h-12'} px-6 !py-0 text-sm md:text-base tracking-wide`}
-            style={{ lineHeight: 1 }}
+            className={`sn-btn-primary rounded-full flex items-center justify-center !py-0 font-bold tracking-wide transition-all ${scrolled ? 'h-10 px-5 text-base' : 'h-12 px-6 text-lg'}`}
+            style={{ lineHeight: 1.1 }}
           >
             {liveDict.nav.book}
           </a>
         </div>
+        {/* Off-canvas menu */}
       </nav>
+      {/* Offcanvas outside nav so fixed covers viewport */}
+      { (menuOpen || menuClosing) && (
+        <div className={`fixed inset-0 z-50`} role="dialog" aria-modal="true">
+          <div onClick={closeMenu} className={`absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 ${menuOpen && !menuClosing ? 'opacity-100' : 'opacity-0'}`}></div>
+          <div ref={panelRef} className={`absolute top-0 left-0 h-full w-[300px] bg-white shadow-2xl border-r border-slate-200 flex flex-col ${menuClosing ? 'menu-panel-closing' : 'menu-panel'}`}>
+            <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
+              <span className="font-serif font-bold text-lg text-[#0f172a]">Menu</span>
+              <button aria-label="Fermer" onClick={closeMenu} className="p-2 rounded-md hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+                <span className="block w-5 h-0.5 bg-slate-700 rotate-45 translate-y-[3px]" />
+                <span className="block w-5 h-0.5 bg-slate-700 -rotate-45 -translate-y-[3px]" />
+              </button>
+            </div>
+            <nav className="flex-1 overflow-y-auto py-4">
+              <ul className="px-4 text-sm font-semibold space-y-1">
+                <li className="menu-link-animate" style={{ animationDelay: '40ms' }}>
+                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.experience}</a>
+                </li>
+                <li className="menu-link-animate" style={{ animationDelay: '80ms' }}>
+                  <Link onClick={closeMenu} href={`/${currentLang}/partners`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9] uppercase">{liveDict.partners?.nav || 'Partners'}</Link>
+                </li>
+                <li className="menu-link-animate" style={{ animationDelay: '120ms' }}>
+                  <a onClick={closeMenu} href="#contact" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.contact}</a>
+                </li>
+                <li className="menu-link-animate" style={{ animationDelay: '160ms' }}>
+                  <a onClick={closeMenu} href="#reservation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.book}</a>
+                </li>
+                <li className="pt-2 border-t border-slate-200 menu-link-animate" style={{ animationDelay: '200ms' }}>
+                  <div ref={dropdownRef} className="relative">
+                    <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="w-full text-left px-3 py-2 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-between text-xs font-bold">
+                      <span>{currentLang.toUpperCase()}</span>
+                      <span className="text-[10px]">▾</span>
+                    </button>
+                    {langOpen && (
+                      <ul role="listbox" className="mt-2 w-full bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
+                        {['fr','en','de','es','it'].map(code => (
+                          <li key={code}>
+                            <Link prefetch={false} href={`/${code}${currentSearch}${currentHash}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>{setLangOpen(false); closeMenu()}}>{code.toUpperCase()}</Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      ) }
 
       <header className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0 hero-parallax">
