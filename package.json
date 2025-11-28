@@ -9,7 +9,8 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "test": "vitest run",
-    "generate:icons": "node scripts/generate-icons.cjs"
+    "generate:icons": "node scripts/generate-icons.cjs",
+    "release": "node scripts/release-version.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
@@ -19,6 +20,7 @@
     "@react-email/render": "^0.0.15",
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.5.3",
+    "@tailwindcss/postcss": "^4",
     "@types/react-google-recaptcha": "^2.1.9",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
@@ -26,21 +28,22 @@
     "negotiator": "^1.0.0",
     "next": "16.0.3",
     "next-auth": "^5.0.0-beta.30",
+    "nodemailer": "^6.9.10",
     "react": "19.2.0",
     "react-big-calendar": "^1.19.4",
     "react-dom": "19.2.0",
     "react-google-recaptcha": "^3.1.0",
     "resend": "^6.5.2",
-    "nodemailer": "^6.9.10",
     "stripe": "^20.0.0",
     "swr": "^2.3.6",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.1.17",
     "@types/bcryptjs": "^2.4.6",
     "@types/negotiator": "^0.6.4",
-    "@types/node": "^20",
+    "@types/node": "^22.19.1",
+    "@types/nodemailer": "^7.0.4",
     "@types/react": "^19",
     "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19",
@@ -49,7 +52,7 @@
     "prisma": "^5.17.0",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "typescript": "^5",
+    "typescript": "5.9.3",
     "vitest": "^2.1.4"
   },
   "optionalDependencies": {

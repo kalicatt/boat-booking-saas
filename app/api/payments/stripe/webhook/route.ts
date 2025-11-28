@@ -14,7 +14,7 @@ export async function POST(req: Request){
   if(!stripeKey || !webhookSecret){
     return NextResponse.json({ error: 'Stripe webhook not configured' }, { status: 500 })
   }
-  const stripe = new Stripe(stripeKey, { apiVersion: '2024-06-20' })
+  const stripe = new Stripe(stripeKey, { apiVersion: '2025-11-17.clover' })
   let rawBody: string
   try { rawBody = await req.text() } catch { return NextResponse.json({ error: 'Raw body read failed' }, { status: 400 }) }
   let event: Stripe.Event

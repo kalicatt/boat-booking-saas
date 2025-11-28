@@ -8,7 +8,8 @@ function makeCancelToken(id: string){
   return crypto.createHmac('sha256', secret).update(id).digest('hex').slice(0,16)
 }
 
-export async function GET(req: Request, { params }: { params: { id: string } }){
+import type { NextRequest } from 'next/server'
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }){
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action')
   const token = searchParams.get('token') || ''
@@ -17,7 +18,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }){
     return NextResponse.json({ error: 'Unsupported action' }, { status: 400 })
   }
 
-  const id = params.id
+  const { id } = await params
   try {
     const booking = await prisma.booking.findUnique({ where: { id } , include: { user: true } })
     if(!booking) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -51,8 +52,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }){
     return NextResponse.json({ error: 'Cancel failed', details: String(e?.message||e) }, { status: 500 })
   }
 }
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { addMinutes, format } from 'date-fns'
 import { auth } from '@/auth' // 👈 Import de la fonction auth
 import { createLog } from '@/lib/logger'

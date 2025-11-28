@@ -12,7 +12,7 @@ import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
       const token = (await import('crypto')).createHmac('sha256', secret).update(String(newBooking.id)).digest('hex').slice(0,16)
       const cancelUrl = `${baseUrl}/api/bookings/${newBooking.id}?action=cancel&token=${token}`
       const emailSender = process.env.EMAIL_SENDER || 'no-reply@sweet-narcisse.fr'
-      const html = renderBookingHtml({
+      const html = await renderBookingHtml({
         firstName: userDetails.firstName || 'Client',
         date,
         time,
@@ -211,14 +211,14 @@ export async function POST(request: Request) {
         bookingId: String(newBooking.id),
         totalPrice: finalPrice,
       })
-      if(process.env.RESEND_API_KEY){
+      if(process.env.RESEND_API_KEY && resend){
         await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html })
       } else {
         await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html })
       }
       // Also send a simple text with cancel link as fallback
       const cancelText = `Pour annuler votre réservation, cliquez: ${cancelUrl}`
-      if(process.env.RESEND_API_KEY){
+      if(process.env.RESEND_API_KEY && resend){
         await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
       } else {
         await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })

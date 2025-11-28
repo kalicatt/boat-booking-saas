@@ -7,7 +7,7 @@ import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { normalizeIncoming } from '@/lib/phone'
 import { prisma } from '@/lib/prisma'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
 
 export async function POST(request: Request) {
   try {
@@ -109,6 +109,9 @@ export async function POST(request: Request) {
     }
 
     // ADMIN EMAIL (reuse GroupRequestTemplate)
+    if (!resend) {
+      return NextResponse.json({ error: 'Email service non configuré' }, { status: 500 })
+    }
     const { error } = await resend.emails.send({
       from: EMAIL_FROM,
       to: [ADMIN_EMAIL || 'votre-email-admin@example.com'],
@@ -151,7 +154,7 @@ export async function POST(request: Request) {
         it: `Ciao ${firstName},\n\nAbbiamo ricevuto la tua richiesta di privatizzazione${date ? ` per ${date}` : ''}${typeof people === 'number' ? ` per ${people} persone` : ''}. Ti ricontatteremo a breve.\n\n— Team Sweet Narcisse`
       } as const
 
-      await resend.emails.send({
+      if (resend) await resend.emails.send({
         from: EMAIL_FROM,
         to: [email],
         subject: subjects[userLang],

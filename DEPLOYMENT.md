@@ -27,9 +27,21 @@ sudo systemctl enable --now docker
 sudo mkdir -p /opt/sweetnarcisse
 sudo chown $USER: /opt/sweetnarcisse
 git clone https://github.com/kalicatt/SweetNarcisse-demo.git /opt/sweetnarcisse
-cd /opt/sweetnarcisse
-```
+# Deployment
 
+This document describes production deployment options for the Sweet Narcisse app, including a simple image transfer flow using Docker and an optional container registry workflow. It also covers environment variables and service management.
+
+## Prerequisites
+- A VPS or server with Docker installed and running.
+- Ports open for HTTP/HTTPS (e.g., `3000` or via reverse proxy like Nginx).
+- Environment variables set appropriately (see below).
+
+## Build Locally and Transfer via Tar
+This approach avoids registry setup and works well for quick deployments.
+
+1) Build and save the image locally
+
+```powershell
 ## 4. Generate Environment File
 Option A (bash on Linux):
 ```bash
@@ -38,12 +50,20 @@ cd scripts
 ```
 Option B (Windows prep locally): run `configure-env.ps1` then upload `.env.production.local`.
 
+
+2) Copy to VPS and load
+
+```bash
 Add Stripe webhook secret (if not prompted) by editing `.env.production.local` and appending:
 ```
 STRIPE_WEBHOOK_SECRET=whsec_xxx
 ```
 
 Ensure these exist:
+
+3) Run the container on VPS
+
+```bash
 ```
 NEXTAUTH_URL=https://yourdomain
 NEXT_PUBLIC_STRIPE_KEY=pk_live_...
@@ -58,14 +78,41 @@ PAYPAL_MODE=live   # or sandbox
 Edit `nginx/nginx.conf` replacing all placeholder `DOMAIN` with your real domain. Example search/replace:
 ```bash
 sed -i "s/DOMAIN/sweet-narcisse.fr/g" nginx/nginx.conf
+
+## Using a Container Registry (Optional)
+If you prefer pulling directly on the VPS:
+
+```powershell
 ```
 
 ## 6. First Startup (HTTP Only + ACME Webroot)
+```bash
+
 ```bash
 docker compose pull
 docker compose up -d
 ```
 Verify site (HTTP): `curl -I http://yourdomain` → 200.
+
+## Environment Variables
+- `NODE_ENV`: should be `production`.
+- `NEXT_TELEMETRY_DISABLED`: set to `1` to disable Next.js telemetry.
+- `NEXTAUTH_SECRET`: required by NextAuth; use a strong secret.
+- `EMAIL_SENDER`: default sender address for emails.
+- `ADMIN_EMAIL`: admin notification address for contact forms.
+- `RESEND_API_KEY`: set if you use Resend for emails. If not set, the app gracefully falls back or returns a configured error on specific routes.
+- `RECAPTCHA_SECRET_KEY`: for server-side captcha verification.
+- Any business-specific variables (see `config/business.json`).
+
+## Notes on the Build
+- The Dockerfile uses Node 22 (Debian bookworm) for compatibility with Prisma’s OpenSSL requirements and react-email packages.
+- NPM postinstall scripts (e.g., Prisma generate) are ignored in the final runtime install step to avoid needing build-time binaries. Prisma client is generated during the builder stage.
+- The container uses `next start` with the production build.
+
+## Reverse Proxy (Optional)
+If you use Nginx to terminate TLS and proxy to the app:
+
+```nginx
 
 ## 7. Issue TLS Certificates
 ```bash
@@ -79,6 +126,15 @@ docker compose exec nginx nginx -s reload
 ```
 
 ## 8. Database Initialization
+
+## Systemd Service (Optional)
+You can wrap `docker run` via a systemd unit or use Docker Compose if preferred. A sample unit file exists under `systemd/`.
+
+## Troubleshooting
+- If Prisma complains about OpenSSL on Alpine, use Debian-based images (already handled in Dockerfile).
+- Missing `RESEND_API_KEY` now yields controlled behavior in contact routes; set the key to enable email sending.
+- If Next.js tries to install TypeScript automatically, ensure `typescript` and `@types/node` are present in `devDependencies` locally or rely on the Docker multi-stage build where these are not needed at runtime.
+
 ```bash
 docker compose exec app npx prisma migrate deploy
 docker compose exec app npx prisma db seed || true
