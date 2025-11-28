@@ -397,10 +397,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   }
 
     return (
-        <div className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+        <div className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col-reverse md:flex-row min-h-[600px]">
         
         {/* === COLONNE GAUCHE : RÉCAPITULATIF === */}
-        <div className="bg-[#0f172a] p-8 text-white md:w-1/3 flex flex-col relative transition-all duration-500">
+        <div className="bg-[#0f172a] p-8 text-white md:w-1/3 flex flex-col relative transition-all duration-500 order-2 md:order-1">
             <h3 className="text-2xl font-serif text-[#eab308] mb-6">
                 {getMainTitle()}
             </h3>
@@ -459,7 +459,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         </div>
 
         {/* === COLONNE DROITE === */}
-        <div className="p-8 md:w-2/3 bg-slate-50 relative flex flex-col">
+        <div className="p-8 md:w-2/3 bg-slate-50 relative flex flex-col order-1 md:order-2">
             {globalErrors.length > 0 && (
                 <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded" role="alert" aria-live="polite">
                     <ul className="list-disc pl-4">
