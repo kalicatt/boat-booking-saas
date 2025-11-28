@@ -14,8 +14,8 @@ export interface ReviewExcerpt {
 }
 
 export const AGGREGATE_RATING = {
-  ratingValue: 4.9,
-  reviewCount: 340, // manual sync with TripAdvisor listing
+  ratingValue: 4.3,
+  reviewCount: 327, // manual sync with TripAdvisor listing
   bestRating: 5,
   worstRating: 1
 }
@@ -55,6 +55,69 @@ export const REVIEWS: ReviewExcerpt[] = [
     excerpt: 'Silence, beauté, histoire – un vrai moment suspendu.',
     rating: 5,
     date: '2025-04-11',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-5',
+    author: 'RL',
+    language: 'fr',
+    excerpt: 'Guides passionnants, anecdotes et humour tout le long.',
+    rating: 5,
+    date: '2025-07-11',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-6',
+    author: 'CBMAL',
+    language: 'fr',
+    excerpt: 'Magnifique balade depuis l\'eau, on en voudrait encore.',
+    rating: 5,
+    date: '2025-06-08',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-7',
+    author: 'Emma',
+    language: 'en',
+    excerpt: 'Family favourite: calm ride, heartfelt stories from the skipper.',
+    rating: 5,
+    date: '2025-05-30',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-8',
+    author: 'Michael',
+    language: 'en',
+    excerpt: 'Beautiful scenery, would love a longer cruise next time.',
+    rating: 4,
+    date: '2025-05-18',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-9',
+    author: 'Claire',
+    language: 'fr',
+    excerpt: 'Une parenthèse douce, un peu courte mais tellement agréable.',
+    rating: 4,
+    date: '2025-04-28',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-10',
+    author: 'Lukas',
+    language: 'de',
+    excerpt: 'Ruhige Bootsfahrt, kompetente Guides, gut zum Entspannen.',
+    rating: 4,
+    date: '2025-04-05',
+    sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
+  },
+  {
+    id: 'tp-11',
+    author: 'Miriam',
+    language: 'de',
+    excerpt: 'Charmante Tour, viel Geschichte und tolle Perspektiven.',
+    rating: 5,
+    date: '2025-03-14',
     sourceUrl: 'https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197'
   }
 ]

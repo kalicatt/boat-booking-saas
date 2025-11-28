@@ -1,4 +1,5 @@
 "use client"
+import Image from 'next/image'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { pickFeatured, AGGREGATE_RATING, REVIEWS, ReviewExcerpt } from '@/lib/reviews'
 
@@ -28,7 +29,7 @@ interface Props {
 }
 
 export default function TripReviews({ dict, lang }: Props) {
-  const [reviews, setReviews] = useState(() => pickFeatured(3))
+  const [reviews, setReviews] = useState(() => pickFeatured(6))
   const [aggregate, setAggregate] = useState(AGGREGATE_RATING)
   const viewportRef = useRef<HTMLDivElement|null>(null)
   const [index, setIndex] = useState(0)
@@ -43,9 +44,9 @@ export default function TripReviews({ dict, lang }: Props) {
     const others = reviews.filter(r => r.language !== preferredLang)
     return [...matches, ...others]
   }, [reviews, preferredLang])
-  const visible = localized.slice(0, 3)
+  const visible = localized.slice(0, Math.min(6, localized.length))
   const angleStep = visible.length ? 360 / visible.length : 0
-  const radius = 420
+  const radius = 320 + visible.length * 35
 
   // Optional rotation each mount (could be improved later)
   useEffect(() => {
@@ -106,11 +107,11 @@ export default function TripReviews({ dict, lang }: Props) {
               const isFront = distance === 0
               const isSide = distance === 1 || distance === visible.length - 1
               const opacity = isFront ? 1 : isSide ? 0.55 : 0.2
-              const boxShadow = isFront ? '0 20px 40px rgba(2,6,23,0.15)' : '0 12px 22px rgba(2,6,23,0.1)'
+              const boxShadow = isFront ? '0 14px 28px rgba(2,6,23,0.12)' : '0 8px 18px rgba(2,6,23,0.08)'
               return (
                 <article
                   key={r.id}
-                  className="sn-slide fade-in sn-card p-6 flex flex-col text-left absolute w-[65%] sm:w-[50%] md:w-[38%]"
+                  className="sn-slide fade-in sn-card p-5 flex flex-col text-left absolute w-[60%] sm:w-[46%] md:w-[34%]"
                   style={{
                     transformStyle: 'preserve-3d',
                     transform: `rotateY(${rotation}deg) translateZ(${radius}px)`,
@@ -153,6 +154,17 @@ export default function TripReviews({ dict, lang }: Props) {
         <p className="text-sm text-slate-600">{dict.social?.aggregatePrefix} <span className="font-semibold" itemProp="ratingValue">{aggregate.ratingValue}</span>/5 – <span itemProp="reviewCount">{aggregate.reviewCount}</span> {dict.social?.reviewsLabel}.</p>
         <meta itemProp="bestRating" content={String(aggregate.bestRating)} />
         <meta itemProp="worstRating" content={String(aggregate.worstRating)} />
+        <div className="flex items-center justify-center gap-4 mt-5">
+          <Image
+            src="/images/tripadvisor.png"
+            alt="Badge Tripadvisor Travellers' Choice 2025"
+            width={110}
+            height={110}
+          />
+          <span className="text-xs text-slate-500 max-w-[220px] text-left">
+            Tripadvisor Travellers&rsquo; Choice 2025
+          </span>
+        </div>
         <a href="https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197" target="_blank" rel="noopener noreferrer" className="sn-btn-primary rounded-full inline-block mt-4">{dict.social?.cta}</a>
       </div>
     </div>

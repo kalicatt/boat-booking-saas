@@ -82,7 +82,7 @@ a:hover { text-decoration: none; }
 .section-top-blend::before { content:""; position:absolute; left:0; right:0; top:0; height:28px; pointer-events:none; background: linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0)); }
 
 /* Dark variant: blend from the same dark color used below */
-.section-top-blend.section-top-blend-dark::before { background: linear-gradient(to bottom, #0d1b2a, rgba(13,27,42,0)); }
+.section-top-blend.section-top-blend-dark::before { background: linear-gradient(to bottom, rgba(248,250,252,0.9), rgba(13,27,42,0)); }
 
 /* Smooth focus outlines for accessibility */
 *:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }

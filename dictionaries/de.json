@@ -12,7 +12,13 @@
   "presentation": {
     "title": "Das kleine elsässische Venedig, wie Sie es noch nie gesehen haben.",
     "text": "Lassen Sie sich vom Plätschern der Lauch wiegen. Unsere leidenschaftlichen Schiffer führen Sie durch die historischen Viertel der Gerber und Fischhändler. Genießen Sie einen einzigartigen Blick auf die bunten Fachwerkhäuser, abseits der Massen.",
-    "points": ["Mehrsprachige Führer (FR, EN, DE)", "Traditionelle Flachbodenboote", "25-minütige Fahrt im Stadtzentrum"]
+    "points": [
+      "Mehrsprachige Guides (FR, EN, DE)",
+      "Traditionelle Flachbodenboote",
+      "25-minütige Fahrt im Stadtzentrum",
+      "Kinderwagen werden am Steg beaufsichtigt",
+      "Begleithunde sind an Bord willkommen"
+    ]
   },
   "bento": {
     "title": "Warum unsere Bootsfahrt wählen?",
@@ -40,6 +46,10 @@
   "booking": {
     "title": "Buchen Sie Ihre Fahrt",
     "subtitle": "Wählen Sie unten Ihr Zeitfenster. Zahlung vor Ort oder online.",
+    "extraInfo": [
+      "Kinderwagen können beaufsichtigt an unserem Steg abgestellt werden.",
+      "ℹ️ Begleithunde sind an Bord willkommen."
+    ],
     "widget": {
       "date": "DATUM",
       "passengers": "PASSAGIERE",

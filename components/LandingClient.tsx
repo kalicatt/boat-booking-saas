@@ -369,7 +369,16 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       </section>
 
       <div className="wave-divider" aria-hidden="true">
-        <svg viewBox="0 0 1440 100" preserveAspectRatio="none"><path fill="#0d1b2a" d="M0,100 L0,50 C160,20 320,20 480,40 C640,60 800,80 960,70 C1120,60 1280,30 1440,40 L1440,100 Z" /></svg>
+        <svg viewBox="0 0 1440 100" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="reservationWave" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="rgba(248,250,252,0.15)" />
+              <stop offset="65%" stopColor="rgba(248,250,252,0.65)" />
+              <stop offset="100%" stopColor="#ffffff" />
+            </linearGradient>
+          </defs>
+          <path fill="url(#reservationWave)" d="M0,100 L0,50 C160,20 320,20 480,40 C640,60 800,80 960,70 C1120,60 1280,30 1440,40 L1440,100 Z" />
+        </svg>
       </div>
       <section id="reservation" className="-mt-6 py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in section-top-blend section-top-blend-dark">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
