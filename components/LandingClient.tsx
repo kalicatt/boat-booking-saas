@@ -8,7 +8,22 @@ const ContactForms = dynamic(() => import('@/components/ContactForms'), { ssr: f
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'fr'|'de'|'es'|'it' }) {
+const LANGUAGE_OPTIONS = [
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'es', label: 'Español', flag: '🇪🇸' },
+  { code: 'it', label: 'Italiano', flag: '🇮🇹' }
+] as const
+
+type SupportedLang = (typeof LANGUAGE_OPTIONS)[number]['code']
+
+const FALLBACK_LANG: SupportedLang = 'en'
+
+const isSupportedLang = (value: string): value is SupportedLang =>
+  LANGUAGE_OPTIONS.some(option => option.code === value)
+
+export default function LandingClient({ dict, lang }: { dict: any, lang: SupportedLang }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -26,11 +41,12 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
   }
   const dropdownRef = useRef<HTMLDivElement|null>(null)
   const pathname = usePathname()
-  const routeLang = (pathname?.split('/')[1] || '') as 'en'|'fr'|'de'|'es'|'it'|''
-  const [currentLang, setCurrentLang] = useState<'en'|'fr'|'de'|'es'|'it'>((['en','fr','de','es','it'] as const).includes(lang) ? lang : 'en')
+  const routeLang = pathname?.split('/')[1] || ''
+  const [currentLang, setCurrentLang] = useState<SupportedLang>(isSupportedLang(lang) ? lang : FALLBACK_LANG)
   const [liveDict, setLiveDict] = useState(dict)
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
+  const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -153,9 +169,10 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
 
   // Sync currentLang with URL on client navigation
   useEffect(()=>{
-    const code = (['en','fr','de','es','it'] as const).includes(routeLang as any) ? (routeLang as any) : undefined
-    if (code && code !== currentLang) setCurrentLang(code)
-  }, [routeLang])
+    if (isSupportedLang(routeLang) && routeLang !== currentLang) {
+      setCurrentLang(routeLang)
+    }
+  }, [routeLang, currentLang])
 
   // Re-fetch dictionary client-side when currentLang changes (soft navigation)
   useEffect(()=>{
@@ -215,17 +232,38 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
                 <li className="menu-link-animate" style={{ animationDelay: '160ms' }}>
                   <a onClick={closeMenu} href="#reservation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.book}</a>
                 </li>
-                <li className="pt-2 border-t border-slate-200 menu-link-animate" style={{ animationDelay: '200ms' }}>
+                <li className="menu-link-animate border-t border-slate-200 mt-3 pt-3" style={{ animationDelay: '200ms' }}>
+                  <span className="block px-3 pb-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">{liveDict.footer.infos}</span>
+                  <div className="space-y-1">
+                    <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer.legal}</Link>
+                    <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer.cgv}</Link>
+                    <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer.privacy}</Link>
+                  </div>
+                </li>
+                <li className="pt-2 border-t border-slate-200 menu-link-animate" style={{ animationDelay: '320ms' }}>
                   <div ref={dropdownRef} className="relative">
                     <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="w-full text-left px-3 py-2 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-between text-xs font-bold">
-                      <span>{currentLang.toUpperCase()}</span>
+                      <span className="flex items-center gap-2">
+                        <span aria-hidden="true" className="text-base leading-none">{currentLangOption.flag}</span>
+                        <span>{currentLangOption.label}</span>
+                      </span>
                       <span className="text-[10px]">▾</span>
                     </button>
                     {langOpen && (
                       <ul role="listbox" className="mt-2 w-full bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
-                        {['fr','en','de','es','it'].map(code => (
-                          <li key={code}>
-                            <Link prefetch={false} href={`/${code}${currentSearch}${currentHash}`} role="option" aria-selected={currentLang===code} className={`block px-3 py-2 hover:bg-slate-50 ${currentLang===code? 'font-bold text-[#0f172a]' : 'text-slate-600'}`} onClick={()=>{setLangOpen(false); closeMenu()}}>{code.toUpperCase()}</Link>
+                        {LANGUAGE_OPTIONS.map(option => (
+                          <li key={option.code}>
+                            <Link
+                              prefetch={false}
+                              href={`/${option.code}${currentSearch}${currentHash}`}
+                              role="option"
+                              aria-selected={currentLang===option.code}
+                              className={`flex items-center gap-2 px-3 py-2 hover:bg-slate-50 ${currentLang===option.code ? 'font-bold text-[#0f172a]' : 'text-slate-600'}`}
+                              onClick={()=>{setLangOpen(false); closeMenu()}}
+                            >
+                              <span aria-hidden="true" className="text-base leading-none">{option.flag}</span>
+                              <span>{option.label}</span>
+                            </Link>
                           </li>
                         ))}
                       </ul>
@@ -422,6 +460,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
             <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.infos}</h5>
             <Link href={`/${currentLang}/legal`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer.legal}</Link>
             <Link href={`/${currentLang}/cgv`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer.cgv}</Link>
+            <Link href={`/${currentLang}/privacy`} className="block hover:text-[#0ea5e9] transition">{liveDict.footer.privacy}</Link>
           </div>
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.access_map}</h5>
