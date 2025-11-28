@@ -60,6 +60,41 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
     return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside); window.removeEventListener('hashchange', onHash) }
   },[])
 
+  // Smooth scroll to reservation with offset and focus (no instant jump)
+  useEffect(()=>{
+    const scrollToReservation = () => {
+      const target = document.getElementById('reservation')
+      if(!target) return
+      const headerOffset = scrolled ? 64 : 80
+      const y = target.getBoundingClientRect().top + window.pageYOffset - headerOffset - 8
+      window.scrollTo({ top: y, behavior: 'smooth' })
+      // Focus the date input after animation
+      setTimeout(()=>{
+        const dateInput = target.querySelector('input[type="date"]') as HTMLElement | null
+        dateInput?.focus()
+      }, 650)
+    }
+    // Intercept clicks on reservation anchors for smooth scroll
+    const anchors = Array.from(document.querySelectorAll('a[href="#reservation"]')) as HTMLAnchorElement[]
+    const onClick = (e: MouseEvent) => {
+      e.preventDefault()
+      scrollToReservation()
+    }
+    anchors.forEach(a => a.addEventListener('click', onClick))
+    // If page loaded with hash already
+    if(window.location.hash === '#reservation') {
+      // Delay to ensure layout rendered
+      setTimeout(scrollToReservation, 100)
+    }
+    // Listen to hashchange triggered by other means
+    const onHashSmooth = () => { if(window.location.hash === '#reservation') scrollToReservation() }
+    window.addEventListener('hashchange', onHashSmooth)
+    return ()=> {
+      anchors.forEach(a => a.removeEventListener('click', onClick))
+      window.removeEventListener('hashchange', onHashSmooth)
+    }
+  }, [scrolled])
+
   // Observe sections to highlight active link
   useEffect(()=>{
     const ids = ['presentation','reviews','reservation']
@@ -137,10 +172,10 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
       <nav className={`fixed w-full z-40 transition-all ${scrolled ? 'backdrop-blur-md bg-white/90 shadow-sm border-b border-slate-200 h-16' : 'bg-transparent h-20'} `}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <button ref={menuButtonRef} aria-label="Menu" onClick={()=>{ setMenuOpen(true); }} className="p-2 rounded-md border border-slate-300 bg-white hover:bg-slate-100 active:scale-95 transition flex flex-col justify-center gap-[5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
-              <span className="block w-5 h-0.5 bg-slate-700" />
-              <span className="block w-5 h-0.5 bg-slate-700" />
-              <span className="block w-5 h-0.5 bg-slate-700" />
+            <button ref={menuButtonRef} aria-label="Menu" onClick={()=>{ setMenuOpen(true); }} className="p-2 rounded-md bg-transparent hover:bg-white/10 active:scale-95 transition flex flex-col justify-center gap-[5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+              <span className={`block w-6 h-0.5 transition-colors ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+              <span className={`block w-6 h-0.5 transition-colors ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+              <span className={`block w-6 h-0.5 transition-colors ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
             </button>
             <Link
               href={`/${currentLang}`}
