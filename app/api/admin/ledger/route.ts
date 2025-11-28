@@ -7,8 +7,8 @@ import { sendAlert } from '@/lib/alerts'
 
 export async function GET() {
   const session = await auth()
-  const role = (session as any)?.user?.role
-  if (!session || role !== 'ADMIN') {
+  const role = ((session as any)?.user?.role || 'GUEST') as string
+  if (!session || !['ADMIN','SUPERADMIN','SUPER_ADMIN'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   try {
@@ -24,8 +24,8 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const session = await auth()
-  const role = (session as any)?.user?.role
-  if (!session || role !== 'ADMIN') {
+  const role = ((session as any)?.user?.role || 'GUEST') as string
+  if (!session || !['ADMIN','SUPERADMIN','SUPER_ADMIN'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   try {

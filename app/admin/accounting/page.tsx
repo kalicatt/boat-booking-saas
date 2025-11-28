@@ -10,8 +10,11 @@ export default function AccountingAdminPage(){
   const { data: ledger, mutate: mutateLedger } = useSWR('/api/admin/ledger', fetcher)
   const { data: cash, mutate: mutateCash } = useSWR('/api/admin/cash', fetcher)
   const { data: closures, mutate: mutateClosures } = useSWR('/api/admin/closures', fetcher)
-  const toArray = (x:any) => Array.isArray(x) ? x : (Array.isArray(x?.closures) ? x.closures : (Array.isArray(x?.data) ? x.data : []))
-  const closuresList = toArray(closures)
+    const toArray = (x:any) => Array.isArray(x) ? x : (Array.isArray(x?.items) ? x.items : (Array.isArray(x?.closures) ? x.closures : (Array.isArray(x?.data) ? x.data : [])))
+    const ledgerList = toArray(ledger)
+    const cashList = toArray(cash)
+    const closuresList = toArray(closures)
+    const isForbidden = (x:any) => !!x && !Array.isArray(x) && (x.status===403 || x.code===403 || x?.error==='Forbidden')
   const [openingFloatEuros, setOpeningFloatEuros] = useState('')
   const [closingCountEuros, setClosingCountEuros] = useState('')
   const [csvUrl, setCsvUrl] = useState<string|undefined>(undefined)
@@ -74,7 +77,8 @@ export default function AccountingAdminPage(){
           <div className="mt-3 text-sm">
             <div className="font-semibold">Sessions</div>
             <ul className="mt-2 space-y-1">
-              {(cash||[]).map((s:any)=> {
+              {cashList.map((s:any)=> {
+                              const latest = Array.isArray(cashList) ? cashList[0] : null
                 const expected = s.movements?.reduce((sum:number,m:any)=> sum + (m.amount||0), s.openingFloat||0) || (s.openingFloat||0)
                 const variance = typeof s.closingCount === 'number' ? (s.closingCount - expected) : null
                 return (
@@ -100,7 +104,10 @@ export default function AccountingAdminPage(){
           <table className="w-full text-sm">
             <thead><tr><th className="p-2">Date</th><th className="p-2">#Reçu</th><th className="p-2">Type</th><th className="p-2">Provider</th><th className="p-2">Method</th><th className="p-2">Montant</th><th className="p-2">Booking</th></tr></thead>
             <tbody>
-              {(ledger||[]).map((e:any)=> (
+          {isForbidden(ledger) && (
+            <div className="mb-2 text-sm text-red-600">Accès refusé (403). Veuillez vous authentifier en tant qu'admin.</div>
+          )}
+              {ledgerList.map((e:any)=> (
                 <tr key={e.id} className="border-t">
                   <td className="p-2">{format(new Date(e.occurredAt),'dd/MM HH:mm')}</td>
                   <td className="p-2">{e.receiptNo ? `${new Date(e.occurredAt).getUTCFullYear()}-${String(e.receiptNo).padStart(6,'0')}` : '—'}</td>
