@@ -34,7 +34,7 @@ export default function TripReviews({ dict, lang }: Props) {
     <div>
       <div className="grid gap-6 md:grid-cols-3">
         {reviews.map(r => (
-          <article key={r.id} className="fade-in bg-white rounded-xl shadow-sm p-6 border border-slate-100 flex flex-col" itemScope itemType="https://schema.org/Review">
+          <article key={r.id} className="fade-in sn-card p-6 flex flex-col" itemScope itemType="https://schema.org/Review">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-[#eab308]/20 flex items-center justify-center font-bold text-[#0f172a]"><span aria-hidden>{r.author[0]}</span></div>
               <span className="font-semibold" itemProp="author">{r.author}</span>
@@ -55,7 +55,7 @@ export default function TripReviews({ dict, lang }: Props) {
         <p className="text-sm text-slate-600">{dict.social?.aggregatePrefix} <span className="font-semibold" itemProp="ratingValue">{aggregate.ratingValue}</span>/5 – <span itemProp="reviewCount">{aggregate.reviewCount}</span> {dict.social?.reviewsLabel}.</p>
         <meta itemProp="bestRating" content={String(aggregate.bestRating)} />
         <meta itemProp="worstRating" content={String(aggregate.worstRating)} />
-        <a href="https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197" target="_blank" rel="noopener noreferrer" className="inline-block mt-4 text-[#0f172a] bg-[#eab308] px-6 py-3 rounded-full font-bold text-sm hover:bg-white transition shadow-md">{dict.social?.cta}</a>
+        <a href="https://www.tripadvisor.fr/Attraction_Review-g187073-d3404197" target="_blank" rel="noopener noreferrer" className="sn-btn-primary rounded-full inline-block mt-4">{dict.social?.cta}</a>
       </div>
     </div>
   )

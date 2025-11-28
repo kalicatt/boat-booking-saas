@@ -396,8 +396,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     return dict.booking?.widget?.summary_title_standard || dict.booking?.title
   }
 
-  return (
-    <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px] border border-slate-100">
+    return (
+        <div className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col md:flex-row min-h-[600px]">
         
         {/* === COLONNE GAUCHE : RÉCAPITULATIF === */}
         <div className="bg-[#0f172a] p-8 text-white md:w-1/3 flex flex-col relative transition-all duration-500">

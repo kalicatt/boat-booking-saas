@@ -171,7 +171,7 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
       <div className="text-center mb-8">
         <h3 className="text-3xl font-serif font-bold text-slate-800">{tr.heading}</h3>
       </div>
-      <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden">
+      <div className="sn-card overflow-hidden">
         <div className="flex" id={active==='group' ? 'contact-group' : 'contact-private'}>
           <button className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide ${active==='group' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`} onClick={()=>setActive('group')} type="button">{tr.groupTab}</button>
           <button className={`flex-1 py-3 text-sm font-bold uppercase tracking-wide ${active==='private' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'}`} onClick={()=>setActive('private')} type="button">{tr.privateTab}</button>
@@ -242,7 +242,7 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
             </div>
           )}
           <div className="md:col-span-2 flex items-center gap-3">
-            <button disabled={loading} className={`px-5 py-2 rounded font-bold text-sm ${loading ? 'bg-slate-300 text-slate-500' : 'bg-[#0f172a] text-[#eab308] hover:bg-black'} transition`}>{active==='group' ? tr.submitGroup : tr.submitPrivate}</button>
+            <button disabled={loading} className={`sn-btn-primary ${loading ? 'opacity-60 cursor-not-allowed' : ''}`}>{active==='group' ? tr.submitGroup : tr.submitPrivate}</button>
             {ok && <span className="text-green-600 font-bold text-sm">{tr.sentText}</span>}
             {error && <span className="text-red-600 font-bold text-sm">{error}</span>}
           </div>

@@ -78,7 +78,7 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                     )}
                 </div>
                 {localCanManage && (
-                    <button onClick={()=>setShowCreateModal(true)} className="bg-blue-600 text-white px-4 py-2 rounded shadow-sm">+ Nouveau collaborateur</button>
+                    <button onClick={()=>setShowCreateModal(true)} className="sn-btn-primary">+ Nouveau collaborateur</button>
                 )}
             </div>
 
@@ -92,7 +92,7 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
             />
 
             <div className="grid grid-cols-1 gap-8">
-                <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200">
+                <div className="sn-card overflow-hidden">
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 text-slate-500 font-bold border-b">
                             <tr>
@@ -136,13 +136,13 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                                                 <>
                                                     <button 
                                                         onClick={() => { setEditTarget(emp); setEditErrors([]); }}
-                                                        className="text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded font-bold text-xs border border-blue-200"
+                                                        className="text-blue-700 hover:text-blue-900 bg-blue-50 px-3 py-1 rounded font-bold text-xs border border-blue-200"
                                                     >
                                                         Modifier
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDelete(emp.id, emp.firstName)}
-                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded font-bold text-xs border border-red-200"
+                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded font-bold text-xs border border-red-200"
                                                     >
                                                     <EditEmployeeModal
                                                         open={!!editTarget}
@@ -233,7 +233,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, myRole, error
     }
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" role="dialog" aria-modal="true" aria-labelledby="edit-employee-title" ref={dialogRef}>
-            <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg border border-slate-200" role="document">
+            <div className="sn-card w-full max-w-3xl" role="document">
                 <div className="p-4 border-b flex justify-between items-center">
                     <h3 id="edit-employee-title" className="font-bold">Modifier collaborateur</h3>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800" aria-label="Fermer">✕</button>

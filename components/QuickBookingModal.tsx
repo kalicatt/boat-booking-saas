@@ -163,13 +163,13 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
     return (
         <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qb-title" ref={dialogRef}>
-            <div className="bg-white rounded-xl w-full max-w-md shadow-2xl overflow-hidden" role="document">
+            <div className="sn-card w-full max-w-md overflow-hidden" role="document">
                 {isLocked && (
                     <div className="bg-red-600 text-white text-center text-sm font-semibold py-1">Période verrouillée — modifications interdites</div>
                 )}
                 
                 {/* Header */}
-                <div className="bg-blue-900 p-4 flex justify-between items-center">
+                <div className="bg-[#0f172a] p-4 flex justify-between items-center">
                     <div>
                         <h3 id="qb-title" className="text-white font-bold text-lg">Ajout Rapide</h3>
                         {/* Affichage du nom du bateau ou d'un fallback */}
