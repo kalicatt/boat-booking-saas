@@ -674,12 +674,13 @@ export default function ClientPlanningPage() {
         </div>
       </div>
 
-      <div className={`flex-1 bg-white border rounded-xl shadow-sm p-4 ${compactZoom ? 'sn-compact' : ''}`}>
+      <div className={`flex-1 min-h-0 sn-card p-4 ${compactZoom ? 'sn-compact' : ''}`}>
         {!loadingBoats && resources.length === 0 ? (
           <div className="h-full flex items-center justify-center text-red-500 font-bold">
             ⚠️ Aucune barque trouvée. Relancez le seed.
           </div>
         ) : (
+          <div className="h-full">
           <Calendar
             localizer={localizer}
             events={events}
@@ -700,12 +701,13 @@ export default function ClientPlanningPage() {
             resourceTitleAccessor="title"
             step={5}
             timeslots={1}
-            min={new Date(0, 0, 0, 9, 0, 0)}
+            min={new Date(0, 0, 0, 10, 0, 0)}
             max={new Date(0, 0, 0, 18, 30, 0)}
             culture="fr"
             onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
             slotPropGetter={slotPropGetter}
             components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
+            style={{ height: '100%' }}
             eventPropGetter={(event: any) => {
               let style = {
                 color: 'white',
@@ -723,6 +725,7 @@ export default function ClientPlanningPage() {
               return { style }
             }}
           />
+          </div>
         )}
       </div>
 

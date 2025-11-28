@@ -6,6 +6,7 @@
   --background: #ffffff;
   --foreground: #171717;
 }
+/* Dark mode removed: keep light variables only */
 
 @theme inline {
   --color-background: var(--background);
@@ -14,17 +15,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b1220;
-    --foreground: #e5e7eb;
-    --color-deep: #0a1426;
-    --color-mid: #162642;
-    --color-water: #15324a;
-    --color-sand: #d9cfae;
-    --color-foam: #cfe7f5;
-  }
-}
+/* Dark mode removed */
+/* Dark mode removed */
 
 body {
   background: var(--background);
@@ -95,6 +87,8 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 .sn-card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow: 0 8px 24px rgba(13,27,42,0.08); }
 .sn-card-header { padding:16px 20px; border-bottom:1px solid #eef2f7; }
 .sn-card-body { padding:20px; }
+.sn-card h1, .sn-card h2, .sn-card h3 { color:#0f172a; }
+.sn-card p, .sn-card span, .sn-card li { color:#334155; }
 .sn-btn-primary { background:#0f172a; color:#eab308; border-radius:10px; padding:10px 18px; font-weight:700; transition:transform .08s ease, box-shadow .2s ease; }
 .sn-btn-primary:hover { background:#000; box-shadow:0 10px 24px rgba(13,27,42,0.25); }
 .sn-btn-primary:active { transform:translateY(1px); }
@@ -103,19 +97,12 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 .sn-hero h1 { font-size: clamp(2rem, 4vw, 3rem); }
 .sn-hero p { opacity:.9; }
 
-/* Dark mode variants */
-@media (prefers-color-scheme: dark) {
-  .sn-card { background:#0a1426; border-color:#1f2937; box-shadow: 0 8px 24px rgba(0,0,0,0.35); }
-  .sn-card-header { border-bottom-color:#1f2937; }
-  .sn-btn-primary { background:#0a1426; color:#eab308; }
-}
+/* Dark mode styles removed */
 
 /* Admin container utilities */
 .sn-admin { min-height:100vh; background: var(--background); color: var(--foreground); }
 .sn-admin-header { background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); border-bottom:1px solid #e5e7eb; position: sticky; top:0; z-index:40; }
-@media (prefers-color-scheme: dark) {
-  .sn-admin-header { background: rgba(10,20,38,0.7); border-bottom-color:#1f2937; }
-}
+/* Dark mode styles removed */
 
 /* Navbar underline micro-interaction */
 .nav-link { position: relative; }

@@ -89,7 +89,7 @@ export default function ClientTodayList() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8 sn-admin">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8 print:hidden">
           <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-4 inline-block">
@@ -161,9 +161,9 @@ export default function ClientTodayList() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow overflow-hidden border border-slate-200">
+        <div className="sn-card overflow-hidden">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b">
+            <thead className="bg-slate-50 text-slate-500 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
               <tr>
                 <th className="p-4">{viewMode === 'day' ? 'Heure' : 'Date & Heure'}</th>
                 <th className="p-4">Barque</th>
@@ -173,7 +173,7 @@ export default function ClientTodayList() {
                 <th className="p-4 text-right">Statut</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="p-8 text-center">
@@ -194,13 +194,13 @@ export default function ClientTodayList() {
                   return (
                     <>
                       {showDateSeparator && (
-                        <tr className="bg-slate-100 border-y border-slate-200">
+                        <tr className="bg-slate-100 border-y border-slate-200 dark:bg-slate-800 dark:border-slate-700">
                           <td colSpan={6} className="px-4 py-2 font-bold text-slate-600 uppercase text-xs">
                             {format(new Date(b.startTime), 'EEEE d MMMM', { locale: fr })}
                           </td>
                         </tr>
                       )}
-                      <tr key={b.id} className="hover:bg-slate-50 transition">
+                      <tr key={b.id} className="hover:bg-slate-50 transition dark:hover:bg-slate-800">
                         <td className="p-4 font-bold text-blue-900 text-lg">
                           {(() => {
                             const d = new Date(b.startTime)

@@ -20,6 +20,7 @@ export default function AdminLayout({
             <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-8 w-auto rounded-sm shadow-sm" />
             <span className="font-serif font-bold">Admin</span>
           </a>
+          {/* Dark mode removed */}
         </div>
       </header>
       <main className="flex-1 px-4 py-4">

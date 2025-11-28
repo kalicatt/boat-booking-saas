@@ -17,7 +17,7 @@ export default async function LangLayout({
   await params; 
 
   return (
-    // Conteneur minimal: délègue header/footer au contenu de page
+    // Conteneur vitrine en mode clair uniquement
     <div className="antialiased bg-slate-50 text-slate-900 min-h-screen">
       {children}
     </div>

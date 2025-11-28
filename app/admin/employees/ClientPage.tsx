@@ -94,21 +94,21 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
             <div className="grid grid-cols-1 gap-8">
                 <div className="sn-card overflow-hidden">
                     <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-500 font-bold border-b">
+                        <thead className="bg-slate-50 text-slate-500 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                             <tr>
                                 <th className="p-4">Identité</th>
                                 <th className="p-4">Contact</th>
                                 <th className="p-4 text-right">Action</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                             {loading ? (
                                 <tr><td colSpan={3} className="p-8 text-center">Chargement...</td></tr>
                             ) : employees.length === 0 ? (
                                 <tr><td colSpan={3} className="p-8 text-center">Aucun collaborateur.</td></tr>
                             ) : (
                                 employees.map((emp) => (
-                                    <tr key={emp.id} className="transition hover:bg-slate-50">
+                                    <tr key={emp.id} className="transition hover:bg-slate-50 dark:hover:bg-slate-800">
                                         <td className="p-4 align-top">
                                             <div className="font-bold text-slate-800 text-lg">
                                                 {emp.firstName} {emp.lastName}

@@ -1,6 +1,6 @@
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
-import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES } from '@/lib/config'
+import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES, BOAT_DEPARTURE_OFFSETS_MINUTES } from '@/lib/config'
 import { areIntervalsOverlapping as overlap } from 'date-fns'
 
 interface AvailabilityParams {
@@ -43,6 +43,9 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
 
   const availableSlots: string[] = []
 
+  const cycleMinutes = TOUR_DURATION_MINUTES + TOUR_BUFFER_MINUTES // 30
+  const activeOffsets = BOAT_DEPARTURE_OFFSETS_MINUTES.slice(0, Math.max(1, Math.min(boats.length, BOAT_DEPARTURE_OFFSETS_MINUTES.length)))
+
   for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += DEPARTURE_INTERVAL_MINUTES) {
     const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
     const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
@@ -50,9 +53,11 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
 
     if (dateParam === todayLocalISO && minutesTotal <= nowLocalMinutes + 5) continue
 
-    const slotsElapsed = (minutesTotal - startTimeInMinutes) / DEPARTURE_INTERVAL_MINUTES
-    const boatIndex = Math.floor(slotsElapsed) % boats.length
-    const assignedBoat = boats[boatIndex]
+    const withinCycle = ((minutesTotal - startTimeInMinutes) % cycleMinutes + cycleMinutes) % cycleMinutes
+    const offsetIndex = activeOffsets.findIndex(off => withinCycle === off)
+    if (offsetIndex === -1) continue // only generate slots exactly at configured offsets
+
+    const assignedBoat = boats[offsetIndex]
     if (!assignedBoat) continue
 
     const hh = String(Math.floor(minutesTotal / 60)).padStart(2, '0')

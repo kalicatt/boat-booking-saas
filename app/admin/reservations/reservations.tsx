@@ -81,10 +81,10 @@ export default function ReservationsAdminPage(){
   const bookings = Array.isArray(data) ? data : []
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 sn-admin">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tuile – Liste des réservations</h1>
-        <button className="border rounded px-3 py-2 bg-blue-600 text-white hover:bg-blue-700" onClick={()=>setShowCreate(true)}>+ Créer</button>
+        <button className="sn-btn-primary" onClick={()=>setShowCreate(true)}>+ Créer</button>
       </div>
       <div className="text-xs text-slate-600">
         Astuces:
@@ -93,7 +93,7 @@ export default function ReservationsAdminPage(){
         <span className="ml-2">• Utilisez « Privatisation » pour fermer entièrement la capacité d’un créneau.</span>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white p-4 flex flex-wrap gap-3 items-end">
+      <div className="sn-card p-4 flex flex-wrap gap-3 items-end">
         <select value={range} onChange={e=>setRange(e.target.value as any)} className="border rounded px-2 py-1">
           <option value="day">Jour</option>
           <option value="month">Mois</option>
@@ -122,7 +122,7 @@ export default function ReservationsAdminPage(){
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 overflow-auto rounded-xl border border-slate-200 bg-white">
+        <div className="lg:col-span-2 overflow-auto sn-card">
           {isLoading && (
             <div className="p-4 text-sm text-slate-500">Chargement des réservations…</div>
           )}
@@ -160,8 +160,8 @@ export default function ReservationsAdminPage(){
             }}>Exporter CSV</button>
           </div>
           <table className="min-w-full text-sm">
-          <thead>
-            <tr className="text-left border-b">
+          <thead className="dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+            <tr className="text-left border-b dark:border-slate-700">
               <th className="p-3">Date</th>
               <th className="p-3">Heure</th>
               <th className="p-3">Client</th>
@@ -171,9 +171,9 @@ export default function ReservationsAdminPage(){
               <th className="p-3">Statut Paiement</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="dark:divide-slate-700">
             {bookings.map((b:any)=>(
-              <tr key={b.id} className={`border-b hover:bg-slate-50 ${selectedId===b.id?'bg-yellow-50':''}`} onClick={()=>setSelectedId(b.id)}>
+              <tr key={b.id} className={`border-b hover:bg-slate-50 ${selectedId===b.id?'bg-yellow-50':''} dark:hover:bg-slate-800 dark:border-slate-700`} onClick={()=>setSelectedId(b.id)}>
                 <td className="p-3">{format(toWall(new Date(b.startTime)),'dd/MM/yyyy')}</td>
                 <td className="p-3">{format(toWall(new Date(b.startTime)),'HH:mm')}</td>
                 <td className="p-3">{b.user?.firstName} {b.user?.lastName}</td>
@@ -196,7 +196,7 @@ export default function ReservationsAdminPage(){
           )}
         </div>
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="sn-card p-4">
             <div className="text-sm font-semibold mb-2">Chaîne (prévisualisation)</div>
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <input type="number" min={0} value={groupChain} onChange={e=>setGroupChain(parseInt(e.target.value||'0',10))} placeholder="Taille du groupe" className="border rounded px-2 py-1 w-44" />
@@ -206,7 +206,7 @@ export default function ReservationsAdminPage(){
                 const baseDate = baseBooking ? new Date(baseBooking.startTime) : new Date(date)
                 // Use selected base time (HH:mm) always for preview
                 const [hh, mm] = chainBaseTime.split(':').map(n=>parseInt(n,10))
-                baseDate.setHours(hh||9, mm||0, 0, 0)
+                baseDate.setHours(hh||10, mm||0, 0, 0)
                 const capacity = 12
                 const INTERVAL_MIN = 30
                 const DURATION_MIN = 90
@@ -239,7 +239,7 @@ export default function ReservationsAdminPage(){
               </ul>
             )}
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
+          <div className="sn-card p-4">
             <div className="text-sm font-semibold mb-2">Options de chaîne</div>
             <label className="flex items-start gap-2 text-sm">
               <input type="checkbox" checked={inheritPaymentForChain} onChange={e=>setInheritPaymentForChain(e.target.checked)} />
@@ -257,7 +257,7 @@ export default function ReservationsAdminPage(){
                   const base = bookings.find((b:any)=>b.id===selectedId)
                   const baseRef = base ? new Date(base.startTime) : new Date(date)
                   const [hh, mm] = chainBaseTime.split(':').map(n=>parseInt(n,10))
-                  baseRef.setHours(hh||9, mm||0, 0, 0)
+                  baseRef.setHours(hh||10, mm||0, 0, 0)
                   const body = {
                     date: format(baseRef,'yyyy-MM-dd'),
                     time: format(baseRef,'HH:mm'),
@@ -304,7 +304,7 @@ export default function ReservationsAdminPage(){
 
       {showCreate && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={()=>setShowCreate(false)}>
-          <div className="bg-white rounded shadow p-4 w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+          <div className="sn-card w-full max-w-xl" onClick={e=>e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <div className="font-semibold">Créer une réservation</div>
               <button onClick={()=>setShowCreate(false)}>✕</button>
@@ -370,7 +370,7 @@ export default function ReservationsAdminPage(){
                       ))}
                     </select>
                   </div>
-                  <button className="border rounded px-3 py-1 bg-blue-600 text-white disabled:opacity-50" disabled={contactConverting || !selectedContactId} onClick={async ()=>{
+                  <button className="sn-btn-primary disabled:opacity-50" disabled={contactConverting || !selectedContactId} onClick={async ()=>{
                     setContactConverting(true)
                     try {
                       const r = await fetch('/api/admin/contacts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ id: selectedContactId, kind: 'group' }) })
@@ -387,7 +387,7 @@ export default function ReservationsAdminPage(){
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button className="border rounded px-3 py-1" onClick={()=>setShowCreate(false)}>Annuler</button>
-              <button className="border rounded px-3 py-1 bg-blue-600 text-white disabled:opacity-50" disabled={creating} onClick={async ()=>{
+              <button className="sn-btn-primary disabled:opacity-50" disabled={creating} onClick={async ()=>{
                 setCreating(true)
                 const baseBody = {
                   date: form.date,
@@ -436,7 +436,7 @@ export default function ReservationsAdminPage(){
 
       {showView && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={()=>setShowView(null)}>
-          <div className="bg-white rounded shadow p-4 w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+          <div className="sn-card w-full max-w-xl" onClick={e=>e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <div className="font-semibold">Détails réservation</div>
               <button onClick={()=>setShowView(null)}>✕</button>
@@ -449,7 +449,7 @@ export default function ReservationsAdminPage(){
               <div>Paiement: {(showView.payments?.[0]?.provider || '—')}{showView.payments?.[0]?.methodType ? ` (${showView.payments[0].methodType})` : ''}</div>
               <div>Statut paiement: {showView.payments?.[0]?.status || '—'}</div>
               <div className="mt-3 flex gap-2">
-                <button className="border rounded px-3 py-1 bg-blue-600 text-white" onClick={()=> setViewMarkPaid({ provider: '', methodType: undefined })}>Marquer Payé</button>
+                <button className="sn-btn-primary" onClick={()=> setViewMarkPaid({ provider: '', methodType: undefined })}>Marquer Payé</button>
                 {viewMarkPaid && (
                   <div className="mt-2 p-2 border rounded bg-slate-50 w-full">
                     <div className="text-xs mb-1">Sélectionnez le moyen de paiement</div>
@@ -491,7 +491,7 @@ export default function ReservationsAdminPage(){
 
       {showEdit && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={()=>setShowEdit(null)}>
-          <div className="bg-white rounded shadow p-4 w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+          <div className="sn-card w-full max-w-xl" onClick={e=>e.stopPropagation()}>
             <div className="flex justify-between items-center mb-3">
               <div className="font-semibold">Modifier réservation</div>
               <button onClick={()=>setShowEdit(null)}>✕</button>

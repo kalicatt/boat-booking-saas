@@ -247,7 +247,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 print:bg-white print:p-0">
+    <div className="min-h-screen bg-slate-50 p-8 print:bg-white print:p-0 sn-admin">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8 print:hidden">
           <div>
@@ -272,7 +272,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 print:block">
           <div className="lg:col-span-1 print:hidden">
-            <div className="bg-white p-6 rounded-xl shadow-md border border-slate-200 sticky top-8">
+            <div className="sn-card sticky top-8">
               <h3 className="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Saisir une journée</h3>
               {!canManage && (
                 <div className="mb-4 text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded p-3">
@@ -364,7 +364,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                 <button
                   type="submit"
                   disabled={!canManage}
-                  className="w-full bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-sm"
+                  className="sn-btn-primary w-full disabled:bg-slate-300 disabled:cursor-not-allowed"
                 >
                   Enregistrer le pointage
                 </button>
@@ -373,7 +373,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
           </div>
 
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-xl shadow-md overflow-hidden border border-slate-200 print:shadow-none print:border-none">
+            <div className="sn-card overflow-hidden print:shadow-none print:border-none">
               <div className="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center print:bg-white print:border-black">
                 <h3 className="font-bold text-slate-700 text-lg">Rapport d'Heures - {currentMonth}</h3>
                 <div className="flex gap-2">
@@ -421,7 +421,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
 
                       {openUsers[row.user.id] && (
                         <table className="w-full text-sm text-left">
-                          <thead className="bg-slate-50 text-slate-500 font-normal text-xs uppercase border-b">
+                          <thead className="bg-slate-50 text-slate-500 font-normal text-xs uppercase border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
                             <tr>
                               <th className="p-2 pl-4">Date</th>
                               <th className="p-2">Horaires</th>
@@ -432,7 +432,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                               )}
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                             {row.details.length === 0 ? (
                               <tr>
                                 <td colSpan={4} className="p-4 text-center text-slate-400 italic">

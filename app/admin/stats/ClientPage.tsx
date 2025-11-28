@@ -67,7 +67,7 @@ export default function ClientStatsPage() {
     new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(val)
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8 sn-admin">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
           <div>
@@ -77,7 +77,7 @@ export default function ClientStatsPage() {
             <h1 className="text-3xl font-bold text-slate-800">Statistiques & Performances 📊</h1>
           </div>
 
-        <div className="bg-white p-1 rounded-lg shadow-sm border border-slate-200 flex">
+        <div className="sn-card p-1 flex">
           <button
             onClick={() => setRange("day")}
             className={`px-4 py-2 text-sm font-bold rounded-md transition ${
@@ -145,7 +145,7 @@ export default function ClientStatsPage() {
 
         {/* Custom date range form */}
         {range === 'custom' && (
-          <div className="mb-4 bg-white p-4 border rounded shadow-sm flex items-end gap-4">
+          <div className="mb-4 sn-card p-4 flex items-end gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-500 mb-1">Début</label>
               <input type="date" value={customStart} onChange={(e)=> setCustomStart(e.target.value)} className="border p-2 rounded" />
@@ -154,7 +154,7 @@ export default function ClientStatsPage() {
               <label className="block text-xs font-bold text-slate-500 mb-1">Fin</label>
               <input type="date" value={customEnd} onChange={(e)=> setCustomEnd(e.target.value)} className="border p-2 rounded" />
             </div>
-            <button onClick={()=> fetchStats()} className="h-9 px-4 bg-blue-600 text-white rounded font-bold">Appliquer</button>
+            <button onClick={()=> fetchStats()} className="sn-btn-primary h-9 px-4">Appliquer</button>
           </div>
         )}
 
@@ -171,15 +171,15 @@ export default function ClientStatsPage() {
         ) : data ? (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-green-500">
+              <div className="sn-card p-6 border-l-4 border-green-500">
                 <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Chiffre d'Affaires</h3>
                 <p className="text-4xl font-bold text-slate-800 mt-2">{formatCurrency(data.revenue || 0)}</p>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+              <div className="sn-card p-6 border-l-4 border-blue-500">
                 <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Passagers Totaux</h3>
                 <p className="text-4xl font-bold text-slate-800 mt-2">{data.passengers || 0}</p>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-purple-500">
+              <div className="sn-card p-6 border-l-4 border-purple-500">
                 <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Réservations</h3>
                 <p className="text-4xl font-bold text-slate-800 mt-2">{data.bookingsCount || 0}</p>
               </div>
@@ -187,7 +187,7 @@ export default function ClientStatsPage() {
 
             {/* Breakdown by payment method */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+              <div className="sn-card p-6 border border-slate-100">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Caisse par mode de paiement</h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <BreakdownRow label="Espèces" value={formatCurrency((data.paymentBreakdown?.cash)||0)} />
@@ -200,7 +200,7 @@ export default function ClientStatsPage() {
                   Note: ANCV et City Pass ne sont pas inclus dans la caisse.
                 </div>
               </div>
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+              <div className="sn-card p-6 border border-slate-100">
                 <h3 className="text-lg font-bold text-slate-800 mb-1">Vouchers (hors caisse)</h3>
                 <div className="text-xs text-slate-500 mb-5">Comptés en nombre, pas en €</div>
                 <div className="grid grid-cols-2 gap-3 text-sm">
@@ -219,7 +219,7 @@ export default function ClientStatsPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+              <div className="sn-card p-6 border border-slate-100">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Langues demandées 🌍</h3>
                 <div className="space-y-4">
                   {(data.byLanguage || []).map((l: any) => {
@@ -250,7 +250,7 @@ export default function ClientStatsPage() {
                 </div>
               </div>
 
-              <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+              <div className="sn-card p-6 border border-slate-100">
                 <h3 className="text-lg font-bold text-slate-800 mb-6">Par statut</h3>
                 <Bar data={toBarData(data.statusDist || {})} />
               </div>
@@ -287,7 +287,7 @@ function Section({ title, children }: any) {
   return (
     <div className="mt-6">
       <h3 className="text-sm font-bold text-slate-600 mb-2">{title}</h3>
-      <div className="p-4 bg-white border rounded">{children}</div>
+      <div className="p-4 sn-card">{children}</div>
     </div>
   )
 }
@@ -364,7 +364,7 @@ function AccountingTable({ items, formatCurrency }: { items: Array<{ bookingId: 
   return (
     <div className="overflow-auto">
       <table className="w-full text-sm">
-        <thead className="bg-slate-50 text-slate-600 font-bold border-b">
+        <thead className="bg-slate-50 text-slate-600 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
           <tr>
             <th className="p-2 text-left">Booking</th>
             <th className="p-2 text-left">Bateau</th>
@@ -376,7 +376,7 @@ function AccountingTable({ items, formatCurrency }: { items: Array<{ bookingId: 
             <th className="p-2 text-left">Mode</th>
           </tr>
         </thead>
-        <tbody className="divide-y">
+        <tbody className="divide-y dark:divide-slate-700">
           {(() => {
             const rows: React.ReactElement[] = []
             let currentDate = ''
@@ -427,7 +427,7 @@ function AccountingTable({ items, formatCurrency }: { items: Array<{ bookingId: 
           })()}
         </tbody>
         <tfoot>
-          <tr className="border-t font-bold bg-slate-50">
+          <tr className="border-t font-bold bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
             <td className="p-2">TOTAL</td>
             <td className="p-2"></td>
             <td className="p-2"></td>

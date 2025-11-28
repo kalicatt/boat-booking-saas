@@ -24,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${display.variable} ${inter.variable}`}>
       <body className="font-[var(--font-body)]">
+        {/* Dark mode removed */}
         {children}
       </body>
     </html>

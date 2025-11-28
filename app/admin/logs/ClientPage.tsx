@@ -35,7 +35,7 @@ export default function ClientLogsPage() {
   })
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen bg-slate-50 p-8 sn-admin">
       <div className="max-w-5xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
@@ -50,7 +50,7 @@ export default function ClientLogsPage() {
           </button>
         </div>
 
-        <div className="bg-white rounded-xl shadow overflow-hidden border border-slate-200">
+        <div className="sn-card overflow-hidden">
           <div className="p-4 flex gap-3 items-end border-b bg-slate-50">
             <div>
               <label className="block text-xs text-slate-500">Action contient</label>
@@ -87,7 +87,7 @@ export default function ClientLogsPage() {
             </button>
           </div>
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b">
+            <thead className="bg-slate-50 text-slate-500 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
               <tr>
                 <th className="p-4">Date & Heure</th>
                 <th className="p-4">Utilisateur</th>
@@ -95,7 +95,7 @@ export default function ClientLogsPage() {
                 <th className="p-4">Détails</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {loading ? (
                 <tr>
                   <td colSpan={4} className="p-8 text-center">
@@ -110,7 +110,7 @@ export default function ClientLogsPage() {
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50">
+                  <tr key={log.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
                     <td className="p-4 text-slate-500 font-mono text-xs">
                       {(() => {
                         const d = new Date(log.createdAt)
