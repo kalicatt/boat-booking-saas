@@ -688,13 +688,17 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             </div>
                         )}
 
-                        <div className="bg-slate-100 p-4 rounded-xl flex justify-center">
-                             <ReCAPTCHA
-                                ref={recaptchaRef}
-                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || ""}
-                                onChange={(token) => setCaptchaToken(token)}
-                            />
-                        </div>
+                                                <div className="bg-slate-100 p-4 rounded-xl flex justify-center">
+                                                        {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
+                                                            <ReCAPTCHA
+                                                                ref={recaptchaRef}
+                                                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                                                                onChange={(token) => setCaptchaToken(token)}
+                                                            />
+                                                        ) : (
+                                                            <div className="text-xs text-slate-500">reCAPTCHA non configuré</div>
+                                                        )}
+                                                </div>
 
                                                 {/* Paiement (Stripe Payment Element placeholder) */}
                                                 {step === STEPS.CONTACT && (
