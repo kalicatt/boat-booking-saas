@@ -1,7 +1,7 @@
 {
   "nav": {"experience": "LA EXPERIENCIA", "contact": "CONTACTO", "book": "RESERVAR 🎟️"},
   "hero": {"title": "Vive Colmar de otra manera", "subtitle": "Disfruta de un momento tranquilo sobre el agua, sin multitudes ni estrés – una pausa auténtica en el corazón de la Pequeña Venecia.", "cta": "RESERVAR MI PLAZA"},
-  "presentation": {"title": "La Venecia de Alsacia como nunca la has visto.", "text": "Déjate mecer por el murmullo del río Lauch. Nuestros barqueros apasionados te guiarán por los barrios históricos de curtidores y pescaderos. Una vista única de las casas entramadas y coloridas, lejos del bullicio.", "points": ["Guías multilingües (FR, EN, DE, ES)", "Barcas tradicionales de fondo plano", "Recorrido de 25 minutos en pleno centro"]},
+  "presentation": {"title": "La Pequeña Venecia de Alsacia como nunca la has visto.", "text": "Déjate mecer por el murmullo del río Lauch. Nuestros barqueros apasionados te guiarán por los barrios históricos de curtidores y pescaderos. Una vista única de las casas entramadas y coloridas, lejos del bullicio.", "points": ["Guías multilingües (FR, EN, DE, ES)", "Barcas tradicionales de fondo plano", "Recorrido de 25 minutos en pleno centro"]},
   "bento": {"title": "¿Por qué elegir nuestro paseo?", "subtitle": "Un formato pensado para maximizar tu placer y reducir fricciones.", "cards": [
     {"title": "⏱ Duración ideal", "text": "25 minutos: suficiente para desconectar, fácil de encajar."},
     {"title": "🌿 Bajo impacto", "text": "Navegación suave respetuosa con patrimonio y entorno."},
