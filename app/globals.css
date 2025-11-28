@@ -25,6 +25,10 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Normalize link appearance */
+a { text-decoration: none; color: inherit; }
+a:hover { text-decoration: none; }
+
 /* Nautical theme palette */
 :root {
   --color-deep: #0d1b2a; /* deep water/navy */

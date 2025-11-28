@@ -139,12 +139,11 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: 'en'|'f
         <div className="max-w-6xl mx-auto text-center mb-6 fade-in">
           <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{liveDict.logos?.title}</h3>
         </div>
-        <div className="max-w-5xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-6 opacity-70">
-          {[1,2,3,4,5,6].map(n => (
-            <div key={n} className="flex items-center justify-center h-16 grayscale hover:grayscale-0 transition">
-              <Image src={`/images/logo${n}.png`} alt={`Logo ${n}`} width={120} height={50} className="object-contain" />
-            </div>
-          ))}
+        <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-6 opacity-80">
+          <div className="flex items-center gap-3 px-4 py-2 border border-slate-200 rounded-md bg-slate-50">
+            <span className="text-slate-600 text-sm font-semibold">Trusted partners</span>
+            <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-6 w-auto rounded-sm" />
+          </div>
         </div>
       </section>
 
