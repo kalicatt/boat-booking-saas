@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO } from 'date-fns'
+import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -122,6 +122,8 @@ interface SeatPlanResult {
   error?: string
 }
 
+type BoardingStatus = 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
+
 interface BoatPlanModalState {
   boat: { id: number; title: string; capacity: number }
   departure: Date
@@ -196,9 +198,15 @@ const buildOccupantsForBooking = (booking: BookingDetails): SeatOccupant[] => {
   return occupants
 }
 
+const deriveInitialStatus = (booking: BookingDetails): BoardingStatus => {
+  if (booking.checkinStatus === 'NO_SHOW') return 'NO_SHOW'
+  if (booking.checkinStatus === 'EMBARQUED') return 'EMBARQUED'
+  return 'CONFIRMED'
+}
+
 const computeSeatPlan = (
   bookings: BookingDetails[],
-  statuses: Record<string, 'EMBARQUED' | 'NO_SHOW'>
+  statuses: Record<string, BoardingStatus>
 ): SeatPlanResult => {
   const benches: SeatPlanBench[] = Array.from({ length: BOAT_BENCH_COUNT }, (_, benchIndex) => ({
     benchIndex,
@@ -378,6 +386,7 @@ export default function ClientPlanningPage() {
     if (!resources.length) return []
 
     const now = new Date()
+    const graceThreshold = subMinutes(now, 12)
 
     return resources.map((resource) => {
       const todaysEvents = events.filter(
@@ -391,7 +400,7 @@ export default function ClientPlanningPage() {
         0
       )
       const upcoming = todaysEvents
-        .filter((event) => event.start.getTime() >= now.getTime())
+        .filter((event) => event.start.getTime() >= graceThreshold.getTime())
         .sort((a, b) => a.start.getTime() - b.start.getTime())
       const nextSlot = upcoming[0] ?? null
       const nextRemaining = nextSlot
@@ -506,17 +515,33 @@ export default function ClientPlanningPage() {
     if (duration > 5 * 60 * 1000) return
 
     const s = new Date(slotInfo.start)
-    const startTime = new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate(), s.getHours(), s.getMinutes()))
-    const boatId = Number(slotInfo.resourceId ?? 0) || 1
-
-    const conflicts = events.some(
-      (e) => Number(e.resourceId) === boatId && isSameMinute(e.start, startTime)
+    const startTime = new Date(
+      Date.UTC(
+        s.getFullYear(),
+        s.getMonth(),
+        s.getDate(),
+        s.getHours(),
+        s.getMinutes()
+      )
     )
+    const fallbackBoatId = Number(slotInfo.resourceId ?? 0) || 1
 
-    if (!conflicts) {
-      setSelectedSlotDetails({ start: startTime, boatId })
-      setShowQuickBookModal(true)
-    }
+    const matchingDepartures = events
+      .filter((event) => isSameMinute(event.start, startTime))
+      .sort((a, b) => {
+        const aLoad = a.totalOnBoat ?? a.peopleCount ?? 0
+        const bLoad = b.totalOnBoat ?? b.peopleCount ?? 0
+        return bLoad - aLoad
+      })
+
+    const targetDeparture = matchingDepartures[0]
+
+    const boatId = targetDeparture
+      ? Number(targetDeparture.resourceId) || fallbackBoatId
+      : fallbackBoatId
+
+    setSelectedSlotDetails({ start: startTime, boatId })
+    setShowQuickBookModal(true)
   }
 
   const handleQuickBookingSuccess = () => {
@@ -549,7 +574,7 @@ export default function ClientPlanningPage() {
   }, [events])
 
   const handleDepartureSubmission = useCallback(
-    async (statuses: Record<string, 'EMBARQUED' | 'NO_SHOW'>) => {
+    async (statuses: Record<string, BoardingStatus>) => {
       if (!boatPlanModal) return false
       const { bookings, boat, departure } = boatPlanModal
       if (!bookings.length) return false
@@ -715,14 +740,23 @@ export default function ClientPlanningPage() {
           v.getMinutes()
         )
       )
-      const boatId = Number(resource?.id ?? resource ?? 1) || 1
+      const fallbackBoatId = Number(resource?.id ?? resource ?? 1) || 1
 
-      const hasConflict = events.some(
-        (e) => Number(e.resourceId) === boatId && isSameMinute(e.start, startTime)
-      )
-      if (hasConflict) return
+      const matchingDepartures = events
+        .filter((event) => isSameMinute(event.start, startTime))
+        .sort((a, b) => {
+          const aLoad = a.totalOnBoat ?? a.peopleCount ?? 0
+          const bLoad = b.totalOnBoat ?? b.peopleCount ?? 0
+          return bLoad - aLoad
+        })
 
-      setSelectedSlotDetails({ start: startTime, boatId })
+      const targetDeparture = matchingDepartures[0]
+
+      const inferredBoatId = targetDeparture
+        ? Number(targetDeparture.resourceId) || fallbackBoatId
+        : fallbackBoatId
+
+      setSelectedSlotDetails({ start: startTime, boatId: inferredBoatId })
       setShowQuickBookModal(true)
     }
 
@@ -771,7 +805,7 @@ export default function ClientPlanningPage() {
 
     return (
       <div
-        className="group relative flex h-full w-full flex-col justify-between overflow-hidden rounded-lg px-2 py-1.5 text-[11px] text-white"
+        className="sn-event group relative flex h-full w-full flex-col justify-between overflow-hidden rounded-xl px-2.5 py-2 text-white"
         style={{ color: theme.text }}
       >
         <button
@@ -785,30 +819,30 @@ export default function ClientPlanningPage() {
           ✕
         </button>
 
-        <div className="flex items-start justify-between gap-1 pr-5">
-          <div className="flex min-w-0 items-center gap-1 font-semibold">
-            <span className="text-sm leading-none">{flag}</span>
-            <span className="truncate leading-tight">{displayName}</span>
+        <div className="sn-event-header flex flex-wrap items-start justify-between gap-1 pr-4">
+          <div className="flex min-w-0 items-center gap-1 font-semibold text-white/95">
+            <span className="sn-event-flag leading-none">{flag}</span>
+            <span className="sn-event-title leading-tight">{displayName}</span>
           </div>
-          <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${theme.badge}`}>
+          <span className={`sn-event-badge rounded-full px-2 py-0.5 font-extrabold uppercase tracking-wide ${theme.badge}`}>
             {theme.label}
           </span>
         </div>
 
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">
+        <div className="sn-event-meta mt-1 flex flex-wrap items-center gap-2">
+          <span className="sn-event-pill rounded-full bg-white/20 px-2 py-0.5 font-bold">
             {event.peopleCount} pax
           </span>
-          <span className="flex items-center gap-1 text-[10px] text-white/90">
+          <span className="sn-event-breakdown flex items-center gap-1 text-white/90">
             <span>A{event.adults}</span>
             <span>E{event.children}</span>
             <span>B{event.babies}</span>
           </span>
         </div>
 
-        <div className="mt-1 flex flex-col gap-1 text-[10px]">
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-white/90">Charge {event.totalOnBoat}/{event.boatCapacity}</span>
+        <div className="sn-event-load mt-1 flex flex-col gap-1">
+          <div className="flex items-center justify-between gap-2">
+            <span className="sn-event-load-label font-semibold text-white/90">Charge {event.totalOnBoat}/{event.boatCapacity}</span>
             <span
               className={`rounded-full border border-white/40 px-2 py-0.5 font-bold ${
                 remaining === 0 ? 'bg-rose-500/80' : remaining <= 2 ? 'bg-amber-400/60 text-slate-900' : 'bg-white/20'
@@ -828,15 +862,15 @@ export default function ClientPlanningPage() {
           </div>
         </div>
 
-        <div className="mt-2 flex items-center justify-between text-[10px] text-white/90">
-          <div className="flex items-center gap-1">
+        <div className="sn-event-footer mt-2 flex items-center justify-between text-white/90">
+          <div className="sn-event-payment flex items-center gap-1">
             <span
               className={`h-2 w-2 rounded-full ${event.isPaid ? 'bg-emerald-300' : 'bg-rose-300'}`}
               title={event.isPaid ? 'Payé' : 'À régler'}
             />
             <span>{event.isPaid ? 'Payé' : 'À régler'}</span>
           </div>
-          <span className="font-semibold">{format(event.start, 'HH:mm')}</span>
+          <span className="sn-event-time font-semibold">{format(event.start, 'HH:mm')}</span>
         </div>
 
       </div>
@@ -871,21 +905,22 @@ export default function ClientPlanningPage() {
     bookings: BookingDetails[]
     departure: Date
     onClose: () => void
-    onDepart: (statuses: Record<string, 'EMBARQUED' | 'NO_SHOW'>) => Promise<boolean>
+    onDepart: (statuses: Record<string, BoardingStatus>) => Promise<boolean>
   }) => {
-    const [statuses, setStatuses] = useState<Record<string, 'EMBARQUED' | 'NO_SHOW'>>(() => {
-      const initial: Record<string, 'EMBARQUED' | 'NO_SHOW'> = {}
+    const [statuses, setStatuses] = useState<Record<string, BoardingStatus>>(() => {
+      const initial: Record<string, BoardingStatus> = {}
       bookings.forEach((booking) => {
-        initial[booking.id] = booking.checkinStatus === 'NO_SHOW' ? 'NO_SHOW' : 'EMBARQUED'
+        initial[booking.id] = deriveInitialStatus(booking)
       })
       return initial
     })
+    const [statusUpdating, setStatusUpdating] = useState<Record<string, boolean>>({})
     const [isSaving, setIsSaving] = useState(false)
 
     useEffect(() => {
-      const next: Record<string, 'EMBARQUED' | 'NO_SHOW'> = {}
+      const next: Record<string, BoardingStatus> = {}
       bookings.forEach((booking) => {
-        next[booking.id] = booking.checkinStatus === 'NO_SHOW' ? 'NO_SHOW' : 'EMBARQUED'
+        next[booking.id] = deriveInitialStatus(booking)
       })
       setStatuses(next)
     }, [bookings])
@@ -921,13 +956,37 @@ export default function ClientPlanningPage() {
     const statusBreakdown = useMemo(() => {
       return bookings.reduce(
         (accumulator, booking) => {
-          if (statuses[booking.id] === 'NO_SHOW') accumulator.noShow += 1
-          else accumulator.embarked += 1
+          const current = statuses[booking.id] ?? deriveInitialStatus(booking)
+          if (current === 'NO_SHOW') accumulator.noShow += 1
+          else if (current === 'EMBARQUED') accumulator.embarked += 1
+          else accumulator.confirmed += 1
           return accumulator
         },
-        { embarked: 0, noShow: 0 }
+        { embarked: 0, confirmed: 0, noShow: 0 }
       )
     }, [bookings, statuses])
+
+    const applyStatusChange = async (booking: BookingDetails, nextStatus: BoardingStatus) => {
+      const previousStatus = statuses[booking.id] ?? deriveInitialStatus(booking)
+      if (previousStatus === nextStatus) return
+      setStatuses((current) => ({ ...current, [booking.id]: nextStatus }))
+      setStatusUpdating((current) => ({ ...current, [booking.id]: true }))
+      try {
+        const res = await fetch(`/api/bookings/${booking.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newCheckinStatus: nextStatus })
+        })
+        if (!res.ok) throw new Error('update-failed')
+        await mutate()
+      } catch (error) {
+        console.error('Erreur mise à jour statut via modal', error)
+        alert('Impossible de mettre à jour le statut. Réessayez.')
+        setStatuses((current) => ({ ...current, [booking.id]: previousStatus }))
+      } finally {
+        setStatusUpdating((current) => ({ ...current, [booking.id]: false }))
+      }
+    }
 
     const handleDepartClick = async () => {
       setIsSaving(true)
@@ -965,10 +1024,18 @@ export default function ClientPlanningPage() {
                   </div>
                 ) : (
                   bookings.map((booking) => {
-                    const status = statuses[booking.id]
+                    const status = statuses[booking.id] ?? deriveInitialStatus(booking)
                     const occupants = occupantsByBooking[booking.id] || []
                     const color = colorMap[booking.id]
                     const summaryLabel = `${booking.adults || 0}A · ${booking.children || 0}E · ${booking.babies || 0}B`
+                    const statusLabel =
+                      status === 'NO_SHOW' ? 'No-show' : status === 'EMBARQUED' ? 'Embarqué' : 'Confirmé'
+                    const statusBadgeClass =
+                      status === 'NO_SHOW'
+                        ? 'bg-amber-100 text-amber-700'
+                        : status === 'EMBARQUED'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-blue-100 text-blue-700'
                     return (
                       <div key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
@@ -981,11 +1048,9 @@ export default function ClientPlanningPage() {
                             <p className="mt-1 text-[11px] text-slate-500">{summaryLabel}</p>
                           </div>
                           <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
-                              status === 'NO_SHOW' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
-                            }`}
+                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${statusBadgeClass}`}
                           >
-                            {status === 'NO_SHOW' ? 'No-show' : 'Embarqué'}
+                            {statusLabel}
                           </span>
                         </div>
 
@@ -1008,26 +1073,40 @@ export default function ClientPlanningPage() {
                           </div>
                         )}
 
-                        <div className="mt-3 flex gap-2 text-xs font-semibold">
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
                           <button
                             type="button"
-                            onClick={() => setStatuses((current) => ({ ...current, [booking.id]: 'EMBARQUED' }))}
+                            onClick={() => applyStatusChange(booking, 'CONFIRMED')}
+                            disabled={statusUpdating[booking.id]}
+                            className={`rounded-full px-3 py-1 border transition ${
+                              status === 'CONFIRMED'
+                                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                                : 'border-slate-200 text-slate-500 hover:border-blue-400 hover:text-blue-600'
+                            } ${statusUpdating[booking.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          >
+                            Confirmé
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyStatusChange(booking, 'EMBARQUED')}
+                            disabled={statusUpdating[booking.id]}
                             className={`rounded-full px-3 py-1 border transition ${
                               status === 'EMBARQUED'
                                 ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
                                 : 'border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
-                            }`}
+                            } ${statusUpdating[booking.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
                             Embarqué
                           </button>
                           <button
                             type="button"
-                            onClick={() => setStatuses((current) => ({ ...current, [booking.id]: 'NO_SHOW' }))}
+                            onClick={() => applyStatusChange(booking, 'NO_SHOW')}
+                            disabled={statusUpdating[booking.id]}
                             className={`rounded-full px-3 py-1 border transition ${
                               status === 'NO_SHOW'
                                 ? 'border-amber-500 bg-amber-50 text-amber-700'
                                 : 'border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-600'
-                            }`}
+                            } ${statusUpdating[booking.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
                             No-show
                           </button>
@@ -1111,7 +1190,7 @@ export default function ClientPlanningPage() {
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
             <div className="text-sm text-slate-500">
-              Embarqués: {statusBreakdown.embarked} • No-show: {statusBreakdown.noShow}
+              Confirmés: {statusBreakdown.confirmed} • Embarqués: {statusBreakdown.embarked} • No-show: {statusBreakdown.noShow}
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -1551,6 +1630,33 @@ export default function ClientPlanningPage() {
         :global(.rbc-time-content) { background-image: linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 100% 20px; }
         :global(.rbc-time-gutter .rbc-time-slot) { border-right: 1px solid #e5e7eb; }
         :global(.rbc-time-content .rbc-time-slot) { border-top-color: #eef2f7; }
+        :global(.sn-event) {
+          font-size: clamp(9px, 0.65vw, 11px);
+          line-height: 1.25;
+          backdrop-filter: saturate(120%);
+          border: 1px solid rgba(255,255,255,0.18);
+          background-image: linear-gradient(160deg, rgba(255,255,255,0.08), rgba(15,23,42,0.12));
+          box-shadow: 0 14px 24px rgba(15, 23, 42, 0.18);
+        }
+        :global(.sn-event *) { text-shadow: 0 1px 2px rgba(15,23,42,0.35); }
+        :global(.sn-event-header) { gap: 0.3rem; }
+        :global(.sn-event-title) {
+          font-size: clamp(11px, 0.9vw, 13px);
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          word-break: break-word;
+          white-space: normal;
+        }
+        :global(.sn-event-flag) { font-size: clamp(14px, 1vw, 16px); }
+        :global(.sn-event-badge) { font-size: clamp(8px, 0.65vw, 10px); letter-spacing: 0.1em; }
+        :global(.sn-event-pill), :global(.sn-event-breakdown), :global(.sn-event-load), :global(.sn-event-footer) {
+          font-size: clamp(8px, 0.6vw, 10px);
+        }
+        :global(.sn-event-load-label) { white-space: nowrap; }
+        :global(.sn-event-payment) { gap: 0.35rem; }
+        :global(.sn-event-time) { letter-spacing: 0.04em; }
         .boat-shell {
           transition: transform 0.24s ease, box-shadow 0.24s ease;
           clip-path: polygon(8% 3%, 92% 3%, 100% 18%, 100% 82%, 92% 97%, 8% 97%, 0% 82%, 0% 18%);
