@@ -1,10 +1,10 @@
-// middleware.ts (À la racine du projet)
+// proxy.ts (à la racine du projet)
 
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { match } from "@formatjs/intl-localematcher";
-import Negotiator from "negotiator";
-import { auth } from "@/auth"; // Import de NextAuth
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { match } from '@formatjs/intl-localematcher'
+import Negotiator from 'negotiator'
+import { auth } from '@/auth'
 
 // Ajout des en-têtes de sécurité de base
 function applySecurityHeaders(res: NextResponse) {
@@ -12,7 +12,7 @@ function applySecurityHeaders(res: NextResponse) {
   res.headers.set('X-Content-Type-Options', 'nosniff')
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.headers.set('Permissions-Policy', 'geolocation=(), camera=()')
-  res.headers.set('X-XSS-Protection', '0') // Obsolète (mise à 0 pour éviter faux sens)
+  res.headers.set('X-XSS-Protection', '0')
   res.headers.set('Cross-Origin-Resource-Policy', 'same-origin')
   res.headers.set('Cross-Origin-Opener-Policy', 'same-origin')
   res.headers.set('X-DNS-Prefetch-Control', 'off')
@@ -24,7 +24,6 @@ function applySecurityHeaders(res: NextResponse) {
     res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
   }
 
-  // Directives de base communes
   const baseDirectives: string[] = [
     "default-src 'self'",
     "img-src 'self' data: blob: https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypalobjects.com",
@@ -36,19 +35,15 @@ function applySecurityHeaders(res: NextResponse) {
     "form-action 'self'"
   ]
 
-  // Scripts / Styles selon l'environnement
   if (isProd) {
-    // Mode production (plus strict) – pas d'eval, on garde inline si Next injecte des scripts data
     baseDirectives.push("script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
     baseDirectives.push('upgrade-insecure-requests')
   } else {
-    // Dev: autoriser eval pour outils React / sourcemaps
     baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
   }
 
-  // Tighten embedding: disallow all ancestors
   baseDirectives.push("frame-ancestors 'none'")
   baseDirectives.push("script-src-attr 'none'")
   res.headers.set('Content-Security-Policy', baseDirectives.join('; '))
@@ -56,20 +51,19 @@ function applySecurityHeaders(res: NextResponse) {
 }
 
 // --- CONFIG I18N ---
-const locales = ["en", "fr", "de", "es", "it"];
-const defaultLocale = "en"; // Anglais par défaut
+const locales = ['en', 'fr', 'de', 'es', 'it']
+const defaultLocale = 'en'
 
 function getLocale(request: NextRequest) {
-  const headers = { "accept-language": request.headers.get("accept-language") || "" };
-  const languages = new Negotiator({ headers }).languages();
-  return match(languages, locales, defaultLocale);
+  const headers = { 'accept-language': request.headers.get('accept-language') || '' }
+  const languages = new Negotiator({ headers }).languages()
+  return match(languages, locales, defaultLocale)
 }
 
-// --- LE MIDDLEWARE COMBINÉ ---
-export default auth((req) => {
-  const { pathname } = req.nextUrl;
+// --- LE PROXY COMBINÉ ---
+export const proxy = auth((req) => {
+  const { pathname } = req.nextUrl
 
-  // 0. BASIC AUTH GUARD: require login for /admin/employees (role checked server-side for logging)
   if (pathname.startsWith('/admin/employees')) {
     const user: any = (req as any).auth?.user
     if (!user) {
@@ -79,40 +73,31 @@ export default auth((req) => {
     }
   }
 
-  // 1. GESTION DES ROUTES SPÉCIALES (Ignorées par I18N)
-  // On ne redirige pas les fichiers systèmes, les APIs, ou les routes admin/login
   if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/admin") || 
-    pathname.startsWith("/login") || 
-    pathname.includes(".")
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/login') ||
+    pathname.includes('.')
   ) {
-    // Pour ces routes on laisse passer mais on ajoute les headers
     return applySecurityHeaders(NextResponse.next())
   }
 
-  // Cas API : on applique seulement les headers (pas de logique i18n)
   if (pathname.startsWith('/api')) {
     return applySecurityHeaders(NextResponse.next())
   }
 
-  // 2. GESTION I18N (Langues) 🌍
-  
-  // Si l'URL contient déjà une locale (ex: /fr/...)
   const pathnameHasLocale = locales.some(
     (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
-  );
+  )
 
-  if (pathnameHasLocale) return applySecurityHeaders(NextResponse.next());
+  if (pathnameHasLocale) return applySecurityHeaders(NextResponse.next())
 
-  // 3. Redirection vers la langue détectée (ex: / -> /fr)
-  const locale = getLocale(req);
-  req.nextUrl.pathname = `/${locale}${pathname}`;
-  
-  return applySecurityHeaders(NextResponse.redirect(req.nextUrl));
-});
+  const locale = getLocale(req)
+  req.nextUrl.pathname = `/${locale}${pathname}`
 
-// Configuration du matcher
+  return applySecurityHeaders(NextResponse.redirect(req.nextUrl))
+})
+
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
-};
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
+}
