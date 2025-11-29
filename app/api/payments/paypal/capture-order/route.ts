@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getPaypalApiBase } from '@/lib/paypal'
+
+export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
   try {
@@ -11,37 +14,45 @@ export async function POST(req: Request) {
     const clientSecret = process.env.PAYPAL_CLIENT_SECRET
     if (!clientId || !clientSecret) return NextResponse.json({ error: 'PayPal not configured' }, { status: 500 })
 
-    const authRes = await fetch('https://api-m.paypal.com/v1/oauth2/token', {
+    const base = getPaypalApiBase()
+    const authRes = await fetch(`${base}/v1/oauth2/token`, {
       method: 'POST', headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64')
       }, body: 'grant_type=client_credentials'
     })
     const auth = await authRes.json()
-    if (!auth.access_token) return NextResponse.json({ error: 'PayPal auth failed' }, { status: 500 })
+    if (!authRes.ok || !auth.access_token) {
+      console.error('PayPal auth failed (capture)', authRes.status, auth)
+      return NextResponse.json({ error: 'PayPal auth failed', details: auth?.error_description || auth?.message || null }, { status: 500 })
+    }
 
     // Try to capture; if already captured, we'll fetch order details
     let capture: any
     let amountVal = 0
     let currency = 'EUR'
     try {
-      const captureRes = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderId}/capture`, {
+      const captureRes = await fetch(`${base}/v2/checkout/orders/${orderId}/capture`, {
         method: 'POST', headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${auth.access_token}`
         }
       })
       capture = await captureRes.json()
-      if (capture.status !== 'COMPLETED') throw new Error('Capture not completed')
+      if (!captureRes.ok || capture.status !== 'COMPLETED') {
+        console.error('PayPal capture step failed', captureRes.status, capture)
+        throw new Error('Capture not completed')
+      }
       amountVal = Number(capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || 0)
       currency = capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code || 'EUR'
     } catch (e) {
       // Fallback: get order details and proceed if already completed
-      const orderRes = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderId}`, {
+      const orderRes = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
         headers: { 'Authorization': `Bearer ${auth.access_token}` }
       })
       const order = await orderRes.json()
       if (order.status !== 'COMPLETED') {
+        console.error('PayPal capture fallback failed', orderRes.status, order)
         return NextResponse.json({ error: 'Capture failed' }, { status: 400 })
       }
       amountVal = Number(order.purchase_units?.[0]?.amount?.value || 0)

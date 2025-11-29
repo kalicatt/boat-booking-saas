@@ -28,19 +28,19 @@ function applySecurityHeaders(res: NextResponse) {
     "default-src 'self'",
     "img-src 'self' data: blob: https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypalobjects.com",
     "font-src 'self' data:",
-    "connect-src 'self' https://www.google.com https://www.gstatic.com https://api.resend.com https://api.stripe.com https://www.paypal.com https://pay.google.com https://payments.google.com https://apple-pay-gateway.apple.com",
-    "frame-src 'self' https://www.google.com https://www.recaptcha.net https://js.stripe.com https://www.paypal.com https://pay.google.com",
+    "connect-src 'self' https://www.google.com https://www.gstatic.com https://api.resend.com https://api.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://pay.google.com https://payments.google.com https://apple-pay-gateway.apple.com",
+    "frame-src 'self' https://www.google.com https://www.recaptcha.net https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com https://pay.google.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'"
   ]
 
   if (isProd) {
-    baseDirectives.push("script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com")
+    baseDirectives.push("script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
     baseDirectives.push('upgrade-insecure-requests')
   } else {
-    baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com")
+    baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com https://www.sandbox.paypal.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
   }
 
