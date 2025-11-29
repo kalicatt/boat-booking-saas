@@ -102,6 +102,147 @@ interface BookingDetails {
   payments?: Array<{ id: string; provider: string; methodType?: string | null; amount: number; currency: string; status: string; createdAt: string }>
 }
 
+type PassengerKind = 'adult' | 'child' | 'baby' | 'passenger'
+
+interface SeatOccupant {
+  id: string
+  label: string
+  type: PassengerKind
+  bookingId: string
+  shortLabel: string
+}
+
+interface SeatPlanBench {
+  benchIndex: number
+  seats: Array<{ seatIndex: number; occupant: SeatOccupant | null }>
+}
+
+interface SeatPlanResult {
+  benches: SeatPlanBench[]
+  error?: string
+}
+
+interface BoatPlanModalState {
+  boat: { id: number; title: string; capacity: number }
+  departure: Date
+  bookings: BookingDetails[]
+}
+
+interface BoatDailyStat {
+  id: number
+  title: string
+  capacity: number
+  passengers: number
+  bookings: number
+  peakLoad: number
+  loadPct: number
+  nextSlot: BookingDetails | null
+  nextRemaining: number | null
+}
+
+const BOAT_BENCH_COUNT = 4
+const BOAT_SEATS_PER_BENCH = 3
+const BOAT_COLOR_PALETTE = ['#0ea5e9', '#f97316', '#22c55e', '#a855f7', '#ef4444', '#14b8a6', '#6366f1', '#fb7185']
+
+const buildOccupantsForBooking = (booking: BookingDetails): SeatOccupant[] => {
+  const occupants: SeatOccupant[] = []
+  const base = booking.clientName || 'Passager'
+  const safeAdults = Math.max(0, booking.adults || 0)
+  const safeChildren = Math.max(0, booking.children || 0)
+  const safeBabies = Math.max(0, booking.babies || 0)
+
+  for (let i = 0; i < safeChildren; i += 1) {
+    occupants.push({
+      id: `${booking.id}-child-${i}`,
+      label: `${base} • Enfant ${i + 1}`,
+      type: 'child',
+      bookingId: booking.id,
+      shortLabel: `E${i + 1}`
+    })
+  }
+
+  for (let i = 0; i < safeBabies; i += 1) {
+    occupants.push({
+      id: `${booking.id}-baby-${i}`,
+      label: `${base} • Bébé ${i + 1}`,
+      type: 'baby',
+      bookingId: booking.id,
+      shortLabel: `B${i + 1}`
+    })
+  }
+
+  for (let i = 0; i < safeAdults; i += 1) {
+    occupants.push({
+      id: `${booking.id}-adult-${i}`,
+      label: `${base} • Adulte ${i + 1}`,
+      type: 'adult',
+      bookingId: booking.id,
+      shortLabel: `A${i + 1}`
+    })
+  }
+
+  const declared = safeAdults + safeChildren + safeBabies
+  const remainder = Math.max(0, (booking.peopleCount || 0) - declared)
+  for (let i = 0; i < remainder; i += 1) {
+    occupants.push({
+      id: `${booking.id}-passenger-${i}`,
+      label: `${base} • Passager ${i + 1}`,
+      type: 'passenger',
+      bookingId: booking.id,
+      shortLabel: `P${i + 1}`
+    })
+  }
+
+  return occupants
+}
+
+const computeSeatPlan = (
+  bookings: BookingDetails[],
+  statuses: Record<string, 'EMBARQUED' | 'NO_SHOW'>
+): SeatPlanResult => {
+  const benches: SeatPlanBench[] = Array.from({ length: BOAT_BENCH_COUNT }, (_, benchIndex) => ({
+    benchIndex,
+    seats: Array.from({ length: BOAT_SEATS_PER_BENCH }, (_, seatIndex) => ({ seatIndex, occupant: null as SeatOccupant | null }))
+  }))
+
+  const limit = BOAT_BENCH_COUNT * BOAT_SEATS_PER_BENCH
+
+  const groups = bookings
+    .filter((booking) => statuses[booking.id] !== 'NO_SHOW')
+    .map((booking) => ({
+      booking,
+      childScore: Math.max(0, (booking.children || 0) + (booking.babies || 0)),
+      occupants: buildOccupantsForBooking(booking)
+    }))
+    .filter((group) => group.occupants.length > 0)
+    .sort((a, b) => {
+      if (b.childScore !== a.childScore) return b.childScore - a.childScore
+      const diff = (b.booking.peopleCount || 0) - (a.booking.peopleCount || 0)
+      if (diff !== 0) return diff
+      return (a.booking.clientName || '').localeCompare(b.booking.clientName || '')
+    })
+
+  let cursor = 0
+
+  for (const group of groups) {
+    if (cursor + group.occupants.length > limit) {
+      return {
+        benches,
+        error: "Impossible de générer automatiquement le plan : capacité dépassée (override détecté)."
+      }
+    }
+
+    group.occupants.forEach((occupant) => {
+      const benchIndex = Math.floor(cursor / BOAT_SEATS_PER_BENCH)
+      const seatIndex = cursor % BOAT_SEATS_PER_BENCH
+      benches[benchIndex].seats[seatIndex] = { seatIndex, occupant }
+      cursor += 1
+    })
+  }
+
+  return { benches }
+}
+
 const fetcher = (url: string) => fetch(url).then((res) => {
   if (!res.ok) throw new Error('Erreur fetch')
   return res.json()
@@ -151,6 +292,7 @@ export default function ClientPlanningPage() {
 
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
+  const [boatPlanModal, setBoatPlanModal] = useState<BoatPlanModalState | null>(null)
 
   const calendarMin = useMemo(() => {
     if (preset === 'morning') return new Date(0, 0, 0, 9, 30, 0)
@@ -232,18 +374,8 @@ export default function ClientPlanningPage() {
 
   const focusDayKey = useMemo(() => format(currentDate, 'yyyy-MM-dd'), [currentDate])
 
-  const boatDailyStats = useMemo(() => {
-    if (!resources.length) return [] as Array<{
-      id: number
-      title: string
-      capacity: number
-      passengers: number
-      bookings: number
-      peakLoad: number
-      loadPct: number
-      nextSlot: BookingDetails | null
-      nextRemaining: number | null
-    }>
+  const boatDailyStats = useMemo<BoatDailyStat[]>(() => {
+    if (!resources.length) return []
 
     const now = new Date()
 
@@ -391,6 +523,78 @@ export default function ClientPlanningPage() {
     setShowQuickBookModal(false)
     mutate()
   }
+
+  const openBoatPlanForStat = useCallback((stat: BoatDailyStat) => {
+    if (!stat.nextSlot) {
+      alert(`Aucun départ à venir pour ${stat.title}.`)
+      return
+    }
+
+    const departureStart = stat.nextSlot.start
+
+    const matchingBookings = events
+      .filter((event) => event.resourceId === stat.id && isSameMinute(event.start, departureStart))
+      .sort((a, b) => (a.clientName || '').localeCompare(b.clientName || ''))
+
+    if (!matchingBookings.length) {
+      alert('Aucune réservation associée à ce départ.')
+      return
+    }
+
+    setBoatPlanModal({
+      boat: { id: stat.id, title: stat.title, capacity: stat.capacity || 12 },
+      departure: stat.nextSlot.start,
+      bookings: matchingBookings
+    })
+  }, [events])
+
+  const handleDepartureSubmission = useCallback(
+    async (statuses: Record<string, 'EMBARQUED' | 'NO_SHOW'>) => {
+      if (!boatPlanModal) return false
+      const { bookings, boat, departure } = boatPlanModal
+      if (!bookings.length) return false
+
+      const bookingDateStr = format(departure, 'yyyy-MM-dd')
+      const isLocked = Array.isArray(closures) && closures.some((c: any) => format(new Date(c.day), 'yyyy-MM-dd') === bookingDateStr && c.locked)
+      if (isLocked) {
+        alert('Période verrouillée : journée clôturée, départ impossible.')
+        return false
+      }
+
+      const presentCount = bookings.reduce((sum, booking) => {
+        if (statuses[booking.id] === 'NO_SHOW') return sum
+        return sum + (booking.peopleCount || 0)
+      }, 0)
+      const missing = Math.max(boat.capacity - presentCount, 0)
+      if (missing > 0) {
+        const confirmed = window.confirm(
+          `Il reste ${missing} place${missing > 1 ? 's' : ''} libre${missing > 1 ? 's' : ''}. Confirmer le départ ?`
+        )
+        if (!confirmed) return false
+      }
+
+      try {
+        for (const booking of bookings) {
+          const desiredStatus = statuses[booking.id] ?? 'EMBARQUED'
+          if (booking.checkinStatus === desiredStatus) continue
+          const res = await fetch(`/api/bookings/${booking.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newCheckinStatus: desiredStatus })
+          })
+          if (!res.ok) throw new Error('update-failed')
+        }
+        await mutate()
+        setBoatPlanModal(null)
+        return true
+      } catch (error) {
+        console.error('Erreur lors du départ de la barque', error)
+        alert('Impossible de finaliser le départ, réessayez.')
+        return false
+      }
+    },
+    [boatPlanModal, closures, mutate]
+  )
 
   const handleRenameBoat = async (boatId: number, currentName: string) => {
     const newName = prompt(`Nom du batelier pour la barque ${boatId} ?`, currentName)
@@ -656,6 +860,283 @@ export default function ClientPlanningPage() {
     return {}
   }
 
+  const BoatDepartureModal = ({
+    boat,
+    bookings,
+    departure,
+    onClose,
+    onDepart
+  }: {
+    boat: BoatPlanModalState['boat']
+    bookings: BookingDetails[]
+    departure: Date
+    onClose: () => void
+    onDepart: (statuses: Record<string, 'EMBARQUED' | 'NO_SHOW'>) => Promise<boolean>
+  }) => {
+    const [statuses, setStatuses] = useState<Record<string, 'EMBARQUED' | 'NO_SHOW'>>(() => {
+      const initial: Record<string, 'EMBARQUED' | 'NO_SHOW'> = {}
+      bookings.forEach((booking) => {
+        initial[booking.id] = booking.checkinStatus === 'NO_SHOW' ? 'NO_SHOW' : 'EMBARQUED'
+      })
+      return initial
+    })
+    const [isSaving, setIsSaving] = useState(false)
+
+    useEffect(() => {
+      const next: Record<string, 'EMBARQUED' | 'NO_SHOW'> = {}
+      bookings.forEach((booking) => {
+        next[booking.id] = booking.checkinStatus === 'NO_SHOW' ? 'NO_SHOW' : 'EMBARQUED'
+      })
+      setStatuses(next)
+    }, [bookings])
+
+    const colorMap = useMemo(() => {
+      const map: Record<string, string> = {}
+      bookings.forEach((booking, index) => {
+        map[booking.id] = BOAT_COLOR_PALETTE[index % BOAT_COLOR_PALETTE.length]
+      })
+      return map
+    }, [bookings])
+
+    const occupantsByBooking = useMemo(() => {
+      return bookings.reduce<Record<string, SeatOccupant[]>>((accumulator, booking) => {
+        accumulator[booking.id] = buildOccupantsForBooking(booking)
+        return accumulator
+      }, {})
+    }, [bookings])
+
+    const presentCount = useMemo(
+      () =>
+        bookings.reduce((sum, booking) => {
+          if (statuses[booking.id] === 'NO_SHOW') return sum
+          return sum + (booking.peopleCount || 0)
+        }, 0),
+      [bookings, statuses]
+    )
+
+    const seatPlan = useMemo(() => computeSeatPlan(bookings, statuses), [bookings, statuses])
+
+    const missingSeats = Math.max(boat.capacity - presentCount, 0)
+
+    const statusBreakdown = useMemo(() => {
+      return bookings.reduce(
+        (accumulator, booking) => {
+          if (statuses[booking.id] === 'NO_SHOW') accumulator.noShow += 1
+          else accumulator.embarked += 1
+          return accumulator
+        },
+        { embarked: 0, noShow: 0 }
+      )
+    }, [bookings, statuses])
+
+    const handleDepartClick = async () => {
+      setIsSaving(true)
+      const success = await onDepart(statuses)
+      if (!success) {
+        setIsSaving(false)
+      }
+    }
+
+    return (
+      <div className="fixed inset-0 z-[10000] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="w-full max-w-5xl rounded-3xl bg-white shadow-2xl flex flex-col max-h-[92vh]">
+          <div className="flex items-start justify-between border-b border-slate-200 px-6 py-4">
+            <div>
+              <h2 className="text-xl font-bold text-slate-900">Préparer le départ de {boat.title}</h2>
+              <p className="text-sm text-slate-500">
+                Départ prévu à {format(departure, 'HH:mm')} • Capacité {boat.capacity}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-semibold text-slate-500 hover:text-slate-800"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-hidden">
+            <div className="grid h-full grid-cols-1 gap-6 overflow-y-auto px-6 py-5 lg:grid-cols-2">
+              <div className="space-y-4 pr-2">
+                {bookings.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
+                    Aucune réservation pour ce départ.
+                  </div>
+                ) : (
+                  bookings.map((booking) => {
+                    const status = statuses[booking.id]
+                    const occupants = occupantsByBooking[booking.id] || []
+                    const color = colorMap[booking.id]
+                    const summaryLabel = `${booking.adults || 0}A · ${booking.children || 0}E · ${booking.babies || 0}B`
+                    return (
+                      <div key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-800">{booking.clientName}</p>
+                            <p className="text-xs text-slate-500">
+                              {booking.peopleCount} passagers • {booking.language}{' '}
+                              {booking.message ? '• Note' : ''}
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-500">{summaryLabel}</p>
+                          </div>
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+                              status === 'NO_SHOW' ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'
+                            }`}
+                          >
+                            {status === 'NO_SHOW' ? 'No-show' : 'Embarqué'}
+                          </span>
+                        </div>
+
+                        {status === 'NO_SHOW' ? (
+                          <div className="mt-3 rounded border border-dashed border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                            Marqué en no-show — ces passagers ne seront pas placés.
+                          </div>
+                        ) : (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {occupants.map((occupant) => (
+                              <span
+                                key={occupant.id}
+                                className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold text-white shadow"
+                                style={{ backgroundColor: color, opacity: 0.95 }}
+                                title={occupant.label}
+                              >
+                                {occupant.shortLabel}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex gap-2 text-xs font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => setStatuses((current) => ({ ...current, [booking.id]: 'EMBARQUED' }))}
+                            className={`rounded-full px-3 py-1 border transition ${
+                              status === 'EMBARQUED'
+                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                                : 'border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
+                            }`}
+                          >
+                            Embarqué
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setStatuses((current) => ({ ...current, [booking.id]: 'NO_SHOW' }))}
+                            className={`rounded-full px-3 py-1 border transition ${
+                              status === 'NO_SHOW'
+                                ? 'border-amber-500 bg-amber-50 text-amber-700'
+                                : 'border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-600'
+                            }`}
+                          >
+                            No-show
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+                    <span>Plan de la barque</span>
+                    <span className="text-xs font-normal text-slate-400">Avant ↑</span>
+                  </div>
+                  <div className="mt-4">
+                    {seatPlan.error ? (
+                      <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                        {seatPlan.error}
+                      </div>
+                    ) : presentCount === 0 ? (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">
+                        Aucun passager marqué embarqué pour ce départ.
+                      </div>
+                    ) : (
+                      <div className="relative mx-auto h-[360px] max-w-[460px]">
+                        <div className="boat-shell absolute inset-0">
+                          <div className="boat-bow-indicator" />
+                        </div>
+                        <div className="absolute left-16 right-16 top-12 bottom-16 flex flex-col justify-between">
+                          {seatPlan.benches.map((bench) => (
+                            <div key={bench.benchIndex} className="relative">
+                              <div className="absolute -left-10 top-1/2 -translate-y-1/2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                                Banc {bench.benchIndex + 1}
+                              </div>
+                              <div className="flex items-center justify-evenly gap-3">
+                                {bench.seats.map((seat) =>
+                                  seat.occupant ? (
+                                    <div
+                                      key={`${bench.benchIndex}-${seat.seatIndex}`}
+                                      className="flex h-12 w-12 items-center justify-center rounded-full text-xs font-bold text-white shadow-lg"
+                                      style={{ backgroundColor: colorMap[seat.occupant.bookingId] ?? '#64748b' }}
+                                      title={seat.occupant.label}
+                                    >
+                                      {seat.occupant.shortLabel}
+                                    </div>
+                                  ) : (
+                                    <div
+                                      key={`${bench.benchIndex}-${seat.seatIndex}`}
+                                      className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-slate-300 bg-white/60 text-[10px] font-semibold text-slate-400"
+                                    >
+                                      Libre
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm text-sm text-slate-600">
+                  <p className="font-semibold text-slate-700">Résumé embarquement</p>
+                  <p className="mt-2">
+                    Embarqués : <span className="font-bold text-slate-900">{presentCount}</span> / {boat.capacity}
+                  </p>
+                  {missingSeats > 0 && (
+                    <p className="mt-1 text-amber-600">Places libres : {missingSeats}</p>
+                  )}
+                  <p className="mt-2 text-xs text-slate-400">
+                    Ajustez les statuts avant de marquer la barque comme partie.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+            <div className="text-sm text-slate-500">
+              Embarqués: {statusBreakdown.embarked} • No-show: {statusBreakdown.noShow}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800"
+                disabled={isSaving}
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={handleDepartClick}
+                className="rounded-full bg-sky-600 px-4 py-2 text-sm font-bold text-white shadow hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={isSaving}
+              >
+                {isSaving ? 'Validation...' : 'Marquer la barque partie'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails; onClose: () => void }) => {
     if (!booking) return null
     const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
@@ -867,7 +1348,19 @@ export default function ClientPlanningPage() {
           </div>
           <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
             {boatDailyStats.map((stat) => (
-              <div key={stat.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div
+                key={stat.id}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-sky-300 hover:shadow-md cursor-pointer focus:outline-none focus:ring-2 focus:ring-sky-400"
+                onClick={() => openBoatPlanForStat(stat)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    openBoatPlanForStat(stat)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
                 <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
                   <span className="truncate">{stat.title}</span>
                   <span className="text-xs font-bold text-slate-400">Cap. {stat.capacity}</span>
@@ -889,6 +1382,9 @@ export default function ClientPlanningPage() {
                       ? `Prochain ${format(stat.nextSlot.start, 'HH:mm')} • ${stat.nextRemaining} libres`
                       : 'Aucun départ futur'}
                   </span>
+                </div>
+                <div className="mt-3 text-[11px] font-semibold text-sky-600 flex items-center justify-end">
+                  <span>Préparer le départ →</span>
                 </div>
               </div>
             ))}
@@ -1055,6 +1551,43 @@ export default function ClientPlanningPage() {
         :global(.rbc-time-content) { background-image: linear-gradient(to bottom, rgba(0,0,0,0.02) 1px, transparent 1px); background-size: 100% 20px; }
         :global(.rbc-time-gutter .rbc-time-slot) { border-right: 1px solid #e5e7eb; }
         :global(.rbc-time-content .rbc-time-slot) { border-top-color: #eef2f7; }
+        .boat-shell {
+          transition: transform 0.24s ease, box-shadow 0.24s ease;
+          clip-path: polygon(8% 3%, 92% 3%, 100% 18%, 100% 82%, 92% 97%, 8% 97%, 0% 82%, 0% 18%);
+          background: linear-gradient(135deg, #e2e8f0, #f8fafc 55%, #cbd5f5);
+          border: 4px solid rgba(148, 163, 184, 0.65);
+          box-shadow: inset 0 20px 40px rgba(15, 23, 42, 0.18);
+        }
+        .boat-shell:hover { transform: translateY(-2px); box-shadow: inset 0 18px 38px rgba(15, 23, 42, 0.22), 0 25px 45px rgba(15, 23, 42, 0.18); }
+        .boat-shell::before {
+          content: '';
+          position: absolute;
+          inset: 18px 26px;
+          clip-path: polygon(6% 5%, 94% 5%, 100% 20%, 100% 80%, 94% 95%, 6% 95%, 0% 80%, 0% 20%);
+          border: 2px solid rgba(148, 163, 184, 0.55);
+          background: linear-gradient(135deg, rgba(248, 250, 252, 0.95), rgba(226, 232, 240, 0.8));
+          box-shadow: inset 0 12px 20px rgba(148, 163, 184, 0.25);
+          border-radius: 10px;
+        }
+        .boat-shell::after {
+          content: '';
+          position: absolute;
+          inset: 30px 40px;
+          clip-path: polygon(8% 7%, 92% 7%, 98% 20%, 98% 80%, 92% 93%, 8% 93%, 2% 80%, 2% 20%);
+          background: linear-gradient(135deg, rgba(148, 163, 184, 0.18), rgba(148, 163, 184, 0.05));
+          border-radius: 8px;
+        }
+        .boat-bow-indicator {
+          position: absolute;
+          top: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          height: 10px;
+          width: 32px;
+          background: linear-gradient(to right, #38bdf8, #0ea5e9);
+          border-radius: 999px;
+          box-shadow: 0 0 14px rgba(14, 165, 233, 0.45);
+        }
         @media (max-width: 640px) {
           :global(.rbc-toolbar) { padding: 4px 0; }
           :global(.rbc-toolbar .rbc-btn-group) { gap: 4px; }
@@ -1082,6 +1615,15 @@ export default function ClientPlanningPage() {
           resources={resources}
           onClose={() => setShowQuickBookModal(false)}
           onSuccess={handleQuickBookingSuccess}
+        />
+      )}
+      {boatPlanModal && (
+        <BoatDepartureModal
+          boat={boatPlanModal.boat}
+          bookings={boatPlanModal.bookings}
+          departure={boatPlanModal.departure}
+          onClose={() => setBoatPlanModal(null)}
+          onDepart={handleDepartureSubmission}
         />
       )}
     </AdminPageShell>
