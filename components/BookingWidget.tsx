@@ -99,6 +99,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const totalPeople = adults + children + babies
     const isGroup = totalPeople > GROUP_THRESHOLD // Bascule automatiquement en mode Groupe
     const totalPrice = (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
+        const progressSegments = [
+                { id: STEPS.CRITERIA, label: dict.booking?.widget?.step_criteria_short || dict.booking?.widget?.step_criteria_title || 'Critères' },
+                { id: STEPS.SLOTS, label: dict.booking?.widget?.step_slots_short || dict.booking?.widget?.step_slots_title || 'Horaires' },
+                { id: STEPS.CONTACT, label: dict.booking?.widget?.step_contact_short || dict.booking?.widget?.form_title || 'Contact' },
+                { id: STEPS.PAYMENT, label: dict.booking?.widget?.payment_title || 'Paiement' }
+        ]
 
   // Reset des créneaux si on change les critères
   useEffect(() => {
@@ -448,11 +454,21 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             </h3>
             
             {/* Barre de progression */}
-            <div className="flex space-x-2 mb-8">
-                <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? 'bg-[#eab308]' : 'bg-slate-700'}`} />
-                <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-[#eab308]' : 'bg-slate-700'}`} />
-                <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 3 ? 'bg-[#eab308]' : 'bg-slate-700'}`} />
-            </div>
+            <ol className="mb-8 flex flex-col gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:flex-row sm:items-center" aria-label={dict.booking?.widget?.progress_label || 'Progression de la réservation'}>
+                {progressSegments.map((segment, index) => {
+                    const isReached = step >= segment.id || step >= STEPS.SUCCESS
+                    const nextReached = step >= (progressSegments[index + 1]?.id ?? segment.id)
+                    return (
+                        <li key={segment.id} className="flex items-center gap-3">
+                            <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${isReached ? 'border-[#eab308] bg-[#eab308] text-[#0f172a]' : 'border-slate-600 bg-slate-800 text-slate-400'}`}>{index + 1}</div>
+                            <span className={`${isReached ? 'text-[#eab308]' : 'text-slate-500'}`}>{segment.label}</span>
+                            {index < progressSegments.length - 1 && (
+                                <div className={`hidden sm:block h-[2px] w-12 rounded-full transition-colors ${nextReached ? 'bg-[#eab308]' : 'bg-slate-700'}`} aria-hidden="true" />
+                            )}
+                        </li>
+                    )
+                })}
+            </ol>
 
             <div className="space-y-4 flex-1">
                 {/* BLOC 1 : DATE & PAX */}
