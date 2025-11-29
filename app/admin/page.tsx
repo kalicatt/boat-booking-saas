@@ -1,3 +1,4 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { auth } from '@/auth'
 import { logout } from '@/lib/actions'
@@ -72,7 +73,14 @@ export default async function AdminDashboard() {
             {/* Avatar : Image OU Initiales */}
             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm tracking-wider shadow-inner overflow-hidden ${!user.image ? styles.avatar : 'bg-white'}`}>
               {user.image ? (
-                <img src={user.image} alt="Profile" className="w-full h-full object-cover" />
+                <Image
+                  src={user.image}
+                  alt="Profile"
+                  width={40}
+                  height={40}
+                  className="w-full h-full object-cover"
+                  unoptimized
+                />
               ) : (
                 <span className="text-white">{initials}</span>
               )}
@@ -139,7 +147,7 @@ export default async function AdminDashboard() {
               Statistiques
             </h2>
             <p className="text-slate-500 text-sm leading-relaxed">
-              Suivre le chiffre d'affaires, l'affluence et la répartition par langue/barque.
+              Suivre le chiffre d&apos;affaires, l&apos;affluence et la répartition par langue/barque.
             </p>
           </Link>
 
@@ -195,7 +203,7 @@ export default async function AdminDashboard() {
               Mouchard (Logs)
             </h2>
             <p className="text-slate-500 text-sm leading-relaxed">
-              Surveiller l'activité : suppressions, modifications et sécurité.
+              Surveiller l&apos;activité : suppressions, modifications et sécurité.
             </p>
           </Link>
 

@@ -12,13 +12,13 @@ async function main() {
   const iconsDir = path.join(pub, 'icons')
 
   try {
-    require.resolve('sharp')
+    await import('sharp')
   } catch {
     console.error('Missing dependency: sharp. Run: npm i sharp')
     process.exit(1)
   }
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const sharp = require('sharp') as typeof import('sharp')
+  const sharpModule = await import('sharp')
+  const sharp = sharpModule.default || sharpModule
 
   try {
     await fs.promises.access(src, fs.constants.R_OK)

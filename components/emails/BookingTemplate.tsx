@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import * as React from 'react';
 
 interface BookingEmailProps {
@@ -99,7 +100,7 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
             Où nous trouver ?
         </h3>
         <p style={{ margin: '10px 0' }}>
-            L'embarcadère se situe au **Pont-Saint Pierre, 10 Rue de la Herse, 68000 Colmar**.
+            L&apos;embarcadère se situe au **Pont-Saint Pierre, 10 Rue de la Herse, 68000 Colmar**.
         </p>
         <div style={{ textAlign: 'center' }}>
             <a href={mapLink} style={{ 

@@ -52,6 +52,13 @@ type ViewMarkPaidState = {
 	methodType?: string
 }
 
+type ContactOption = {
+	id: string
+	firstName: string | null
+	lastName: string | null
+	email: string | null
+}
+
 const RANGE_OPTIONS: Array<{ key: FilterRange; label: string }> = [
 	{ key: 'day', label: 'Jour' },
 	{ key: 'month', label: 'Mois' },
@@ -78,6 +85,30 @@ const fetcher = async (url: string): Promise<Booking[]> => {
 		throw new Error(`Erreur ${response.status}`)
 	}
 	return response.json() as Promise<Booking[]>
+}
+
+const parseContacts = (input: unknown): ContactOption[] => {
+	if (!Array.isArray(input)) {
+		return []
+	}
+	return input
+		.map((entry) => {
+			if (!entry || typeof entry !== 'object') {
+				return null
+			}
+			const record = entry as Record<string, unknown>
+			const id = typeof record.id === 'string' ? record.id : null
+			if (!id) {
+				return null
+			}
+			return {
+				id,
+				firstName: typeof record.firstName === 'string' ? record.firstName : null,
+				lastName: typeof record.lastName === 'string' ? record.lastName : null,
+				email: typeof record.email === 'string' ? record.email : null
+			}
+		})
+		.filter((contact): contact is ContactOption => contact !== null)
 }
 
 const toWall = (date: Date) =>
@@ -165,7 +196,7 @@ export default function ReservationsAdminPage() {
 	const [chainPreview, setChainPreview] = useState<ChainPreview[]>([])
 	const [inheritPaymentForChain, setInheritPaymentForChain] = useState(false)
 	const [toasts, setToasts] = useState<Toast[]>([])
-	const [contacts, setContacts] = useState<any[]>([])
+	const [contacts, setContacts] = useState<ContactOption[]>([])
 	const [selectedContactId, setSelectedContactId] = useState('')
 	const [contactStatus, setContactStatus] = useState<'NEW' | 'CONTACTED' | 'CLOSED' | ''>('')
 	const [showView, setShowView] = useState<Booking | null>(null)
@@ -216,7 +247,7 @@ export default function ReservationsAdminPage() {
 	}
 
 	const { data, error, isLoading, mutate } = useSWR<Booking[]>(`/api/admin/reservations?${params.toString()}`, fetcher)
-	const bookings = data ?? []
+	const bookings = useMemo(() => data ?? [], [data])
 
 	const stats = useMemo(() => {
 		const total = bookings.length
@@ -446,8 +477,8 @@ export default function ReservationsAdminPage() {
 		const suffix = status ? `?status=${status}` : ''
 		try {
 			const response = await fetch(`/api/admin/contacts${suffix}`)
-			const json = await response.json()
-			setContacts(Array.isArray(json) ? json : [])
+			const json: unknown = await response.json()
+			setContacts(parseContacts(json))
 		} catch (contactsError) {
 			console.error('Erreur chargement contacts', contactsError)
 			pushToast({ type: 'warning', message: 'Impossible de charger les contacts.' })
@@ -1046,9 +1077,9 @@ export default function ReservationsAdminPage() {
 											className="w-56 rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
 										>
 											<option value="">Sélectionner…</option>
-											{contacts.map((contact: any) => (
+											{contacts.map((contact) => (
 												<option key={contact.id} value={contact.id}>
-													{contact.firstName} {contact.lastName} • {contact.email}
+													{contact.firstName ?? ''} {contact.lastName ?? ''} • {contact.email ?? ''}
 												</option>
 											))}
 										</select>

@@ -6,10 +6,11 @@ import { computeVatFromGross } from '@/lib/vat'
 import { auth } from '@/auth'
 import { log } from '@/lib/logger'
 import { sendAlert } from '@/lib/alerts'
+import type { PaymentLedger } from '@prisma/client'
 
 export async function GET() {
   const session = await auth()
-  const role = ((session as any)?.user?.role || 'GUEST') as string
+  const role = typeof session?.user?.role === 'string' ? session.user.role : 'GUEST'
   if (!session || !['ADMIN','SUPERADMIN','SUPER_ADMIN'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -17,16 +18,16 @@ export async function GET() {
     const closures = await prisma.dailyClosure.findMany({ orderBy: { day: 'desc' }, take: 60 })
     await log('info', 'Closures fetched', { route: '/api/admin/closures' })
     return NextResponse.json(closures)
-  } catch (e: any) {
+  } catch (error) {
     await log('error', 'Closures fetch failed', { route: '/api/admin/closures' })
-    await sendAlert('Closures fetch failed', { error: String(e?.message||e) })
-    return NextResponse.json({ error: 'Closures fetch failed', details: String(e?.message||e) }, { status: 500 })
+    await sendAlert('Closures fetch failed', { error: error instanceof Error ? error.message : String(error) })
+    return NextResponse.json({ error: 'Closures fetch failed', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }
 
 export async function POST(req: Request) {
   const session = await auth()
-  const role = ((session as any)?.user?.role || 'GUEST') as string
+  const role = typeof session?.user?.role === 'string' ? session.user.role : 'GUEST'
   if (!session || !['ADMIN','SUPERADMIN','SUPER_ADMIN'].includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -38,13 +39,13 @@ export async function POST(req: Request) {
   end.setUTCHours(23,59,59,999)
 
   // Compute totals from PaymentLedger for the day
-  let entries: any[] = []
+  let entries: PaymentLedger[] = []
   try {
     entries = await prisma.paymentLedger.findMany({ where: { occurredAt: { gte: start, lte: end } } })
-  } catch (e: any) {
+  } catch (error) {
     await log('error', 'Ledger read failed', { route: '/api/admin/closures' })
-    await sendAlert('Ledger read failed during closure', { error: String(e?.message||e) })
-    return NextResponse.json({ error: 'Ledger read failed', details: String(e?.message||e) }, { status: 500 })
+    await sendAlert('Ledger read failed during closure', { error: error instanceof Error ? error.message : String(error) })
+    return NextResponse.json({ error: 'Ledger read failed', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
   const totals: Record<string, number> = {}
   const vouchers: Record<string, number> = {}
@@ -75,9 +76,9 @@ export async function POST(req: Request) {
     const closure = await prisma.dailyClosure.create({ data: { day: start, closedById, totalsJson: json, hash, locked: true } })
     await log('info', 'Daily closure created', { route: '/api/admin/closures' })
     return NextResponse.json(closure)
-  } catch (e: any) {
+  } catch (error) {
     await log('error', 'Closure write failed', { route: '/api/admin/closures' })
-    await sendAlert('Closure write failed', { error: String(e?.message||e) })
-    return NextResponse.json({ error: 'Closure write failed', details: String(e?.message||e) }, { status: 500 })
+    await sendAlert('Closure write failed', { error: error instanceof Error ? error.message : String(error) })
+    return NextResponse.json({ error: 'Closure write failed', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
   }
 }

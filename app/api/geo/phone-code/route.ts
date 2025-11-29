@@ -26,7 +26,9 @@ export async function GET(request: Request) {
     }
     const match = PHONE_CODES.find(pc => pc.iso2 === countryCode)
     return NextResponse.json({ countryCode, dialCode: match?.code || '+33', source: 'geo' })
-  } catch (e) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('GET /api/geo/phone-code failed', msg)
     return NextResponse.json({ countryCode: 'FR', dialCode: '+33', source: 'error' }, { status: 200 })
   }
 }

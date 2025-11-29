@@ -65,7 +65,8 @@ export const proxy = auth((req) => {
   const { pathname } = req.nextUrl
 
   if (pathname.startsWith('/admin/employees')) {
-    const user: any = (req as any).auth?.user
+    type ProxyAuth = { auth?: { user?: { role?: string | null } } }
+    const user = (req as unknown as ProxyAuth).auth?.user
     if (!user) {
       const url = req.nextUrl.clone()
       url.pathname = '/login'

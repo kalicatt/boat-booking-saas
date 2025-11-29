@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   format,
   startOfDay,
@@ -22,8 +22,81 @@ import Link from 'next/link'
 
 type ViewMode = 'day' | 'week' | 'month'
 
+type TodayBookingUser = {
+  firstName: string | null
+  lastName: string | null
+  email: string | null
+  phone: string | null
+}
+
+type TodayBookingBoat = {
+  id: number | null
+  name: string | null
+}
+
+type TodayBooking = {
+  id: string
+  startTime: string
+  language: string | null
+  numberOfPeople: number
+  status: string | null
+  boatId: number | null
+  boat: TodayBookingBoat | null
+  user: TodayBookingUser
+}
+
+const parseTodayBookings = (input: unknown): TodayBooking[] => {
+  if (!Array.isArray(input)) {
+    return []
+  }
+
+  return input
+    .map((entry) => {
+      if (!entry || typeof entry !== 'object') {
+        return null
+      }
+
+      const record = entry as Record<string, unknown>
+      const id = typeof record.id === 'string' ? record.id : null
+      const startTime = typeof record.startTime === 'string' ? record.startTime : null
+
+      if (!id || !startTime) {
+        return null
+      }
+
+      const boatRaw = record.boat
+      const boatRecord = boatRaw && typeof boatRaw === 'object' ? (boatRaw as Record<string, unknown>) : null
+      const boat: TodayBookingBoat | null = boatRecord
+        ? {
+            id: typeof boatRecord.id === 'number' ? boatRecord.id : null,
+            name: typeof boatRecord.name === 'string' ? (boatRecord.name as string) : null
+          }
+        : null
+
+      const userRaw = record.user
+      const userBase = userRaw && typeof userRaw === 'object' ? (userRaw as Record<string, unknown>) : {}
+
+      return {
+        id,
+        startTime,
+        language: typeof record.language === 'string' ? record.language : null,
+        numberOfPeople: typeof record.numberOfPeople === 'number' ? record.numberOfPeople : 0,
+        status: typeof record.status === 'string' ? record.status : null,
+        boatId: typeof record.boatId === 'number' ? record.boatId : boat?.id ?? null,
+        boat,
+        user: {
+          firstName: typeof userBase.firstName === 'string' ? (userBase.firstName as string) : null,
+          lastName: typeof userBase.lastName === 'string' ? (userBase.lastName as string) : null,
+          email: typeof userBase.email === 'string' ? (userBase.email as string) : null,
+          phone: typeof userBase.phone === 'string' ? (userBase.phone as string) : null
+        }
+      }
+    })
+    .filter((booking): booking is TodayBooking => booking !== null)
+}
+
 export default function ClientTodayList() {
-  const [bookings, setBookings] = useState<any[]>([])
+  const [bookings, setBookings] = useState<TodayBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalPeople: 0, count: 0 })
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -42,7 +115,7 @@ export default function ClientTodayList() {
     }
   }, [currentDate, viewMode])
 
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     setLoading(true)
     const { start, end } = dateRange
 
@@ -50,23 +123,28 @@ export default function ClientTodayList() {
       const res = await fetch(
         `/api/admin/all-bookings?start=${start.toISOString()}&end=${end.toISOString()}&t=${Date.now()}`
       )
-      const data = await res.json()
-      const sortedData = data.sort(
-        (a: any, b: any) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      if (!res.ok) {
+        throw new Error(`Erreur de chargement ${res.status}`)
+      }
+      const payload: unknown = await res.json()
+      const parsed = parseTodayBookings(payload)
+      const sortedData = [...parsed].sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
       )
       setBookings(sortedData)
-      const people = sortedData.reduce((acc: number, b: any) => acc + b.numberOfPeople, 0)
+      const people = sortedData.reduce((acc, booking) => acc + booking.numberOfPeople, 0)
       setStats({ totalPeople: people, count: sortedData.length })
-    } catch (e) {
-      console.error(e)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(msg)
     } finally {
       setLoading(false)
     }
-  }
+  }, [dateRange])
 
   useEffect(() => {
     fetchBookings()
-  }, [dateRange])
+  }, [fetchBookings])
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'day') {
@@ -137,7 +215,7 @@ export default function ClientTodayList() {
                   ◀
                 </button>
                 <button onClick={goToToday} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50 text-sm font-bold">
-                  Aujourd'hui
+                  Aujourd&apos;hui
                 </button>
                 <button onClick={() => handleNavigate('next')} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50">
                   ▶
@@ -229,16 +307,16 @@ export default function ClientTodayList() {
                                   b.boatId === 3 ? 'bg-purple-100 text-purple-800' : 
                                   'bg-orange-100 text-orange-800'}`}
                           >
-                            {b.boat.name}
+                            {b.boat?.name ?? '—'}
                           </span>
                         </td>
                         <td className="p-4 font-medium">
-                          {b.user.firstName} {b.user.lastName}
-                          <div className="text-xs text-slate-400 uppercase">{b.language}</div>
+                          {(b.user.firstName ?? '')} {(b.user.lastName ?? '')}
+                          <div className="text-xs text-slate-400 uppercase">{b.language ?? '—'}</div>
                         </td>
                         <td className="p-4 text-slate-600">
-                          <div className="font-bold">📞 {b.user.phone || 'Non renseigné'}</div>
-                          <div className="text-xs text-slate-400">{b.user.email}</div>
+                          <div className="font-bold">📞 {b.user.phone ?? 'Non renseigné'}</div>
+                          <div className="text-xs text-slate-400">{b.user.email ?? '—'}</div>
                         </td>
                         <td className="p-4 text-center font-bold text-slate-700">{b.numberOfPeople}</td>
                         <td className="p-4 text-right">

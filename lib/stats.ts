@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getParisTodayISO } from '@/lib/time'
+import type { Payment, Prisma } from '@prisma/client'
 
 export interface StatsFilters {
   start?: string // YYYY-MM-DD
@@ -8,16 +9,35 @@ export interface StatsFilters {
   language?: string[]
 }
 
+type BookingWithRelations = Prisma.BookingGetPayload<{
+  include: {
+    payments: true
+    user: true
+    boat: true
+  }
+}>
+
+interface AccountingEntry {
+  bookingId: string
+  boat: string
+  date: string
+  time: string
+  name: string
+  people: number
+  amount: number
+  method: string
+}
+
 export async function getStats(filters: StatsFilters = {}) {
   const today = getParisTodayISO()
   const start = filters.start ? new Date(`${filters.start}T00:00:00.000Z`) : new Date(`${today.slice(0,7)}-01T00:00:00.000Z`)
   const end = filters.end ? new Date(`${filters.end}T23:59:59.999Z`) : new Date(`${today}T23:59:59.999Z`)
 
-  const where: any = { startTime: { gte: start, lte: end } }
+  const where: Prisma.BookingWhereInput = { startTime: { gte: start, lte: end } }
   if (filters.status && filters.status.length) where.status = { in: filters.status }
   if (filters.language && filters.language.length) where.language = { in: filters.language }
 
-  const bookings = await prisma.booking.findMany({ where, include: { payments: true, user: true, boat: true } })
+  const bookings: BookingWithRelations[] = await prisma.booking.findMany({ where, include: { payments: true, user: true, boat: true } })
 
   const isPaidStatus = (s?: string) => {
     const v = (s || '').toLowerCase()
@@ -35,27 +55,41 @@ export async function getStats(filters: StatsFilters = {}) {
     babies: bookings.reduce((s,b)=> s + (b.babies||0), 0),
     revenue: (() => {
       // Compute cashier total from payments excluding vouchers (ANCV/CityPass)
-      const payments = bookings.flatMap(b=> b.payments||[]).filter(p=> isPaidStatus(p.status))
-      const cashier = payments.filter(p=> {
-        const prov = (p.provider||'').toLowerCase()
-        const meth = (p.methodType||'').toLowerCase()
-        const isVoucher = prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('city') || prov.includes('ancv')
+      const paidPayments = bookings
+        .flatMap(booking => booking.payments)
+        .filter(payment => isPaidStatus(payment.status))
+      const cashier = paidPayments.filter(payment => {
+        const provider = payment.provider.toLowerCase()
+        const method = (payment.methodType || '').toLowerCase()
+        const isVoucher = provider === 'voucher' || method === 'ancv' || method === 'citypass' || provider.includes('city') || provider.includes('ancv')
         return !isVoucher
       })
-      const euroFromPayments = cashier.reduce((s,p)=> s + (p.amount||0), 0) / 100
+      const euroFromPayments = cashier.reduce((total, payment) => total + payment.amount, 0) / 100
       // Fallback: bookings marked paid with no non-voucher payments
       let euroFallback = 0
-      for (const b of bookings) {
-        const paidPs = (b.payments||[]).filter(p=> isPaidStatus(p.status))
-        const hasNonVoucherPaid = paidPs.some(p=> { const prov = (p.provider||'').toLowerCase(); const meth = (p.methodType||'').toLowerCase(); return !(prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('ancv') || prov.includes('city')) })
-        if (!hasNonVoucherPaid && (b as any).isPaid && ((b.totalPrice||0) > 0)) {
-          euroFallback += (b.totalPrice || 0)
+      for (const booking of bookings) {
+        const paidForBooking = booking.payments.filter(payment => isPaidStatus(payment.status))
+        const hasNonVoucherPaid = paidForBooking.some(payment => {
+          const provider = payment.provider.toLowerCase()
+          const method = (payment.methodType || '').toLowerCase()
+          return !(provider === 'voucher' || method === 'ancv' || method === 'citypass' || provider.includes('ancv') || provider.includes('city'))
+        })
+        if (!hasNonVoucherPaid && booking.isPaid && booking.totalPrice > 0) {
+          euroFallback += booking.totalPrice
         }
       }
       return Math.round(euroFromPayments + euroFallback)
     })(),
-    avgPerBooking: (()=>{ const count = bookings.length; const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return count ? Math.round(total / count) : 0 })(),
-    avgPerPerson: (() => { const ppl = bookings.reduce((s,b)=> s + b.numberOfPeople,0); const total = bookings.reduce((s,b)=> s + (b.totalPrice||0),0); return ppl ? Math.round(total/ppl) : 0 })(),
+    avgPerBooking: (() => {
+      const count = bookings.length
+      const total = bookings.reduce((sum, booking) => sum + booking.totalPrice, 0)
+      return count ? Math.round(total / count) : 0
+    })(),
+    avgPerPerson: (() => {
+      const peopleCount = bookings.reduce((sum, booking) => sum + booking.numberOfPeople, 0)
+      const total = bookings.reduce((sum, booking) => sum + booking.totalPrice, 0)
+      return peopleCount ? Math.round(total / peopleCount) : 0
+    })(),
   }
 
   const statusDist: Record<string, number> = {}
@@ -90,17 +124,17 @@ export async function getStats(filters: StatsFilters = {}) {
   Object.keys(byHourMap).sort().forEach(k => byHour.push({ hour: k, count: byHourMap[k].count, revenue: byHourMap[k].revenue }))
 
   // Build payment breakdown
-  const paymentsAll = bookings.flatMap(b=> b.payments||[]).filter(p=> isPaidStatus(p.status))
-  const sumCents = (arr: any[]) => Math.round(arr.reduce((s,p)=> s + (p.amount||0), 0))
+  const paymentsAll = bookings.flatMap(booking => booking.payments).filter(payment => isPaidStatus(payment.status))
+  const sumCents = (arr: Payment[]) => Math.round(arr.reduce((sum, payment) => sum + payment.amount, 0))
   // Monetary breakdown (excluding vouchers from caisse total), vouchers counted as quantities
   let ANCVCount = 0
   let CityPassCount = 0
-  for (const b of bookings) {
-    const ps = (b.payments||[]).filter(p=> isPaidStatus(p.status))
-    const hasCityPass = ps.some(p=> (p.provider === 'voucher' && p.methodType === 'CityPass') || (p.methodType||'').toLowerCase().includes('city'))
-    const hasANCV = ps.some(p=> (p.provider === 'voucher' && p.methodType === 'ANCV') || (p.methodType||'').toLowerCase().includes('ancv'))
-    if (hasCityPass) CityPassCount += (b.adults||0)
-    if (hasANCV) ANCVCount += (b.numberOfPeople||0)
+  for (const booking of bookings) {
+    const paidForBooking = booking.payments.filter(payment => isPaidStatus(payment.status))
+    const hasCityPass = paidForBooking.some(payment => (payment.provider === 'voucher' && payment.methodType === 'CityPass') || (payment.methodType || '').toLowerCase().includes('city'))
+    const hasANCV = paidForBooking.some(payment => (payment.provider === 'voucher' && payment.methodType === 'ANCV') || (payment.methodType || '').toLowerCase().includes('ancv'))
+    if (hasCityPass) CityPassCount += booking.adults ?? 0
+    if (hasANCV) ANCVCount += booking.numberOfPeople ?? 0
   }
   const breakdown = {
     cash: sumCents(paymentsAll.filter(p=> ((p.provider||'').toLowerCase() === 'cash'))) / 100,
@@ -115,56 +149,60 @@ export async function getStats(filters: StatsFilters = {}) {
   // Note: accounting fallback entries will be appended below after accounting array is declared
 
   // Accounting lines per payment (paper trace)
-  const accounting = bookings.flatMap(b => {
-    const d = new Date(b.startTime)
+  const accounting = bookings.flatMap<AccountingEntry>(booking => {
+    const d = new Date(booking.startTime)
     const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
     const time = `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
-    const name = `${(b as any).user?.lastName || ''} ${(b as any).user?.firstName || ''}`.trim() || '-' 
-    const boatName = (b as any).boat?.name || '-'
-    const people = b.numberOfPeople
-    if (!b.payments || b.payments.length === 0) {
-      return [] as any[]
+    const name = `${booking.user.lastName ?? ''} ${booking.user.firstName ?? ''}`.trim() || '-'
+    const boatName = booking.boat.name ?? '-'
+    const people = booking.numberOfPeople
+    if (booking.payments.length === 0) {
+      return []
     }
-    return b.payments
-      .filter(p => isPaidStatus(p.status))
-      .map(p => {
-        let method = p.provider
-        if (p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')) method = p.methodType
-        if (p.provider === 'card') method = 'Card'
-        if (p.provider === 'cash') method = 'Cash'
-        if (p.provider === 'paypal') method = 'PayPal'
-        if (p.provider === 'applepay') method = 'Apple Pay'
-        if (p.provider === 'googlepay') method = 'Google Pay'
-        const isVoucher = p.provider === 'voucher' && (p.methodType === 'ANCV' || p.methodType === 'CityPass')
+    return booking.payments
+      .filter(payment => isPaidStatus(payment.status))
+      .map<AccountingEntry>(payment => {
+        let method = payment.provider
+        if (payment.provider === 'voucher' && (payment.methodType === 'ANCV' || payment.methodType === 'CityPass')) method = payment.methodType || method
+        if (payment.provider === 'card') method = 'Card'
+        if (payment.provider === 'cash') method = 'Cash'
+        if (payment.provider === 'paypal') method = 'PayPal'
+        if (payment.provider === 'applepay') method = 'Apple Pay'
+        if (payment.provider === 'googlepay') method = 'Google Pay'
+        const isVoucher = payment.provider === 'voucher' && (payment.methodType === 'ANCV' || payment.methodType === 'CityPass')
         return {
-          bookingId: b.id,
+          bookingId: booking.id,
           boat: boatName,
           date,
           time,
           name,
           people,
-          amount: isVoucher ? 0 : (p.amount || 0) / 100,
+          amount: isVoucher ? 0 : payment.amount / 100,
           method,
         }
       })
   }).sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time))
 
   // Append fallback accounting entries for paid bookings with no non-voucher payment records
-  for (const b of bookings) {
-    const paidPs = (b.payments||[]).filter(p=> isPaidStatus(p.status))
-    const hasNonVoucherPaid = paidPs.some(p=> { const prov = (p.provider||'').toLowerCase(); const meth = (p.methodType||'').toLowerCase(); return !(prov === 'voucher' || meth === 'ancv' || meth === 'citypass' || prov.includes('ancv') || prov.includes('city')) })
-    if (!hasNonVoucherPaid && (b as any).isPaid && ((b.totalPrice||0) > 0)) {
-      const d = new Date(b.startTime)
+  for (const booking of bookings) {
+    const paidForBooking = booking.payments.filter(payment => isPaidStatus(payment.status))
+    const hasNonVoucherPaid = paidForBooking.some(payment => {
+      const provider = payment.provider.toLowerCase()
+      const method = (payment.methodType || '').toLowerCase()
+      return !(provider === 'voucher' || method === 'ancv' || method === 'citypass' || provider.includes('ancv') || provider.includes('city'))
+    })
+    if (!hasNonVoucherPaid && booking.isPaid && booking.totalPrice > 0) {
+      const d = new Date(booking.startTime)
       const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
       const time = `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
       accounting.push({
-        bookingId: b.id,
-        boat: (b as any).boat?.name || '-',
+        bookingId: booking.id,
+        boat: booking.boat.name ?? '-',
         date,
         time,
-        name: `${(b as any).user?.lastName || ''} ${(b as any).user?.firstName || ''}`.trim() || '-',
-        people: b.numberOfPeople || 0,
-        amount: (b.totalPrice || 0),
+        name: `${booking.user.lastName ?? ''} ${booking.user.firstName ?? ''}`.trim() || '-',
+        people: booking.numberOfPeople || 0,
+        amount: booking.totalPrice || 0,
         method: 'Paid (no record)'
       })
     }

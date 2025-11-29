@@ -55,7 +55,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Order creation failed', details: order?.message || order?.debug_id || null }, { status: 500 })
     }
     return NextResponse.json({ orderId: order.id })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: message || 'Server error' }, { status: 500 })
   }
 }

@@ -91,8 +91,9 @@ export async function POST(request: Request) {
     await createLog("ADD_SHIFT", `Ajout heures pour l'employé ${userId} (${date})`)
 
     return NextResponse.json({ success: true })
-  } catch (e) {
-    console.error(e)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error(msg)
     return NextResponse.json({ error: "Erreur lors de l'enregistrement" }, { status: 500 })
   }
 }

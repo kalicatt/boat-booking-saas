@@ -2,9 +2,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { submitGroupRequest, submitPrivateRequest, type Lang } from '@/lib/contactClient'
 
-declare global { interface Window { grecaptcha?: any } }
+declare global {
+  interface Window {
+    grecaptcha?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => number
+      ready: (fn: () => void) => void
+      reset?: (id: number) => void
+    }
+  }
+}
 
-function tDict(dict: any, lang: Lang) {
+function tDict(dict: Record<string, unknown>, lang: Lang) {
   // Prefer dictionary keys; fallback to internal phrases when missing
   const group = dict.group_form || {}
   const priv = dict.private_form || {}
@@ -40,11 +48,8 @@ function tDict(dict: any, lang: Lang) {
   }
 }
 
-export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) {
+export default function ContactForms({ lang, dict }: { lang: Lang, dict: Record<string, unknown> }) {
   const tr = tDict(dict, lang)
-    const group = dict.group_form || {}
-    const priv = dict.private_form || {}
-    const fallback = (map: Record<Lang, string>) => map[lang]
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
   const [active, setActive] = useState<'group'|'private'>('group')
   const [loading, setLoading] = useState(false)
@@ -159,7 +164,7 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: any }) 
       if (groupWidgetId.current != null && window.grecaptcha) window.grecaptcha.reset(groupWidgetId.current)
       if (privateWidgetId.current != null && window.grecaptcha) window.grecaptcha.reset(privateWidgetId.current)
       setGroupToken(''); setPrivateToken('')
-    } catch (err) {
+    } catch {
       setError(tr.error)
     } finally {
       setLoading(false)

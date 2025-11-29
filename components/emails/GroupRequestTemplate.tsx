@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import * as React from 'react';
 
 interface GroupRequestProps {
@@ -59,7 +60,7 @@ export const GroupRequestTemplate: React.FC<Readonly<GroupRequestProps>> = ({
 
         <h3 style={{ borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Message du client :</h3>
         <p style={{ whiteSpace: 'pre-wrap', backgroundColor: '#fff', padding: '15px', border: '1px solid #eee', borderRadius: '5px', fontStyle: 'italic' }}>
-            "{message}"
+          &ldquo;{message}&rdquo;
         </p>
 
         <div style={{ textAlign: 'center', marginTop: '30px' }}>

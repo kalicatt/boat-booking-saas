@@ -2,6 +2,8 @@
 import useSWR from 'swr'
 import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
+import Link from 'next/link'
+import type { CashMovement, CashSession, DailyClosure, PaymentLedger } from '@prisma/client'
 import { business } from '@/lib/business'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
@@ -26,32 +28,65 @@ const createEmptyBreakdown = (): BreakdownState => ({
   }, {} as Record<string, number>)
 })
 
-const toArray = (value: any) =>
-  Array.isArray(value)
-    ? value
-    : Array.isArray(value?.items)
-    ? value.items
-    : Array.isArray(value?.closures)
-    ? value.closures
-    : Array.isArray(value?.data)
-    ? value.data
-    : []
+type CashMovementDto = Omit<CashMovement, 'occurredAt'> & { occurredAt: string }
+type CashSessionDto = Omit<CashSession, 'openedAt' | 'closedAt' | 'closingBreakdown'> & {
+  openedAt: string
+  closedAt: string | null
+  closingBreakdown: unknown | null
+  movements: CashMovementDto[]
+}
+type PaymentLedgerDto = Omit<PaymentLedger, 'occurredAt'> & { occurredAt: string }
+type DailyClosureDto = Omit<DailyClosure, 'day' | 'closedAt'> & { day: string; closedAt: string | null }
 
-const isForbidden = (value: any) =>
-  !!value && !Array.isArray(value) && (value.status === 403 || value.code === 403 || value?.error === 'Forbidden')
+type ClosureSnapshot = {
+  totals: Record<string, number>
+  vouchers: Record<string, number>
+  count?: number
+  vat?: { net?: number; vat?: number; gross?: number }
+}
+
+type ClosingBreakdownPayload = {
+  bills?: Record<string, number>
+  coins?: Record<string, number>
+  notes?: string
+  declaredAmountCents?: number
+  computedAmountCents?: number
+  expectedAmountCents?: number
+  varianceCents?: number
+  createdAt?: string
+}
+
+const isRecordOfNumbers = (value: unknown): value is Record<string, number> => {
+  if (!value || typeof value !== 'object') return false
+  return Object.values(value as Record<string, unknown>).every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+}
+
+const toArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object') {
+    const candidate = value as Record<string, unknown>
+    if (Array.isArray(candidate.items)) return candidate.items as T[]
+    if (Array.isArray(candidate.closures)) return candidate.closures as T[]
+    if (Array.isArray(candidate.data)) return candidate.data as T[]
+  }
+  return []
+}
+
+const isForbidden = (value: unknown) => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as { status?: number; code?: number; error?: string }
+  return candidate.status === 403 || candidate.code === 403 || candidate.error === 'Forbidden'
+}
 
 const centsToEuro = (value: number | null | undefined) => {
   if (typeof value !== 'number' || Number.isNaN(value)) return '—'
   return (value / 100).toFixed(2) + ' €'
 }
 
-const computeExpectedCents = (session: any) => {
+const computeExpectedCents = (session: CashSessionDto | null | undefined) => {
   if (!session) return 0
-  const opening = session.openingFloat || 0
-  const movementsTotal = (session.movements || []).reduce((sum: number, movement: any) => {
-    const amount = Number(movement?.amount || 0)
-    return sum + amount
-  }, 0)
+  const opening = session.openingFloat ?? 0
+  const movementsTotal = (session.movements || []).reduce((sum, movement) => sum + (movement.amount ?? 0), 0)
   return opening + movementsTotal
 }
 
@@ -82,10 +117,48 @@ const triggerCsvDownload = (rows: string[][], filename: string) => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const parseBreakdownPayload = (payload: any) => {
-  if (!payload) return null
+const parseBreakdownPayload = (payload: unknown): ClosingBreakdownPayload | null => {
+  if (payload === null || payload === undefined) return null
+  let value = payload
+  if (typeof value === 'string') {
+    try {
+      value = JSON.parse(value)
+    } catch {
+      return null
+    }
+  }
+  if (!value || typeof value !== 'object') return null
+  const source = value as Record<string, unknown>
+  const normalized: ClosingBreakdownPayload = {}
+  if (isRecordOfNumbers(source.bills)) normalized.bills = source.bills
+  if (isRecordOfNumbers(source.coins)) normalized.coins = source.coins
+  if (typeof source.notes === 'string') normalized.notes = source.notes
+  if (typeof source.declaredAmountCents === 'number' && Number.isFinite(source.declaredAmountCents)) normalized.declaredAmountCents = source.declaredAmountCents
+  if (typeof source.computedAmountCents === 'number' && Number.isFinite(source.computedAmountCents)) normalized.computedAmountCents = source.computedAmountCents
+  if (typeof source.expectedAmountCents === 'number' && Number.isFinite(source.expectedAmountCents)) normalized.expectedAmountCents = source.expectedAmountCents
+  if (typeof source.varianceCents === 'number' && Number.isFinite(source.varianceCents)) normalized.varianceCents = source.varianceCents
+  if (typeof source.createdAt === 'string') normalized.createdAt = source.createdAt
+  return Object.keys(normalized).length ? normalized : null
+}
+
+const parseClosureSnapshot = (payload: unknown): ClosureSnapshot | null => {
+  if (typeof payload !== 'string') return null
   try {
-    return typeof payload === 'string' ? JSON.parse(payload) : payload
+    const parsed = JSON.parse(payload) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return null
+    const totals = isRecordOfNumbers(parsed.totals) ? parsed.totals : {}
+    const vouchers = isRecordOfNumbers(parsed.vouchers) ? parsed.vouchers : {}
+    const snapshot: ClosureSnapshot = { totals, vouchers }
+    if (typeof parsed.count === 'number') snapshot.count = parsed.count
+    if (parsed.vat && typeof parsed.vat === 'object' && parsed.vat !== null) {
+      const vat = parsed.vat as Record<string, unknown>
+      snapshot.vat = {
+        net: typeof vat.net === 'number' ? vat.net : undefined,
+        vat: typeof vat.vat === 'number' ? vat.vat : undefined,
+        gross: typeof vat.gross === 'number' ? vat.gross : undefined
+      }
+    }
+    return snapshot
   } catch {
     return null
   }
@@ -96,9 +169,9 @@ export default function AccountingAdminPage() {
   const { data: cash, mutate: mutateCash } = useSWR('/api/admin/cash', fetcher)
   const { data: closures, mutate: mutateClosures } = useSWR('/api/admin/closures', fetcher)
 
-  const ledgerList = useMemo(() => toArray(ledger), [ledger])
-  const cashSessions = useMemo(() => toArray(cash), [cash])
-  const closuresList = useMemo(() => toArray(closures), [closures])
+  const ledgerList = useMemo(() => toArray<PaymentLedgerDto>(ledger), [ledger])
+  const cashSessions = useMemo(() => toArray<CashSessionDto>(cash), [cash])
+  const closuresList = useMemo(() => toArray<DailyClosureDto>(closures), [closures])
 
   const [openingFloatEuros, setOpeningFloatEuros] = useState('')
   const [closingCountEuros, setClosingCountEuros] = useState('')
@@ -109,7 +182,7 @@ export default function AccountingAdminPage() {
   const [showClosingModal, setShowClosingModal] = useState(false)
   const [closingBreakdown, setClosingBreakdown] = useState<BreakdownState>(() => createEmptyBreakdown())
   const [closingNotes, setClosingNotes] = useState('')
-  const [selectedSession, setSelectedSession] = useState<any | null>(null)
+  const [selectedSession, setSelectedSession] = useState<CashSessionDto | null>(null)
   const [isOpening, setIsOpening] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
   const [isQuickExporting, setIsQuickExporting] = useState(false)
@@ -126,8 +199,8 @@ export default function AccountingAdminPage() {
     return Math.round(parsed * 100)
   }, [closingCountEuros])
 
-  const openSession = cashSessions.find((session: any) => !session.closedAt)
-  const lastClosedSession = cashSessions.find((session: any) => session.closedAt)
+  const openSession = cashSessions.find((session) => !session.closedAt)
+  const lastClosedSession = cashSessions.find((session) => session.closedAt)
   const latestSession = openSession || lastClosedSession || cashSessions[0]
   const expectedForOpen = computeExpectedCents(openSession)
 
@@ -235,7 +308,9 @@ export default function AccountingAdminPage() {
       const expected = computeExpectedCents(latestSession)
       const counted = typeof latestSession.closingCount === 'number' ? latestSession.closingCount : null
       const variance = counted !== null ? counted - expected : null
-      const breakdown = parseBreakdownPayload(latestSession.closingBreakdown) || {}
+      const breakdown = parseBreakdownPayload(latestSession.closingBreakdown)
+      const bills = breakdown?.bills ?? {}
+      const coins = breakdown?.coins ?? {}
       const rows: string[][] = [
         ['Entreprise', business.name],
         ['Adresse', business.address],
@@ -255,7 +330,7 @@ export default function AccountingAdminPage() {
       rows.push(['Décomposition billets'])
       rows.push(['Valeur', 'Quantité', 'Montant'])
       BILL_DENOMINATIONS.forEach((value) => {
-        const count = Number(breakdown?.bills?.[String(value)] ?? 0)
+        const count = bills[String(value)] ?? 0
         rows.push([`${value} €`, String(count), (value * count).toFixed(2) + ' €'])
       })
 
@@ -263,7 +338,7 @@ export default function AccountingAdminPage() {
       rows.push(['Décomposition pièces'])
       rows.push(['Valeur', 'Quantité', 'Montant'])
       COIN_DENOMINATIONS.forEach((value) => {
-        const count = Number(breakdown?.coins?.[String(value)] ?? 0)
+        const count = coins[String(value)] ?? 0
         rows.push([`${value.toFixed(2)} €`, String(count), (value * count).toFixed(2) + ' €'])
       })
 
@@ -414,7 +489,7 @@ export default function AccountingAdminPage() {
                       Aucun historique pour le moment. Ouvrez la caisse pour démarrer un suivi.
                     </div>
                   )}
-                  {cashSessions.map((session: any) => {
+                  {cashSessions.map((session) => {
                     const expected = computeExpectedCents(session)
                     const counted = typeof session.closingCount === 'number' ? session.closingCount : null
                     const variance = counted !== null ? counted - expected : null
@@ -472,12 +547,12 @@ export default function AccountingAdminPage() {
                 <h2 className="text-lg font-semibold text-slate-900">Journal Ledger (200 derniers)</h2>
                 <p className="text-sm text-slate-500">Toutes les opérations enregistrées sur les différents moyens de paiement.</p>
               </div>
-              <a
+              <Link
                 href="/admin/accounting/reconciliation"
                 className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-blue-600 shadow-sm transition hover:bg-blue-50"
               >
                 Aller au rapprochement
-              </a>
+              </Link>
             </div>
             {isForbidden(ledger) ? (
               <div className="p-4 text-sm text-rose-600">Accès refusé (403). Connectez-vous avec un compte administrateur.</div>
@@ -496,7 +571,7 @@ export default function AccountingAdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {ledgerList.map((entry: any) => (
+                    {ledgerList.map((entry) => (
                       <tr key={entry.id} className="border-t border-slate-100">
                         <td className="px-3 py-2">{format(new Date(entry.occurredAt), 'dd/MM HH:mm')}</td>
                         <td className="px-3 py-2">
@@ -574,21 +649,29 @@ export default function AccountingAdminPage() {
                     return
                   }
                   const target =
-                    closuresList.find((closure: any) => new Date(closure.day).toISOString().slice(0, 10) === selectedDay) ||
+                    closuresList.find((closure) => new Date(closure.day).toISOString().slice(0, 10) === selectedDay) ||
                     closuresList[0]
-                  const snapshot = JSON.parse(target.totalsJson)
+                  if (!target) {
+                    setToast({ type: 'error', message: 'Clôture introuvable.' })
+                    return
+                  }
+                  const snapshot = parseClosureSnapshot(target.totalsJson)
+                  if (!snapshot) {
+                    setToast({ type: 'error', message: 'Clôture invalide.' })
+                    return
+                  }
                   const rows: string[][] = [
                     ['Entreprise', business.name],
                     ['Date', format(new Date(target.day), 'yyyy-MM-dd')],
                     ['Hash', target.hash],
                     [],
-                    ['Totaux', ...Object.entries(snapshot.totals).map(([k, v]: any) => `${k}: ${(Number(v) / 100).toFixed(2)} €`)],
-                    ['Vouchers', ...Object.entries(snapshot.vouchers).map(([k, v]: any) => `${k}: ${Number(v)}`)],
+                    ['Totaux', ...Object.entries(snapshot.totals).map(([method, cents]) => `${method}: ${(cents / 100).toFixed(2)} €`)],
+                    ['Vouchers', ...Object.entries(snapshot.vouchers).map(([voucher, count]) => `${voucher}: ${count}`)],
                     [
                       'TVA',
-                      `Net: ${(Number(snapshot.vat?.net || 0) / 100).toFixed(2)} €`,
-                      `TVA: ${(Number(snapshot.vat?.vat || 0) / 100).toFixed(2)} €`,
-                      `Brut: ${(Number(snapshot.vat?.gross || 0) / 100).toFixed(2)} €`
+                      `Net: ${((snapshot.vat?.net ?? 0) / 100).toFixed(2)} €`,
+                      `TVA: ${((snapshot.vat?.vat ?? 0) / 100).toFixed(2)} €`,
+                      `Brut: ${((snapshot.vat?.gross ?? 0) / 100).toFixed(2)} €`
                     ]
                   ]
                   triggerCsvDownload(rows, `closure_${format(new Date(target.day), 'yyyy-MM-dd')}.csv`)
@@ -610,8 +693,13 @@ export default function AccountingAdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {closuresList.map((closure: any) => {
-                    const snapshot = JSON.parse(closure.totalsJson)
+                  {closuresList.map((closure) => {
+                    const snapshot = parseClosureSnapshot(closure.totalsJson)
+                    const totalsSummary = snapshot
+                      ? Object.entries(snapshot.totals)
+                          .map(([method, cents]) => `${method}: ${(cents / 100).toFixed(2)} €`)
+                          .join(' • ')
+                      : 'Données indisponibles'
                     return (
                       <tr
                         key={closure.id}
@@ -623,11 +711,7 @@ export default function AccountingAdminPage() {
                       >
                         <td className="px-3 py-2">{format(new Date(closure.day), 'dd/MM/yyyy')}</td>
                         <td className="px-3 py-2">{closure.hash.slice(0, 12)}…</td>
-                        <td className="px-3 py-2 text-xs text-slate-500">
-                          {Object.entries(snapshot.totals)
-                            .map(([k, v]) => `${k}: ${(Number(v) / 100).toFixed(2)} €`)
-                            .join(' • ')}
-                        </td>
+                        <td className="px-3 py-2 text-xs text-slate-500">{totalsSummary}</td>
                       </tr>
                     )
                   })}
@@ -686,19 +770,19 @@ export default function AccountingAdminPage() {
                     end.setUTCDate(start.getUTCDate() + 6)
                     end.setUTCHours(23, 59, 59, 999)
                   }
-                  const entries = ledgerList.filter((entry: any) => {
+                  const entries = ledgerList.filter((entry) => {
                     const occurred = new Date(entry.occurredAt)
                     return occurred >= start && occurred <= end
                   })
-                  const totalCents = entries.reduce((sum: number, entry: any) => sum + (entry.amount || 0), 0)
+                  const totalCents = entries.reduce((sum, entry) => sum + entry.amount, 0)
                   const byMethod: Record<string, number> = {}
                   const byType: Record<string, number> = {}
                   const counts: Record<string, number> = {}
-                  entries.forEach((entry: any) => {
+                  entries.forEach((entry) => {
                     const method = entry.methodType || '—'
-                    byMethod[method] = (byMethod[method] || 0) + (entry.amount || 0)
-                    byType[entry.eventType] = (byType[entry.eventType] || 0) + (entry.amount || 0)
-                    counts[entry.eventType] = (counts[entry.eventType] || 0) + 1
+                    byMethod[method] = (byMethod[method] ?? 0) + entry.amount
+                    byType[entry.eventType] = (byType[entry.eventType] ?? 0) + entry.amount
+                    counts[entry.eventType] = (counts[entry.eventType] ?? 0) + 1
                   })
                   const periodLabel =
                     exportPeriod === 'month'
@@ -720,7 +804,7 @@ export default function AccountingAdminPage() {
                     ['Détails'],
                     ['Date', '#Reçu', 'Type', 'Provider', 'Méthode', 'Montant', 'Devise', 'Booking']
                   ]
-                  entries.forEach((entry: any) => {
+                  entries.forEach((entry) => {
                     rows.push([
                       format(new Date(entry.occurredAt), 'yyyy-MM-dd HH:mm'),
                       entry.receiptNo
@@ -760,7 +844,7 @@ export default function AccountingAdminPage() {
               <div>
                 <h3 className="text-xl font-semibold text-slate-900">Décomposer le comptage</h3>
                 <p className="text-sm text-slate-500">
-                  Indiquez le nombre de billets et de pièces pour enregistrer la clôture et mesurer l'écart.
+                  Indiquez le nombre de billets et de pièces pour enregistrer la clôture et mesurer l&apos;écart.
                 </p>
               </div>
               <button
@@ -980,7 +1064,7 @@ export default function AccountingAdminPage() {
                         </thead>
                         <tbody>
                           {BILL_DENOMINATIONS.map((value) => {
-                            const qty = Number(breakdown?.bills?.[String(value)] ?? 0)
+                            const qty = breakdown?.bills?.[String(value)] ?? 0
                             return (
                               <tr key={value} className="border-t border-slate-100">
                                 <td className="px-3 py-2">{value} €</td>
@@ -1004,7 +1088,7 @@ export default function AccountingAdminPage() {
                         </thead>
                         <tbody>
                           {COIN_DENOMINATIONS.map((value) => {
-                            const qty = Number(breakdown?.coins?.[String(value)] ?? 0)
+                            const qty = breakdown?.coins?.[String(value)] ?? 0
                             return (
                               <tr key={value} className="border-t border-slate-100">
                                 <td className="px-3 py-2">{value.toFixed(2)} €</td>

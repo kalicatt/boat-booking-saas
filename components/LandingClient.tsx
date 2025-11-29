@@ -3,8 +3,6 @@ import Image from 'next/image'
 import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
-import dynamic from 'next/dynamic'
-const ContactForms = dynamic(() => import('@/components/ContactForms'), { ssr: false })
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -23,7 +21,7 @@ const FALLBACK_LANG: SupportedLang = 'en'
 const isSupportedLang = (value: string): value is SupportedLang =>
   LANGUAGE_OPTIONS.some(option => option.code === value)
 
-export default function LandingClient({ dict, lang }: { dict: any, lang: SupportedLang }) {
+export default function LandingClient({ dict, lang }: { dict: Record<string, unknown>, lang: SupportedLang }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -31,7 +29,6 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
   const firstLinkRef = useRef<HTMLAnchorElement|null>(null)
   const panelRef = useRef<HTMLDivElement|null>(null)
   const menuButtonRef = useRef<HTMLButtonElement|null>(null)
-  const [activeSection, setActiveSection] = useState<string>('')
   const closeMenu = () => {
     if(menuOpen){
       setMenuClosing(true)
@@ -58,23 +55,31 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
     }
     window.addEventListener('scroll', reveal)
     reveal()
-    const onKey = (e: KeyboardEvent) => {
-      if(e.key === 'Escape') setLangOpen(false)
-    }
-    const onClickOutside = (e: MouseEvent) => {
-      if(langOpen && dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setLangOpen(false)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('click', onClickOutside)
     const onHash = () => setCurrentHash(window.location.hash || '')
     const onSearch = () => setCurrentSearch(window.location.search || '')
     window.addEventListener('hashchange', onHash)
     onHash()
     onSearch()
-    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('keydown', onKey); window.removeEventListener('click', onClickOutside); window.removeEventListener('hashchange', onHash) }
+    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('hashchange', onHash) }
   },[])
+
+  useEffect(()=>{
+    if(!langOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if(e.key === 'Escape') setLangOpen(false)
+    }
+    const onClickOutside = (e: MouseEvent) => {
+      if(dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setLangOpen(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    window.addEventListener('click', onClickOutside)
+    return ()=> {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('click', onClickOutside)
+    }
+  },[langOpen])
 
   // Smooth scroll to reservation with offset and focus (no instant jump)
   useEffect(()=>{
@@ -111,26 +116,12 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
     }
   }, [scrolled])
 
-  // Observe sections to highlight active link
-  useEffect(()=>{
-    const ids = ['presentation','reviews','reservation']
-    const options: IntersectionObserverInit = { root: null, rootMargin: '0px 0px -55% 0px', threshold: [0,0.25,0.5,0.75,1] }
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if(entry.isIntersecting) {
-          setActiveSection(entry.target.id)
-        }
-      })
-    }, options)
-    ids.forEach(id => { const el = document.getElementById(id); if(el) observer.observe(el) })
-    return ()=> observer.disconnect()
-  },[])
-
   // Body scroll lock + initial focus for menu
   useEffect(()=>{
     if(menuOpen) {
       document.body.classList.add('lock-scroll')
-      setMenuClosing(false)
+      // make state updates async to avoid cascading renders inside the effect
+      setTimeout(()=> setMenuClosing(false), 0)
       setTimeout(()=>{ if(firstLinkRef.current) firstLinkRef.current.focus() }, 50)
     } else {
       document.body.classList.remove('lock-scroll')
@@ -170,7 +161,8 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
   // Sync currentLang with URL on client navigation
   useEffect(()=>{
     if (isSupportedLang(routeLang) && routeLang !== currentLang) {
-      setCurrentLang(routeLang)
+      // set state asynchronously so we avoid sync updates inside effect
+      setTimeout(() => setCurrentLang(routeLang), 0)
     }
   }, [routeLang, currentLang])
 
@@ -199,7 +191,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
               aria-label={liveDict?.nav?.home || 'Accueil'}
               className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-sm"
             >
-              <img src="/images/logo.jpg" alt="Sweet Narcisse" className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} />
+              <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={48} className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} priority />
             </Link>
           </div>
           {/* All navigation links removed from header; accessible only via offcanvas menu */}
@@ -349,7 +341,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-6 opacity-80">
           <div className="flex items-center gap-3 px-4 py-2 border border-slate-200 rounded-md bg-slate-50">
             <span className="text-slate-600 text-sm font-semibold">Trusted partners</span>
-            <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-6 w-auto rounded-sm" />
+            <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={110} height={34} className="h-6 w-auto rounded-sm" priority />
           </div>
         </div>
       </section>
@@ -361,7 +353,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
             <p className="text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
-            {liveDict.bento?.cards?.map((c: any, idx: number) => {
+            {liveDict.bento?.cards?.map((c: Record<string, unknown>, idx: number) => {
               const originalTitle = String(c.title || '').trim();
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
               // Use normalized display title for matching so "Frictionless" remap is honored
@@ -440,7 +432,7 @@ export default function LandingClient({ dict, lang }: { dict: any, lang: Support
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">
-              <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-6 w-auto rounded-sm" />
+              <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={110} height={34} className="h-6 w-auto rounded-sm" priority />
               <span>Sweet <span className="text-[#0ea5e9]">Narcisse</span></span>
             </h5>
             <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer.departure_label}</p>

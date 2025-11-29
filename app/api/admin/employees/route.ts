@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { auth } from '@/auth'
@@ -7,16 +8,18 @@ import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber, cleanString } fro
 import { normalizeIncoming } from '@/lib/phone'
 import { evaluatePassword } from '@/lib/passwordPolicy'
 
-// 1. FIX: Interface pour définir que le rôle existe pour TypeScript
-interface ExtendedUser {
-  role?: string
+type EmployeeSessionUser = {
+  id?: string | null
+  role?: string | null
+  email?: string | null
 }
 
 // --- GET : LISTER LES EMPLOYÉS ---
 export async function GET() {
   try {
     const session = await auth()
-    const role = session?.user?.role
+    const sessionUser = (session?.user ?? null) as EmployeeSessionUser | null
+    const role = typeof sessionUser?.role === 'string' ? sessionUser.role : null
 
     if (!role || !['EMPLOYEE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
       return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
@@ -36,7 +39,11 @@ export async function GET() {
       : []
     const managerMap = new Map(managers.map((m) => [m.id, m]))
 
-    const base = employees.map(({ password, ...rest }) => rest)
+    const base = employees.map((employee) => {
+      const { password: passwordField, ...rest } = employee
+      void passwordField
+      return rest
+    })
 
     if (role === 'EMPLOYEE') {
       const light = base.map((emp) => ({
@@ -66,6 +73,7 @@ export async function GET() {
     }))
     return NextResponse.json(extended)
   } catch (error) {
+    console.error('GET /api/admin/employees', error)
     return NextResponse.json({ error: 'Erreur chargement' }, { status: 500 })
   }
 }
@@ -74,10 +82,9 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await auth()
-    
-    // 2. FIX: On force le type ici
-    const userSession = session?.user as ExtendedUser | undefined
-    
+
+    const userSession = (session?.user ?? null) as EmployeeSessionUser | null
+
     // Autorisations: SUPERADMIN et ADMIN peuvent créer des comptes,
     // mais un ADMIN ne peut créer que des EMPLOYEE (pas d'ADMIN)
     if (!userSession?.role || (userSession.role !== 'SUPERADMIN' && userSession.role !== 'ADMIN')) {
@@ -89,11 +96,33 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
-    let { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
-      dateOfBirth, gender, hireDate, department, jobTitle,
-      employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
+    const {
+      firstName,
+      lastName,
+      email,
+      phone: rawPhone,
+      address,
+      city,
+      postalCode,
+      country,
+      password,
+      role,
+      dateOfBirth,
+      gender,
+      hireDate,
+      department,
+      jobTitle,
+      employmentStatus,
+      fullTime,
+      hourlyRate,
+      salary,
+      emergencyContactName,
+      emergencyContactPhone,
+      notes
+    } = parsed.data
 
     // Normalisation E.164 si le numéro commence par '+'
+    let phone = rawPhone ?? undefined
     if (phone && phone.startsWith('+')) {
       phone = normalizeIncoming(phone)
     }
@@ -108,7 +137,7 @@ export async function POST(request: Request) {
 
     const hashedPassword = await hash(password, 10)
 
-    const managerId = session?.user?.id
+    const managerId = userSession?.id ?? undefined
 
     const generatedEmployeeNumber = await prisma.$transaction(async (tx) => {
       const year = new Date().getUTCFullYear()
@@ -133,7 +162,7 @@ export async function POST(request: Request) {
         postalCode: postalCode || undefined,
         country: country || undefined,
         password: hashedPassword,
-        role: userSession.role === 'ADMIN' ? 'EMPLOYEE' : (role || 'EMPLOYEE'),
+        role: userSession.role === 'ADMIN' ? 'EMPLOYEE' : role || 'EMPLOYEE',
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         gender: gender || undefined,
         employeeNumber: generatedEmployeeNumber,
@@ -151,12 +180,14 @@ export async function POST(request: Request) {
       }
     })
 
-    await createLog('EMPLOYEE_CREATE', `Création employé ${newUser.firstName} ${newUser.lastName} (${newUser.email})`) 
+    await createLog('EMPLOYEE_CREATE', `Création employé ${newUser.firstName} ${newUser.lastName} (${newUser.email})`)
 
-    const { password: _pw, ...safeUser } = newUser
+    const { password: passwordHidden, ...safeUser } = newUser
+    void passwordHidden
 
     return NextResponse.json({ success: true, user: safeUser })
   } catch (error) {
+    console.error('POST /api/admin/employees', error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }
@@ -165,10 +196,9 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await auth()
-    
-    // 2. FIX: On force le type ici aussi
-    const userSession = session?.user as ExtendedUser | undefined
-    
+
+    const userSession = (session?.user ?? null) as EmployeeSessionUser | null
+
     if (userSession?.role !== 'SUPERADMIN') {
         return NextResponse.json({ 
             error: "⛔ Accès refusé. Seul le Propriétaire peut supprimer un compte." 
@@ -192,6 +222,7 @@ export async function DELETE(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    console.error('DELETE /api/admin/employees', error)
     return NextResponse.json({ error: "Erreur suppression" }, { status: 500 })
   }
 }
@@ -200,10 +231,9 @@ export async function DELETE(request: Request) {
 export async function PUT(request: Request) {
   try {
     const session = await auth()
-    
-    // 2. FIX: On force le type ici aussi
-    const userSession = session?.user as ExtendedUser | undefined
-    
+
+    const userSession = (session?.user ?? null) as EmployeeSessionUser | null
+
     if (userSession?.role !== 'SUPERADMIN') {
         return NextResponse.json({ error: "Action refusée." }, { status: 403 })
     }
@@ -213,10 +243,35 @@ export async function PUT(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
-    let { id, firstName, lastName, email, phone, address, city, postalCode, country, password, role,
-      dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
-      employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
+    const {
+      id,
+      firstName,
+      lastName,
+      email,
+      phone: rawPhone,
+      address,
+      city,
+      postalCode,
+      country,
+      password,
+      role,
+      dateOfBirth,
+      gender,
+      employeeNumber,
+      hireDate,
+      department,
+      jobTitle,
+      managerId,
+      employmentStatus,
+      fullTime,
+      hourlyRate,
+      salary,
+      emergencyContactName,
+      emergencyContactPhone,
+      notes
+    } = parsed.data
 
+    let phone = rawPhone ?? undefined
     if (phone && phone.startsWith('+')) {
       phone = normalizeIncoming(phone)
     }
@@ -224,8 +279,10 @@ export async function PUT(request: Request) {
     if (!id) return NextResponse.json({ error: "ID manquant" }, { status: 400 })
 
     // Préparation des données à mettre à jour
-    const dataToUpdate: any = {
-      firstName, lastName, email,
+    const dataToUpdate: Prisma.UserUpdateInput = {
+      firstName,
+      lastName,
+      email,
       phone: phone || undefined,
       address: address || undefined,
       city: city || undefined,
@@ -275,10 +332,12 @@ export async function PUT(request: Request) {
 
     await createLog('EMPLOYEE_UPDATE', `Mise à jour employé ${updatedUser.firstName} ${updatedUser.lastName} (${updatedUser.email})`)
 
-    const { password: _pw, ...safeUser } = updatedUser
+  const { password: passwordHidden, ...safeUser } = updatedUser
+  void passwordHidden
 
-    return NextResponse.json({ success: true, user: safeUser })
+  return NextResponse.json({ success: true, user: safeUser })
   } catch (error) {
+    console.error('PUT /api/admin/employees', error)
     return NextResponse.json({ error: "Erreur lors de la modification (Email déjà pris ?)" }, { status: 500 })
   }
 }

@@ -2,24 +2,73 @@
 import useSWR from 'swr'
 import { useMemo } from 'react'
 import { format } from 'date-fns'
+import type { DailyClosure, PaymentLedger } from '@prisma/client'
 import { business } from '@/lib/business'
 
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
+
+type PaymentLedgerDto = Omit<PaymentLedger, 'occurredAt'> & { occurredAt: string }
+type DailyClosureDto = Omit<DailyClosure, 'day' | 'closedAt'> & { day: string; closedAt: string | null }
+
+type ClosureSnapshot = {
+  totals: Record<string, number>
+  vouchers: Record<string, number>
+  vat?: { net?: number; vat?: number; gross?: number }
+}
+
+const toArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[]
+  if (value && typeof value === 'object') {
+    const candidate = value as Record<string, unknown>
+    if (Array.isArray(candidate.items)) return candidate.items as T[]
+    if (Array.isArray(candidate.data)) return candidate.data as T[]
+  }
+  return []
+}
+
+const parseClosureSnapshot = (payload: unknown): ClosureSnapshot | null => {
+  if (typeof payload !== 'string') return null
+  try {
+    const parsed = JSON.parse(payload) as Record<string, unknown>
+    if (!parsed || typeof parsed !== 'object') return null
+    const totals = Object.entries(parsed.totals ?? {}).reduce<Record<string, number>>((acc, [key, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value)) acc[key] = value
+      return acc
+    }, {})
+    const vouchers = Object.entries(parsed.vouchers ?? {}).reduce<Record<string, number>>((acc, [key, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value)) acc[key] = value
+      return acc
+    }, {})
+    const snapshot: ClosureSnapshot = { totals, vouchers }
+    if (parsed.vat && typeof parsed.vat === 'object' && parsed.vat !== null) {
+      const vat = parsed.vat as Record<string, unknown>
+      snapshot.vat = {
+        net: typeof vat.net === 'number' ? vat.net : undefined,
+        vat: typeof vat.vat === 'number' ? vat.vat : undefined,
+        gross: typeof vat.gross === 'number' ? vat.gross : undefined
+      }
+    }
+    return snapshot
+  } catch {
+    return null
+  }
+}
 
 export default function ClosureDetailPage({ params }: { params: { day: string } }){
   const dayParam = params.day // expected format yyyy-MM-dd
   const { data: closures } = useSWR('/api/admin/closures', fetcher)
   const { data: ledger } = useSWR('/api/admin/ledger', fetcher)
 
+  const closuresList = toArray<DailyClosureDto>(closures)
+  const ledgerEntries = toArray<PaymentLedgerDto>(ledger)
+
   const closure = useMemo(()=>{
-    if (!Array.isArray(closures)) return null
-    return closures.find((c:any)=> format(new Date(c.day), 'yyyy-MM-dd') === dayParam) || null
-  }, [closures, dayParam])
+    return closuresList.find((item)=> format(new Date(item.day), 'yyyy-MM-dd') === dayParam) || null
+  }, [closuresList, dayParam])
 
   const entriesForDay = useMemo(()=>{
-    if (!Array.isArray(ledger)) return []
-    return ledger.filter((e:any)=> format(new Date(e.occurredAt), 'yyyy-MM-dd') === dayParam)
-  }, [ledger, dayParam])
+    return ledgerEntries.filter((entry)=> format(new Date(entry.occurredAt), 'yyyy-MM-dd') === dayParam)
+  }, [ledgerEntries, dayParam])
 
   if (!closure) {
     return (
@@ -30,7 +79,7 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
     )
   }
 
-  const snapshot = JSON.parse(closure.totalsJson)
+  const snapshot = parseClosureSnapshot(closure.totalsJson) ?? { totals: {}, vouchers: {} }
 
   return (
     <div className="p-6 space-y-6">
@@ -51,7 +100,7 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
         <div className="flex gap-2">
           <button className="border rounded px-3 py-1 no-print" onClick={()=> window.print()}>Imprimer</button>
           <button className="border rounded px-3 py-1 no-print" onClick={()=>{
-            const snap = JSON.parse(closure.totalsJson)
+            const snap = parseClosureSnapshot(closure.totalsJson) ?? { totals: {}, vouchers: {}, vat: undefined }
             const rows: string[][] = []
             rows.push(['Entreprise', business.name])
             rows.push(['Adresse', business.address])
@@ -60,21 +109,21 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
             rows.push([])
             rows.push(['Date', format(new Date(closure.day),'yyyy-MM-dd')])
             rows.push(['Hash', closure.hash])
-            rows.push(['Totaux', ...Object.entries(snap.totals).map(([k,v]: any)=> `${k}:${(Number(v)/100).toFixed(2)}€`)])
-            rows.push(['Vouchers', ...Object.entries(snap.vouchers).map(([k,v]: any)=> `${k}:${Number(v)}`)])
-            rows.push(['TVA', `Net:${(Number(snap.vat?.net||0)/100).toFixed(2)}€`, `TVA:${(Number(snap.vat?.vat||0)/100).toFixed(2)}€`, `Brut:${(Number(snap.vat?.gross||0)/100).toFixed(2)}€`])
+            rows.push(['Totaux', ...Object.entries(snap.totals).map(([key,value])=> `${key}:${(value/100).toFixed(2)}€`)] )
+            rows.push(['Vouchers', ...Object.entries(snap.vouchers).map(([key,value])=> `${key}:${value}`)])
+            rows.push(['TVA', `Net:${((snap.vat?.net ?? 0)/100).toFixed(2)}€`, `TVA:${((snap.vat?.vat ?? 0)/100).toFixed(2)}€`, `Brut:${((snap.vat?.gross ?? 0)/100).toFixed(2)}€`])
             rows.push([])
             rows.push(['Heure','Reçu','Type','Provider','Méthode','Montant','Devise','Réservation'])
-            for (const e of entriesForDay){
+            for (const entry of entriesForDay){
               rows.push([
-                format(new Date(e.occurredAt),'HH:mm'),
-                e.receiptNo ? `${new Date(e.occurredAt).getUTCFullYear()}-${String(e.receiptNo).padStart(6,'0')}` : '',
-                e.eventType,
-                e.provider,
-                e.methodType || '',
-                (e.amount/100).toFixed(2),
-                e.currency,
-                e.bookingId || ''
+                format(new Date(entry.occurredAt),'HH:mm'),
+                entry.receiptNo ? `${new Date(entry.occurredAt).getUTCFullYear()}-${String(entry.receiptNo).padStart(6,'0')}` : '',
+                entry.eventType,
+                entry.provider,
+                entry.methodType || '',
+                (entry.amount/100).toFixed(2),
+                entry.currency,
+                entry.bookingId || ''
               ])
             }
             const csv = rows.map(r=> r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n')
@@ -89,9 +138,9 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
       <section className="rounded-xl border bg-white p-4">
         <div className="font-semibold mb-2">Résumé</div>
         <div className="text-sm">Hash: <span className="font-mono">{closure.hash}</span></div>
-        <div className="mt-2 text-sm">Totaux: {Object.entries(snapshot.totals).map(([k,v]: any)=> `${k}: ${(Number(v)/100).toFixed(2)}€`).join(' • ')}</div>
-        <div className="mt-1 text-sm">Vouchers: {Object.entries(snapshot.vouchers).map(([k,v]: any)=> `${k}: ${Number(v)}`).join(' • ') || '—'}</div>
-        <div className="mt-1 text-sm">TVA: Net {(Number(snapshot.vat?.net||0)/100).toFixed(2)}€ • TVA {(Number(snapshot.vat?.vat||0)/100).toFixed(2)}€ • Brut {(Number(snapshot.vat?.gross||0)/100).toFixed(2)}€</div>
+        <div className="mt-2 text-sm">Totaux: {Object.entries(snapshot.totals).map(([key,value])=> `${key}: ${(value/100).toFixed(2)}€`).join(' • ')}</div>
+        <div className="mt-1 text-sm">Vouchers: {Object.entries(snapshot.vouchers).map(([key,value])=> `${key}: ${value}`).join(' • ') || '—'}</div>
+        <div className="mt-1 text-sm">TVA: Net {((snapshot.vat?.net ?? 0)/100).toFixed(2)}€ • TVA {((snapshot.vat?.vat ?? 0)/100).toFixed(2)}€ • Brut {((snapshot.vat?.gross ?? 0)/100).toFixed(2)}€</div>
       </section>
 
       <section className="rounded-xl border bg-white p-4">
@@ -99,15 +148,15 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
         <table className="w-full text-sm">
           <thead><tr><th className="p-2">Heure</th><th className="p-2">#Reçu</th><th className="p-2">Type</th><th className="p-2">Provider</th><th className="p-2">Méthode</th><th className="p-2">Montant</th><th className="p-2">Réservation</th></tr></thead>
           <tbody>
-            {entriesForDay.map((e:any)=> (
-              <tr key={e.id} className="border-t">
-                <td className="p-2">{format(new Date(e.occurredAt),'HH:mm')}</td>
-                <td className="p-2">{e.receiptNo ? `${new Date(e.occurredAt).getUTCFullYear()}-${String(e.receiptNo).padStart(6,'0')}` : '—'}</td>
-                <td className="p-2">{e.eventType}</td>
-                <td className="p-2">{e.provider}</td>
-                <td className="p-2">{e.methodType || '—'}</td>
-                <td className="p-2">{(e.amount/100).toFixed(2)} {e.currency}</td>
-                <td className="p-2">{e.bookingId || '—'}</td>
+            {entriesForDay.map((entry)=> (
+              <tr key={entry.id} className="border-t">
+                <td className="p-2">{format(new Date(entry.occurredAt),'HH:mm')}</td>
+                <td className="p-2">{entry.receiptNo ? `${new Date(entry.occurredAt).getUTCFullYear()}-${String(entry.receiptNo).padStart(6,'0')}` : '—'}</td>
+                <td className="p-2">{entry.eventType}</td>
+                <td className="p-2">{entry.provider}</td>
+                <td className="p-2">{entry.methodType || '—'}</td>
+                <td className="p-2">{(entry.amount/100).toFixed(2)} {entry.currency}</td>
+                <td className="p-2">{entry.bookingId || '—'}</td>
               </tr>
             ))}
           </tbody>

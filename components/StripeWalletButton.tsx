@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import { Elements, PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
 
@@ -15,7 +15,7 @@ type Props = {
 
 function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', ensurePendingBooking, onSuccess, onError }: Props) {
   const stripe = useStripe()
-  const [paymentRequest, setPaymentRequest] = useState<any>(null)
+    const [paymentRequest, setPaymentRequest] = useState<StripePaymentRequest | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -87,17 +87,19 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
                 onError?.(`Paiement Stripe non confirmé. Statut: ${String(verify?.status || 'inconnu')}`)
                 return
               }
-            } catch (e) {
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e)
               ev.complete('fail')
-              onError?.('Impossible de vérifier le paiement Stripe.')
+              onError?.(`Impossible de vérifier le paiement Stripe: ${msg || 'erreur inconnue'}`)
               return
             }
 
             ev.complete('success')
             onSuccess(intent.id)
-          } catch (e: any) {
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e)
             ev.complete('fail')
-            onError?.(e?.message || 'Erreur réseau pendant le paiement')
+            onError?.(msg || 'Erreur réseau pendant le paiement')
           }
         })
       }
@@ -118,7 +120,8 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
 }
 
 export default function StripeWalletButton(props: Props) {
-  const [stripePromise, setStripePromise] = useState<any>(null)
+  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  const [stripePromise] = useState<Promise<Stripe | null> | null>(() => (pk ? loadStripe(pk) : null))
   useEffect(() => {
     const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
     if (pk) setStripePromise(loadStripe(pk))

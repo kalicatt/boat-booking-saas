@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { addMinutes, parseISO, areIntervalsOverlapping, isSameMinute } from 'date-fns'
+import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { Resend } from 'resend'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { sendMail } from '@/lib/mailer'
@@ -13,7 +13,7 @@ import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
+const resend: Resend | null = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -34,7 +34,8 @@ export async function POST(request: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
-    const pendingOnly = Boolean((json as any)?.pendingOnly)
+    const payload = parsed.data
+    const pendingOnly = Boolean(payload.pendingOnly)
     const {
       date,
       time,
@@ -53,8 +54,8 @@ export async function POST(request: Request) {
       groupChain,
       inheritPaymentForChain,
       private: isPrivate
-    } = parsed.data as any
-    let newBooking: any
+    } = payload
+    let newBooking: unknown
 
     // 1. CAPTCHA
     if (!isStaffOverride) {
@@ -132,7 +133,6 @@ export async function POST(request: Request) {
     if (!targetBoat) return NextResponse.json({ error: "Erreur rotation barque." }, { status: 409 })
 
     // 5. VERROU + CONFLITS (transaction)
-    const slotKey = Math.floor(myStart.getTime() / 60000) // minutes epoch (int32)
 
     // 6. CLIENT UNIQUE
     let userEmailToUse = userDetails.email;
@@ -143,7 +143,10 @@ export async function POST(request: Request) {
         userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`;
     }
 
-    let txResult: any
+    type TxResultOk = { ok: true; id: string; status: string; finalPrice: number }
+    type TxResultErr = { ok: false; conflict?: true }
+    type TxResult = TxResultOk | TxResultErr
+    let txResult: TxResult | undefined
     try {
     txResult = await prisma.$transaction(async (tx) => {
       // Advisory lock disabled for serverless compatibility; relying on conflict checks below.
@@ -209,9 +212,10 @@ export async function POST(request: Request) {
 
       return { ok: true as const, id: newBooking.id, status: newBooking.status, finalPrice: priceTotal }
     })
-    } catch (e: any) {
-      console.error('Transaction booking failed:', e?.message || e)
-      return NextResponse.json({ error: 'Erreur technique (transaction)', details: String(e?.message || e) }, { status: 500 })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('Transaction booking failed:', msg)
+      return NextResponse.json({ error: 'Erreur technique (transaction)', details: String(msg) }, { status: 500 })
     }
 
     if (!('ok' in txResult) || !txResult.ok) {
@@ -266,9 +270,10 @@ export async function POST(request: Request) {
         }
         await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${newBooking.id}`)
       }
-    } catch (e) {
-      console.error('Email send failed:', e)
-      await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmailToUse}: ${String((e as any)?.message||e)}`)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('Email send failed:', msg)
+      await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmailToUse}: ${String(msg)}`)
     }
 
     // Group chaining: chain consecutive boat slots for large groups
@@ -299,7 +304,7 @@ export async function POST(request: Request) {
             where: { id: { not: targetBoat.id }, capacity: { gt: 0 } },
             orderBy: { capacity: 'desc' }
           })
-          let placedAny = false
+          // placedAny removed — not used
           for (const ob of otherBoats) {
             const otherConflict = await prisma.booking.findFirst({
               where: {
@@ -348,9 +353,9 @@ export async function POST(request: Request) {
                 })
               }
               remainingForSlot -= allocation
-              placedAny = true
+              // placement recorded, continue
               if (remainingForSlot <= 0) break
-            } catch (e) {
+            } catch {
               continue
             }
           }
@@ -458,7 +463,7 @@ export async function POST(request: Request) {
               overlaps.push({ index: i, start: startChain.toISOString(), end: endChain.toISOString(), reason: `Unplaced people ${remainingForSlot}` })
             }
           }
-        } catch (e) {
+        } catch {
           overlaps.push({ index: i, start: startChain.toISOString(), end: endChain.toISOString(), reason: 'Creation error' })
         }
       }
@@ -470,7 +475,7 @@ export async function POST(request: Request) {
     // 8. Enregistrer le paiement si guichet
     try {
       if (isStaffOverride && txResult.ok) {
-        const amountMinor = Math.round((txResult as any).finalPrice * 100)
+        const amountMinor = Math.round((txResult as TxResultOk).finalPrice * 100)
         const method = paymentMethod as string | undefined
         if (method === 'cash') {
           await prisma.payment.create({ data: { provider: 'cash', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
@@ -486,9 +491,10 @@ export async function POST(request: Request) {
           await prisma.payment.create({ data: { provider: 'voucher', methodType: method, bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         }
       }
-    } catch (e: any) { 
-      console.error('Erreur enregistrement paiement guichet', e?.message || e)
-      return NextResponse.json({ error: 'Erreur paiement', details: String(e?.message || e) }, { status: 500 })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('Erreur enregistrement paiement guichet', msg)
+      return NextResponse.json({ error: 'Erreur paiement', details: String(msg) }, { status: 500 })
     }
 
     // 9. EMAIL
@@ -506,14 +512,15 @@ export async function POST(request: Request) {
             })
           })
       }
-    } catch (e) { console.error("Erreur email", e) }
+    } catch (e: unknown) { console.error("Erreur email", e instanceof Error ? e.message : String(e)) }
 
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
 
-    return NextResponse.json({ success: true, bookingId: txResult.id, status: txResult.status, booking: newBooking, chainCreated, overlaps })
-  } catch (error) {
-    console.error("ERREUR API:", error)
+    return NextResponse.json({ success: true, bookingId: (txResult as TxResultOk).id, status: (txResult as TxResultOk).status, booking: newBooking, chainCreated, overlaps })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error("ERREUR API:", msg)
     return NextResponse.json({ error: "Erreur technique" }, { status: 500 })
   }
 }

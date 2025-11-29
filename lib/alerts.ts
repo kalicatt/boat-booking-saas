@@ -1,4 +1,4 @@
-export async function sendAlert(message: string, payload?: any){
+export async function sendAlert(message: string, payload?: unknown){
   const url = process.env.ALERT_WEBHOOK_URL
   if(!url) return
   try {

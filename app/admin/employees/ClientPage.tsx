@@ -1,35 +1,156 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import type { FormEvent } from 'react'
+import Image from 'next/image'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
 type Props = { canManage?: boolean }
 
+type EmployeeRole = 'SUPERADMIN' | 'ADMIN' | 'EMPLOYEE' | 'MANAGER' | 'GUEST' | string
+
+type EmployeeRecord = {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    phone?: string | null
+    address?: string | null
+    city?: string | null
+    postalCode?: string | null
+    country?: string | null
+    dateOfBirth?: string | null
+    gender?: string | null
+    hireDate?: string | null
+    department?: string | null
+    jobTitle?: string | null
+    employmentStatus?: string | null
+    fullTime?: boolean | null
+    isFullTime?: boolean | null
+    hourlyRate?: number | string | null
+    salary?: number | string | null
+    annualSalary?: number | string | null
+    emergencyContactName?: string | null
+    emergencyContactPhone?: string | null
+    notes?: string | null
+    password?: string | null
+    role?: EmployeeRole | null
+    image?: string | null
+    employeeNumber?: string | null
+    manager?: { firstName?: string | null; lastName?: string | null } | null
+}
+
+type MeResponse = { role?: EmployeeRole | null }
+
+type CreateEmployeeForm = {
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+    address: string
+    city: string
+    postalCode: string
+    country: string
+    dateOfBirth: string
+    gender: string
+    hireDate: string
+    department: string
+    jobTitle: string
+    employmentStatus: string
+    fullTime: boolean
+    hourlyRate: string
+    salary: string
+    emergencyContactName: string
+    emergencyContactPhone: string
+    notes: string
+    password: string
+    role: EmployeeRole
+}
+
+type EmployeeWithUser = { user: EmployeeRecord }
+
+const defaultFormState: CreateEmployeeForm = {
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    postalCode: '',
+    country: '',
+    dateOfBirth: '',
+    gender: '',
+    hireDate: '',
+    department: '',
+    jobTitle: '',
+    employmentStatus: 'PERMANENT',
+    fullTime: true,
+    hourlyRate: '',
+    salary: '',
+    emergencyContactName: '',
+    emergencyContactPhone: '',
+    notes: '',
+    password: '',
+    role: 'EMPLOYEE'
+}
+
+const isEmployeeRecord = (value: unknown): value is EmployeeRecord => {
+    if (!value || typeof value !== 'object') return false
+    const candidate = value as Partial<EmployeeRecord>
+    return typeof candidate.id === 'string' && typeof candidate.firstName === 'string' && typeof candidate.lastName === 'string' && typeof candidate.email === 'string'
+}
+
+const parseEmployeesResponse = (payload: unknown): EmployeeRecord[] => {
+    if (!Array.isArray(payload)) return []
+    return payload.filter(isEmployeeRecord)
+}
+
+const extractEmployee = (payload: unknown): EmployeeRecord | null => {
+    if (!payload || typeof payload !== 'object') return null
+    if (isEmployeeRecord(payload)) return payload
+    const candidate = payload as EmployeeWithUser
+    if (candidate && typeof candidate === 'object' && candidate.user && isEmployeeRecord(candidate.user)) {
+        return candidate.user
+    }
+    return null
+}
+
+const rolePriority: Record<EmployeeRole, number> = {
+    SUPERADMIN: 0,
+    ADMIN: 1,
+    MANAGER: 2,
+    EMPLOYEE: 3,
+    GUEST: 4
+}
+
+const sortEmployees = (list: EmployeeRecord[]): EmployeeRecord[] => {
+    return [...list].sort((a, b) => {
+        const aPriority = rolePriority[a.role ?? 'EMPLOYEE'] ?? 10
+        const bPriority = rolePriority[b.role ?? 'EMPLOYEE'] ?? 10
+        if (aPriority !== bPriority) return aPriority - bPriority
+        return a.lastName.localeCompare(b.lastName)
+    })
+}
+
 export default function ClientEmployeesPage({ canManage = false }: Props) {
-    const [employees, setEmployees] = useState<any[]>([])
-    const [myRole, setMyRole] = useState<string>('')
+    const [employees, setEmployees] = useState<EmployeeRecord[]>([])
+    const [myRole, setMyRole] = useState<EmployeeRole>('EMPLOYEE')
     const [loading, setLoading] = useState(true)
     const [showCreateModal, setShowCreateModal] = useState(false)
 
-    const [editTarget, setEditTarget] = useState<any|null>(null)
+    const [editTarget, setEditTarget] = useState<EmployeeRecord | null>(null)
     const [editErrors, setEditErrors] = useState<string[]>([])
-    const isSuperAdmin = myRole === 'SUPERADMIN'
-    const [form, setForm] = useState<any>({
-        firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '',
-        dateOfBirth: '', gender: '', hireDate: '', department: '', jobTitle: '',
-        employmentStatus: 'PERMANENT', fullTime: true, hourlyRate: '', salary: '', emergencyContactName: '', emergencyContactPhone: '',
-        notes: '', password: '', role: 'EMPLOYEE'
-    })
+    const [form, setForm] = useState<CreateEmployeeForm>(defaultFormState)
 
     useEffect(() => {
         async function load() {
             try {
                 const meRes = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
-                const me = await meRes.json()
-                setMyRole(me?.role || '')
+                const mePayload = (await meRes.json()) as MeResponse
+                setMyRole(typeof mePayload?.role === 'string' ? mePayload.role : 'EMPLOYEE')
                 const res = await fetch('/api/admin/employees', { credentials: 'include', cache: 'no-store' })
-                const data = await res.json()
-                setEmployees(data || [])
+                const employeesPayload = (await res.json()) as unknown
+                setEmployees(sortEmployees(parseEmployeesResponse(employeesPayload)))
             } finally {
                 setLoading(false)
             }
@@ -37,8 +158,8 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
         load()
     }, [])
 
-    async function handleSubmit(e: any) {
-        e.preventDefault()
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault()
         const method = 'POST'
         const res = await fetch('/api/admin/employees', {
             method,
@@ -46,19 +167,14 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
             body: JSON.stringify(form)
         })
         if (res.ok) {
-            const created = await res.json().catch(() => null)
-            const createdUser = created?.user ?? created
+            const createdPayload = await res.json().catch(() => null) as unknown
+            const createdUser = extractEmployee(createdPayload)
             if (createdUser) {
-                setEmployees((prev) => [createdUser, ...prev])
+                setEmployees((prev) => sortEmployees([createdUser, ...prev]))
             }
-            setForm({
-                firstName: '', lastName: '', email: '', phone: '', address: '', city: '', postalCode: '', country: '',
-                dateOfBirth: '', gender: '', hireDate: '', department: '', jobTitle: '',
-                employmentStatus: 'PERMANENT', fullTime: true, hourlyRate: '', salary: '', emergencyContactName: '', emergencyContactPhone: '',
-                notes: '', password: '', role: 'EMPLOYEE'
-            })
+            setForm(defaultFormState)
         } else {
-            const error = await res.json().catch(() => null)
+            const error = await res.json().catch(() => null) as { error?: string } | null
             alert(error?.error || "Impossible de créer le collaborateur")
         }
     }
@@ -75,21 +191,21 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
     return (
         <AdminPageShell
             title="Équipe & comptes"
-            description="Gérez les accès, les coordonnées et les statuts de l'équipe Sweet Narcisse."
+            description="Gérez les accès, les coordonnées et les statuts de l&apos;équipe Sweet Narcisse."
             actions={localCanManage ? (
                 <button onClick={()=>setShowCreateModal(true)} className="sn-btn-primary">+ Nouveau collaborateur</button>
             ) : undefined}
         >
             {!localCanManage && !loading && (
                 <p className="inline-flex items-center gap-2 rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
-                    🔒 Mode lecture seule — vous n'avez pas les droits de modification
+                    🔒 Mode lecture seule — vous n&apos;avez pas les droits de modification
                 </p>
             )}
 
             <CreateEmployeeModal
                 open={showCreateModal}
                 onClose={()=>setShowCreateModal(false)}
-                onSubmit={(e:any)=>{handleSubmit(e); setShowCreateModal(false)}}
+                onSubmit={(event)=>{handleSubmit(event); setShowCreateModal(false)}}
                 form={form}
                 setForm={setForm}
                 myRole={myRole}
@@ -115,10 +231,10 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                                 employees.map((emp) => (
                                     <tr key={emp.id} className="transition hover:bg-slate-50 dark:hover:bg-slate-800">
                                         <td className="p-4 align-top">
-                                            <div className="flex items-start gap-3">
+                                                <div className="flex items-start gap-3">
                                                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
                                                     {emp.image ? (
-                                                        <img src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} className="h-full w-full rounded-full object-cover" />
+                                                        <Image src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} width={48} height={48} className="h-full w-full rounded-full object-cover" />
                                                     ) : (
                                                         `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
                                                     )}
@@ -213,8 +329,8 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                 canEdit={myRole === 'SUPERADMIN'}
                 errors={editErrors}
                 setErrors={setEditErrors}
-                onSaved={(updated:any)=>{
-                    setEmployees(prev => prev.map(e => e.id === updated.user.id ? { ...e, ...updated.user } : e))
+                onSaved={(updated)=>{
+                    setEmployees(prev => sortEmployees(prev.map(e => e.id === updated.id ? { ...e, ...updated } : e)))
                     setEditTarget(null)
                 }}
             />
@@ -222,15 +338,40 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
     )
 }
 
-function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, errors, setErrors, onSaved }: any) {
+interface EditEmployeeModalProps {
+    open: boolean
+    onClose: () => void
+    employee: EmployeeRecord | null
+    setEmployee: React.Dispatch<React.SetStateAction<EmployeeRecord | null>>
+    canEdit: boolean
+    errors: string[]
+    setErrors: React.Dispatch<React.SetStateAction<string[]>>
+    onSaved: (updated: EmployeeRecord) => void
+}
+
+interface CreateEmployeeModalProps {
+    open: boolean
+    onClose: () => void
+    onSubmit: (event: FormEvent<HTMLFormElement>) => void
+    form: CreateEmployeeForm
+    setForm: React.Dispatch<React.SetStateAction<CreateEmployeeForm>>
+    myRole: EmployeeRole
+}
+
+interface EmployeeDirectoryProps {
+    employees: EmployeeRecord[]
+    loading: boolean
+}
+
+function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, errors, setErrors, onSaved }: EditEmployeeModalProps) {
     const firstFieldRef = useRef<HTMLInputElement|null>(null)
     const dialogRef = useRef<HTMLDivElement|null>(null)
     useEffect(()=>{ if(open && firstFieldRef.current) firstFieldRef.current.focus() }, [open])
     useEffect(()=>{
         if(!open) return
-        const handler = (e: KeyboardEvent) => {
-            if(e.key === 'Escape') { e.preventDefault(); onClose(); }
-            if(e.key === 'Tab' && dialogRef.current) {
+        const handler = (event: KeyboardEvent) => {
+            if(event.key === 'Escape') { event.preventDefault(); onClose(); }
+            if(event.key === 'Tab' && dialogRef.current) {
                 const focusables = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
                     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
                 )).filter(el => !el.hasAttribute('disabled'))
@@ -238,10 +379,10 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                 const first = focusables[0]
                 const last = focusables[focusables.length - 1]
                 const currentIndex = focusables.indexOf(document.activeElement as HTMLElement)
-                if(e.shiftKey) {
-                    if(document.activeElement === first || currentIndex === -1) { e.preventDefault(); last.focus(); }
+                if(event.shiftKey) {
+                    if(document.activeElement === first || currentIndex === -1) { event.preventDefault(); last.focus(); }
                 } else {
-                    if(document.activeElement === last) { e.preventDefault(); first.focus(); }
+                    if(document.activeElement === last) { event.preventDefault(); first.focus(); }
                 }
             }
         }
@@ -261,26 +402,27 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
         setErrors(errs)
         return errs.length === 0
     }
-    const handleChange = (field:string, value:any) => {
+    const handleChange = <Field extends keyof EmployeeRecord>(field: Field, value: EmployeeRecord[Field]) => {
         if (readOnly) return
-        setEmployee((prev:any) => {
-            const next = { ...prev }
+        setEmployee((prev) => {
+            if (!prev) return prev
+            const next = { ...prev, [field]: value } as EmployeeRecord
             if (field === 'fullTime') {
-                next.fullTime = value
-                next.isFullTime = value
+                const fullTimeValue = Boolean(value)
+                next.fullTime = fullTimeValue
+                next.isFullTime = fullTimeValue
                 return next
             }
             if (field === 'salary') {
-                next.salary = value
-                next.annualSalary = value
+                next.salary = value as EmployeeRecord['salary']
+                next.annualSalary = value as EmployeeRecord['annualSalary']
                 return next
             }
-            next[field] = value
             return next
         })
     }
-    const handleSubmit = async (e:any) => {
-        e.preventDefault()
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
         if (readOnly) return onClose()
         if (!validate()) return
         const payload = { ...employee, id: employee.id }
@@ -290,8 +432,13 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
             body: JSON.stringify(payload)
         })
         if (res.ok) {
-            const updated = await res.json()
-            onSaved(updated)
+            const updatedPayload = await res.json().catch(() => null) as unknown
+            const updatedEmployee = extractEmployee(updatedPayload)
+            if (updatedEmployee) {
+                onSaved(updatedEmployee)
+            } else {
+                setErrors(['Réponse inattendue du serveur'])
+            }
         } else {
             const err = await res.json().catch(()=>null)
             setErrors([err?.error || 'Erreur mise à jour'])
@@ -455,7 +602,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Date d'embauche</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">Date d&apos;embauche</label>
                                 <input
                                     type="date"
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -524,7 +671,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                     </section>
 
                     <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Contact d'urgence</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Contact d&apos;urgence</h4>
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 mb-1">Nom</label>
@@ -569,7 +716,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
     )
 }
 // Modal de création rapide
-function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }: any) {
+function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }: CreateEmployeeModalProps) {
     if (!open) return null
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -636,13 +783,13 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
                             </select>
                         </div>
                         <div className="rounded border border-dashed border-slate-200 bg-slate-50 p-2 text-xs text-slate-500">
-                            Le numéro employé est attribué automatiquement lors de l'enregistrement.
+                            Le numéro employé est attribué automatiquement lors de l&apos;enregistrement.
                         </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Date d'embauche</label>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Date d&apos;embauche</label>
                             <input type="date" className="w-full p-2 border rounded" value={form.hireDate || ''} onChange={e=>setForm({...form, hireDate: e.target.value})} />
                         </div>
                         <div>
@@ -670,7 +817,7 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
                             </label>
                         </div>
                         <div className="rounded border border-dashed border-slate-200 bg-slate-50 p-2 text-xs text-slate-500">
-                            Le manager assigné correspond automatiquement à l'utilisateur créant la fiche.
+                            Le manager assigné correspond automatiquement à l&apos;utilisateur créant la fiche.
                         </div>
                     </div>
 
@@ -728,64 +875,67 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
     )
 }
 
-function EmployeeDirectory({ employees, loading }: { employees: any[]; loading: boolean }) {
+function EmployeeDirectory({ employees, loading }: EmployeeDirectoryProps) {
     if (loading) {
         return <div className="sn-card p-8 text-center text-sm text-slate-500">Chargement...</div>
     }
     if (employees.length === 0) {
-        return <div className="sn-card p-8 text-center text-sm text-slate-500">Aucun collaborateur pour l'instant.</div>
+        return <div className="sn-card p-8 text-center text-sm text-slate-500">Aucun collaborateur pour l&apos;instant.</div>
     }
     return (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {employees.map((emp) => (
-                <article key={emp.id} className="sn-card flex flex-col gap-4">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
-                            {emp.image ? (
-                                <img src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} className="h-full w-full rounded-full object-cover" />
-                            ) : (
-                                `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
+            {employees.map((emp) => {
+                const displayRole = emp.role ?? 'EMPLOYEE'
+                return (
+                    <article key={emp.id} className="sn-card flex flex-col gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
+                                {emp.image ? (
+                                    <Image src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} width={48} height={48} className="h-full w-full rounded-full object-cover" />
+                                ) : (
+                                    `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
+                                )}
+                            </div>
+                            <div>
+                                <div className="font-semibold text-slate-900">
+                                    {emp.firstName} {emp.lastName}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                                    <span className={`rounded-full px-2 py-0.5 border ${
+                                        displayRole === 'SUPERADMIN'
+                                            ? 'border-yellow-200 bg-yellow-100 text-yellow-800'
+                                            : displayRole === 'ADMIN'
+                                            ? 'border-purple-200 bg-purple-100 text-purple-700'
+                                            : 'border-blue-200 bg-blue-100 text-blue-700'
+                                    }`}>
+                                        {displayRole}
+                                    </span>
+                                    {emp.employeeNumber && (
+                                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
+                                            #{emp.employeeNumber}
+                                        </span>
+                                    )}
+                                    {emp.jobTitle && (
+                                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
+                                            {emp.jobTitle}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="text-sm text-slate-600 space-y-1">
+                            <div className="flex items-center gap-2"><span aria-hidden="true">📧</span><span>{emp.email}</span></div>
+                            {emp.phone && <div className="flex items-center gap-2"><span aria-hidden="true">📞</span><span>{emp.phone}</span></div>}
+                            {emp.manager && (
+                                <div className="flex items-center gap-2 text-xs text-slate-400">
+                                    <span aria-hidden="true">👤</span>
+                                    <span>Manager : {emp.manager.firstName ?? ''} {emp.manager.lastName ?? ''}</span>
+                                </div>
                             )}
                         </div>
-                        <div>
-                            <div className="font-semibold text-slate-900">
-                                {emp.firstName} {emp.lastName}
-                            </div>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                                <span className={`rounded-full px-2 py-0.5 border ${
-                                    emp.role === 'SUPERADMIN'
-                                        ? 'border-yellow-200 bg-yellow-100 text-yellow-800'
-                                        : emp.role === 'ADMIN'
-                                        ? 'border-purple-200 bg-purple-100 text-purple-700'
-                                        : 'border-blue-200 bg-blue-100 text-blue-700'
-                                }`}>
-                                    {emp.role}
-                                </span>
-                                {emp.employeeNumber && (
-                                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
-                                        #{emp.employeeNumber}
-                                    </span>
-                                )}
-                                {emp.jobTitle && (
-                                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
-                                        {emp.jobTitle}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="text-sm text-slate-600 space-y-1">
-                        <div className="flex items-center gap-2"><span aria-hidden="true">📧</span><span>{emp.email}</span></div>
-                        {emp.phone && <div className="flex items-center gap-2"><span aria-hidden="true">📞</span><span>{emp.phone}</span></div>}
-                        {emp.manager && (
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
-                                <span aria-hidden="true">👤</span>
-                                <span>Manager : {emp.manager.firstName} {emp.manager.lastName}</span>
-                            </div>
-                        )}
-                    </div>
-                </article>
-            ))}
+                    </article>
+                )
+            })}
         </div>
     )
 }

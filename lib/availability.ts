@@ -1,15 +1,19 @@
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
 import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES, BOAT_DEPARTURE_OFFSETS_MINUTES } from '@/lib/config'
-import { areIntervalsOverlapping as overlap } from 'date-fns'
+import type { Boat, Booking, BlockedInterval } from '@prisma/client'
+
+type AvailabilityBoat = Pick<Boat, 'id' | 'capacity'>
+type AvailabilityBooking = Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'>
+type AvailabilityBlock = Pick<BlockedInterval, 'scope' | 'start' | 'end' | 'reason'>
 
 interface AvailabilityParams {
   dateParam: string
   requestedLang: string
   peopleNeeded: number
-  boats: any[]
-  bookings: any[]
-  blocks: any[]
+  boats: AvailabilityBoat[]
+  bookings: AvailabilityBooking[]
+  blocks: AvailabilityBlock[]
 }
 
 const OPEN_TIME = '10:00'
@@ -66,23 +70,23 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
     const slotEndUtc = addMinutes(slotStartUtc, TOUR_DURATION_MINUTES + TOUR_BUFFER_MINUTES)
 
     const boatBookings = bookings.filter(b => b.boatId === assignedBoat.id)
-    const conflicts = boatBookings.filter(b => {
-      const busyEnd = addMinutes(b.endTime, TOUR_BUFFER_MINUTES)
+    const conflicts = boatBookings.filter(booking => {
+      const busyEnd = addMinutes(booking.endTime, TOUR_BUFFER_MINUTES)
       return areIntervalsOverlapping(
         { start: slotStartUtc, end: slotEndUtc },
-        { start: b.startTime, end: busyEnd }
+        { start: booking.startTime, end: busyEnd }
       )
     })
 
-    const blocked = blocks.some(b => overlap({ start: slotStartUtc, end: slotEndUtc }, { start: b.start, end: b.end }))
+    const blocked = blocks.some(block => areIntervalsOverlapping({ start: slotStartUtc, end: slotEndUtc }, { start: block.start, end: block.end }))
 
     let isSlotAvailable = false
     if (!blocked && conflicts.length === 0) {
       isSlotAvailable = true
     } else if (!blocked) {
-      const isExactStart = conflicts.every(b => isSameMinute(b.startTime, slotStartUtc))
-      const isSameLang = conflicts.every(b => b.language === requestedLang)
-      const currentPeople = conflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
+      const isExactStart = conflicts.every(booking => isSameMinute(booking.startTime, slotStartUtc))
+      const isSameLang = conflicts.every(booking => booking.language === requestedLang)
+      const currentPeople = conflicts.reduce((sum, booking) => sum + booking.numberOfPeople, 0)
       if (isExactStart && isSameLang && (currentPeople + peopleNeeded <= assignedBoat.capacity)) {
         isSlotAvailable = true
       }

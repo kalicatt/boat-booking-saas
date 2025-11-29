@@ -1,19 +1,19 @@
-'use client';
- 
-import { useFormState, useFormStatus } from 'react-dom';
-import { authenticate } from '@/lib/actions'; // On va créer ce petit fichier juste après
-import { useState } from 'react';
+'use client'
+
+import Image from 'next/image'
+import { authenticate } from '@/lib/actions'
+import { FormEvent, useState } from 'react'
 
 export default function LoginPage() {
   const [errorMessage, setErrorMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
 
-    const formData = new FormData(e.currentTarget);
+    const formData = new FormData(event.currentTarget);
     
     // On appelle notre Server Action pour se connecter
     const result = await authenticate(formData);
@@ -30,7 +30,7 @@ export default function LoginPage() {
     <div className="flex h-screen items-center justify-center bg-slate-900">
       <div className="w-full max-w-sm p-8 bg-white rounded-xl shadow-2xl">
         <div className="flex flex-col items-center mb-4">
-          <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-10 w-auto" />
+          <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={40} className="h-10 w-auto" priority />
         </div>
         <h1 className="mb-6 text-2xl font-serif font-bold text-center text-[#0f172a]">
             Sweet <span className="text-[#eab308]">Admin</span> 🔒

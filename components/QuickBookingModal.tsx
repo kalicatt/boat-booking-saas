@@ -165,9 +165,10 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 if (!res.ok) return
                 const data = await res.json()
                 if (!mounted || !Array.isArray(data) || data.length === 0) return
-                const latest = data.reduce((acc: any, current: any) =>
+                type ClosureRecord = { day: string }
+                const latest = data.reduce((acc: ClosureRecord, current: ClosureRecord) =>
                     new Date(current.day) > new Date(acc.day) ? current : acc
-                )
+                , data[0] as ClosureRecord)
                 const selected = new Date(
                     Date.UTC(slotStart.getUTCFullYear(), slotStart.getUTCMonth(), slotStart.getUTCDate())
                 )
@@ -665,7 +666,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                             />
                                         </div>
                                         <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                                            L'adresse email est facultative : laissez vide pour une réservation guichet classique.
+                                            L&apos;adresse email est facultative : laissez vide pour une réservation guichet classique.
                                         </div>
                                     </div>
 

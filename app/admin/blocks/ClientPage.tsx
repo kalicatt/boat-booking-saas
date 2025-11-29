@@ -37,6 +37,42 @@ const PRESETS: Array<{ key: Scope; label: string; start: string; end: string }> 
   { key: 'afternoon', label: 'Après-midi (13h30-18h)', start: '13:30', end: '18:00' }
 ]
 
+const SCOPES: Scope[] = ['day', 'morning', 'afternoon', 'specific']
+
+const isScope = (value: unknown): value is Scope =>
+  typeof value === 'string' && SCOPES.includes(value as Scope)
+
+const parseBlock = (value: unknown): BlockedInterval | null => {
+  if (!value || typeof value !== 'object') return null
+  const candidate = value as Partial<BlockedInterval>
+  if (typeof candidate.id !== 'string') return null
+  if (typeof candidate.start !== 'string') return null
+  if (typeof candidate.end !== 'string') return null
+  if (!isScope(candidate.scope)) return null
+  const reason = typeof candidate.reason === 'string' ? candidate.reason : candidate.reason ?? null
+  return {
+    id: candidate.id,
+    start: candidate.start,
+    end: candidate.end,
+    scope: candidate.scope,
+    reason
+  }
+}
+
+const parseBlocksResponse = (data: unknown): BlockedInterval[] => {
+  if (!Array.isArray(data)) return []
+  return data
+    .map(parseBlock)
+    .filter((block): block is BlockedInterval => block !== null)
+}
+
+const fetchBlocks = async (): Promise<BlockedInterval[]> => {
+  const res = await fetch('/api/admin/blocks')
+  if (!res.ok) throw new Error('Erreur chargement blocages')
+  const payload = (await res.json()) as unknown
+  return parseBlocksResponse(payload)
+}
+
 const buildUtcDate = (date: string, time: string) => {
   const [y, m, d] = date.split('-').map(Number)
   const [hh, mm] = time.split(':').map(Number)
@@ -89,10 +125,8 @@ export default function ClientBlocksAdminPage() {
     const load = async () => {
       try {
         setLoading(true)
-        const res = await fetch('/api/admin/blocks')
-        if (!res.ok) throw new Error('Erreur chargement blocages')
-        const data = await res.json()
-        setBlocks(Array.isArray(data) ? data : [])
+        const parsedBlocks = await fetchBlocks()
+        setBlocks(parsedBlocks)
       } catch (error) {
         console.error(error)
         setFeedback({ kind: 'error', message: 'Impossible de récupérer les blocages.' })
@@ -113,10 +147,8 @@ export default function ClientBlocksAdminPage() {
   const reloadBlocks = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/admin/blocks')
-      if (!res.ok) throw new Error('Erreur chargement blocages')
-      const data = await res.json()
-      setBlocks(Array.isArray(data) ? data : [])
+      const parsedBlocks = await fetchBlocks()
+      setBlocks(parsedBlocks)
     } catch (error) {
       console.error(error)
       setFeedback({ kind: 'error', message: 'Erreur lors de la mise à jour de la liste.' })
@@ -601,7 +633,7 @@ export default function ClientBlocksAdminPage() {
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{formatDateTime(block.start)}</p>
                         <p className="text-xs text-slate-500">
-                          Jusqu'à {format(new Date(block.end), "HH'h'mm", { locale: fr })}
+                          Jusqu&apos;à {format(new Date(block.end), "HH'h'mm", { locale: fr })}
                         </p>
                         {block.reason && (
                           <p className="mt-1 text-xs text-slate-600">{block.reason}</p>
@@ -640,7 +672,7 @@ export default function ClientBlocksAdminPage() {
               {loading ? (
                 <div className="p-6 text-center text-sm text-slate-500">Chargement...</div>
               ) : archivedBlocks.length === 0 ? (
-                <div className="p-6 text-center text-sm text-slate-500">Aucun blocage passé pour l'instant.</div>
+                <div className="p-6 text-center text-sm text-slate-500">Aucun blocage passé pour l&apos;instant.</div>
               ) : (
                 <ul className="divide-y divide-slate-100 text-sm">
                   {archivedBlocks.map((block) => (

@@ -119,8 +119,9 @@ export async function POST(request: Request) {
         } as const)[userLang],
         react: await CustomerAcknowledgement({ firstName, kind: 'group', people, lang: userLang })
       })
-    } catch (e) {
-      console.warn('Ack email (group) failed for', email, e)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.warn('Ack email (group) failed for', email, msg)
     }
 
     return NextResponse.json({ success: true })

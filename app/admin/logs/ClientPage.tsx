@@ -96,7 +96,7 @@ const parseDetails = (raw: string | null): DetailShape => {
       return String(parsed)
     })()
     return { type: 'json', raw: trimmed, preview, prettified }
-  } catch (error) {
+  } catch {
     const preview = trimmed.length > 160 ? `${trimmed.slice(0, 160)}…` : trimmed
     return { type: 'text', raw: trimmed, preview }
   }
@@ -326,7 +326,7 @@ export default function ClientLogsPage() {
                 />
               </label>
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Famille d'actions</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Famille d&apos;actions</span>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"

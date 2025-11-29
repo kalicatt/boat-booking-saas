@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Try to capture; if already captured, we'll fetch order details
-    let capture: any
+    let capture: unknown
     let amountVal = 0
     let currency = 'EUR'
     try {
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       }
       amountVal = Number(capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || 0)
       currency = capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code || 'EUR'
-    } catch (e) {
+    } catch {
       // Fallback: get order details and proceed if already completed
       const orderRes = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
         headers: { 'Authorization': `Bearer ${auth.access_token}` }
@@ -73,7 +73,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, orderId, bookingId: bookingId || null })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: message || 'Server error' }, { status: 500 })
   }
 }

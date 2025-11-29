@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { PHONE_CODES } from '@/lib/phoneData'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
@@ -12,8 +12,14 @@ import StripeWalletButton from '@/components/StripeWalletButton'
 import PayPalButton from '@/components/PayPalButton'
 
 interface WizardProps {
-  dict: any
-  initialLang: string
+    dict: Record<string, unknown>
+    initialLang: string
+}
+
+type BookingWidgetDict = {
+    booking_create_failed?: string
+    booking_not_found?: string
+    [key: string]: unknown
 }
 
 // Les étapes du tunnel
@@ -49,7 +55,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
   const [babies, setBabies] = useState(0)
-    const [isPrivate, setIsPrivate] = useState(false) // Option barque privative
+    const [isPrivate] = useState(false) // Option barque privative
     const [contactOpen, setContactOpen] = useState(false)
     const [contactMode, setContactMode] = useState<'group'|'private'>('group')
   
@@ -65,6 +71,17 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const [phoneCodeInput, setPhoneCodeInput] = useState('+33') // manual input value
     const [phoneCodeError, setPhoneCodeError] = useState<string | null>(null)
     const [phoneError, setPhoneError] = useState<string | null>(null)
+
+    const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
+    const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+    const recaptchaRef = useRef<ReCAPTCHA>(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [clientSecret, setClientSecret] = useState<string | null>(null)
+    const [stripeError, setStripeError] = useState<string | null>(null)
+    const [paymentSucceeded, setPaymentSucceeded] = useState<boolean>(false)
+        const [paymentProvider, setPaymentProvider] = useState<null | 'stripe' | 'paypal'>(null)
+    const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null)
+        const [stripeIntentId, setStripeIntentId] = useState<string | null>(null)
 
     const validateLocalPhone = (digits: string) => {
         if (!digits) return 'Numéro requis'
@@ -82,18 +99,50 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         return v
     }
 
-    const buildE164 = () => localToE164(phoneCode, formData.phone)
-    const getFormattedPhone = () => formatInternational(buildE164())
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
-  const recaptchaRef = useRef<ReCAPTCHA>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-    const [clientSecret, setClientSecret] = useState<string | null>(null)
-    const [stripeError, setStripeError] = useState<string | null>(null)
-    const [paymentSucceeded, setPaymentSucceeded] = useState<boolean>(false)
-        const [paymentProvider, setPaymentProvider] = useState<null | 'stripe' | 'paypal'>(null)
-    const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null)
-        const [stripeIntentId, setStripeIntentId] = useState<string | null>(null)
-        const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
+    const buildE164 = useCallback(() => localToE164(phoneCode, formData.phone), [phoneCode, formData.phone])
+    const getFormattedPhone = useCallback(() => formatInternational(buildE164()), [buildE164])
+    const ensurePendingBooking = useCallback(async (): Promise<string> => {
+        if (pendingBookingId) return pendingBookingId
+        if (!captchaToken) {
+            const captchaMsg = dict.booking?.widget?.captcha_required || 'Captcha requis'
+            setGlobalErrors([captchaMsg])
+            setStep(STEPS.CONTACT)
+            throw new Error(captchaMsg)
+        }
+        const response = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date,
+                time: selectedSlot,
+                adults,
+                children,
+                babies,
+                language,
+                userDetails: { ...formData, phone: buildE164() },
+                captchaToken,
+                pendingOnly: true
+            })
+        })
+        const payload = await response.json()
+        const widgetDict = dict.booking?.widget as BookingWidgetDict | undefined
+        if (!response.ok) {
+            const message = payload?.error || widgetDict?.booking_create_failed || 'Impossible de créer la réservation'
+            setGlobalErrors([message])
+            if (/captcha/i.test(message)) {
+                setStep(STEPS.CONTACT)
+            }
+            throw new Error(message)
+        }
+        const newId: string | null = payload.bookingId || null
+        if (!newId) {
+            const notFound = widgetDict?.booking_not_found || 'Réservation introuvable'
+            setGlobalErrors([notFound])
+            throw new Error(notFound)
+        }
+        setPendingBookingId(newId)
+        return newId
+    }, [adults, babies, buildE164, captchaToken, children, date, dict, formData, language, pendingBookingId, selectedSlot])
 
   // Calculs
   const totalPeople = adults + children + babies
@@ -136,13 +185,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     setPhoneCode(data.dialCode)
                     setPhoneCodeInput(data.dialCode)
                 }
-            } catch (e) {
+            } catch {
                 // Silent failure
             }
         }
         detect()
         return () => { aborted = true }
-    }, [])
+    }, [phoneCodeInput])
 
     useEffect(() => {
         if (step === STEPS.PAYMENT) {
@@ -150,7 +199,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 // L'étape paiement affichera déjà les erreurs via ensurePendingBooking
             })
         }
-    }, [step])
+    }, [ensurePendingBooking, step])
 
   // --- ACTIONS DU TUNNEL ---
 
@@ -198,8 +247,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                 setAvailableSlots(filtered)
                 setStep(STEPS.SLOTS)
-    } catch (e) {
-        console.error(e)
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        console.error(msg)
         setGlobalErrors(["Erreur technique lors de la recherche. Veuillez réessayer."])
     } finally {
         setLoading(false)
@@ -223,7 +273,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             setPaymentSucceeded(false)
             setGlobalErrors([])
             setStep(STEPS.PAYMENT)
-        } catch (error) {
+        } catch {
             // ensurePendingBooking gère déjà l'affichage d'erreurs explicites
         } finally {
             setIsSubmitting(false)
@@ -303,13 +353,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ orderId: paypalOrderId, bookingId: newBookingId })
                     })
-                    if (!cap.ok) {
-                            const errCap = await cap.json().catch(()=>({error:(dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')}))
-                            setGlobalErrors([(dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')])
+                        if (!cap.ok) {
+                            const capData = await cap.json().catch(()=>({}))
+                            const capMessage = capData?.error || (dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')
+                            setGlobalErrors([capMessage])
                         setIsSubmitting(false)
                         return
                     }
-                } catch (e) {
+                } catch (error: unknown) {
+                    const msg = error instanceof Error ? error.message : String(error)
+                    console.error('PayPal capture failed:', msg)
                     setGlobalErrors(["Erreur réseau lors de l'association PayPal."])
                     setIsSubmitting(false)
                     return
@@ -322,117 +375,18 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             setGlobalErrors(["Erreur: " + err.error])
             recaptchaRef.current?.reset()
         }
-    } catch (e) {
-        console.error(e)
+    } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        console.error(msg)
         setGlobalErrors(["Erreur de connexion (vérifiez votre réseau ou contactez le support)"])
     } finally {
         setIsSubmitting(false)
     }
   }
 
-    // Helper to ensure a pending booking exists (used by Stripe wallets)
-    const ensurePendingBooking = async (): Promise<string> => {
-        let bId = pendingBookingId
-        if (bId) return bId
-        const resPending = await fetch('/api/bookings', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                date,
-                time: selectedSlot,
-                adults,
-                children,
-                babies,
-                language,
-                userDetails: { ...formData, phone: buildE164() },
-                captchaToken,
-                pendingOnly: true
-            })
-        })
-        const dataPending = await resPending.json()
-        if (!resPending.ok) {
-            const msg = dataPending?.error || (dict.booking.widget.booking_create_failed || 'Impossible de créer la réservation')
-            setGlobalErrors([msg])
-            throw new Error(msg)
-        }
-        const newId: string | null = dataPending.bookingId || null
-        if (!newId) {
-            const nf = dict.booking.widget.booking_not_found || 'Réservation introuvable'
-            setGlobalErrors([nf])
-            throw new Error(nf)
-        }
-        setPendingBookingId(newId)
-        return newId
-    }
-
-  // VALIDATION GROUPE
-  const handleGroupSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
-
-    setIsSubmitting(true)
-    try {
-        const res = await fetch('/api/contact/group', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...formData,
-                phone: buildE164(),
-                people: totalPeople,
-                captchaToken
-            })
-        })
-
-        if (res.ok) {
-            setGlobalErrors([])
-            setStep(STEPS.GROUP_SUCCESS)
-        } else {
-            const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
-            setGlobalErrors(["Erreur: " + err.error])
-            recaptchaRef.current?.reset()
-        }
-    } catch (error) {
-        setGlobalErrors(["Erreur de connexion"])
-    } finally {
-        setIsSubmitting(false)
-    }
-  }
-
-  // VALIDATION PRIVATISATION
-  const handlePrivateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
-
-    setIsSubmitting(true)
-    try {
-        const res = await fetch('/api/contact/private', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                ...formData,
-                phone: buildE164(),
-                people: totalPeople,
-                date,
-                captchaToken
-            })
-        })
-
-        if (res.ok) {
-            setGlobalErrors([])
-            setStep(STEPS.PRIVATE_SUCCESS)
-        } else {
-            const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
-            setGlobalErrors(["Erreur: " + err.error])
-            recaptchaRef.current?.reset()
-        }
-    } catch (error) {
-        setGlobalErrors(["Erreur de connexion"])
-    } finally {
-        setIsSubmitting(false)
-    }
-  }
-
   // Composant Compteur
-  const Counter = ({ label, value, setter, price }: any) => (
+    type CounterProps = { label: string; value: number; setter: (n: number) => void; price?: number }
+    const Counter = ({ label, value, setter, price }: CounterProps) => (
     <div className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
       <div>
         <span className="block text-sm font-bold text-slate-700">{label}</span>
@@ -823,7 +777,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                             } else {
                                                 setStripeError(data.error || (dict.booking.widget.payment_error_generic || 'Erreur paiement'))
                                             }
-                                        } catch (error) {
+                                        } catch {
                                             setStripeError(dict.booking.widget.payment_error_network || 'Erreur de connexion paiement')
                                         }
                                     }}
@@ -857,6 +811,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                         sdkLoadFailed: dict.booking.widget.payment_paypal_sdk_load_failed || 'Chargement PayPal impossible'
                                     }}
                                     onSuccess={async (oid) => {
+                                        setGlobalErrors([])
                                         try {
                                             setPaypalOrderId(oid)
                                             setPaymentProvider('paypal')
@@ -873,11 +828,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                             }
                                             setPaymentSucceeded(true)
                                             setGlobalErrors([])
-                                        } catch (e) {
+                                        } catch (error: unknown) {
+                                            const msg = error instanceof Error ? error.message : String(error)
+                                            console.error('PayPal processing error:', msg)
                                             setGlobalErrors([dict.booking.widget.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
                                         }
                                     }}
-                                    onError={(msg) => setGlobalErrors([msg])}
+                                    onError={(msg) => {
+                                        if (msg) setGlobalErrors([msg])
+                                        setPaymentProvider(null)
+                                    }}
                                 />
                             </div>
 
@@ -971,7 +931,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                  </div>
             )}
                 {/* Modal for contact forms */}
-                <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang as any} />
+                <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang as string} />
                 </div>
         </div>
     )

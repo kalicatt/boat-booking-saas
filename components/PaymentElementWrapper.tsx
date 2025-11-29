@@ -1,6 +1,7 @@
 "use client"
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
+import type { Stripe } from '@stripe/stripe-js'
 import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 
 function InnerPayment({ onSuccess }: { onSuccess: (intentId: string) => void }) {
@@ -36,11 +37,8 @@ function InnerPayment({ onSuccess }: { onSuccess: (intentId: string) => void }) 
 }
 
 export default function PaymentElementWrapper({ clientSecret, onSuccess }: { clientSecret: string, onSuccess: (intentId: string) => void }) {
-  const [stripePromise, setStripePromise] = useState<any>(null)
-  useEffect(()=>{
-    const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-    if (pk) setStripePromise(loadStripe(pk))
-  }, [])
+  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  const [stripePromise] = useState<Promise<Stripe | null> | null>(() => (pk ? loadStripe(pk) : null))
   if (!stripePromise) return <div className="text-xs text-slate-500">Stripe non configuré</div>
   return (
     <Elements stripe={stripePromise} options={{ clientSecret }}>

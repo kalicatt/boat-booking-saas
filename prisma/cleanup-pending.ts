@@ -31,13 +31,14 @@ async function main() {
 
     for (const p of stripePayments) {
       try {
-        if (stripe && p.intentId) {
+          if (stripe && p.intentId) {
           await stripe.paymentIntents.cancel(p.intentId)
           cancelledIntents++
         }
         await prisma.payment.update({ where: { id: p.id }, data: { status: 'cancelled' } })
-      } catch (e) {
-        console.warn(`Failed to cancel intent ${p.intentId} for booking ${b.id}:`, e)
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        console.warn(`Failed to cancel intent ${p.intentId} for booking ${b.id}:`, msg)
       }
     }
 

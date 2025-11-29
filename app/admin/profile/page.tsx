@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { logout } from '@/lib/actions'
@@ -17,8 +18,8 @@ export default function ProfilePage() {
 
   // --- GESTION PHOTO ---
   
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
       // Limite de taille (ex: 2MB)
       if (file.size > 2 * 1024 * 1024) {
@@ -48,14 +49,14 @@ export default function ProfilePage() {
         alert("Photo mise à jour ! Déconnexion nécessaire pour voir le changement.")
         await logout() // On force la reco pour mettre à jour la session
       }
-    } catch (e) { alert("Erreur technique") } 
+    } catch { alert("Erreur technique") } 
     finally { setLoadingImage(false) }
   }
 
   // --- GESTION MOT DE PASSE ---
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handlePasswordSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setLoadingPass(true)
 
     if (formPassword.newPassword !== formPassword.confirmPassword) {
@@ -80,7 +81,7 @@ export default function ProfilePage() {
       } else {
         alert("Erreur : " + data.error)
       }
-    } catch (e) { alert("Erreur technique") } 
+    } catch { alert("Erreur technique") } 
     finally { setLoadingPass(false) }
   }
 
@@ -106,7 +107,14 @@ export default function ProfilePage() {
                     {/* Cercle de prévisualisation */}
                     <div className="w-24 h-24 rounded-full bg-slate-100 border-4 border-white shadow-lg overflow-hidden relative flex-shrink-0">
                         {imagePreview ? (
-                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                          <Image
+                            src={imagePreview}
+                            alt="Prévisualisation"
+                            fill
+                            unoptimized
+                            sizes="96px"
+                            className="object-cover"
+                          />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-4xl text-slate-300">📷</div>
                         )}

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 import { computeVatFromGross } from '@/lib/vat'
 import { log } from '@/lib/logger'
 
@@ -20,8 +21,9 @@ export async function POST(req: Request){
   let event: Stripe.Event
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig || '', webhookSecret)
-  } catch (e:any){
-    await log('warn','Stripe signature verification failed',{ route:'/api/payments/stripe/webhook' })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    await log('warn','Stripe signature verification failed',{ route:'/api/payments/stripe/webhook', message: msg })
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 400 })
   }
 
@@ -48,7 +50,7 @@ export async function POST(req: Request){
         amount: amountTotal,
         currency,
         status: 'succeeded',
-        rawPayload: session as any
+        rawPayload: session as Prisma.JsonValue
       }})
       // Mark booking paid
       await prisma.booking.update({ where: { id: bookingId }, data: { isPaid: true, status: 'CONFIRMED' } })
@@ -68,8 +70,9 @@ export async function POST(req: Request){
         grossAmount: vat.gross
       }})
       await log('info','Stripe payment recorded',{ route:'/api/payments/stripe/webhook', bookingId })
-    } catch (e:any){
-      await log('error','Stripe payment handling failed',{ route:'/api/payments/stripe/webhook', bookingId })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      await log('error','Stripe payment handling failed',{ route:'/api/payments/stripe/webhook', bookingId, message: msg })
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
     }
   }

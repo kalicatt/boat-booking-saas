@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server'
-import { getDictionary, SUPPORTED_LOCALES } from '@/lib/get-dictionary'
+import { getDictionary, SUPPORTED_LOCALES, type SupportedLocale } from '@/lib/get-dictionary'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,11 +18,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ lang: s
     langValue = 'en'
   }
   const raw = langValue || 'en'
-  const locale = SUPPORTED_LOCALES.includes(raw as any) ? raw as any : 'en'
+  const locale: SupportedLocale = SUPPORTED_LOCALES.includes(raw as SupportedLocale)
+    ? (raw as SupportedLocale)
+    : 'en'
   try {
     const dict = getDictionary(locale)
     return NextResponse.json({ locale, dict })
-  } catch (e: any) {
-    return NextResponse.json({ error: 'failed', message: e?.message }, { status: 500 })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: 'failed', message }, { status: 500 })
   }
 }

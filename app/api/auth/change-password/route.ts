@@ -73,7 +73,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true })
 
-  } catch (error) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('POST /api/auth/change-password failed:', msg)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }

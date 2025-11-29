@@ -69,8 +69,8 @@ export async function POST(request: Request) {
         body: verifyBody.toString(),
         signal: controller.signal
       })
-    } catch (e) {
-      console.warn('Captcha verify failed', e)
+    } catch {
+      console.warn('Captcha verify failed')
     }
     clearTimeout(timeout)
     const captchaData = captchaRes ? await captchaRes.json() : { success: false }
@@ -108,8 +108,9 @@ export async function POST(request: Request) {
           referer: referer || null,
         }
       })
-    } catch (e) {
-      console.warn('ContactRequest persist failed', e)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.warn('ContactRequest persist failed', msg)
     }
 
     // ADMIN EMAIL (reuse GroupRequestTemplate)
@@ -164,8 +165,9 @@ export async function POST(request: Request) {
         subject: subjects[userLang],
         text: greetings[userLang]
       })
-    } catch (e) {
-      console.warn('Ack email (private) failed for', email, e)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.warn('Ack email (private) failed for', email, msg)
     }
 
     return NextResponse.json({ success: true })

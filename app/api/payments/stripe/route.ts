@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { auth } from '@/auth'
 
 export const runtime = 'nodejs'
 
@@ -23,7 +22,8 @@ export async function POST(req: Request){
       metadata: { bookingId }
     })
     return NextResponse.json({ id: session.id, url: session.url })
-  } catch (e:any){
-    return NextResponse.json({ error: 'Stripe session error', details: String(e?.message||e) }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: 'Stripe session error', details: msg }, { status: 500 })
   }
 }

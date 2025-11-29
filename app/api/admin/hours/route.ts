@@ -62,7 +62,9 @@ export async function GET(request: Request) {
     })
 
     return NextResponse.json(report)
-  } catch (error) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('GET /api/admin/hours failed:', msg)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
 }
@@ -106,8 +108,10 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json({ success: true })
-  } catch (e) {
-    return NextResponse.json({ error: "Erreur création" }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('POST /api/admin/hours', msg)
+    return NextResponse.json({ error: "Erreur création", details: msg }, { status: 500 })
   }
 }
 
@@ -143,8 +147,10 @@ export async function PUT(request: Request) {
     })
 
     return NextResponse.json({ success: true })
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur mise à jour' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('PUT /api/admin/hours', msg)
+    return NextResponse.json({ error: 'Erreur mise à jour', details: msg }, { status: 500 })
   }
 }
 
@@ -169,7 +175,9 @@ export async function DELETE(request: Request) {
 
     await prisma.workShift.delete({ where: { id } })
     return NextResponse.json({ success: true })
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur suppression' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('DELETE /api/admin/hours', msg)
+    return NextResponse.json({ error: 'Erreur suppression', details: msg }, { status: 500 })
   }
 }

@@ -26,8 +26,9 @@ export async function POST(req: Request){
     })
     const order = await orderRes.json()
     return NextResponse.json(order)
-  } catch (e:any){
-    return NextResponse.json({ error: 'PayPal create error', details: String(e?.message||e) }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: 'PayPal create error', details: msg }, { status: 500 })
   }
 }
 
@@ -40,7 +41,8 @@ export async function PUT(req: Request){
     const capRes = await fetch(`${getPaypalApiBase()}/v2/checkout/orders/${orderId}/capture`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } })
     const cap = await capRes.json()
     return NextResponse.json(cap)
-  } catch (e:any){
-    return NextResponse.json({ error: 'PayPal capture error', details: String(e?.message||e) }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: 'PayPal capture error', details: msg }, { status: 500 })
   }
 }

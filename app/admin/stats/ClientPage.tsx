@@ -448,7 +448,7 @@ export default function ClientStatsPage() {
                   <BreakdownRow label="City Pass" value={(paymentBreakdown.CityPass ?? 0).toString()} />
                 </div>
                 <p className="text-xs text-slate-500">
-                  City Pass: les enfants sont inclus avec l'adulte, basee sur les adultes par reservation.
+                  City Pass: les enfants sont inclus avec l&apos;adulte, basee sur les adultes par reservation.
                 </p>
               </div>
             </section>

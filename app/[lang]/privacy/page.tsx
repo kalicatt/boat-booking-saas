@@ -1,3 +1,5 @@
+import Image from "next/image"
+
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -482,7 +484,14 @@ export default async function PrivacyPage({ params }: { params: Promise<{ lang?:
       <div className="max-w-4xl mx-auto px-6">
         <header className="text-center text-slate-100 mb-12">
           <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-2 backdrop-blur">
-            <img src="/images/logo.jpg" alt="Sweet Narcisse" className="h-8 w-auto rounded-sm" />
+            <Image
+              src="/images/logo.jpg"
+              alt="Sweet Narcisse"
+              width={128}
+              height={32}
+              className="h-8 w-auto rounded-sm"
+              priority
+            />
             <span className="text-xs font-semibold tracking-[0.22em] uppercase text-slate-200">Sweet Narcisse</span>
           </div>
           <h1 className="mt-6 text-4xl font-serif font-bold text-white">{content.title}</h1>

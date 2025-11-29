@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -8,6 +9,7 @@ import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import QuickBookingModal from '@/components/QuickBookingModal'
 import useSWR from 'swr'
+import type { Prisma } from '@prisma/client'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
 const STATUS_THEME: Record<string, { label: string; background: string; backgroundSoft: string; border: string; text: string; badge: string }> = {
@@ -85,6 +87,98 @@ const localizer = dateFnsLocalizer({
 interface BoatResource { id: number; title: string; capacity: number }
 interface UserData { firstName: string; lastName: string; email: string; phone: string; role: string }
 
+type BoardingStatus = 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
+type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+
+interface BookingPaymentDto {
+  id: string
+  provider: string
+  methodType: string | null
+  amount: number
+  currency: string
+  status: string
+  createdAt: string
+}
+
+type AdminBookingWithRelations = Prisma.BookingGetPayload<{
+  include: {
+    boat: { select: { capacity: true } }
+    user: {
+      select: {
+        firstName: true
+        lastName: true
+        email: true
+        phone: true
+        role: true
+      }
+    }
+    payments: {
+      select: {
+        id: true
+        provider: true
+        methodType: true
+        amount: true
+        currency: true
+        status: true
+        createdAt: true
+      }
+    }
+  }
+}>
+
+type AdminBookingDto = Omit<
+  AdminBookingWithRelations,
+  'startTime' | 'endTime' | 'payments'
+> & {
+  startTime: string
+  endTime: string
+  payments: Array<
+    Omit<AdminBookingWithRelations['payments'][number], 'createdAt'> & { createdAt: string }
+  >
+}
+
+interface ClosureSummary {
+  id: string
+  day: string
+  locked: boolean
+}
+
+interface PaymentMethodPayload {
+  provider: string
+  methodType?: string
+  amountReceived?: number
+  changeDue?: number
+}
+
+interface BookingUpdatePayload {
+  newCheckinStatus?: BoardingStatus
+  newIsPaid?: boolean
+  paymentMethod?: PaymentMethodPayload
+}
+
+type CalendarResource = BoatResource | { id?: number | string } | number | string | null | undefined
+
+type PlanningPreset = 'standard' | 'morning' | 'afternoon'
+
+interface BoatApiRow {
+  id?: unknown
+  title?: unknown
+  name?: unknown
+  capacity?: unknown
+}
+
+interface SlotSelectionInfo {
+  start: Date
+  end: Date
+  resourceId?: CalendarResource
+}
+
+interface PlanningTimeSlotWrapperProps {
+  children?: ReactNode
+  value: Date
+  resource?: CalendarResource
+}
+
 interface BookingDetails {
   id: string;
   title: string;
@@ -100,12 +194,12 @@ interface BookingDetails {
   boatCapacity: number;
   user: UserData;
   language: string;
-  totalPrice: number;
-  checkinStatus: 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
+  totalPrice: number | null;
+  checkinStatus: BoardingStatus
   isPaid: boolean;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+  status: BookingStatus
   message?: string | null;
-  payments?: Array<{ id: string; provider: string; methodType?: string | null; amount: number; currency: string; status: string; createdAt: string }>
+  payments?: BookingPaymentDto[]
 }
 
 type PassengerKind = 'adult' | 'child' | 'baby' | 'passenger'
@@ -127,8 +221,6 @@ interface SeatPlanResult {
   benches: SeatPlanBench[]
   error?: string
 }
-
-type BoardingStatus = 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
 
 interface BoatPlanModalState {
   boat: { id: number; title: string; capacity: number }
@@ -257,15 +349,16 @@ const computeSeatPlan = (
   return { benches }
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => {
-  if (!res.ok) throw new Error('Erreur fetch')
-  return res.json()
-})
+const jsonFetcher = async <T,>(url: string): Promise<T> => {
+  const response = await fetch(url)
+  if (!response.ok) throw new Error('Erreur fetch')
+  return response.json() as Promise<T>
+}
 
 export default function ClientPlanningPage() {
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
-  const [preset, setPreset] = useState<'standard'|'morning'|'afternoon'>('standard')
+  const [preset, setPreset] = useState<PlanningPreset>('standard')
   const [zoomLevel, setZoomLevel] = useState(1)
   const containerRef = useRef<HTMLDivElement|null>(null)
   const clampZoom = useCallback((value: number) => Number(Math.min(2, Math.max(0.5, value)).toFixed(2)), [])
@@ -284,16 +377,16 @@ export default function ClientPlanningPage() {
         })
       }
     }
-    const onGestureStart = (e: any) => {
+    const onGestureStart: EventListener = (event) => {
       // Safari/iOS specific pinch gesture
-      e.preventDefault()
-      e.stopPropagation()
+      event.preventDefault()
+      event.stopPropagation()
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    el.addEventListener('gesturestart', onGestureStart as any, { passive: false })
+    el.addEventListener('gesturestart', onGestureStart, { passive: false })
     return ()=>{
       el.removeEventListener('wheel', onWheel)
-      el.removeEventListener('gesturestart', onGestureStart as any)
+      el.removeEventListener('gesturestart', onGestureStart)
     }
   }, [clampZoom])
 
@@ -328,70 +421,121 @@ export default function ClientPlanningPage() {
     return new Date(0, 0, 0, 18, 30, 0)
   }, [preset])
 
+  const timeGridStyle = useMemo<CSSProperties>(() => {
+    const slotHeight = Math.round(40 * zoomLevel)
+    return { '--slotH': `${slotHeight}px` } as CSSProperties
+  }, [zoomLevel])
+
   const apiUrl = `/api/admin/all-bookings?start=${currentRange.start.toISOString()}&end=${currentRange.end.toISOString()}`
 
-  const { data: rawBookings, error, mutate } = useSWR(apiUrl, fetcher, {
+  const { data: rawBookings, error, mutate } = useSWR<AdminBookingDto[]>(apiUrl, jsonFetcher, {
     refreshInterval: 10000,
     revalidateOnFocus: true,
     keepPreviousData: true
   })
-  const { data: closures } = useSWR('/api/admin/closures', fetcher)
+  const { data: closures } = useSWR<ClosureSummary[]>('/api/admin/closures', jsonFetcher)
 
-  const events = useMemo(() => {
-    if (!rawBookings || !Array.isArray(rawBookings)) return []
+  const isLockedDate = useCallback((target: Date) => {
+    if (!Array.isArray(closures)) return false
+    const targetDay = format(target, 'yyyy-MM-dd')
+    return closures.some((closure) =>
+      closure.locked && format(new Date(closure.day), 'yyyy-MM-dd') === targetDay
+    )
+  }, [closures])
 
-    const loadMap: Record<string, number> = {}
-    rawBookings.forEach((b: any) => {
-      const key = `${b.startTime}_${b.boatId}`
-      loadMap[key] = (loadMap[key] || 0) + b.numberOfPeople
-    })
+  const events = useMemo<BookingDetails[]>(() => {
+    if (!Array.isArray(rawBookings)) return []
 
-    return rawBookings
-      .map((b: any) => {
-        const clientFullName = `${b.user.firstName} ${b.user.lastName}`
-        const displayTitle = clientFullName === 'Client Guichet' ? 'Guichet' : clientFullName
+    const loadMap = rawBookings.reduce<Record<string, number>>((accumulator, booking) => {
+      const key = `${booking.startTime}_${booking.boatId}`
+      const peopleCount = Number(booking.numberOfPeople ?? 0)
+      accumulator[key] = (accumulator[key] || 0) + peopleCount
+      return accumulator
+    }, {})
 
-        const visualStart = new Date(b.startTime)
-        const visualEnd = new Date(b.endTime)
-        const startWall = new Date(
-          visualStart.getUTCFullYear(),
-          visualStart.getUTCMonth(),
-          visualStart.getUTCDate(),
-          visualStart.getUTCHours(),
-          visualStart.getUTCMinutes()
-        )
-        const endWall = new Date(
-          visualEnd.getUTCFullYear(),
-          visualEnd.getUTCMonth(),
-          visualEnd.getUTCDate(),
-          visualEnd.getUTCHours(),
-          visualEnd.getUTCMinutes()
-        )
-        if (isNaN(visualStart.getTime())) return null
+    return rawBookings.reduce<BookingDetails[]>((accumulator, booking) => {
+      const visualStart = new Date(booking.startTime)
+      if (Number.isNaN(visualStart.getTime())) return accumulator
 
-        return {
-          id: b.id,
-          title: displayTitle,
-          start: startWall,
-          end: endWall,
-          resourceId: b.boatId,
-          peopleCount: b.numberOfPeople,
-          adults: b.adults || 0,
-          children: b.children || 0,
-          babies: b.babies || 0,
-          boatCapacity: b.boat.capacity,
-          totalOnBoat: loadMap[`${b.startTime}_${b.boatId}`] || 0,
-          user: b.user,
-          language: b.language,
-          totalPrice: b.totalPrice,
-          checkinStatus: b.checkinStatus,
-          isPaid: b.isPaid,
-          status: b.status,
-          clientName: clientFullName,
-          message: b.message
-        }
+      const visualEnd = new Date(booking.endTime)
+      const startWall = new Date(
+        visualStart.getUTCFullYear(),
+        visualStart.getUTCMonth(),
+        visualStart.getUTCDate(),
+        visualStart.getUTCHours(),
+        visualStart.getUTCMinutes()
+      )
+      const endWall = new Date(
+        visualEnd.getUTCFullYear(),
+        visualEnd.getUTCMonth(),
+        visualEnd.getUTCDate(),
+        visualEnd.getUTCHours(),
+        visualEnd.getUTCMinutes()
+      )
+
+      const firstName = booking.user?.firstName ?? ''
+      const lastName = booking.user?.lastName ?? ''
+      const clientFullName = `${firstName} ${lastName}`.trim() || 'Client'
+      const displayTitle = clientFullName === 'Client Guichet' ? 'Guichet' : clientFullName
+
+      const normalizedStatus: BookingStatus = booking.status === 'CANCELLED'
+        ? 'CANCELLED'
+        : booking.status === 'CONFIRMED'
+          ? 'CONFIRMED'
+          : 'PENDING'
+      const normalizedCheckin: BoardingStatus = booking.checkinStatus === 'NO_SHOW'
+        ? 'NO_SHOW'
+        : booking.checkinStatus === 'EMBARQUED'
+          ? 'EMBARQUED'
+          : 'CONFIRMED'
+
+      const normalizedPayments: BookingPaymentDto[] = (booking.payments ?? []).map((payment) => ({
+        id: payment.id,
+        provider: payment.provider,
+        methodType: payment.methodType ?? null,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        createdAt: typeof payment.createdAt === 'string'
+          ? payment.createdAt
+          : payment.createdAt.toISOString()
+      }))
+      const payments = normalizedPayments.length ? normalizedPayments : undefined
+      const totalPrice = typeof booking.totalPrice === 'number' && Number.isFinite(booking.totalPrice)
+        ? booking.totalPrice
+        : null
+
+      accumulator.push({
+        id: booking.id,
+        title: displayTitle,
+        start: startWall,
+        end: endWall,
+        resourceId: Number(booking.boatId),
+        peopleCount: Number(booking.numberOfPeople ?? 0),
+        adults: Number(booking.adults ?? 0),
+        children: Number(booking.children ?? 0),
+        babies: Number(booking.babies ?? 0),
+        boatCapacity: Number(booking.boat?.capacity ?? 0),
+        totalOnBoat: loadMap[`${booking.startTime}_${booking.boatId}`] ?? 0,
+        user: {
+          firstName: firstName || 'Client',
+          lastName: lastName || '',
+          email: booking.user?.email ?? '',
+          phone: booking.user?.phone ?? '',
+          role: booking.user?.role ?? 'CLIENT'
+        },
+        language: booking.language ?? 'FR',
+        totalPrice,
+        checkinStatus: normalizedCheckin,
+        isPaid: Boolean(booking.isPaid),
+        status: normalizedStatus,
+        clientName: clientFullName,
+        message: booking.message ?? null,
+        payments
       })
-      .filter((event: any) => event !== null) as BookingDetails[]
+
+      return accumulator
+    }, [])
   }, [rawBookings])
 
   const boatDailyStats = useMemo<BoatDailyStat[]>(() => {
@@ -469,10 +613,45 @@ export default function ClientPlanningPage() {
     try {
       const res = await fetch('/api/admin/boats')
       if (!res.ok) throw new Error('Erreur API')
-      const data = await res.json()
-      setResources(data)
-    } catch (e) {
-      console.error('Erreur chargement barques', e)
+      const data: unknown = await res.json()
+      if (!Array.isArray(data)) {
+        setResources([])
+        return
+      }
+      const parseNumber = (value: unknown) => {
+        if (typeof value === 'number') return Number.isFinite(value) ? value : NaN
+        if (typeof value === 'string') {
+          const parsed = Number(value)
+          return Number.isFinite(parsed) ? parsed : NaN
+        }
+        return NaN
+      }
+      const normalized = data
+        .map((item): BoatResource | null => {
+          if (!item || typeof item !== 'object') return null
+          const candidate = item as BoatApiRow
+          const parsedId = parseNumber(candidate.id)
+          if (!Number.isFinite(parsedId)) return null
+          const rawTitle = typeof candidate.title === 'string' && candidate.title.trim().length
+            ? candidate.title.trim()
+            : typeof candidate.name === 'string' && candidate.name.trim().length
+              ? candidate.name.trim()
+              : null
+          const parsedCapacity = parseNumber(candidate.capacity)
+          const capacity = Number.isFinite(parsedCapacity) && parsedCapacity > 0
+            ? Math.round(parsedCapacity)
+            : 12
+          return {
+            id: parsedId,
+            title: rawTitle ?? `Barque ${parsedId}`,
+            capacity
+          }
+        })
+        .filter((boat): boat is BoatResource => boat !== null)
+      setResources(normalized)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error('Erreur chargement barques', msg)
     } finally {
       setLoadingBoats(false)
     }
@@ -533,7 +712,7 @@ export default function ClientPlanningPage() {
     setShowDetailsModal(true)
   }
 
-  const handleSlotSelect = (slotInfo: any) => {
+  const handleSlotSelect = (slotInfo: SlotSelectionInfo) => {
     const duration = new Date(slotInfo.end).getTime() - new Date(slotInfo.start).getTime()
     if (duration > 5 * 60 * 1000) return
 
@@ -547,7 +726,15 @@ export default function ClientPlanningPage() {
         s.getMinutes()
       )
     )
-    const fallbackBoatId = Number(slotInfo.resourceId ?? 0) || 1
+    let fallbackBoatId = 1
+    const { resourceId } = slotInfo
+    if (typeof resourceId === 'number' || typeof resourceId === 'string') {
+      const parsed = Number(resourceId)
+      fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
+    } else if (resourceId && typeof resourceId === 'object' && 'id' in resourceId) {
+      const parsed = Number(resourceId.id)
+      fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
+    }
 
     const matchingDepartures = events
       .filter((event) => isSameMinute(event.start, startTime))
@@ -591,6 +778,8 @@ export default function ClientPlanningPage() {
     [closeDetailsPaymentSelector, detailsGroup, detailsGroupIndex]
   )
 
+  const selectedBookingStartKey = selectedBooking ? selectedBooking.start.getTime() : null
+
   useEffect(() => {
     if (!showDetailsModal || !selectedBooking) return
     const siblings = events
@@ -617,7 +806,7 @@ export default function ClientPlanningPage() {
     if (targetBooking) {
       setSelectedBooking(targetBooking)
     }
-  }, [events, selectedBooking?.id, selectedBooking ? selectedBooking.start.getTime() : null, showDetailsModal])
+  }, [closeDetailsPaymentSelector, events, selectedBooking, selectedBookingStartKey, showDetailsModal])
 
   useEffect(() => {
     if (!showDetailsModal) {
@@ -657,9 +846,7 @@ export default function ClientPlanningPage() {
       const { bookings, boat, departure } = boatPlanModal
       if (!bookings.length) return false
 
-      const bookingDateStr = format(departure, 'yyyy-MM-dd')
-      const isLocked = Array.isArray(closures) && closures.some((c: any) => format(new Date(c.day), 'yyyy-MM-dd') === bookingDateStr && c.locked)
-      if (isLocked) {
+      if (isLockedDate(departure)) {
         alert('Période verrouillée : journée clôturée, départ impossible.')
         return false
       }
@@ -696,7 +883,7 @@ export default function ClientPlanningPage() {
         return false
       }
     },
-    [boatPlanModal, closures, mutate]
+    [boatPlanModal, isLockedDate, mutate]
   )
 
   const handleRenameBoat = async (boatId: number, currentName: string) => {
@@ -713,16 +900,15 @@ export default function ClientPlanningPage() {
 
   const handleStatusUpdate = async (
     id: string,
-    newCheckinStatus?: string,
+    newCheckinStatus?: BoardingStatus,
     newIsPaid?: boolean
   ) => {
-    const bookingDateStr = format(selectedBooking?.start || new Date(), 'yyyy-MM-dd')
-    const isLocked = Array.isArray(closures) && closures.some((c:any)=> format(new Date(c.day),'yyyy-MM-dd')===bookingDateStr && c.locked)
-    if (isLocked) {
+    const targetDate = selectedBooking?.start ?? new Date()
+    if (isLockedDate(targetDate)) {
       alert('Période verrouillée: la journée est clôturée, modification impossible.')
       return
     }
-    const body: any = {}
+    const body: BookingUpdatePayload = {}
     if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
     if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
     // If marking as paid and we have a selected payment method from details modal, include it
@@ -748,7 +934,7 @@ export default function ClientPlanningPage() {
         ...selectedBooking,
         checkinStatus:
           newCheckinStatus !== undefined
-            ? (newCheckinStatus as any)
+            ? newCheckinStatus
             : selectedBooking.checkinStatus,
         isPaid:
           newIsPaid !== undefined ? newIsPaid : selectedBooking.isPaid
@@ -768,9 +954,8 @@ export default function ClientPlanningPage() {
   }
 
   const handleDelete = async (id: string, title: string) => {
-    const bookingDateStr = format(selectedBooking?.start || new Date(), 'yyyy-MM-dd')
-    const isLocked = Array.isArray(closures) && closures.some((c:any)=> format(new Date(c.day),'yyyy-MM-dd')===bookingDateStr && c.locked)
-    if (isLocked) { alert('Période verrouillée: suppression impossible (journée clôturée).'); return }
+    const targetDate = selectedBooking?.start ?? new Date()
+    if (isLockedDate(targetDate)) { alert('Période verrouillée: suppression impossible (journée clôturée).'); return }
     if (!confirm(`ANNULER la réservation de ${title} ?`)) return
     const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
     if (res.status === 401) {
@@ -787,15 +972,13 @@ export default function ClientPlanningPage() {
   }
 
   const handleEditTime = async (booking: BookingDetails) => {
-    const bookingDateStr = format(booking.start, 'yyyy-MM-dd')
-    const isLocked = Array.isArray(closures) && closures.some((c:any)=> format(new Date(c.day),'yyyy-MM-dd')===bookingDateStr && c.locked)
-    if (isLocked) { alert('Période verrouillée: modification d\'heure impossible (journée clôturée).'); return }
+    if (isLockedDate(booking.start)) { alert('Période verrouillée: modification d\'heure impossible (journée clôturée).'); return }
     try {
       const defaultTime = format(booking.start, 'HH:mm')
       const input = prompt('Nouvelle heure (HH:mm)', defaultTime) || ''
       const m = input.trim().match(/^(\d{1,2}):(\d{2})$/)
       if (!m) return
-      let hh = parseInt(m[1], 10)
+      const hh = parseInt(m[1], 10)
       const mm = parseInt(m[2], 10)
       if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return
 
@@ -818,12 +1001,13 @@ export default function ClientPlanningPage() {
         wall.setHours(hh, mm, 0, 0)
         setSelectedBooking({ ...selectedBooking, start: wall })
       }
-    } catch (e) {
-      console.error(e)
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      console.error(msg)
     }
   }
 
-  const AddButtonWrapper = ({ children, value, resource }: any) => {
+  const AddButtonWrapper = ({ children, value, resource }: PlanningTimeSlotWrapperProps) => {
     const onClick = () => {
       const v = new Date(value)
       const startTime = new Date(
@@ -835,7 +1019,14 @@ export default function ClientPlanningPage() {
           v.getMinutes()
         )
       )
-      const fallbackBoatId = Number(resource?.id ?? resource ?? 1) || 1
+      let fallbackBoatId = 1
+      if (typeof resource === 'number' || typeof resource === 'string') {
+        const parsed = Number(resource)
+        fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
+      } else if (resource && typeof resource === 'object' && 'id' in resource) {
+        const parsed = Number(resource.id)
+        fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
+      }
 
       const matchingDepartures = events
         .filter((event) => isSameMinute(event.start, startTime))
@@ -871,12 +1062,12 @@ export default function ClientPlanningPage() {
     )
   }
 
-  const ResourceHeader = ({ label }: { label: any }) => {
-    const resource = resources.find((r) => r.title === label)
+  const ResourceHeader = ({ label, resource }: { label: string; resource?: BoatResource }) => {
+    const resolvedResource = resource ?? resources.find((r) => r.title === label)
     return (
       <div
         className="text-center py-2 group cursor-pointer hover:bg-blue-50 transition rounded"
-        onClick={() => resource && handleRenameBoat(resource.id, resource.title)}
+        onClick={() => resolvedResource && handleRenameBoat(resolvedResource.id, resolvedResource.title)}
         title="Changer le nom"
       >
         <div className="font-bold text-blue-900 text-lg flex justify-center items-center gap-2">
@@ -884,7 +1075,7 @@ export default function ClientPlanningPage() {
           <span className="text-[10px] opacity-0 group-hover:opacity-100 text-slate-400">✏️</span>
         </div>
         <div className="text-xs text-slate-500 font-bold bg-blue-50 rounded-full px-2 py-0.5 inline-block border border-blue-100 mt-1">
-          Max: {resource?.capacity || 12}
+          Max: {resolvedResource?.capacity || 12}
         </div>
       </div>
     )
@@ -982,7 +1173,7 @@ export default function ClientPlanningPage() {
             'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 0, transparent 50%)',
           backgroundSize: '10px 10px',
           opacity: 0.5,
-          pointerEvents: 'none' as 'none'
+          pointerEvents: 'none' as const
         }
       }
     }
@@ -1417,7 +1608,7 @@ export default function ClientPlanningPage() {
                   <div className="mt-2 flex flex-wrap items-baseline gap-3 text-white">
                     <span className="text-3xl font-semibold leading-none">{format(booking.start, 'HH:mm')}</span>
                     <span className="text-sm font-medium uppercase tracking-wide text-white/75">
-                      jusqu'à {format(booking.end, 'HH:mm')}
+                      jusqu&apos;à {format(booking.end, 'HH:mm')}
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
@@ -1544,8 +1735,8 @@ export default function ClientPlanningPage() {
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <header className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Statut d'embarquement</p>
-                      <p className="text-sm text-slate-500">Ajustez l'état pour synchroniser le planning.</p>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Statut d&apos;embarquement</p>
+                      <p className="text-sm text-slate-500">Ajustez l&apos;état pour synchroniser le planning.</p>
                     </div>
                     <span className={`rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold ${statusTheme.badge}`}>{statusTheme.label}</span>
                   </header>
@@ -1777,7 +1968,7 @@ export default function ClientPlanningPage() {
                       onClick={() => handleEditTime(booking)}
                       className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
                     >
-                      Modifier l'heure
+                      Modifier l&apos;heure
                     </button>
                     <button
                       type="button"
@@ -2000,8 +2191,8 @@ export default function ClientPlanningPage() {
             ⚠️ Aucune barque trouvée. Relancez le seed.
           </div>
         ) : (
-          <div className="flex-1 overflow-auto" style={{ ['--slotH' as any]: `${Math.round(40 * zoomLevel)}px` }}>
-            <Calendar
+          <div className="flex-1 overflow-auto" style={timeGridStyle}>
+            <Calendar<BookingDetails, BoatResource>
               localizer={localizer}
               events={events}
               startAccessor="start"
@@ -2023,11 +2214,11 @@ export default function ClientPlanningPage() {
               min={calendarMin}
               max={calendarMax}
               culture="fr"
-              onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
+              onDoubleClickEvent={(event) => handleDelete(event.id, event.clientName)}
               slotPropGetter={slotPropGetter}
               components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
               style={{ height: '100%' }}
-              eventPropGetter={(event: any) => {
+              eventPropGetter={(event) => {
                 const statusKey = event.checkinStatus || event.status || 'DEFAULT'
                 const theme = STATUS_THEME[statusKey] ?? STATUS_THEME.DEFAULT
                 return {

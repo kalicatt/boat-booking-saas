@@ -13,7 +13,8 @@ export async function POST(req: Request) {
     const stripe = new Stripe(stripeSecret)
     const intent = await stripe.paymentIntents.retrieve(intentId)
     return NextResponse.json({ status: intent.status, amount: intent.amount, currency: intent.currency })
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || 'Server error' }, { status: 500 })
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: message || 'Server error' }, { status: 500 })
   }
 }

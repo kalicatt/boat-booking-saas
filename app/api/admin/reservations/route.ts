@@ -35,8 +35,9 @@ export async function GET(request: Request) {
       return p.provider === payment
     }) : bookings
     return NextResponse.json(filtered)
-  } catch (e) {
-    console.error(e)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error(msg)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

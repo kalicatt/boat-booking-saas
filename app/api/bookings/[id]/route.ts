@@ -10,6 +10,7 @@ function makeCancelToken(id: string){
 }
 
 import type { NextRequest } from 'next/server'
+import type { Prisma } from '@prisma/client'
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }){
   const { searchParams } = new URL(req.url)
   const action = searchParams.get('action')
@@ -58,8 +59,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     })
 
     return NextResponse.json({ success: true, status: updated.status })
-  } catch (e:any){
-    return NextResponse.json({ error: 'Cancel failed', details: String(e?.message||e) }, { status: 500 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return NextResponse.json({ error: 'Cancel failed', details: String(msg) }, { status: 500 })
   }
 }
 import { addMinutes, format } from 'date-fns'
@@ -67,12 +69,15 @@ import { auth } from '@/auth' // 👈 Import de la fonction auth
 import { createLog } from '@/lib/logger'
 
 const TOUR_DURATION = 25
-const BUFFER_TIME = 5
 
 // 1. FIX: Interface pour dire à TypeScript que firstName existe
 interface ExtendedUser {
   firstName?: string | null
   lastName?: string | null
+}
+
+interface AdminSessionUser {
+  id?: string | null
 }
 
 // --- DELETE : Supprimer une réservation ---
@@ -124,7 +129,7 @@ export async function PATCH(
     const body = await request.json()
     const { start, date, time, newCheckinStatus, newIsPaid, adults, children, babies, language, paymentMethod } = body
 
-    const dataToUpdate: any = {}
+    const dataToUpdate: Prisma.BookingUpdateInput = {}
     const userName = user.firstName || 'Admin'
     let logMessage = `Admin ${userName} met à jour réservation ${id}: `
 
@@ -204,7 +209,8 @@ export async function PATCH(
         const net = Math.round(gross / (1 + vatRate/100))
         const vat = gross - net
         // Allocate year-scoped sequential receipt number in a transaction
-        const ledgerEntry = await prisma.$transaction(async (tx) => {
+        const sessionUser = session.user as AdminSessionUser | null
+        await prisma.$transaction(async (tx) => {
           const year = new Date().getUTCFullYear()
           const seqName = `receipt_${year}`
           const seq = await tx.sequence.upsert({
@@ -213,9 +219,9 @@ export async function PATCH(
             update: { current: { increment: 1 } }
           })
           const receiptNo = seq.current
-          return tx.paymentLedger.create({ data: {
+            return tx.paymentLedger.create({ data: {
             eventType: 'PAID', bookingId: id, paymentId: pay.id,
-            provider, methodType, amount: gross, currency: 'EUR', actorId: (session.user as any)?.id || null,
+            provider, methodType, amount: gross, currency: 'EUR', actorId: sessionUser?.id ?? null,
             vatRate, netAmount: net, vatAmount: vat, grossAmount: gross, receiptNo
           }})
         })
@@ -225,8 +231,9 @@ export async function PATCH(
     await createLog('UPDATE_BOOKING_ADMIN', logMessage)
 
     return NextResponse.json({ success: true, booking: updatedBooking })
-  } catch (error) {
-    console.error('Erreur PATCH réservation:', error)
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Erreur PATCH réservation:', msg)
     return NextResponse.json({ error: "Erreur interne." }, { status: 500 })
   }
 }

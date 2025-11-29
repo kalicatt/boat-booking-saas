@@ -9,8 +9,10 @@ export async function GET() {
   try {
     const blocks = await prisma.blockedInterval.findMany({ orderBy: { start: 'desc' } })
     return NextResponse.json(blocks)
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur récupération des blocs' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('GET /api/admin/blocks', msg)
+    return NextResponse.json({ error: 'Erreur récupération des blocs', details: msg }, { status: 500 })
   }
 }
 
@@ -128,8 +130,10 @@ export async function POST(req: Request) {
 
     await createLog('BLOCK_ADD', `Blocage ${scope} du ${start} au ${end}${reason ? ` (${reason})` : ''}`)
     return NextResponse.json(created)
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur création bloc' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('POST /api/admin/blocks', msg)
+    return NextResponse.json({ error: 'Erreur création bloc', details: msg }, { status: 500 })
   }
 }
 
@@ -151,8 +155,10 @@ export async function DELETE(req: Request) {
     const deleted = await prisma.blockedInterval.delete({ where: { id } })
     await createLog('BLOCK_DELETE', `Suppression blocage ${deleted.scope} (${deleted.start.toISOString()} -> ${deleted.end.toISOString()})`)
     return NextResponse.json({ success: true })
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur suppression bloc' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('DELETE /api/admin/blocks', msg)
+    return NextResponse.json({ error: 'Erreur suppression bloc', details: msg }, { status: 500 })
   }
 }
 
@@ -192,7 +198,9 @@ export async function PUT(req: Request) {
     })
     await createLog('BLOCK_UPDATE', `Mise à jour blocage ${updated.scope} (${updated.start.toISOString()} -> ${updated.end.toISOString()})`)
     return NextResponse.json(updated)
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur mise à jour bloc' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('PUT /api/admin/blocks', msg)
+    return NextResponse.json({ error: 'Erreur mise à jour bloc', details: msg }, { status: 500 })
   }
 }

@@ -8,9 +8,11 @@ import it from '@/dictionaries/it.json'
 export const SUPPORTED_LOCALES = ['en','fr','de','es','it'] as const
 export type SupportedLocale = typeof SUPPORTED_LOCALES[number]
 
-const dictionaries: Record<SupportedLocale, any> = { en, fr, de, es, it }
+type LocaleDictionary = typeof en
 
-export function getDictionary(locale: SupportedLocale) {
+const dictionaries: Record<SupportedLocale, LocaleDictionary> = { en, fr, de, es, it }
+
+export function getDictionary(locale: SupportedLocale): LocaleDictionary {
   if (!SUPPORTED_LOCALES.includes(locale)) return dictionaries.en
   return dictionaries[locale] || dictionaries.en
 }

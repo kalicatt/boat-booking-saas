@@ -42,7 +42,9 @@ export async function PUT(request: Request) {
       data: { name: body.name }
     })
     return NextResponse.json(updatedBoat)
-  } catch (error) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('API boats update error:', msg)
     return NextResponse.json({ error: "Erreur update" }, { status: 500 })
   }
 }

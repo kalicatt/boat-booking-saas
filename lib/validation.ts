@@ -113,8 +113,8 @@ export const BookingRequestSchema = z.object({
 }).refine(v => (v.adults + v.children + v.babies) > 0, { message: 'Au moins une personne requise' })
 
 // Simple helper to safely parse numbers
-export function toNumber(value: any) {
+export function toNumber(value: unknown) {
   if (value === null || value === undefined || value === '') return undefined
   const n = Number(value)
-  return isNaN(n) ? undefined : n
+  return Number.isNaN(n) ? undefined : n
 }

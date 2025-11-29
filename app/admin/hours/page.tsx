@@ -1,18 +1,22 @@
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
-import { createLog } from '@/lib/logger'
 import ClientHoursPage from './ClientPage'
+
+type SessionUser = {
+  id?: string | null
+  role?: string | null
+}
 
 export default async function HoursPage() {
   const session = await auth()
-  const user = session?.user as any
-  const role = user?.role
+  const user = (session?.user ?? null) as SessionUser | null
 
-  if (!user) {
+  if (!user || typeof user.id !== 'string') {
     redirect('/login')
   }
 
-  const canManage = role === 'ADMIN' || role === 'SUPERADMIN'
+  const role = typeof user.role === 'string' ? user.role : null
+  const canManage = role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
   const ownOnly = !canManage
 
   return <ClientHoursPage canManage={canManage} ownOnly={ownOnly} />

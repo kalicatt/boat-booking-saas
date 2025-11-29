@@ -13,7 +13,9 @@ export async function GET() {
       }
     })
     return NextResponse.json(logs)
-  } catch (error) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('GET /api/logs failed:', msg)
     return NextResponse.json({ error: "Erreur logs" }, { status: 500 })
   }
 }

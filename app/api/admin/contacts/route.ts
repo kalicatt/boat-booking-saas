@@ -1,20 +1,22 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status') || undefined
-    const where: any = {}
+    const where: Prisma.ContactRequestWhereInput = {}
     if (status && ['NEW','CONTACTED','CLOSED'].includes(status)) where.status = status
     const contacts = await prisma.contactRequest.findMany({
-      where,
+      where: where as Prisma.ContactRequestWhereInput,
       orderBy: { createdAt: 'desc' },
       take: 50,
     })
     return NextResponse.json(contacts)
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur chargement contacts' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Erreur chargement contacts', details: msg }, { status: 500 })
   }
 }
 
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
 
     const isGroup = contact.kind === 'group'
     const people = typeof contact.people === 'number' ? contact.people : 0
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       date: contact.date || new Date().toISOString().slice(0,10),
       time: '10:00',
       adults: isGroup ? people : Math.max(1, people),
@@ -55,7 +57,8 @@ export async function POST(request: Request) {
     try { await prisma.contactRequest.update({ where: { id: contactId }, data: { status: 'CLOSED' } }) } catch {}
 
     return NextResponse.json({ success: true, result: data })
-  } catch (e) {
-    return NextResponse.json({ error: 'Erreur conversion contact' }, { status: 500 })
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Erreur conversion contact', details: msg }, { status: 500 })
   }
 }

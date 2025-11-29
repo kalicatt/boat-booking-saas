@@ -4,8 +4,8 @@ import { useEffect } from 'react'
 
 const ContactForms = dynamic(() => import('@/components/ContactForms'), { ssr: false })
 
-export default function ContactModal({ open, mode, onClose, dict, lang, people, date }:
-  { open: boolean, mode: 'group'|'private', onClose: ()=>void, dict: any, lang: 'en'|'fr'|'de'|'es'|'it', people?: number, date?: string }) {
+export default function ContactModal({ open, mode, onClose, dict, lang }:
+  { open: boolean, mode: 'group'|'private', onClose: ()=>void, dict: Record<string, unknown>, lang: string }) {
   useEffect(()=>{
     if (!open) return
     const prevHash = window.location.hash

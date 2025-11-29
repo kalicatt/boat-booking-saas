@@ -1,100 +1,240 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, Fragment } from 'react'
+import type { FormEvent } from 'react'
 import { AdminPageShell } from '../_components/AdminPageShell'
+
+type EmployeeRole = 'SUPERADMIN' | 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'GUEST' | string
 
 type Props = {
   canManage?: boolean
   ownOnly?: boolean
 }
 
+type ReportUser = {
+  id: string
+  firstName?: string | null
+  lastName?: string | null
+  role?: EmployeeRole | null
+}
+
+type ShiftDetail = {
+  id: string
+  userId: string
+  startTime: string
+  endTime: string
+  breakMinutes: number
+  note?: string | null
+}
+
+type MonthlyReportEntry = {
+  user: ReportUser
+  totalHours: number
+  shiftsCount: number
+  details: ShiftDetail[]
+}
+
+type ShiftForm = {
+  userId: string
+  date: string
+  start: string
+  end: string
+  breakTime: string
+  note: string
+}
+
+type ShiftEditForm = ShiftForm & { id: string }
+
+type MeResponse = {
+  id?: string | null
+  role?: EmployeeRole | null
+}
+
+const createDefaultShiftForm = (): ShiftForm => ({
+  userId: '',
+  date: new Date().toISOString().slice(0, 10),
+  start: '08:00',
+  end: '17:00',
+  breakTime: '01:00',
+  note: ''
+})
+
+const minutesToTime = (minutes: number | null | undefined): string => {
+  const safe = typeof minutes === 'number' && Number.isFinite(minutes) ? Math.max(0, minutes) : 0
+  const hours = Math.floor(safe / 60)
+  const mins = safe % 60
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}
+
+const timeToMinutes = (timeStr: string): number => {
+  if (!timeStr) return Number.NaN
+  const [hoursStr, minutesStr] = timeStr.split(':')
+  const hours = Number(hoursStr)
+  const minutes = Number(minutesStr)
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return Number.NaN
+  return hours * 60 + minutes
+}
+
+const formatWallDate = (iso: string): string => {
+  const date = new Date(iso)
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  return `${day}/${month}/${year}`
+}
+
+const formatWallTime = (iso: string): string => {
+  const date = new Date(iso)
+  const hours = String(date.getUTCHours()).padStart(2, '0')
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+const isReportUser = (value: unknown): value is ReportUser => {
+  if (!value || typeof value !== 'object') return false
+  return typeof (value as { id?: unknown }).id === 'string'
+}
+
+const isShiftDetail = (value: unknown): value is ShiftDetail => {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<ShiftDetail>
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.userId === 'string' &&
+    typeof candidate.startTime === 'string' &&
+    typeof candidate.endTime === 'string' &&
+    typeof candidate.breakMinutes === 'number'
+  )
+}
+
+const parseReportResponse = (payload: unknown): MonthlyReportEntry[] => {
+  if (!Array.isArray(payload)) return []
+  return payload.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return []
+    const raw = entry as Record<string, unknown>
+    if (!isReportUser(raw.user)) return []
+    const detailsRaw = Array.isArray(raw.details) ? raw.details : []
+    const details = detailsRaw.filter(isShiftDetail)
+    return [{
+      user: raw.user,
+      totalHours: typeof raw.totalHours === 'number' ? raw.totalHours : 0,
+      shiftsCount: typeof raw.shiftsCount === 'number' ? raw.shiftsCount : details.length,
+      details
+    }]
+  })
+}
+
+const parseMeResponse = (payload: unknown): MeResponse => {
+  if (!payload || typeof payload !== 'object') return {}
+  const raw = payload as Record<string, unknown>
+  return {
+    id: typeof raw.id === 'string' ? raw.id : null,
+    role: typeof raw.role === 'string' ? raw.role : null
+  }
+}
+
+const uniqueEmployees = (entries: MonthlyReportEntry[]): ReportUser[] => {
+  const map = new Map<string, ReportUser>()
+  entries.forEach((entry) => {
+    map.set(entry.user.id, entry.user)
+  })
+  return Array.from(map.values())
+}
+
 export default function ClientHoursPage({ canManage = false, ownOnly = false }: Props) {
   const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7))
-  const [report, setReport] = useState<any[]>([])
-  const [employees, setEmployees] = useState<any[]>([])
+  const [report, setReport] = useState<MonthlyReportEntry[]>([])
+  const [employees, setEmployees] = useState<ReportUser[]>([])
   const [loading, setLoading] = useState(true)
-  const [role, setRole] = useState<string>('GUEST')
+  const [role, setRole] = useState<EmployeeRole>('GUEST')
   const [me, setMe] = useState<{ id: string } | null>(null)
   const [openUsers, setOpenUsers] = useState<Record<string, boolean>>({})
-  const [editingShift, setEditingShift] = useState<any | null>(null)
+  const [editingShift, setEditingShift] = useState<ShiftEditForm | null>(null)
 
   const [errors, setErrors] = useState<string[]>([])
-  const [form, setForm] = useState({
-    userId: '',
-    date: new Date().toISOString().slice(0, 10),
-    start: '08:00',
-    end: '17:00',
-    breakTime: '01:00',
-    note: ''
-  })
+  const [form, setForm] = useState<ShiftForm>(() => createDefaultShiftForm())
 
-  const timeToMinutes = (timeStr: string) => {
-    if (!timeStr) return 0
-    const [hours, minutes] = timeStr.split(':').map(Number)
-    return hours * 60 + minutes
-  }
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch(`/api/admin/hours?month=${currentMonth}`)
-      const data = await res.json()
-      const filtered = ownOnly && me?.id ? data.filter((r: any) => r.user.id === me.id) : data
-      setReport(filtered)
-      const emps = filtered.map((r: any) => r.user)
-      setEmployees(emps)
-      const defaultUserId = ownOnly && me?.id ? me.id : (emps[0]?.id || '')
-      if (!form.userId && defaultUserId) {
-        setForm((prev) => ({ ...prev, userId: defaultUserId }))
+      if (!res.ok) {
+        setReport([])
+        setEmployees([])
+        setOpenUsers({})
+        return
       }
-      const initOpen: Record<string, boolean> = {}
-      filtered.forEach((r: any, idx: number) => {
-        initOpen[r.user.id] = idx === 0
-      })
-      setOpenUsers(initOpen)
-    } catch (e) {
-      console.error(e)
+      const payload = (await res.json().catch(() => null)) as unknown
+      const parsed = parseReportResponse(payload)
+      const scoped = ownOnly && me?.id ? parsed.filter((entry) => entry.user.id === me.id) : parsed
+      setReport(scoped)
+      const team = uniqueEmployees(scoped)
+      setEmployees(team)
+      const defaultUserId = ownOnly && me?.id ? me.id : (team[0]?.id ?? '')
+      if (defaultUserId) {
+        setForm((prev) => (prev.userId ? prev : { ...prev, userId: defaultUserId }))
+      }
+      const initialOpen = scoped.reduce<Record<string, boolean>>((acc, entry, index) => {
+        acc[entry.user.id] = index === 0
+        return acc
+      }, {})
+      setOpenUsers(initialOpen)
+    } catch (error) {
+      console.error('Failed to load hours report', error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentMonth, ownOnly, me?.id])
 
   useEffect(() => {
     fetchData()
-  }, [currentMonth])
+  }, [fetchData])
 
   useEffect(() => {
+    let cancelled = false
     ;(async () => {
       try {
         const res = await fetch('/api/auth/me')
-        if (res.ok) {
-          const data = await res.json()
-          setRole(data.role || 'GUEST')
-          if (data.id) setMe({ id: data.id })
+        if (!res.ok) return
+        const payload = (await res.json().catch(() => null)) as unknown
+        if (cancelled) return
+        const meInfo = parseMeResponse(payload)
+        setRole(typeof meInfo.role === 'string' ? meInfo.role : 'GUEST')
+        if (typeof meInfo.id === 'string') {
+          setMe({ id: meInfo.id })
         }
-      } catch {}
+      } catch (error) {
+        console.error('Failed to load current user', error)
+      }
     })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setErrors([])
 
-    const [sH, sM] = form.start.split(':').map(Number)
-    const [eH, eM] = form.end.split(':').map(Number)
-    const startMinutes = sH * 60 + sM
-    const endMinutes = eH * 60 + eM
+    const startMinutes = timeToMinutes(form.start)
+    const endMinutes = timeToMinutes(form.end)
     const breakInMinutes = timeToMinutes(form.breakTime)
 
     const newErrors: string[] = []
-    if (isNaN(startMinutes) || isNaN(endMinutes)) newErrors.push('Horaires invalides.')
-    if (startMinutes >= endMinutes) newErrors.push("Heure de début doit être avant l'heure de fin.")
-    if (breakInMinutes < 0) newErrors.push("Pause ne peut pas être négative.")
-    if (breakInMinutes > 8 * 60) newErrors.push('Pause ne peut pas dépasser 8 heures.')
-    const netMinutes = endMinutes - startMinutes - breakInMinutes
-    if (netMinutes < 0) newErrors.push('Les heures nettes ne peuvent pas être négatives.')
+    if (!form.userId) newErrors.push('Sélectionnez un collaborateur.')
+    if (Number.isNaN(startMinutes) || Number.isNaN(endMinutes)) newErrors.push('Horaires invalides.')
+    if (!Number.isNaN(startMinutes) && !Number.isNaN(endMinutes) && startMinutes >= endMinutes) {
+      newErrors.push('Heure de début doit être avant l&apos;heure de fin.')
+    }
+    if (Number.isNaN(breakInMinutes)) newErrors.push('Format de pause invalide.')
+    if (!Number.isNaN(breakInMinutes) && breakInMinutes < 0) newErrors.push('Pause ne peut pas être négative.')
+    if (!Number.isNaN(breakInMinutes) && breakInMinutes > 8 * 60) newErrors.push('Pause ne peut pas dépasser 8 heures.')
+    if (!Number.isNaN(startMinutes) && !Number.isNaN(endMinutes) && !Number.isNaN(breakInMinutes)) {
+      const netMinutes = endMinutes - startMinutes - breakInMinutes
+      if (netMinutes < 0) newErrors.push('Les heures nettes ne peuvent pas être négatives.')
+    }
 
-    if (newErrors.length) {
+    if (newErrors.length > 0) {
       setErrors(newErrors)
       return
     }
@@ -109,67 +249,51 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
         })
       })
       if (res.ok) {
-        fetchData()
+        await fetchData()
         alert('✅ Shift ajouté avec succès !')
       } else {
-        const err = await res.json()
-        alert('❌ Erreur : ' + err.error)
+        const err = (await res.json().catch(() => null)) as { error?: string } | null
+        alert(`❌ Erreur : ${err?.error ?? 'Création impossible'}`)
       }
-    } catch (e) {
+    } catch (error) {
+      console.error('Failed to create shift', error)
       alert('Erreur technique')
     }
   }
-
-  const formatWallDate = (iso: string) => {
-    const d = new Date(iso)
-    const y = d.getUTCFullYear()
-    const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-    const day = String(d.getUTCDate()).padStart(2, '0')
-    return `${day}/${m}/${y}`
-  }
-
-  const formatWallTime = (iso: string) => {
-    const d = new Date(iso)
-    const hh = String(d.getUTCHours()).padStart(2, '0')
-    const mm = String(d.getUTCMinutes()).padStart(2, '0')
-    return `${hh}:${mm}`
-  }
-
   const exportCSV = () => {
     const headers = ['Employé', 'Date', 'Début', 'Fin', 'Pause(min)', 'Net(h)']
-    const rows: string[] = []
-    rows.push(headers.join(','))
-    report.forEach((row: any) => {
-      row.details
-        .sort(
-          (a: any, b: any) =>
-            new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-        )
-        .forEach((shift: any) => {
-          const dateStr = formatWallDate(shift.startTime)
-          const startStr = formatWallTime(shift.startTime)
-          const endStr = formatWallTime(shift.endTime)
-          const rawMin =
-            (new Date(shift.endTime).getTime() -
-              new Date(shift.startTime).getTime()) /
-            60000
-          const netH = (Math.max(0, rawMin - shift.breakMinutes) / 60).toFixed(2)
-          rows.push([
-            `${row.user.firstName} ${row.user.lastName}`,
+    const rows: string[] = [headers.join(',')]
+    report.forEach((entry) => {
+      const sortedDetails = [...entry.details].sort(
+        (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+      )
+      sortedDetails.forEach((shift) => {
+        const dateStr = formatWallDate(shift.startTime)
+        const startStr = formatWallTime(shift.startTime)
+        const endStr = formatWallTime(shift.endTime)
+        const rawMinutes =
+          (new Date(shift.endTime).getTime() - new Date(shift.startTime).getTime()) / 60000
+        const breakMinutes = Math.max(0, shift.breakMinutes)
+        const netH = (Math.max(0, rawMinutes - breakMinutes) / 60).toFixed(2)
+        const employeeName = `${entry.user.firstName ?? ''} ${entry.user.lastName ?? ''}`.trim()
+        rows.push(
+          [
+            employeeName,
             dateStr,
             startStr,
             endStr,
-            String(shift.breakMinutes || 0),
+            String(breakMinutes),
             netH
-          ].join(','))
-        })
+          ].join(',')
+        )
+      })
     })
     const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `heures_${currentMonth}.csv`
-    a.click()
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `heures_${currentMonth}.csv`
+    anchor.click()
     URL.revokeObjectURL(url)
   }
 
@@ -177,7 +301,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
     setOpenUsers((prev) => ({ ...prev, [userId]: !prev[userId] }))
   }
 
-  const startEdit = (shift: any) => {
+  const startEdit = (shift: ShiftDetail) => {
     setEditingShift({
       id: shift.id,
       userId: shift.userId,
@@ -187,8 +311,8 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
       })(),
       start: formatWallTime(shift.startTime),
       end: formatWallTime(shift.endTime),
-      breakTime: `${String(Math.floor((shift.breakMinutes || 0) / 60)).padStart(2, '0')}:${String((shift.breakMinutes || 0) % 60).padStart(2, '0')}`,
-      note: shift.note || ''
+      breakTime: minutesToTime(shift.breakMinutes),
+      note: shift.note ?? ''
     })
   }
 
@@ -197,6 +321,10 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
   const submitEdit = async () => {
     if (!editingShift) return
     const breakInMinutes = timeToMinutes(editingShift.breakTime)
+    if (Number.isNaN(breakInMinutes)) {
+      alert('Format de pause invalide.')
+      return
+    }
     try {
       const res = await fetch('/api/admin/hours', {
         method: 'PUT',
@@ -212,18 +340,19 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
       })
       if (res.ok) {
         cancelEdit()
-        fetchData()
+        await fetchData()
         alert('✅ Shift modifié avec succès !')
       } else {
-        const err = await res.json()
-        alert('❌ Erreur: ' + err.error)
+        const err = (await res.json().catch(() => null)) as { error?: string } | null
+        alert(`❌ Erreur : ${err?.error ?? 'Mise à jour impossible'}`)
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to update shift', error)
       alert('Erreur technique')
     }
   }
 
-  const deleteShift = async (shift: any) => {
+  const deleteShift = async (shift: ShiftEditForm) => {
     if (!shift?.id) return
     const ok = window.confirm('Confirmer la suppression de ce shift ?')
     if (!ok) return
@@ -235,13 +364,14 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
       })
       if (res.ok) {
         cancelEdit()
-        fetchData()
+        await fetchData()
         alert('🗑️ Shift supprimé.')
       } else {
-        const err = await res.json()
-        alert('❌ Erreur: ' + err.error)
+        const err = (await res.json().catch(() => null)) as { error?: string } | null
+        alert(`❌ Erreur : ${err?.error ?? 'Suppression impossible'}`)
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to delete shift', error)
       alert('Erreur technique')
     }
   }
@@ -290,14 +420,20 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                 <select
                   className="w-full rounded border bg-slate-50 p-2 font-medium"
                   value={form.userId}
-                  onChange={(e) => setForm({ ...form, userId: e.target.value })}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, userId: event.target.value }))
+                  }
                   disabled={ownOnly}
                 >
-                  {employees.map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName}
-                    </option>
-                  ))}
+                  {employees.length === 0 ? (
+                    <option value="">Aucun collaborateur disponible</option>
+                  ) : (
+                    employees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -307,7 +443,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   type="date"
                   className="w-full rounded border p-2"
                   value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, date: event.target.value }))
+                  }
                   required
                 />
               </div>
@@ -319,7 +457,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                     type="time"
                     className="w-full rounded border p-2"
                     value={form.start}
-                    onChange={(e) => setForm({ ...form, start: e.target.value })}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, start: event.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -329,7 +469,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                     type="time"
                     className="w-full rounded border p-2"
                     value={form.end}
-                    onChange={(e) => setForm({ ...form, end: e.target.value })}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, end: event.target.value }))
+                    }
                     required
                   />
                 </div>
@@ -341,7 +483,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   type="time"
                   className="w-full rounded border p-2"
                   value={form.breakTime}
-                  onChange={(e) => setForm({ ...form, breakTime: e.target.value })}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, breakTime: event.target.value }))
+                  }
                   required
                 />
               </div>
@@ -353,7 +497,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   placeholder="Ex: Remplacement..."
                   className="w-full rounded border p-2"
                   value={form.note}
-                  onChange={(e) => setForm({ ...form, note: e.target.value })}
+                  onChange={(event) =>
+                    setForm((prev) => ({ ...prev, note: event.target.value }))
+                  }
                 />
               </div>
 
@@ -371,7 +517,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
         <div className="lg:col-span-2">
           <div className="sn-card overflow-hidden print:border-none print:shadow-none">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 p-4 print:border-black print:bg-white">
-              <h3 className="text-lg font-bold text-slate-700">Rapport d'Heures - {currentMonth}</h3>
+              <h3 className="text-lg font-bold text-slate-700">Rapport d&apos;Heures - {currentMonth}</h3>
               <div className="flex gap-2">
                 <button
                   onClick={() => window.print()}
@@ -380,7 +526,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   🖨️ Imprimer
                 </button>
                 <button
-                  onClick={() => exportCSV()}
+                  onClick={exportCSV}
                   className="text-xs font-bold bg-white border px-3 py-1 rounded hover:bg-slate-100 print:hidden"
                 >
                   ⬇️ Export CSV
@@ -392,121 +538,133 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
               <div className="p-8 text-center text-slate-400">Calcul en cours...</div>
             ) : (
               <div className="p-4 space-y-8">
-                {report.map((row) => (
-                  <div
-                    key={row.user.id}
-                    className="mb-6 break-inside-avoid overflow-hidden rounded-lg border print:border-black"
-                  >
-                    <div className="flex items-center justify-between bg-slate-100 p-3 print:bg-slate-200">
-                      <button
-                        onClick={() => toggleUser(row.user.id)}
-                        className="flex items-center gap-2 font-bold text-slate-900"
-                      >
-                        <span className="inline-block w-4 text-center">
-                          {openUsers[row.user.id] ? '▾' : '▸'}
-                        </span>
-                        {row.user.firstName} {row.user.lastName.toUpperCase()}
-                      </button>
-                      <div className="text-sm">
-                        <span className="mr-2 text-slate-500">{row.shiftsCount} jours</span>
-                        <span className="rounded bg-blue-600 px-2 py-1 font-bold text-white print:border print:border-black print:bg-white print:text-black">
-                          Total : {row.totalHours} h
-                        </span>
+                {report.map((entry) => {
+                  const lastName = entry.user.lastName ? entry.user.lastName.toUpperCase() : ''
+                  const isOpen = openUsers[entry.user.id] ?? false
+                  return (
+                    <div
+                      key={entry.user.id}
+                      className="mb-6 break-inside-avoid overflow-hidden rounded-lg border print:border-black"
+                    >
+                      <div className="flex items-center justify-between bg-slate-100 p-3 print:bg-slate-200">
+                        <button
+                          onClick={() => toggleUser(entry.user.id)}
+                          className="flex items-center gap-2 font-bold text-slate-900"
+                        >
+                          <span className="inline-block w-4 text-center">
+                            {isOpen ? '▾' : '▸'}
+                          </span>
+                          {entry.user.firstName} {lastName}
+                        </button>
+                        <div className="text-sm">
+                          <span className="mr-2 text-slate-500">{entry.shiftsCount} jours</span>
+                          <span className="rounded bg-blue-600 px-2 py-1 font-bold text-white print:border print:border-black print:bg-white print:text-black">
+                            Total : {entry.totalHours} h
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    {openUsers[row.user.id] && (
-                      <table className="w-full text-left text-sm">
-                        <thead className="border-b bg-slate-50 text-xs font-normal uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          <tr>
-                            <th className="p-2 pl-4">Date</th>
-                            <th className="p-2">Horaires</th>
-                            <th className="p-2">Pause</th>
-                            <th className="p-2 pr-4 text-right">Total Net</th>
-                            {canManage && <th className="p-2 pr-4 text-right">Actions</th>}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                          {row.details.length === 0 ? (
+                      {isOpen && (
+                        <table className="w-full text-left text-sm">
+                          <thead className="border-b bg-slate-50 text-xs font-normal uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             <tr>
-                              <td colSpan={4} className="p-4 text-center italic text-slate-400">
-                                Aucune heure saisie ce mois-ci.
-                              </td>
+                              <th className="p-2 pl-4">Date</th>
+                              <th className="p-2">Horaires</th>
+                              <th className="p-2">Pause</th>
+                              <th className="p-2 pr-4 text-right">Total Net</th>
+                              {canManage && <th className="p-2 pr-4 text-right">Actions</th>}
                             </tr>
-                          ) : (
-                            Object.entries(
-                              row.details
-                                .sort(
-                                  (a: any, b: any) =>
-                                    new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
-                                )
-                                .reduce((acc: any, shift: any) => {
-                                  const key = formatWallDate(shift.startTime)
-                                  acc[key] = acc[key] || []
-                                  acc[key].push(shift)
-                                  return acc
-                                }, {})
-                            ).map(([day, shifts]: [string, any]) => {
-                              const rows = shifts.map((shift: any) => {
-                                const rawMin =
-                                  (new Date(shift.endTime).getTime() -
-                                    new Date(shift.startTime).getTime()) /
-                                  60000
-                                const netMin = Math.max(0, rawMin - shift.breakMinutes)
-                                const netH = (netMin / 60).toFixed(2)
-                                return { shift, netMin, netH }
-                              })
-                              const dayTotalH = (
-                                rows.reduce((s: number, r: any) => s + r.netMin, 0) / 60
-                              ).toFixed(2)
-                              return (
-                                <>
-                                  {rows.map(({ shift, netH }: any) => (
-                                    <tr key={shift.id}>
-                                      <td className="p-2 pl-4 font-medium">{day}</td>
-                                      <td className="p-2 text-slate-600">
-                                        {formatWallTime(shift.startTime)} - {formatWallTime(shift.endTime)}
-                                      </td>
-                                      <td className="p-2 italic text-slate-500">
-                                        {shift.breakMinutes > 0
-                                          ? `-${Math.floor((shift.breakMinutes || 0) / 60)}h${((shift.breakMinutes || 0) % 60)
-                                              .toString()
-                                              .padStart(2, '0')}`
-                                          : '-'}
-                                      </td>
-                                      <td className="p-2 pr-4 text-right font-bold text-slate-700">
-                                        {netH} h
-                                      </td>
-                                      {canManage && (
-                                        <td className="p-2 pr-4 text-right">
-                                          <button
-                                            onClick={() => startEdit(shift)}
-                                            className="text-xs bg-white border px-2 py-1 rounded hover:bg-slate-100"
-                                            aria-label="Modifier"
-                                          >
-                                            ✏️
-                                          </button>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                            {entry.details.length === 0 ? (
+                              <tr>
+                                <td colSpan={canManage ? 5 : 4} className="p-4 text-center italic text-slate-400">
+                                  Aucune heure saisie ce mois-ci.
+                                </td>
+                              </tr>
+                            ) : (
+                              (() => {
+                                const groupedByDay = entry.details
+                                  .slice()
+                                  .sort(
+                                    (a, b) =>
+                                      new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+                                  )
+                                  .reduce<Record<string, ShiftDetail[]>>((acc, shift) => {
+                                    const key = formatWallDate(shift.startTime)
+                                    if (!acc[key]) acc[key] = []
+                                    acc[key].push(shift)
+                                    return acc
+                                  }, {})
+
+                                return Object.entries(groupedByDay).map(([day, dayShifts]) => {
+                                  const rowsForDay = dayShifts.map((shift) => {
+                                    const rawMinutes =
+                                      (new Date(shift.endTime).getTime() -
+                                        new Date(shift.startTime).getTime()) / 60000
+                                    const breakMinutes = Math.max(0, shift.breakMinutes)
+                                    const netMinutes = Math.max(0, rawMinutes - breakMinutes)
+                                    return {
+                                      shift,
+                                      netMinutes,
+                                      netHours: (netMinutes / 60).toFixed(2)
+                                    }
+                                  })
+                                  const dayTotalHours = (
+                                    rowsForDay.reduce((sum, row) => sum + row.netMinutes, 0) / 60
+                                  ).toFixed(2)
+
+                                  return (
+                                    <Fragment key={day}>
+                                      {rowsForDay.map(({ shift, netHours }) => {
+                                        const breakMinutes = Math.max(0, shift.breakMinutes)
+                                        const breakHours = Math.floor(breakMinutes / 60)
+                                        const breakRemainder = String(breakMinutes % 60).padStart(2, '0')
+                                        return (
+                                          <tr key={shift.id}>
+                                            <td className="p-2 pl-4 font-medium">{day}</td>
+                                            <td className="p-2 text-slate-600">
+                                              {formatWallTime(shift.startTime)} - {formatWallTime(shift.endTime)}
+                                            </td>
+                                            <td className="p-2 italic text-slate-500">
+                                              {breakMinutes > 0 ? `-${breakHours}h${breakRemainder}` : '-'}
+                                            </td>
+                                            <td className="p-2 pr-4 text-right font-bold text-slate-700">
+                                              {netHours} h
+                                            </td>
+                                            {canManage && (
+                                              <td className="p-2 pr-4 text-right">
+                                                <button
+                                                  onClick={() => startEdit(shift)}
+                                                  className="text-xs bg-white border px-2 py-1 rounded hover:bg-slate-100"
+                                                  aria-label="Modifier"
+                                                >
+                                                  ✏️
+                                                </button>
+                                              </td>
+                                            )}
+                                          </tr>
+                                        )
+                                      })}
+                                      <tr>
+                                        <td className="p-2 pl-4 font-bold text-slate-700">Total jour</td>
+                                        <td className="p-2 text-slate-600" colSpan={2}></td>
+                                        <td className="p-2 pr-4 text-right font-bold text-blue-700">
+                                          {dayTotalHours} h
                                         </td>
-                                      )}
-                                    </tr>
-                                  ))}
-                                  <tr>
-                                    <td className="p-2 pl-4 font-bold text-slate-700">Total jour</td>
-                                    <td className="p-2 text-slate-600" colSpan={2}></td>
-                                    <td className="p-2 pr-4 text-right font-bold text-blue-700">
-                                      {dayTotalH} h
-                                    </td>
-                                    {canManage && <td></td>}
-                                  </tr>
-                                </>
-                              )
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                ))}
+                                        {canManage && <td />}
+                                      </tr>
+                                    </Fragment>
+                                  )
+                                })
+                              })()
+                            )}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -524,7 +682,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   type="date"
                   className="w-full rounded border p-2"
                   value={editingShift.date}
-                  onChange={(e) => setEditingShift({ ...editingShift, date: e.target.value })}
+                  onChange={(event) =>
+                    setEditingShift((prev) => (prev ? { ...prev, date: event.target.value } : prev))
+                  }
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -534,7 +694,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                     type="time"
                     className="w-full rounded border p-2"
                     value={editingShift.start}
-                    onChange={(e) => setEditingShift({ ...editingShift, start: e.target.value })}
+                    onChange={(event) =>
+                      setEditingShift((prev) => (prev ? { ...prev, start: event.target.value } : prev))
+                    }
                   />
                 </div>
                 <div>
@@ -543,7 +705,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                     type="time"
                     className="w-full rounded border p-2"
                     value={editingShift.end}
-                    onChange={(e) => setEditingShift({ ...editingShift, end: e.target.value })}
+                    onChange={(event) =>
+                      setEditingShift((prev) => (prev ? { ...prev, end: event.target.value } : prev))
+                    }
                   />
                 </div>
               </div>
@@ -553,7 +717,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   type="time"
                   className="w-full rounded border p-2"
                   value={editingShift.breakTime}
-                  onChange={(e) => setEditingShift({ ...editingShift, breakTime: e.target.value })}
+                  onChange={(event) =>
+                    setEditingShift((prev) => (prev ? { ...prev, breakTime: event.target.value } : prev))
+                  }
                 />
               </div>
               <div>
@@ -562,7 +728,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   type="text"
                   className="w-full rounded border p-2"
                   value={editingShift.note}
-                  onChange={(e) => setEditingShift({ ...editingShift, note: e.target.value })}
+                  onChange={(event) =>
+                    setEditingShift((prev) => (prev ? { ...prev, note: event.target.value } : prev))
+                  }
                 />
               </div>
             </div>

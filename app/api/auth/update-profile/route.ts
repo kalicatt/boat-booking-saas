@@ -35,7 +35,9 @@ export async function POST(request: Request) {
     await createLog('PROFILE_UPDATE', `Mise à jour du profil (image) pour ${email}`)
 
     return NextResponse.json({ success: true })
-  } catch (error) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('POST /api/auth/update-profile failed:', msg)
     return NextResponse.json({ error: "Erreur sauvegarde" }, { status: 500 })
   }
 }

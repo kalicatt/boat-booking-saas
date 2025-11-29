@@ -3,15 +3,21 @@ import { redirect } from 'next/navigation'
 import { createLog } from '@/lib/logger'
 import ClientPage from './ClientPage'
 
+type AdminSessionUser = {
+  id?: string | null
+  email?: string | null
+  role?: string | null
+}
+
 export default async function BlocksAdminPage() {
   const session = await auth()
-  const user = session?.user as any
+  const user = (session?.user ?? null) as AdminSessionUser | null
 
   if (!session || !session.user) {
     return redirect('/login')
   }
 
-  const role = (session.user as any).role
+  const role = typeof session.user.role === 'string' ? session.user.role : null
   const isAllowed = role === 'ADMIN' || role === 'SUPERADMIN'
 
   if (!isAllowed) {
