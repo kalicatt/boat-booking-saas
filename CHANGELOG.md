@@ -9,6 +9,23 @@ The format is based on Keep a Changelog and adheres to Semantic Versioning (MAJO
 
 ---
 
+## [1.0.3] - 2025-11-29
+### Changed
+- Booking creation now normalizes inherited payment metadata and applies the `shouldMarkPaid` guard consistently across chained reservations.
+- Booking widget, contact forms, and payment components consume typed dictionaries to remove implicit `any` usage in client flows.
+
+### Fixed
+- PayPal capture and Stripe webhook handlers align with SDK typings and improved logging, clearing build blockers.
+- Admin stats aggregation filters by Prisma `BookingStatus`, restoring API stability and successful Next.js builds.
+
+### Documentation
+- Release and Docker workflows updated for version `1.0.3`.
+
+### Credits
+- Release owner: Lucas Servais.
+
+---
+
 ## [1.0.2] - 2025-11-29
 ### Added
 - Flag icons displayed in the mobile/off-canvas language selector to make locale choices clear at a glance.

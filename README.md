@@ -80,8 +80,8 @@ npm run release
 ```
 - Tag the release and push:
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.0.3
+git push origin v1.0.3
 ```
 - Optional CI: build/push images only on tags.
 
