@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { hash } from 'bcryptjs'
 import { auth } from '@/auth'
 import { createLog } from '@/lib/logger'
-import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber } from '@/lib/validation'
+import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber, cleanString } from '@/lib/validation'
 import { normalizeIncoming } from '@/lib/phone'
 
 // 1. FIX: Interface pour définir que le rôle existe pour TypeScript
@@ -14,15 +14,58 @@ interface ExtendedUser {
 // --- GET : LISTER LES EMPLOYÉS ---
 export async function GET() {
   try {
+    const session = await auth()
+    const role = session?.user?.role
+
+    if (!role || !['EMPLOYEE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+      return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
+    }
+
     const employees = await prisma.user.findMany({
       where: { role: { in: ['EMPLOYEE', 'ADMIN', 'SUPERADMIN'] } },
-      orderBy: { role: 'desc' }
+      orderBy: [{ role: 'desc' }, { lastName: 'asc' }]
     })
-    // On enlève le mot de passe par sécurité
-    const safeEmployees = employees.map(({ password, ...rest }) => rest)
-    return NextResponse.json(safeEmployees)
+
+    const managerIds = Array.from(new Set(employees.map((emp) => emp.managerId).filter(Boolean) as string[]))
+    const managers = managerIds.length
+      ? await prisma.user.findMany({
+          where: { id: { in: managerIds } },
+          select: { id: true, firstName: true, lastName: true, email: true }
+        })
+      : []
+    const managerMap = new Map(managers.map((m) => [m.id, m]))
+
+    const base = employees.map(({ password, ...rest }) => rest)
+
+    if (role === 'EMPLOYEE') {
+      const light = base.map((emp) => ({
+        id: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        role: emp.role,
+        email: emp.email,
+        phone: emp.phone,
+        address: emp.address,
+        city: emp.city,
+        postalCode: emp.postalCode,
+        country: emp.country,
+        jobTitle: emp.jobTitle,
+        department: emp.department,
+        employeeNumber: emp.employeeNumber,
+        image: emp.image,
+        manager: emp.managerId ? managerMap.get(emp.managerId) ?? null : null
+      }))
+
+      return NextResponse.json(light)
+    }
+
+    const extended = base.map((emp) => ({
+      ...emp,
+      manager: emp.managerId ? managerMap.get(emp.managerId) ?? null : null
+    }))
+    return NextResponse.json(extended)
   } catch (error) {
-    return NextResponse.json({ error: "Erreur chargement" }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur chargement' }, { status: 500 })
   }
 }
 
@@ -46,7 +89,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
     let { firstName, lastName, email, phone, address, city, postalCode, country, password, role,
-      dateOfBirth, gender, employeeNumber, hireDate, department, jobTitle, managerId,
+      dateOfBirth, gender, hireDate, department, jobTitle,
       employmentStatus, fullTime, hourlyRate, salary, emergencyContactName, emergencyContactPhone, notes } = parsed.data
 
     // Normalisation E.164 si le numéro commence par '+'
@@ -59,9 +102,25 @@ export async function POST(request: Request) {
 
     const hashedPassword = await hash(password, 10)
 
+    const managerId = session?.user?.id
+
+    const generatedEmployeeNumber = await prisma.$transaction(async (tx) => {
+      const year = new Date().getUTCFullYear()
+      const seqName = `employee_number_${year}`
+      const seq = await tx.sequence.upsert({
+        where: { name: seqName },
+        create: { name: seqName, current: 1 },
+        update: { current: { increment: 1 } }
+      })
+      const padded = String(seq.current).padStart(4, '0')
+      return `EMP-${year}-${padded}`
+    })
+
     const newUser = await prisma.user.create({
       data: {
-        firstName, lastName, email,
+        firstName: cleanString(firstName, 60)!,
+        lastName: cleanString(lastName, 60)!,
+        email: email.toLowerCase(),
         phone: phone || undefined,
         address: address || undefined,
         city: city || undefined,
@@ -71,7 +130,7 @@ export async function POST(request: Request) {
         role: userSession.role === 'ADMIN' ? 'EMPLOYEE' : (role || 'EMPLOYEE'),
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         gender: gender || undefined,
-        employeeNumber: employeeNumber || undefined,
+        employeeNumber: generatedEmployeeNumber,
         hireDate: hireDate ? new Date(hireDate) : undefined,
         department: department || undefined,
         jobTitle: jobTitle || undefined,
@@ -82,13 +141,15 @@ export async function POST(request: Request) {
         annualSalary: toNumber(salary),
         emergencyContactName: emergencyContactName || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
-        notes: notes || undefined,
+        notes: notes || undefined
       }
     })
 
     await createLog('EMPLOYEE_CREATE', `Création employé ${newUser.firstName} ${newUser.lastName} (${newUser.email})`) 
 
-    return NextResponse.json({ success: true, user: newUser })
+    const { password: _pw, ...safeUser } = newUser
+
+    return NextResponse.json({ success: true, user: safeUser })
   } catch (error) {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
   }
@@ -194,7 +255,9 @@ export async function PUT(request: Request) {
 
     await createLog('EMPLOYEE_UPDATE', `Mise à jour employé ${updatedUser.firstName} ${updatedUser.lastName} (${updatedUser.email})`)
 
-    return NextResponse.json({ success: true, user: updatedUser })
+    const { password: _pw, ...safeUser } = updatedUser
+
+    return NextResponse.json({ success: true, user: safeUser })
   } catch (error) {
     return NextResponse.json({ error: "Erreur lors de la modification (Email déjà pris ?)" }, { status: 500 })
   }
