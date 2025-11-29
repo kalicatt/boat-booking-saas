@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes } from 'date-fns'
+import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -394,8 +394,6 @@ export default function ClientPlanningPage() {
       .filter((event: any) => event !== null) as BookingDetails[]
   }, [rawBookings])
 
-  const focusDayKey = useMemo(() => format(currentDate, 'yyyy-MM-dd'), [currentDate])
-
   const boatDailyStats = useMemo<BoatDailyStat[]>(() => {
     if (!resources.length) return []
 
@@ -404,7 +402,7 @@ export default function ClientPlanningPage() {
 
     return resources.map((resource) => {
       const todaysEvents = events.filter(
-        (event) => event.resourceId === resource.id && format(event.start, 'yyyy-MM-dd') === focusDayKey
+        (event) => event.resourceId === resource.id && isSameDay(event.start, currentDate)
       )
 
       const passengers = todaysEvents.reduce((sum, event) => sum + (event.peopleCount || 0), 0)
@@ -434,7 +432,7 @@ export default function ClientPlanningPage() {
         nextRemaining
       }
     })
-  }, [resources, events, focusDayKey])
+  }, [resources, events, currentDate])
 
   const statusSummary = useMemo(() => {
     const summaryMap = new Map<
@@ -443,7 +441,7 @@ export default function ClientPlanningPage() {
     >()
 
     events.forEach((event) => {
-      if (format(event.start, 'yyyy-MM-dd') !== focusDayKey) return
+      if (!isSameDay(event.start, currentDate)) return
       const key = event.checkinStatus || event.status || 'DEFAULT'
       const theme = STATUS_THEME[key] ?? STATUS_THEME.DEFAULT
       const current = summaryMap.get(key)
@@ -455,7 +453,7 @@ export default function ClientPlanningPage() {
     })
 
     return Array.from(summaryMap.values()).sort((a, b) => b.count - a.count)
-  }, [events, focusDayKey])
+  }, [events, currentDate])
 
   const { totalPassengersToday, totalBookingsToday } = useMemo(() => {
     return boatDailyStats.reduce(
@@ -1382,7 +1380,7 @@ export default function ClientPlanningPage() {
 
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 p-4">
-        <div className="relative flex w-full max-w-5xl justify-center">
+        <div className="relative flex w-full max-w-5xl justify-center px-1 sm:px-0">
           {hasPrev && (
             <button
               type="button"
@@ -1403,51 +1401,51 @@ export default function ClientPlanningPage() {
               ▶
             </button>
           )}
-          <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
-          <div className="relative">
-            <div
-              className="absolute inset-0 opacity-95"
-              style={{ background: `linear-gradient(135deg, ${statusTheme.background}, ${statusTheme.backgroundSoft})` }}
-            />
-            <div className="relative flex flex-wrap items-start justify-between gap-4 px-6 py-5 text-white">
-              <div>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-white/80">
-                  <span>{boatTitle}</span>
-                  <span className="hidden h-1 w-1 rounded-full bg-white/60 sm:inline" aria-hidden="true" />
-                  <span>Départ {format(booking.start, 'dd/MM')}</span>
+          <div className="flex h-full w-full max-w-4xl max-h-[92vh] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <div className="relative shrink-0">
+              <div
+                className="absolute inset-0 opacity-95"
+                style={{ background: `linear-gradient(135deg, ${statusTheme.background}, ${statusTheme.backgroundSoft})` }}
+              />
+              <div className="relative flex flex-wrap items-start justify-between gap-4 px-5 py-5 text-white sm:px-6">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-white/80">
+                    <span>{boatTitle}</span>
+                    <span className="hidden h-1 w-1 rounded-full bg-white/60 sm:inline" aria-hidden="true" />
+                    <span>Départ {format(booking.start, 'dd/MM')}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-baseline gap-3 text-white">
+                    <span className="text-3xl font-semibold leading-none">{format(booking.start, 'HH:mm')}</span>
+                    <span className="text-sm font-medium uppercase tracking-wide text-white/75">
+                      jusqu'à {format(booking.end, 'HH:mm')}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                    <span className="rounded-full bg-white/15 px-3 py-1">Check-in : {statusTheme.label}</span>
+                    <span className="rounded-full bg-white/15 px-3 py-1">Réservation : {bookingState.label}</span>
+                    <span className="rounded-full bg-white/15 px-3 py-1">{languageLabel}</span>
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-wrap items-baseline gap-3 text-white">
-                  <span className="text-3xl font-semibold leading-none">{format(booking.start, 'HH:mm')}</span>
-                  <span className="text-sm font-medium uppercase tracking-wide text-white/75">
-                    jusqu'à {format(booking.end, 'HH:mm')}
-                  </span>
+                <div className="ml-auto flex items-start gap-3">
+                  {groupTotal > 1 && (
+                    <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/90">
+                      Réservation {groupIndex + 1}/{groupTotal}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-full bg-white/15 p-2 text-lg font-semibold leading-none text-white transition hover:bg-white/25"
+                    aria-label="Fermer"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                  <span className="rounded-full bg-white/15 px-3 py-1">Check-in : {statusTheme.label}</span>
-                  <span className="rounded-full bg-white/15 px-3 py-1">Réservation : {bookingState.label}</span>
-                  <span className="rounded-full bg-white/15 px-3 py-1">{languageLabel}</span>
-                </div>
-              </div>
-              <div className="ml-auto flex items-start gap-3">
-                {groupTotal > 1 && (
-                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/90">
-                    Réservation {groupIndex + 1}/{groupTotal}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="rounded-full bg-white/15 p-2 text-lg font-semibold leading-none text-white transition hover:bg-white/25"
-                  aria-label="Fermer"
-                >
-                  ✕
-                </button>
               </div>
             </div>
-          </div>
 
-          <div className="bg-slate-50">
-            <div className="grid gap-6 p-6 lg:grid-cols-[280px,1fr]">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50">
+              <div className="grid gap-6 p-5 sm:p-6 lg:grid-cols-[280px,1fr]">
               <div className="space-y-4">
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
