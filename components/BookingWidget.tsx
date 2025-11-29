@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { PHONE_CODES } from '@/lib/phoneData'
-import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
@@ -19,14 +18,15 @@ interface WizardProps {
 
 // Les étapes du tunnel
 const STEPS = {
-  CRITERIA: 1,      // Choix date & personnes
-  SLOTS: 2,         // Choix horaire
-  CONTACT: 3,       // Formulaire final
-  SUCCESS: 4,       // Confirmation
-  GROUP_CONTACT: 5, // Formulaire spécial groupe (>12)
-  GROUP_SUCCESS: 6, // Confirmation groupe
-  PRIVATE_CONTACT: 7, // Formulaire spécial privatisation
-  PRIVATE_SUCCESS: 8  // Confirmation privatisation
+    CRITERIA: 1,      // Choix date & personnes
+    SLOTS: 2,         // Choix horaire
+    CONTACT: 3,       // Formulaire final (coordonnées)
+    PAYMENT: 4,       // Étape paiement
+    SUCCESS: 5,       // Confirmation
+    GROUP_CONTACT: 6, // Formulaire spécial groupe (>12)
+    GROUP_SUCCESS: 7, // Confirmation groupe
+    PRIVATE_CONTACT: 8, // Formulaire spécial privatisation
+    PRIVATE_SUCCESS: 9  // Confirmation privatisation
 }
 
 export default function BookingWizard({ dict, initialLang }: WizardProps) {
@@ -129,6 +129,14 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         return () => { aborted = true }
     }, [])
 
+    useEffect(() => {
+        if (step === STEPS.PAYMENT) {
+            ensurePendingBooking().catch(() => {
+                // L'étape paiement affichera déjà les erreurs via ensurePendingBooking
+            })
+        }
+    }, [step])
+
   // --- ACTIONS DU TUNNEL ---
 
   // ÉTAPE 1 -> SUIVANT
@@ -183,11 +191,45 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     }
   }
 
-  // VALIDATION STANDARD
-  const handleBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-                if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
-                if (!paymentSucceeded) { setGlobalErrors(["Veuillez finaliser le paiement avant confirmation."]); return }
+    // PASSAGE À L'ÉTAPE PAIEMENT (vérification coordonnées + captcha)
+    const handleContactSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
+        if (!selectedSlot) { setGlobalErrors([dict.booking.widget.slot_required || 'Veuillez sélectionner un créneau.']); return }
+        if (phoneError || phoneCodeError) { setGlobalErrors(['Veuillez corriger le numéro de téléphone.']); return }
+
+        setIsSubmitting(true)
+        try {
+            await ensurePendingBooking()
+            setPaymentProvider(null)
+            setStripeIntentId(null)
+            setPaypalOrderId(null)
+            setStripeError(null)
+            setPaymentSucceeded(false)
+            setGlobalErrors([])
+            setStep(STEPS.PAYMENT)
+        } catch (error) {
+            // ensurePendingBooking gère déjà l'affichage d'erreurs explicites
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    const handlePaymentBack = () => {
+        setPaymentProvider(null)
+        setPaymentSucceeded(false)
+        setStripeIntentId(null)
+        setPaypalOrderId(null)
+        setClientSecret(null)
+        setStripeError(null)
+        setStep(STEPS.CONTACT)
+    }
+
+    // VALIDATION STANDARD (confirmation finale)
+    const handleBookingSubmit = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+                                if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
+                                if (!paymentSucceeded) { setGlobalErrors(["Veuillez finaliser le paiement avant confirmation."]); return }
     
     setIsSubmitting(true)
     try {
@@ -594,9 +636,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     </p>
                     
                     <form 
-                        onSubmit={
-                            handleBookingSubmit
-                        } 
+                        onSubmit={handleContactSubmit} 
                         className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4"
                     >
                         <div className="grid grid-cols-2 gap-4">
@@ -699,157 +739,163 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                             <div className="text-xs text-slate-500">reCAPTCHA non configuré</div>
                                                         )}
                                                 </div>
-
-                                                {/* Paiement (Stripe Payment Element placeholder) */}
-                                                {step === STEPS.CONTACT && (
-                                                    <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
-                                                        <div className="flex items-center justify-between mb-2">
-                                                            <h4 className="text-sm font-bold text-slate-700">{dict.booking.widget.payment_title || 'Paiement'}</h4>
-                                                            <button type="button" className="text-xs underline" onClick={async()=>{
-                                                                setStripeError(null)
-                                                                try {
-                                                                    let bId = pendingBookingId
-                                                                    if (!bId) {
-                                                                        const resPending = await fetch('/api/bookings', {
-                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify({
-                                                                                date,
-                                                                                time: selectedSlot,
-                                                                                adults,
-                                                                                children,
-                                                                                babies,
-                                                                                language,
-                                                                                userDetails: { ...formData, phone: buildE164() },
-                                                                                captchaToken,
-                                                                                pendingOnly: true
-                                                                            })
-                                                                        })
-                                                                        const dataPending = await resPending.json()
-                                                                        if (!resPending.ok) { setStripeError(dataPending.error || (dict.booking.widget.booking_create_failed || 'Impossible de créer la réservation')); return }
-                                                                        bId = dataPending.bookingId
-                                                                        setPendingBookingId(bId)
-                                                                    }
-                                                                    if (!bId) { setStripeError(dict.booking.widget.booking_not_found || 'Réservation introuvable'); return }
-                                                                    const res = await fetch('/api/payments/create-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: bId }) })
-                                                                    const data = await res.json()
-                                                                    if (res.ok && data.clientSecret) {
-                                                                        setClientSecret(data.clientSecret)
-                                                                        setPaymentProvider('stripe')
-                                                                    } else {
-                                                                        setStripeError(data.error || (dict.booking.widget.payment_error_generic || 'Erreur paiement'))
-                                                                    }
-                                                                } catch { setStripeError(dict.booking.widget.payment_error_network || 'Erreur de connexion paiement') }
-                                                            }}>{dict.booking.widget.btn_pay_now || 'Payer maintenant'}</button>
-                                                        </div>
-                                                        <div className="text-xs text-slate-500">
-                                                            {clientSecret ? (
-                                                                <PaymentElementWrapper clientSecret={clientSecret} onSuccess={(intentId)=>{
-                                                                    setGlobalErrors([])
-                                                                    setStripeIntentId(intentId)
-                                                                    setPaymentSucceeded(true)
-                                                                    setPaymentProvider('stripe')
-                                                                }} />
-                                                            ) : (
-                                                                (dict.booking.widget.init_payment_hint || 'Cliquez pour initier le paiement')
-                                                            )}
-                                                            {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
-                                                        </div>
-
-                                                        {/* Alternative: PayPal */}
-                                                        <div>
-                                                            <PayPalButton
-                                                                amount={totalPrice}
-                                                                messages={{
-                                                                    notConfigured: dict.booking.widget.payment_paypal_not_configured || 'PayPal not configured',
-                                                                    genericError: dict.booking.widget.payment_error_generic || 'Payment error',
-                                                                    sdkLoadFailed: dict.booking.widget.payment_paypal_sdk_load_failed || 'Failed to load PayPal SDK'
-                                                                }}
-                                                                onSuccess={async (oid)=>{
-                                                                    try {
-                                                                        setPaypalOrderId(oid)
-                                                                        setPaymentProvider('paypal')
-                                                                        // Ensure pending booking exists
-                                                                        let bId = pendingBookingId
-                                                                        if (!bId) {
-                                                                            const resPending = await fetch('/api/bookings', {
-                                                                                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                                body: JSON.stringify({
-                                                                                    date,
-                                                                                    time: selectedSlot,
-                                                                                    adults,
-                                                                                    children,
-                                                                                    babies,
-                                                                                    language,
-                                                                                    userDetails: { ...formData, phone: buildE164() },
-                                                                                    captchaToken,
-                                                                                    pendingOnly: true
-                                                                                })
-                                                                            })
-                                                                            const dataPending = await resPending.json()
-                                                                            if (!resPending.ok) { setGlobalErrors([dataPending.error || (dict.booking.widget.booking_create_failed || 'Impossible de créer la réservation')]); return }
-                                                                            bId = dataPending.bookingId
-                                                                            setPendingBookingId(bId)
-                                                                        }
-                                                                        if (!bId) { setGlobalErrors([dict.booking.widget.booking_not_found || 'Réservation introuvable']); return }
-                                                                        // Capture and link payment
-                                                                        const cap = await fetch('/api/payments/paypal/capture-order', {
-                                                                            method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                                            body: JSON.stringify({ orderId: oid, bookingId: bId })
-                                                                        })
-                                                                        const capData = await cap.json().catch(()=>({}))
-                                                                        if (!cap.ok) { setGlobalErrors([capData?.error || (dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')]); return }
-                                                                        setPaymentSucceeded(true)
-                                                                        setGlobalErrors([])
-                                                                        setStep(STEPS.SUCCESS)
-                                                                    } catch (e) {
-                                                                        setGlobalErrors([dict.booking.widget.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
-                                                                    }
-                                                                }}
-                                                                onError={(msg)=> setGlobalErrors([msg]) }
-                                                            />
-                                                        </div>
-
-                                                        {/* Apple Pay / Google Pay via Stripe Payment Request */}
-                                                        <div className="mt-3">
-                                                            <StripeWalletButton
-                                                                amount={totalPrice * 100}
-                                                                currency="eur"
-                                                                country="FR"
-                                                                label="Sweet Narcisse"
-                                                                ensurePendingBooking={ensurePendingBooking}
-                                                                onSuccess={(intentId)=>{
-                                                                    setGlobalErrors([])
-                                                                    setStripeIntentId(intentId)
-                                                                    setPaymentSucceeded(true)
-                                                                    setPaymentProvider('stripe')
-                                                                }}
-                                                                onError={(msg)=> setGlobalErrors([msg])}
-                                                            />
-                                                        </div>
-
-                                                        {/* Cancellation summary */}
-                                                        <div className="pt-2 text-[11px] text-slate-500 leading-snug">
-                                                            {(() => {
-                                                                const l = (initialLang || 'fr').toLowerCase()
-                                                                const link = `/${(initialLang || 'fr')}/cgv`
-                                                                if (l === 'en') return (<span>Cancellation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Severe weather: full refund. <a className="underline" href={link} target="_blank" rel="noreferrer">See T&amp;Cs</a>.</span>)
-                                                                if (l === 'de') return (<span>Stornierung: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Unwetter: volle Erstattung. <a className="underline" href={link} target="_blank" rel="noreferrer">Siehe AGB</a>.</span>)
-                                                                if (l === 'es') return (<span>Cancelación: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: reembolso total. <a className="underline" href={link} target="_blank" rel="noreferrer">Ver Términos</a>.</span>)
-                                                                if (l === 'it') return (<span>Annullamento: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: rimborso totale. <a className="underline" href={link} target="_blank" rel="noreferrer">Vedi Termini</a>.</span>)
-                                                                return (<span>Annulation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Météo sévère: remboursement intégral. <a className="underline" href={link} target="_blank" rel="noreferrer">Voir CGV</a>.</span>)
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                )}
                         
                         <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
                             className="w-full bg-[#0f172a] text-[#eab308] py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-lg mt-4">
-                            {isSubmitting ? dict.booking.widget.submitting : 
-                                step === STEPS.CONTACT ? `${dict.booking.widget.confirm} (${totalPrice}€)` : 
-                                step === STEPS.PRIVATE_CONTACT ? dict.private_form.button_send :
-                                dict.group_form.button_send}
+                            {isSubmitting ? dict.booking.widget.submitting : (dict.booking.widget.btn_go_to_payment || 'Continuer vers le paiement')}
                         </button>
                     </form>
+                </div>
+            )}
+
+            {/* --- ÉTAPE 4 : PAIEMENT --- */}
+            {step === STEPS.PAYMENT && (
+                <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+                    <button onClick={handlePaymentBack} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {dict.booking.widget.back_btn || 'Retour'}</button>
+
+                    <h2 className="text-2xl font-bold text-slate-800 mb-1">{dict.booking.widget.payment_step_title || 'Paiement sécurisé'}</h2>
+                    <p className="text-slate-500 mb-6 text-sm">
+                        {dict.booking.widget.payment_step_subtitle || 'Finalisez votre achat avec le moyen de paiement de votre choix.'}
+                    </p>
+
+                    <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                            <h3 className="text-sm font-bold text-slate-700">{dict.booking.widget.summary_payment_details || 'Récapitulatif'}</h3>
+                            <div className="text-sm text-slate-600 flex justify-between"><span>{dict.booking.widget.date_label || 'Date'}</span><span>{(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}</span></div>
+                            {selectedSlot && (
+                                <div className="text-sm text-slate-600 flex justify-between"><span>{dict.booking.widget.time_label || 'Horaire'}</span><span>{selectedSlot}</span></div>
+                            )}
+                            <div className="text-sm text-slate-600 flex justify-between"><span>{dict.booking.widget.passengers || 'Passagers'}</span><span>{totalPeople}</span></div>
+                            <div className="text-sm text-slate-600 flex justify-between font-semibold"><span>{dict.booking.widget.total || 'Total'}</span><span>{totalPrice},00 €</span></div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                            <div className="flex items-center justify-between mb-2">
+                                <h4 className="text-sm font-bold text-slate-700">{dict.booking.widget.payment_title || 'Paiement'}</h4>
+                                <button
+                                    type="button"
+                                    className="text-xs underline"
+                                    onClick={async () => {
+                                        setStripeError(null)
+                                        try {
+                                            const bookingId = await ensurePendingBooking()
+                                            const res = await fetch('/api/payments/create-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId }) })
+                                            const data = await res.json()
+                                            if (res.ok && data.clientSecret) {
+                                                setClientSecret(data.clientSecret)
+                                                setPaymentProvider('stripe')
+                                            } else {
+                                                setStripeError(data.error || (dict.booking.widget.payment_error_generic || 'Erreur paiement'))
+                                            }
+                                        } catch (error) {
+                                            setStripeError(dict.booking.widget.payment_error_network || 'Erreur de connexion paiement')
+                                        }
+                                    }}
+                                >
+                                    {dict.booking.widget.btn_pay_now || 'Payer maintenant'}
+                                </button>
+                            </div>
+                            <div className="text-xs text-slate-500">
+                                {clientSecret ? (
+                                    <PaymentElementWrapper
+                                        clientSecret={clientSecret}
+                                        onSuccess={(intentId) => {
+                                            setGlobalErrors([])
+                                            setStripeIntentId(intentId)
+                                            setPaymentSucceeded(true)
+                                            setPaymentProvider('stripe')
+                                        }}
+                                    />
+                                ) : (
+                                    dict.booking.widget.init_payment_hint || 'Cliquez pour initier le paiement'
+                                )}
+                                {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
+                            </div>
+
+                            <div>
+                                <PayPalButton
+                                    amount={totalPrice}
+                                    messages={{
+                                        notConfigured: dict.booking.widget.payment_paypal_not_configured || 'PayPal non configuré',
+                                        genericError: dict.booking.widget.payment_error_generic || 'Erreur de paiement',
+                                        sdkLoadFailed: dict.booking.widget.payment_paypal_sdk_load_failed || 'Chargement PayPal impossible'
+                                    }}
+                                    onSuccess={async (oid) => {
+                                        try {
+                                            setPaypalOrderId(oid)
+                                            setPaymentProvider('paypal')
+                                            const bookingId = await ensurePendingBooking()
+                                            const cap = await fetch('/api/payments/paypal/capture-order', {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ orderId: oid, bookingId })
+                                            })
+                                            const capData = await cap.json().catch(() => ({}))
+                                            if (!cap.ok) {
+                                                setGlobalErrors([capData?.error || (dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')])
+                                                return
+                                            }
+                                            setPaymentSucceeded(true)
+                                            setGlobalErrors([])
+                                        } catch (e) {
+                                            setGlobalErrors([dict.booking.widget.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
+                                        }
+                                    }}
+                                    onError={(msg) => setGlobalErrors([msg])}
+                                />
+                            </div>
+
+                            <div className="mt-3">
+                                <StripeWalletButton
+                                    amount={totalPrice * 100}
+                                    currency="eur"
+                                    country="FR"
+                                    label="Sweet Narcisse"
+                                    ensurePendingBooking={ensurePendingBooking}
+                                    onSuccess={(intentId) => {
+                                        setGlobalErrors([])
+                                        setStripeIntentId(intentId)
+                                        setPaymentSucceeded(true)
+                                        setPaymentProvider('stripe')
+                                    }}
+                                    onError={(msg) => setGlobalErrors([msg])}
+                                />
+                            </div>
+
+                            <div className="pt-2 text-[11px] text-slate-500 leading-snug">
+                                {(() => {
+                                    const l = (initialLang || 'fr').toLowerCase()
+                                    const link = `/${(initialLang || 'fr')}/cgv`
+                                    if (l === 'en') return (<span>Cancellation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Severe weather: full refund. <a className="underline" href={link} target="_blank" rel="noreferrer">See T&amp;Cs</a>.</span>)
+                                    if (l === 'de') return (<span>Stornierung: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Unwetter: volle Erstattung. <a className="underline" href={link} target="_blank" rel="noreferrer">Siehe AGB</a>.</span>)
+                                    if (l === 'es') return (<span>Cancelación: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: reembolso total. <a className="underline" href={link} target="_blank" rel="noreferrer">Ver Términos</a>.</span>)
+                                    if (l === 'it') return (<span>Annullamento: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Meteo severa: rimborso totale. <a className="underline" href={link} target="_blank" rel="noreferrer">Vedi Termini</a>.</span>)
+                                    return (<span>Annulation: &gt;48h 100%, 48–24h 50%, &lt;24h 0%. Météo sévère: remboursement intégral. <a className="underline" href={link} target="_blank" rel="noreferrer">Voir CGV</a>.</span>)
+                                })()}
+                            </div>
+
+                            {paymentSucceeded ? (
+                                <div className="text-xs text-green-600 mt-2">
+                                    {dict.booking.widget.payment_ready_to_confirm || 'Paiement validé. Cliquez sur "Confirmer la réservation" pour finaliser.'}
+                                </div>
+                            ) : (
+                                <div className="text-xs text-slate-500 mt-2">
+                                    {dict.booking.widget.payment_waiting || 'Terminez le paiement pour activer la confirmation.'}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => handleBookingSubmit()}
+                        disabled={isSubmitting || !paymentSucceeded}
+                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded ? 'bg-[#0f172a] text-[#eab308] hover:bg-black' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                    >
+                        {isSubmitting
+                            ? dict.booking.widget.submitting
+                            : `${dict.booking.widget.confirm || 'Confirmer'} (${totalPrice}€)`}
+                    </button>
                 </div>
             )}
 
