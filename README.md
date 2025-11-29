@@ -67,7 +67,7 @@ See `DEPLOYMENT.md` for snapshot/backup automation and the PayPal sandbox testin
 
 ## Payments
 - Stripe: Cards + Apple Pay + Google Pay via Payment Request. Webhook finalizes server state; `daily-maintenance.ps1` cleans stale pending bookings.
-- PayPal: Standard button integration for alternative checkout.
+- PayPal: Standard button integration for alternative checkout. Set both `PAYPAL_CLIENT_ID` (server) and `NEXT_PUBLIC_PAYPAL_CLIENT_ID` (client-exposed) in your env; the helper script fills both automatically.
 
 Apple Pay domain association:
 - Add domain in Stripe; download `apple-developer-merchantid-domain-association` and place at `public/.well-known/apple-developer-merchantid-domain-association`.

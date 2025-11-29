@@ -105,6 +105,7 @@ STRIPE_WEBHOOK_SECRET=$StripeWebhookSecret
 PAYPAL_CLIENT_ID=$PaypalClientId
 PAYPAL_CLIENT_SECRET=$PaypalClientSecret
 PAYPAL_MODE=$PaypalMode
+NEXT_PUBLIC_PAYPAL_CLIENT_ID=$PaypalClientId
 "@
 
 $envPath = Join-Path $PSScriptRoot "..\.env.production.local"
