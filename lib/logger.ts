@@ -6,6 +6,7 @@ type Level = 'info'|'warn'|'error'
 interface LogCtx {
   route?: string
   bookingId?: string | number
+  error?: string
 }
 
 export async function createLog(action: string, details: string) {

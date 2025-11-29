@@ -2,6 +2,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { submitGroupRequest, submitPrivateRequest, type Lang } from '@/lib/contactClient'
 
+type ContactNavCopy = Record<string, string | undefined>
+type ContactGroupCopy = Record<string, string | undefined>
+type ContactPrivateCopy = Record<string, string | undefined>
+
+export type ContactDict = {
+  group_form?: ContactGroupCopy
+  private_form?: ContactPrivateCopy
+  nav?: ContactNavCopy
+} & Record<string, unknown>
+
 declare global {
   interface Window {
     grecaptcha?: {
@@ -12,11 +22,11 @@ declare global {
   }
 }
 
-function tDict(dict: Record<string, unknown>, lang: Lang) {
+function tDict(dict: ContactDict, lang: Lang) {
   // Prefer dictionary keys; fallback to internal phrases when missing
-  const group = dict.group_form || {}
-  const priv = dict.private_form || {}
-  const nav = dict.nav || {}
+  const group = (dict.group_form ?? {}) as ContactGroupCopy
+  const priv = (dict.private_form ?? {}) as ContactPrivateCopy
+  const nav = (dict.nav ?? {}) as ContactNavCopy
   const fallback = (map: Record<Lang, string>) => map[lang]
   return {
     heading: nav.contact || fallback({ fr: 'CONTACT', en: 'CONTACT', de: 'KONTAKT', es: 'CONTACTO', it: 'CONTATTO' }),
@@ -48,8 +58,10 @@ function tDict(dict: Record<string, unknown>, lang: Lang) {
   }
 }
 
-export default function ContactForms({ lang, dict }: { lang: Lang, dict: Record<string, unknown> }) {
+export default function ContactForms({ lang, dict }: { lang: Lang, dict: ContactDict }) {
   const tr = tDict(dict, lang)
+  const groupDict = (dict.group_form ?? {}) as ContactGroupCopy
+  const privateDict = (dict.private_form ?? {}) as ContactPrivateCopy
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
   const [active, setActive] = useState<'group'|'private'>('group')
   const [loading, setLoading] = useState(false)
@@ -78,10 +90,11 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: Record<
       initWidgets()
     }
     function initWidgets() {
-      if (!window.grecaptcha) return
-      window.grecaptcha.ready(() => {
+      const grecaptcha = window.grecaptcha
+      if (!grecaptcha) return
+      grecaptcha.ready(() => {
         if (groupRef.current && groupWidgetId.current == null) {
-          groupWidgetId.current = window.grecaptcha.render(groupRef.current, {
+          groupWidgetId.current = grecaptcha.render(groupRef.current, {
             sitekey: siteKey,
             callback: (token: string) => setGroupToken(token),
             'error-callback': () => setGroupToken(''),
@@ -89,7 +102,7 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: Record<
           })
         }
         if (privateRef.current && privateWidgetId.current == null) {
-          privateWidgetId.current = window.grecaptcha.render(privateRef.current, {
+          privateWidgetId.current = grecaptcha.render(privateRef.current, {
             sitekey: siteKey,
             callback: (token: string) => setPrivateToken(token),
             'error-callback': () => setPrivateToken(''),
@@ -161,8 +174,8 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: Record<
       }
       setOk(true)
       e.currentTarget.reset()
-      if (groupWidgetId.current != null && window.grecaptcha) window.grecaptcha.reset(groupWidgetId.current)
-      if (privateWidgetId.current != null && window.grecaptcha) window.grecaptcha.reset(privateWidgetId.current)
+      if (groupWidgetId.current != null) window.grecaptcha?.reset?.(groupWidgetId.current)
+      if (privateWidgetId.current != null) window.grecaptcha?.reset?.(privateWidgetId.current)
       setGroupToken(''); setPrivateToken('')
     } catch {
       setError(tr.error)
@@ -233,11 +246,11 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: Record<
             <>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-                <input name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} placeholder={priv.placeholder_people || ''} />
+                <input name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} placeholder={privateDict.placeholder_people || ''} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.date}</label>
-                <input name="date" className="w-full p-2 border rounded" placeholder={priv.placeholder_date || 'YYYY-MM-DD'} defaultValue={prefill.date ?? ''} />
+                <input name="date" className="w-full p-2 border rounded" placeholder={privateDict.placeholder_date || 'YYYY-MM-DD'} defaultValue={prefill.date ?? ''} />
               </div>
             </>
           )}

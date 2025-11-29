@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, ContactStatus } from '@prisma/client'
+
+const CONTACT_STATUSES: ContactStatus[] = ['NEW','CONTACTED','CLOSED']
+
+const isContactStatus = (value: unknown): value is ContactStatus =>
+  typeof value === 'string' && CONTACT_STATUSES.includes(value as ContactStatus)
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') || undefined
+    const statusParam = searchParams.get('status')
     const where: Prisma.ContactRequestWhereInput = {}
-    if (status && ['NEW','CONTACTED','CLOSED'].includes(status)) where.status = status
+    if (statusParam && isContactStatus(statusParam)) where.status = statusParam
     const contacts = await prisma.contactRequest.findMany({
       where: where as Prisma.ContactRequestWhereInput,
       orderBy: { createdAt: 'desc' },

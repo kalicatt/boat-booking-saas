@@ -6,20 +6,65 @@ import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } 
 import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
 import dynamic from 'next/dynamic'
+import type { Lang } from '@/lib/contactClient'
 const ContactModal = dynamic(() => import('@/components/ContactModal'), { ssr: false })
 import PaymentElementWrapper from '@/components/PaymentElementWrapper'
 import StripeWalletButton from '@/components/StripeWalletButton'
 import PayPalButton from '@/components/PayPalButton'
 
-interface WizardProps {
-    dict: Record<string, unknown>
-    initialLang: string
-}
-
-type BookingWidgetDict = {
+type BookingWidgetCopy = {
+    captcha_required?: string
     booking_create_failed?: string
     booking_not_found?: string
-    [key: string]: unknown
+    step_criteria_short?: string
+    step_criteria_title?: string
+    step_slots_short?: string
+    step_slots_title?: string
+    step_contact_short?: string
+    form_title?: string
+    payment_title?: string
+    progress_label?: string
+    summary_title_standard?: string
+    summary_details?: string
+    modify_btn?: string
+    private_badge?: string
+    group_badge?: string
+    summary_departure?: string
+    summary_people?: string
+    summary_total?: string
+    slot_required?: string
+    payment_stripe_not_confirmed?: string
+    payment_stripe_verify_failed?: string
+    payment_paypal_capture_failed?: string
+} & Record<string, string | undefined>
+
+type BookingWidgetDict = {
+    widget?: BookingWidgetCopy
+    title?: string
+    subtitle?: string
+} & Record<string, unknown>
+
+type GroupFormCopy = {
+    title?: string
+    placeholder_message?: string
+    sent_title?: string
+    sent_message?: string
+    sent_button?: string
+} & Record<string, string | undefined>
+
+type PrivateFormCopy = {
+    title?: string
+    message_label?: string
+    placeholder_message?: string
+} & Record<string, string | undefined>
+
+interface WizardProps {
+    dict: {
+        booking?: BookingWidgetDict
+        group_form?: GroupFormCopy
+        private_form?: PrivateFormCopy
+    } & Record<string, unknown>
+    initialLang: Lang
 }
 
 // Les étapes du tunnel
@@ -39,6 +84,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // --- ÉTATS ---
   const [step, setStep] = useState(STEPS.CRITERIA)
     const [globalErrors, setGlobalErrors] = useState<string[]>([])
+    const bookingDict = (dict.booking ?? {}) as BookingWidgetDict
+    const widgetCopy = (bookingDict.widget ?? {}) as BookingWidgetCopy
+    const groupFormCopy = (dict.group_form ?? {}) as GroupFormCopy
+    const privateFormCopy = (dict.private_form ?? {}) as PrivateFormCopy
   
   // Données de réservation
     // Date locale (YYYY-MM-DD) pour éviter tout décalage de fuseau
@@ -106,7 +155,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const ensurePendingBooking = useCallback(async (): Promise<string> => {
         if (pendingBookingId) return pendingBookingId
         if (!captchaToken) {
-            const captchaMsg = dict.booking?.widget?.captcha_required || 'Captcha requis'
+            const captchaMsg = widgetCopy.captcha_required || 'Captcha requis'
             setGlobalErrors([captchaMsg])
             setStep(STEPS.CONTACT)
             throw new Error(captchaMsg)
@@ -127,7 +176,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             })
         })
         const payload = await response.json()
-        const widgetDict = dict.booking?.widget as BookingWidgetDict | undefined
+        const widgetDict = widgetCopy
         if (!response.ok) {
             const message = payload?.error || widgetDict?.booking_create_failed || 'Impossible de créer la réservation'
             setGlobalErrors([message])
@@ -151,10 +200,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const isGroup = totalPeople > GROUP_THRESHOLD // Bascule automatiquement en mode Groupe
     const totalPrice = (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
         const progressSegments = [
-            { id: STEPS.CRITERIA, label: dict.booking?.widget?.step_criteria_short || dict.booking?.widget?.step_criteria_title || 'Critères' },
-            { id: STEPS.SLOTS, label: dict.booking?.widget?.step_slots_short || dict.booking?.widget?.step_slots_title || 'Horaires' },
-            { id: STEPS.CONTACT, label: dict.booking?.widget?.step_contact_short || dict.booking?.widget?.form_title || 'Contact' },
-            { id: STEPS.PAYMENT, label: dict.booking?.widget?.payment_title || 'Paiement' }
+            { id: STEPS.CRITERIA, label: widgetCopy.step_criteria_short || widgetCopy.step_criteria_title || 'Critères' },
+            { id: STEPS.SLOTS, label: widgetCopy.step_slots_short || widgetCopy.step_slots_title || 'Horaires' },
+            { id: STEPS.CONTACT, label: widgetCopy.step_contact_short || widgetCopy.form_title || 'Contact' },
+            { id: STEPS.PAYMENT, label: widgetCopy.payment_title || 'Paiement' }
         ]
         const orderedSteps = progressSegments.map(segment => segment.id)
         const stepForProgress = step >= STEPS.SUCCESS ? STEPS.PAYMENT : Math.min(step, STEPS.PAYMENT)
@@ -272,7 +321,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const handleContactSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
-        if (!selectedSlot) { setGlobalErrors([dict.booking.widget.slot_required || 'Veuillez sélectionner un créneau.']); return }
+        if (!selectedSlot) { setGlobalErrors([widgetCopy.slot_required || 'Veuillez sélectionner un créneau.']); return }
         if (phoneError || phoneCodeError) { setGlobalErrors(['Veuillez corriger le numéro de téléphone.']); return }
 
         setIsSubmitting(true)
@@ -316,13 +365,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 const verifyRes = await fetch('/api/payments/verify-stripe-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: stripeIntentId }) })
                 const verify = await verifyRes.json()
                 if (!verifyRes.ok || verify.status !== 'succeeded') {
-                    const msg = (dict.booking.widget.payment_stripe_not_confirmed || 'Paiement Stripe non confirmé. Statut: {status}').replace('{status}', String(verify?.status || 'inconnu'))
+                    const msg = (widgetCopy.payment_stripe_not_confirmed || 'Paiement Stripe non confirmé. Statut: {status}').replace('{status}', String(verify?.status || 'inconnu'))
                     setGlobalErrors([msg])
                     setIsSubmitting(false)
                     return
                 }
             } catch {
-                setGlobalErrors([dict.booking.widget.payment_stripe_verify_failed || 'Impossible de vérifier le paiement Stripe.'])
+                setGlobalErrors([widgetCopy.payment_stripe_verify_failed || 'Impossible de vérifier le paiement Stripe.'])
                 setIsSubmitting(false)
                 return
             }
@@ -367,7 +416,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     })
                         if (!cap.ok) {
                             const capData = await cap.json().catch(()=>({}))
-                            const capMessage = capData?.error || (dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')
+                            const capMessage = capData?.error || (widgetCopy.payment_paypal_capture_failed || 'Capture PayPal échouée')
                             setGlobalErrors([capMessage])
                         setIsSubmitting(false)
                         return
@@ -397,12 +446,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   }
 
   // Composant Compteur
-    type CounterProps = { label: string; value: number; setter: (n: number) => void; price?: number }
+        type CounterProps = { label?: string; value: number; setter: (n: number) => void; price?: string }
     const Counter = ({ label, value, setter, price }: CounterProps) => (
     <div className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
       <div>
-        <span className="block text-sm font-bold text-slate-700">{label}</span>
-        <span className="text-xs text-slate-400">{price}</span>
+                <span className="block text-sm font-bold text-slate-700">{label || ''}</span>
+                <span className="text-xs text-slate-400">{price || ''}</span>
       </div>
       <div className="flex items-center bg-slate-100 rounded-lg">
         <button onClick={() => setter(Math.max(0, value - 1))} className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded-l-lg font-bold transition">-</button>
@@ -414,9 +463,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
   // TITRES DYNAMIQUES
   const getMainTitle = () => {
-    if (isGroup) return dict.group_form?.title?.replace('{people}', totalPeople)
-    if (isPrivate) return dict.private_form?.title
-    return dict.booking?.widget?.summary_title_standard || dict.booking?.title
+    if (isGroup) return groupFormCopy.title?.replace('{people}', String(totalPeople))
+    if (isPrivate) return privateFormCopy.title
+        return widgetCopy.summary_title_standard || bookingDict.title
   }
 
     return (
@@ -436,7 +485,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     aria-hidden="true"
                 />
             </div>
-            <ol className="mb-8 w-full space-y-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500" aria-label={dict.booking?.widget?.progress_label || 'Progression de la réservation'}>
+            <ol className="mb-8 w-full space-y-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500" aria-label={widgetCopy.progress_label || 'Progression de la réservation'}>
                 {progressSegments.map((segment, index) => {
                     const isReached = step >= STEPS.SUCCESS || currentStepIndex >= index
                     const nextReached = step >= STEPS.SUCCESS || currentStepIndex > index
@@ -460,8 +509,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 {/* BLOC 1 : DATE & PAX */}
                 <div className={`p-4 rounded-xl border transition-all ${step === STEPS.CRITERIA ? 'border-[#0ea5e9] bg-slate-800 shadow-[0_0_15px_rgba(14,165,233,0.15)]' : 'border-slate-700 bg-transparent'}`}>
                     <div className="flex justify-between items-start mb-1">
-                        <span className="text-xs uppercase font-bold text-slate-400">{dict.booking.widget.summary_details}</span>
-                        {step > STEPS.CRITERIA && <button onClick={() => setStep(STEPS.CRITERIA)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
+                        <span className="text-xs uppercase font-bold text-slate-400">{widgetCopy.summary_details}</span>
+                        {step > STEPS.CRITERIA && <button onClick={() => setStep(STEPS.CRITERIA)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{widgetCopy.modify_btn}</button>}
                     </div>
                                         <div className="font-semibold text-lg text-white">
                                                 {(() => {
@@ -478,7 +527,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <div className="text-[#38bdf8] font-bold text-xl mt-2">{totalPrice},00 €</div>
                     ) : (
                         <div className="mt-2 inline-block px-2 py-1 rounded bg-blue-900/50 text-blue-200 text-xs font-bold border border-blue-500/30">
-                            {isPrivate ? "✨ " + dict.booking.widget.private_badge : "👥 " + dict.booking.widget.group_badge}
+                            {isPrivate ? "✨ " + widgetCopy.private_badge : "👥 " + widgetCopy.group_badge}
                         </div>
                     )}
                 </div>
@@ -487,17 +536,17 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 {selectedSlot && !isGroup && !isPrivate && (
                     <div className={`p-4 rounded-xl border transition-all animate-in fade-in slide-in-from-left-4 ${step === STEPS.SLOTS ? 'border-[#0ea5e9] bg-slate-800' : 'border-slate-700'}`}>
                         <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs uppercase font-bold text-slate-400">{dict.booking.widget.summary_departure}</span>
-                            {step > STEPS.SLOTS && step < STEPS.SUCCESS && <button onClick={() => setStep(STEPS.SLOTS)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
+                            <span className="text-xs uppercase font-bold text-slate-400">{widgetCopy.summary_departure}</span>
+                            {step > STEPS.SLOTS && step < STEPS.SUCCESS && <button onClick={() => setStep(STEPS.SLOTS)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{widgetCopy.modify_btn}</button>}
                         </div>
                         <div className="font-bold text-2xl text-[#38bdf8]">{selectedSlot}</div>
-                        <div className="text-xs text-slate-400 mt-1">{dict.booking.widget.duration_text}</div>
+                        <div className="text-xs text-slate-400 mt-1">{widgetCopy.duration_text}</div>
                     </div>
                 )}
             </div>
 
             <div className="mt-8 text-xs text-slate-500 border-t border-slate-800 pt-4">
-                <p>{dict.booking.widget.help_text}</p>
+                <p>{widgetCopy.help_text}</p>
                 <p className="text-slate-400 mt-1">📞 +33 3 89 20 68 92</p>
             </div>
         </div>
@@ -515,12 +564,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             {/* --- ÉTAPE 1 : CRITÈRES --- */}
             {step === STEPS.CRITERIA && (
                 <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">{dict.booking.widget.step_criteria_title}</h2>
-                    <p className="text-slate-500 mb-6 text-sm">{dict.booking.subtitle}</p>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">{widgetCopy.step_criteria_title}</h2>
+                    <p className="text-slate-500 mb-6 text-sm">{bookingDict.subtitle}</p>
                     
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-6 flex-1">
                         <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{dict.booking.widget.date}</label>
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.date}</label>
                             <input
                                 type="date"
                                 value={date}
@@ -536,11 +585,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{dict.booking.widget.passengers}</label>
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.passengers}</label>
                             <div className="space-y-1">
-                                <Counter label={dict.booking.widget.adults} price={`${PRICES.ADULT}€`} value={adults} setter={setAdults} />
-                                <Counter label={dict.booking.widget.children} price={`${PRICES.CHILD}€`} value={children} setter={setChildren} />
-                                <Counter label={dict.booking.widget.babies} price={dict.booking.widget.free} value={babies} setter={setBabies} />
+                                <Counter label={widgetCopy.adults} price={`${PRICES.ADULT}€`} value={adults} setter={setAdults} />
+                                <Counter label={widgetCopy.children} price={`${PRICES.CHILD}€`} value={children} setter={setChildren} />
+                                <Counter label={widgetCopy.babies} price={widgetCopy.free} value={babies} setter={setBabies} />
                             </div>
                         </div>
 
@@ -548,16 +597,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 <div className="flex gap-3 justify-center mt-2">
                                                     <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
                                                         onClick={()=>{ setContactMode('group'); setContactOpen(true) }}>
-                                                        👥 {dict.booking.widget.group_badge}
+                                                        👥 {widgetCopy.group_badge}
                                                     </button>
                                                     <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
                                                         onClick={()=>{ setContactMode('private'); setContactOpen(true) }}>
-                                                        ✨ {dict.booking.widget.private_toggle_title}
+                                                        ✨ {widgetCopy.private_toggle_title}
                                                     </button>
                                                 </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{dict.booking.widget.language}</label>
+                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.language}</label>
                             <div className="flex gap-2">
                                 {['FR', 'EN', 'DE'].map(lang => (
                                     <button key={lang} onClick={() => setLanguage(lang)}
@@ -573,7 +622,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <button onClick={handleSearch} disabled={loading} 
                             className="w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2">
                             {loading ? <span className="animate-spin">⏳</span> : null}
-                            {loading ? dict.booking.widget.loading : isGroup ? dict.booking.widget.btn_continue_group : isPrivate ? dict.booking.widget.btn_continue_private : dict.booking.widget.btn_search}
+                            {loading ? widgetCopy.loading : isGroup ? widgetCopy.btn_continue_group : isPrivate ? widgetCopy.btn_continue_private : widgetCopy.btn_search}
                         </button>
                     </div>
                 </div>
@@ -582,9 +631,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             {/* --- ÉTAPE 2 : HORAIRES --- */}
             {step === STEPS.SLOTS && (
                 <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
-                    <button onClick={() => setStep(STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {dict.booking.widget.back_btn || "Retour"}</button>
-                    <h2 className="text-2xl font-bold text-slate-800 mb-2">{dict.booking.widget.step_slots_title}</h2>
-                    <p className="text-slate-500 mb-6 text-sm">{dict.booking.widget.slots_subtitle} {(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}.</p>
+                    <button onClick={() => setStep(STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || "Retour"}</button>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-2">{widgetCopy.step_slots_title}</h2>
+                    <p className="text-slate-500 mb-6 text-sm">{widgetCopy.slots_subtitle} {(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}.</p>
                     
                     <div className="flex-1 bg-white p-6 rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
                         {availableSlots.length > 0 ? (
@@ -602,7 +651,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             <div className="flex-1 flex flex-col items-center justify-center text-center">
                                 <span className="text-4xl mb-3">📅</span>
                                 <h3 className="font-bold text-slate-800">
-                                  {date === todayLocalISO ? 'Plus de départs aujourd\'hui' : (dict.booking.widget.no_slot || 'Aucun créneau disponible')}
+                                  {date === todayLocalISO ? 'Plus de départs aujourd\'hui' : (widgetCopy.no_slot || 'Aucun créneau disponible')}
                                 </h3>
                                                                 {blockedReason && (
                                                                     <p className="text-sm text-slate-500 mt-1">{blockedReason}</p>
@@ -617,7 +666,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     <div className="mt-6">
                                  <button onClick={() => setStep(STEPS.CONTACT)} disabled={!selectedSlot} 
                                      className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedSlot ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
-                            {dict.booking.widget.btn_validate_slot} →
+                            {widgetCopy.btn_validate_slot} →
                         </button>
                     </div>
                 </div>
@@ -626,15 +675,15 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             {/* --- ÉTAPE 3 / CONTACT --- */}
             {(step === STEPS.CONTACT) && (
                 <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
-                    <button onClick={() => setStep(step === STEPS.CONTACT ? STEPS.SLOTS : STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {dict.booking.widget.back_btn || "Retour"}</button>
+                    <button onClick={() => setStep(step === STEPS.CONTACT ? STEPS.SLOTS : STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || "Retour"}</button>
                     
                     <h2 className="text-2xl font-bold text-slate-800 mb-1">
-                        {step === STEPS.PRIVATE_CONTACT ? dict.private_form.title : dict.booking.widget.form_title}
+                        {step === STEPS.PRIVATE_CONTACT ? privateFormCopy.title : widgetCopy.form_title}
                     </h2>
                     <p className="text-slate-500 mb-6 text-sm">
                         {step === STEPS.PRIVATE_CONTACT 
-                            ? dict.private_form.subtitle 
-                            : dict.booking.widget.form_subtitle || "Complete your details"}
+                            ? privateFormCopy.subtitle 
+                            : widgetCopy.form_subtitle || "Complete your details"}
                     </p>
                     
                     <form 
@@ -643,25 +692,25 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     >
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_firstname}</label>
+                                <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_firstname}</label>
                                 <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                     value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                             </div>
                             <div>
-                                <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_lastname}</label>
+                                <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_lastname}</label>
                                 <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                     value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                             </div>
                         </div>
                         
                         <div>
-                            <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_email}</label>
+                            <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_email}</label>
                             <input required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                 value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                         
                                                 <div>
-                                                        <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_phone}</label>
+                                                        <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_phone}</label>
                                                         <div className="flex gap-2 mt-1 items-start">
                                                             <div className="flex flex-col w-40">
                                                                 <input
@@ -723,9 +772,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                         {(step === STEPS.GROUP_CONTACT || step === STEPS.PRIVATE_CONTACT) && (
                              <div>
-                                <label className="text-xs font-bold uppercase text-slate-500">{dict.private_form.message_label || "Message"}</label>
+                                <label className="text-xs font-bold uppercase text-slate-500">{privateFormCopy.message_label || "Message"}</label>
                                 <textarea className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none h-20" 
-                                    placeholder={step === STEPS.PRIVATE_CONTACT ? dict.private_form.placeholder_message : dict.group_form.placeholder_message}
+                                    placeholder={step === STEPS.PRIVATE_CONTACT ? privateFormCopy.placeholder_message : groupFormCopy.placeholder_message}
                                     value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
                             </div>
                         )}
@@ -746,7 +795,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         
                         <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
                             className="w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg mt-4">
-                            {isSubmitting ? dict.booking.widget.submitting : (dict.booking.widget.btn_go_to_payment || 'Continuer vers le paiement')}
+                            {isSubmitting ? widgetCopy.submitting : (widgetCopy.btn_go_to_payment || 'Continuer vers le paiement')}
                         </button>
                     </form>
                 </div>
@@ -755,27 +804,27 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             {/* --- ÉTAPE 4 : PAIEMENT --- */}
             {step === STEPS.PAYMENT && (
                 <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
-                    <button onClick={handlePaymentBack} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {dict.booking.widget.back_btn || 'Retour'}</button>
+                    <button onClick={handlePaymentBack} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || 'Retour'}</button>
 
-                    <h2 className="text-2xl font-bold text-slate-800 mb-1">{dict.booking.widget.payment_step_title || 'Paiement sécurisé'}</h2>
+                    <h2 className="text-2xl font-bold text-slate-800 mb-1">{widgetCopy.payment_step_title || 'Paiement sécurisé'}</h2>
                     <p className="text-slate-500 mb-6 text-sm">
-                        {dict.booking.widget.payment_step_subtitle || 'Finalisez votre achat avec le moyen de paiement de votre choix.'}
+                        {widgetCopy.payment_step_subtitle || 'Finalisez votre achat avec le moyen de paiement de votre choix.'}
                     </p>
 
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
                         <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
-                            <h3 className="text-sm font-bold text-slate-700">{dict.booking.widget.summary_payment_details || 'Récapitulatif'}</h3>
-                            <div className="text-sm text-slate-600 flex justify-between"><span>{dict.booking.widget.date_label || 'Date'}</span><span>{(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}</span></div>
+                            <h3 className="text-sm font-bold text-slate-700">{widgetCopy.summary_payment_details || 'Récapitulatif'}</h3>
+                            <div className="text-sm text-slate-600 flex justify-between"><span>{widgetCopy.date_label || 'Date'}</span><span>{(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}</span></div>
                             {selectedSlot && (
-                                <div className="text-sm text-slate-600 flex justify-between"><span>{dict.booking.widget.time_label || 'Horaire'}</span><span>{selectedSlot}</span></div>
+                                <div className="text-sm text-slate-600 flex justify-between"><span>{widgetCopy.time_label || 'Horaire'}</span><span>{selectedSlot}</span></div>
                             )}
-                            <div className="text-sm text-slate-600 flex justify-between"><span>{dict.booking.widget.passengers || 'Passagers'}</span><span>{totalPeople}</span></div>
-                            <div className="text-sm text-slate-600 flex justify-between font-semibold"><span>{dict.booking.widget.total || 'Total'}</span><span>{totalPrice},00 €</span></div>
+                            <div className="text-sm text-slate-600 flex justify-between"><span>{widgetCopy.passengers || 'Passagers'}</span><span>{totalPeople}</span></div>
+                            <div className="text-sm text-slate-600 flex justify-between font-semibold"><span>{widgetCopy.total || 'Total'}</span><span>{totalPrice},00 €</span></div>
                         </div>
 
                         <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                             <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-sm font-bold text-slate-700">{dict.booking.widget.payment_title || 'Paiement'}</h4>
+                                <h4 className="text-sm font-bold text-slate-700">{widgetCopy.payment_title || 'Paiement'}</h4>
                                 <button
                                     type="button"
                                     className="text-xs underline"
@@ -789,14 +838,14 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 setClientSecret(data.clientSecret)
                                                 setPaymentProvider('stripe')
                                             } else {
-                                                setStripeError(data.error || (dict.booking.widget.payment_error_generic || 'Erreur paiement'))
+                                                setStripeError(data.error || (widgetCopy.payment_error_generic || 'Erreur paiement'))
                                             }
                                         } catch {
-                                            setStripeError(dict.booking.widget.payment_error_network || 'Erreur de connexion paiement')
+                                            setStripeError(widgetCopy.payment_error_network || 'Erreur de connexion paiement')
                                         }
                                     }}
                                 >
-                                    {dict.booking.widget.btn_pay_now || 'Payer maintenant'}
+                                    {widgetCopy.btn_pay_now || 'Payer maintenant'}
                                 </button>
                             </div>
                             <div className="text-xs text-slate-500">
@@ -811,7 +860,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                         }}
                                     />
                                 ) : (
-                                    dict.booking.widget.init_payment_hint || 'Cliquez pour initier le paiement'
+                                    widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement'
                                 )}
                                 {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
                             </div>
@@ -820,9 +869,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                 <PayPalButton
                                     amount={totalPrice}
                                     messages={{
-                                        notConfigured: dict.booking.widget.payment_paypal_not_configured || 'PayPal non configuré',
-                                        genericError: dict.booking.widget.payment_error_generic || 'Erreur de paiement',
-                                        sdkLoadFailed: dict.booking.widget.payment_paypal_sdk_load_failed || 'Chargement PayPal impossible'
+                                        notConfigured: widgetCopy.payment_paypal_not_configured || 'PayPal non configuré',
+                                        genericError: widgetCopy.payment_error_generic || 'Erreur de paiement',
+                                        sdkLoadFailed: widgetCopy.payment_paypal_sdk_load_failed || 'Chargement PayPal impossible'
                                     }}
                                     onSuccess={async (oid) => {
                                         setGlobalErrors([])
@@ -837,7 +886,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                             })
                                             const capData = await cap.json().catch(() => ({}))
                                             if (!cap.ok) {
-                                                setGlobalErrors([capData?.error || (dict.booking.widget.payment_paypal_capture_failed || 'Capture PayPal échouée')])
+                                                setGlobalErrors([capData?.error || (widgetCopy.payment_paypal_capture_failed || 'Capture PayPal échouée')])
                                                 return
                                             }
                                             setPaymentSucceeded(true)
@@ -845,7 +894,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                         } catch (error: unknown) {
                                             const msg = error instanceof Error ? error.message : String(error)
                                             console.error('PayPal processing error:', msg)
-                                            setGlobalErrors([dict.booking.widget.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
+                                            setGlobalErrors([widgetCopy.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
                                         }
                                     }}
                                     onError={(msg) => {
@@ -886,11 +935,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                             {paymentSucceeded ? (
                                 <div className="text-xs text-green-600 mt-2">
-                                    {dict.booking.widget.payment_ready_to_confirm || 'Paiement validé. Cliquez sur "Confirmer la réservation" pour finaliser.'}
+                                    {widgetCopy.payment_ready_to_confirm || 'Paiement validé. Cliquez sur "Confirmer la réservation" pour finaliser.'}
                                 </div>
                             ) : (
                                 <div className="text-xs text-slate-500 mt-2">
-                                    {dict.booking.widget.payment_waiting || 'Terminez le paiement pour activer la confirmation.'}
+                                    {widgetCopy.payment_waiting || 'Terminez le paiement pour activer la confirmation.'}
                                 </div>
                             )}
                         </div>
@@ -903,8 +952,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
                         {isSubmitting
-                            ? dict.booking.widget.submitting
-                            : `${dict.booking.widget.confirm || 'Confirmer'} (${totalPrice}€)`}
+                            ? widgetCopy.submitting
+                            : `${widgetCopy.confirm || 'Confirmer'} (${totalPrice}€)`}
                     </button>
                 </div>
             )}
@@ -916,12 +965,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         {step === STEPS.SUCCESS ? '🎟️' : '📨'}
                     </div>
                     <h2 className="text-3xl font-serif font-bold text-[#0f172a] mb-2">
-                        {step === STEPS.SUCCESS ? dict.booking.widget.step_success : dict.group_form.sent_title}
+                        {step === STEPS.SUCCESS ? widgetCopy.step_success : groupFormCopy.sent_title}
                     </h2>
                     <p className="text-lg text-slate-600 mb-8 max-w-md">
                         {step === STEPS.SUCCESS 
                             ? `Merci ${formData.firstName}.`
-                            : dict.group_form.sent_message
+                            : groupFormCopy.sent_message
                         }
                     </p>
                     {(
@@ -940,12 +989,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         </div>
                     )}
                     <button onClick={() => window.location.reload()} className="px-6 py-3 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg transition">
-                        {dict.group_form.sent_button}
+                        {groupFormCopy.sent_button}
                     </button>
                  </div>
             )}
                 {/* Modal for contact forms */}
-                <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang as string} />
+                <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang} />
                 </div>
         </div>
     )

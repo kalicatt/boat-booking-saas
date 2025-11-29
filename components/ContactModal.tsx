@@ -1,11 +1,13 @@
 "use client"
 import dynamic from 'next/dynamic'
 import { useEffect } from 'react'
+import type { Lang } from '@/lib/contactClient'
+import type { ContactDict } from '@/components/ContactForms'
 
 const ContactForms = dynamic(() => import('@/components/ContactForms'), { ssr: false })
 
 export default function ContactModal({ open, mode, onClose, dict, lang }:
-  { open: boolean, mode: 'group'|'private', onClose: ()=>void, dict: Record<string, unknown>, lang: string }) {
+  { open: boolean, mode: 'group'|'private', onClose: ()=>void, dict: ContactDict, lang: Lang }) {
   useEffect(()=>{
     if (!open) return
     const prevHash = window.location.hash

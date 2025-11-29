@@ -1,11 +1,11 @@
 import { prisma } from '@/lib/prisma'
 import { getParisTodayISO } from '@/lib/time'
-import type { Payment, Prisma } from '@prisma/client'
+import type { Payment, Prisma, BookingStatus } from '@prisma/client'
 
 export interface StatsFilters {
   start?: string // YYYY-MM-DD
   end?: string   // YYYY-MM-DD
-  status?: string[]
+  status?: BookingStatus[]
   language?: string[]
 }
 

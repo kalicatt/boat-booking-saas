@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getPaypalApiBase } from '@/lib/paypal'
 
+type PaypalAmount = { value?: string; currency_code?: string }
+type PaypalCapture = {
+  status?: string
+  purchase_units?: Array<{
+    payments?: {
+      captures?: Array<{ amount?: PaypalAmount }>
+    }
+  }>
+}
+
+const isPaypalCapture = (input: unknown): input is PaypalCapture => {
+  return Boolean(input && typeof input === 'object' && 'status' in input)
+}
+
 export const runtime = 'nodejs'
 
 export async function POST(req: Request) {
@@ -28,7 +42,7 @@ export async function POST(req: Request) {
     }
 
     // Try to capture; if already captured, we'll fetch order details
-    let capture: unknown
+    let capture: PaypalCapture | undefined
     let amountVal = 0
     let currency = 'EUR'
     try {
@@ -38,13 +52,14 @@ export async function POST(req: Request) {
           'Authorization': `Bearer ${auth.access_token}`
         }
       })
-      capture = await captureRes.json()
-      if (!captureRes.ok || capture.status !== 'COMPLETED') {
+      const captureJson: unknown = await captureRes.json()
+      if (isPaypalCapture(captureJson)) capture = captureJson
+      if (!captureRes.ok || capture?.status !== 'COMPLETED') {
         console.error('PayPal capture step failed', captureRes.status, capture)
         throw new Error('Capture not completed')
       }
-      amountVal = Number(capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || 0)
-      currency = capture.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code || 'EUR'
+      amountVal = Number(capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || 0)
+      currency = capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.currency_code || 'EUR'
     } catch {
       // Fallback: get order details and proceed if already completed
       const orderRes = await fetch(`${base}/v2/checkout/orders/${orderId}`, {

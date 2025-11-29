@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
+import type { CSSProperties, ReactNode, FC } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
+import type { ResourceHeaderProps } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
@@ -175,7 +176,7 @@ interface SlotSelectionInfo {
 
 interface PlanningTimeSlotWrapperProps {
   children?: ReactNode
-  value: Date
+  value?: Date | string | number
   resource?: CalendarResource
 }
 
@@ -496,9 +497,7 @@ export default function ClientPlanningPage() {
         amount: payment.amount,
         currency: payment.currency,
         status: payment.status,
-        createdAt: typeof payment.createdAt === 'string'
-          ? payment.createdAt
-          : payment.createdAt.toISOString()
+        createdAt: String(payment.createdAt)
       }))
       const payments = normalizedPayments.length ? normalizedPayments : undefined
       const totalPrice = typeof booking.totalPrice === 'number' && Number.isFinite(booking.totalPrice)
@@ -1007,9 +1006,11 @@ export default function ClientPlanningPage() {
     }
   }
 
-  const AddButtonWrapper = ({ children, value, resource }: PlanningTimeSlotWrapperProps) => {
+  const AddButtonWrapper: FC<PlanningTimeSlotWrapperProps> = ({ children, value, resource }) => {
     const onClick = () => {
-      const v = new Date(value)
+      const baseValue = value ?? new Date()
+      const v = baseValue instanceof Date ? baseValue : new Date(baseValue)
+      if (Number.isNaN(v.getTime())) return
       const startTime = new Date(
         Date.UTC(
           v.getFullYear(),
@@ -1062,8 +1063,9 @@ export default function ClientPlanningPage() {
     )
   }
 
-  const ResourceHeader = ({ label, resource }: { label: string; resource?: BoatResource }) => {
-    const resolvedResource = resource ?? resources.find((r) => r.title === label)
+  const ResourceHeader: FC<ResourceHeaderProps<BoatResource>> = ({ label, resource }) => {
+    const labelText = typeof label === 'string' ? label : resource?.title ?? ''
+    const resolvedResource = resource ?? resources.find((r) => r.title === labelText)
     return (
       <div
         className="text-center py-2 group cursor-pointer hover:bg-blue-50 transition rounded"
@@ -1071,7 +1073,7 @@ export default function ClientPlanningPage() {
         title="Changer le nom"
       >
         <div className="font-bold text-blue-900 text-lg flex justify-center items-center gap-2">
-          {label}{' '}
+          {labelText || '—'}{' '}
           <span className="text-[10px] opacity-0 group-hover:opacity-100 text-slate-400">✏️</span>
         </div>
         <div className="text-xs text-slate-500 font-bold bg-blue-50 rounded-full px-2 py-0.5 inline-block border border-blue-100 mt-1">

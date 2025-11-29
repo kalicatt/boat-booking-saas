@@ -166,11 +166,21 @@ export async function PATCH(
       return NextResponse.json({ error: "Aucune donnée à mettre à jour." }, { status: 400 })
     }
 
+    const existingBooking = await prisma.booking.findUnique({ where: { id } })
+    if (!existingBooking) {
+      return NextResponse.json({ error: 'Réservation introuvable' }, { status: 404 })
+    }
+
+    const nextAdults = typeof adults === 'number' ? adults : existingBooking.adults ?? 0
+    const nextChildren = typeof children === 'number' ? children : existingBooking.children ?? 0
+    const nextBabies = typeof babies === 'number' ? babies : existingBooking.babies ?? 0
+    const nextNumberOfPeople = nextAdults + nextChildren + nextBabies
+
     const updatedBooking = await prisma.booking.update({
       where: { id },
       data: {
         ...dataToUpdate,
-        numberOfPeople: (dataToUpdate.adults ?? 0) + (dataToUpdate.children ?? 0) + (dataToUpdate.babies ?? 0)
+        numberOfPeople: nextNumberOfPeople
       }
     })
 

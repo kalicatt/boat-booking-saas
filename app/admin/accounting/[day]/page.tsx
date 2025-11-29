@@ -2,13 +2,31 @@
 import useSWR from 'swr'
 import { useMemo } from 'react'
 import { format } from 'date-fns'
-import type { DailyClosure, PaymentLedger } from '@prisma/client'
 import { business } from '@/lib/business'
 
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
 
-type PaymentLedgerDto = Omit<PaymentLedger, 'occurredAt'> & { occurredAt: string }
-type DailyClosureDto = Omit<DailyClosure, 'day' | 'closedAt'> & { day: string; closedAt: string | null }
+type PaymentLedgerDto = {
+  id: string
+  eventType: string
+  provider: string
+  methodType: string | null
+  amount: number
+  currency: string
+  bookingId: string | null
+  receiptNo: number | null
+  occurredAt: string
+}
+
+type DailyClosureDto = {
+  id: string
+  day: string
+  closedAt: string | null
+  closedById: string | null
+  totalsJson: string
+  hash: string
+  locked: boolean
+}
 
 type ClosureSnapshot = {
   totals: Record<string, number>

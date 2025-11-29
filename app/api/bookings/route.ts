@@ -12,6 +12,7 @@ import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
+import type { Booking } from '@prisma/client'
 
 const resend: Resend | null = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
@@ -55,8 +56,6 @@ export async function POST(request: Request) {
       inheritPaymentForChain,
       private: isPrivate
     } = payload
-    let newBooking: unknown
-
     // 1. CAPTCHA
     if (!isStaffOverride) {
         if (!captchaToken) return NextResponse.json({ error: "Captcha requis" }, { status: 400 })
@@ -75,7 +74,13 @@ export async function POST(request: Request) {
 
     const people = adults + children + babies
     const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
-    const shouldMarkPaid = Boolean(markAsPaid && paymentMethod)
+    const paymentMethodDetails = typeof paymentMethod === 'object' && paymentMethod !== null
+      ? { provider: paymentMethod.provider, methodType: paymentMethod.methodType }
+      : undefined
+    const paymentMethodValue = typeof paymentMethod === 'string'
+      ? paymentMethod
+      : paymentMethodDetails?.provider
+    const shouldMarkPaid = Boolean(markAsPaid && paymentMethodValue)
 
     // --- VALIDATION HORAIRES ---
     // On utilise getUTCHours() car on a forcé le Z (UTC)
@@ -143,7 +148,7 @@ export async function POST(request: Request) {
         userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`;
     }
 
-    type TxResultOk = { ok: true; id: string; status: string; finalPrice: number }
+    type TxResultOk = { ok: true; booking: Booking; finalPrice: number }
     type TxResultErr = { ok: false; conflict?: true }
     type TxResult = TxResultOk | TxResultErr
     let txResult: TxResult | undefined
@@ -183,7 +188,7 @@ export async function POST(request: Request) {
       const paxBabies = isPrivate ? 0 : babies
       const paxTotal = paxAdults + paxChildren + paxBabies
       const priceTotal = (paxAdults * PRICE_ADULT) + (paxChildren * PRICE_CHILD) + (paxBabies * PRICE_BABY)
-      newBooking = await tx.booking.create({
+      const booking = await tx.booking.create({
         data: {
           date: new Date(`${date}T00:00:00.000Z`),
           startTime: myStart,
@@ -210,7 +215,7 @@ export async function POST(request: Request) {
         }
       })
 
-      return { ok: true as const, id: newBooking.id, status: newBooking.status, finalPrice: priceTotal }
+      return { ok: true as const, booking, finalPrice: priceTotal }
     })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -225,12 +230,14 @@ export async function POST(request: Request) {
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
     await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${isPrivate ? targetBoat.capacity : people}p${isPrivate ? ' PRIVATISATION' : ''}) sur ${targetBoat.name}`)
 
+    const createdBooking = txResult.booking
+
     // 7. EMAIL CONFIRMATION
     try {
       const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
       const secret = process.env.NEXTAUTH_SECRET || 'changeme'
-      const token = (await import('crypto')).createHmac('sha256', secret).update(String(newBooking.id)).digest('hex').slice(0,16)
-      const cancelUrl = `${baseUrl}/api/bookings/${newBooking.id}?action=cancel&token=${token}`
+      const token = (await import('crypto')).createHmac('sha256', secret).update(String(createdBooking.id)).digest('hex').slice(0,16)
+      const cancelUrl = `${baseUrl}/api/bookings/${createdBooking.id}?action=cancel&token=${token}`
       const reservationSender = EMAIL_FROM.reservations
       const billingSender = EMAIL_FROM.billing
       const replyToContact = EMAIL_ROLES.contact
@@ -242,7 +249,7 @@ export async function POST(request: Request) {
         adults,
         children,
         babies,
-        bookingId: String(newBooking.id),
+        bookingId: String(createdBooking.id),
         totalPrice: finalPrice,
       })
       if(process.env.RESEND_API_KEY && resend){
@@ -253,22 +260,22 @@ export async function POST(request: Request) {
       // Also send a simple text with cancel link as fallback
       const cancelText = `Pour annuler votre réservation, cliquez: ${cancelUrl}`
       if(process.env.RESEND_API_KEY && resend){
-        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, replyTo: replyToContact })
+        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, replyTo: replyToContact })
       } else {
-        await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, from: reservationSender, replyTo: replyToContact })
+        await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, from: reservationSender, replyTo: replyToContact })
       }
-      await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${newBooking.id}`)
+      await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${createdBooking.id}`)
 
       if (invoiceEmail && invoiceEmail !== userEmailToUse) {
         const invoiceSubject = `Facture – Réservation ${date} ${time}`
         if(process.env.RESEND_API_KEY && resend){
           await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: invoiceSubject, html, replyTo: EMAIL_ROLES.billing })
-          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, replyTo: EMAIL_ROLES.billing })
+          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, replyTo: EMAIL_ROLES.billing })
         } else {
           await sendMail({ to: invoiceEmail, subject: invoiceSubject, html, from: billingSender, replyTo: EMAIL_ROLES.billing })
-          await sendMail({ to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, from: billingSender, replyTo: EMAIL_ROLES.billing })
+            await sendMail({ to: invoiceEmail, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, from: billingSender, replyTo: EMAIL_ROLES.billing })
         }
-        await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${newBooking.id}`)
+          await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${createdBooking.id}`)
       }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -336,16 +343,16 @@ export async function POST(request: Request) {
                       create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
                     }
                   },
-                  isPaid: Boolean(inheritPaymentForChain && paymentMethod)
+                  isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails))
                 }
               })
               chainCreated.push({ index: i, boatId: String(ob.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
-              if (inheritPaymentForChain && paymentMethod) {
+              if (inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)) {
                 await prisma.payment.create({
                   data: {
                     bookingId: chainedAlt.id,
-                    provider: paymentMethod.provider || 'manual',
-                    methodType: paymentMethod.methodType || 'unknown',
+                    provider: paymentMethodDetails?.provider || paymentMethodValue || 'manual',
+                    methodType: paymentMethodDetails?.methodType || 'unknown',
                     amount: chainedAlt.totalPrice,
                     currency: 'EUR',
                     status: 'PENDING'
@@ -385,17 +392,17 @@ export async function POST(request: Request) {
                   create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
                 }
               },
-              isPaid: Boolean(inheritPaymentForChain && paymentMethod)
+              isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails))
             }
           })
           chainCreated.push({ index: i, boatId: String(targetBoat.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
           // Optionally inherit payment metadata to chained bookings (record intent, not actual capture)
-          if (inheritPaymentForChain && paymentMethod) {
+          if (inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)) {
             await prisma.payment.create({
               data: {
                 bookingId: chained.id,
-                provider: paymentMethod.provider || 'manual',
-                methodType: paymentMethod.methodType || 'unknown',
+                provider: paymentMethodDetails?.provider || paymentMethodValue || 'manual',
+                methodType: paymentMethodDetails?.methodType || 'unknown',
                 amount: chained.totalPrice,
                 currency: 'EUR',
                 status: 'PENDING'
@@ -440,16 +447,16 @@ export async function POST(request: Request) {
                       create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
                     }
                   },
-                  isPaid: Boolean(inheritPaymentForChain && paymentMethod)
+                  isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails))
                 }
               })
               chainCreated.push({ index: i, boatId: String(ob.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
-              if (inheritPaymentForChain && paymentMethod) {
+              if (inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)) {
                 await prisma.payment.create({
                   data: {
                     bookingId: chainedExtra.id,
-                    provider: paymentMethod.provider || 'manual',
-                    methodType: paymentMethod.methodType || 'unknown',
+                    provider: paymentMethodDetails?.provider || paymentMethodValue || 'manual',
+                    methodType: paymentMethodDetails?.methodType || 'unknown',
                     amount: chainedExtra.totalPrice,
                     currency: 'EUR',
                     status: 'PENDING'
@@ -476,19 +483,19 @@ export async function POST(request: Request) {
     try {
       if (isStaffOverride && txResult.ok) {
         const amountMinor = Math.round((txResult as TxResultOk).finalPrice * 100)
-        const method = paymentMethod as string | undefined
+        const method = paymentMethodValue
         if (method === 'cash') {
-          await prisma.payment.create({ data: { provider: 'cash', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+          await prisma.payment.create({ data: { provider: 'cash', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'card') {
-          await prisma.payment.create({ data: { provider: 'card', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+          await prisma.payment.create({ data: { provider: 'card', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'paypal') {
-          await prisma.payment.create({ data: { provider: 'paypal', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+          await prisma.payment.create({ data: { provider: 'paypal', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'applepay') {
-          await prisma.payment.create({ data: { provider: 'applepay', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+          await prisma.payment.create({ data: { provider: 'applepay', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'googlepay') {
-          await prisma.payment.create({ data: { provider: 'googlepay', bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+          await prisma.payment.create({ data: { provider: 'googlepay', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'ANCV' || method === 'CityPass') {
-          await prisma.payment.create({ data: { provider: 'voucher', methodType: method, bookingId: txResult.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+          await prisma.payment.create({ data: { provider: 'voucher', methodType: method, bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         }
       }
     } catch (e: unknown) {
@@ -499,7 +506,7 @@ export async function POST(request: Request) {
 
     // 9. EMAIL
     try {
-      if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@')) {
+      if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@') && resend) {
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userEmailToUse],
@@ -508,7 +515,7 @@ export async function POST(request: Request) {
               firstName: userDetails.firstName,
               date, time, people, adults, children, babies,
               totalPrice: finalPrice,
-              bookingId: txResult.id
+              bookingId: createdBooking.id
             })
           })
       }
@@ -517,7 +524,7 @@ export async function POST(request: Request) {
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
 
-    return NextResponse.json({ success: true, bookingId: (txResult as TxResultOk).id, status: (txResult as TxResultOk).status, booking: newBooking, chainCreated, overlaps })
+    return NextResponse.json({ success: true, bookingId: createdBooking.id, status: createdBooking.status, booking: createdBooking, chainCreated, overlaps })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     console.error("ERREUR API:", msg)

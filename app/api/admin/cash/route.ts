@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 export const runtime = 'nodejs'
 import { auth } from '@/auth'
 import { log } from '@/lib/logger'
@@ -20,6 +21,19 @@ type CashAction
   = { action: 'open'; openingFloat?: number; openedById?: string }
   | { action: 'close'; sessionId: string; closingCount: number; closedById?: string; closingBreakdown?: ClosingBreakdownPayload | string | null }
   | { action: 'movement'; sessionId: string; kind: string; amount: number; note?: string | null }
+
+type CashOpenAction = Extract<CashAction, { action: 'open' }>
+type CashCloseAction = Extract<CashAction, { action: 'close' }>
+type CashMovementAction = Extract<CashAction, { action: 'movement' }>
+
+const isOpenAction = (payload: CashAction | { action?: string } | null | undefined): payload is CashOpenAction =>
+  payload?.action === 'open'
+
+const isCloseAction = (payload: CashAction | { action?: string } | null | undefined): payload is CashCloseAction =>
+  payload?.action === 'close'
+
+const isMovementAction = (payload: CashAction | { action?: string } | null | undefined): payload is CashMovementAction =>
+  payload?.action === 'movement'
 
 const parseBreakdown = (payload: ClosingBreakdownPayload | string | null | undefined): ClosingBreakdownPayload | null => {
   if (payload === null || payload === undefined) return null
@@ -80,8 +94,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const body = (await req.json()) as CashAction | { action?: string }
-  const action = body?.action
-  if (action === 'open') {
+  if (isOpenAction(body)) {
     const { openingFloat, openedById } = body
     // Prevent multiple open sessions: if one is open (no closedAt), return it
     const existing = await prisma.cashSession.findFirst({ where: { closedAt: null }, orderBy: { openedAt: 'desc' } })
@@ -97,7 +110,7 @@ export async function POST(req: Request) {
     await log('info', 'Cash session opened', { route: '/api/admin/cash' })
     return NextResponse.json(s)
   }
-  if (action === 'close') {
+  if (isCloseAction(body)) {
     const { sessionId, closingCount, closedById, closingBreakdown } = body
     try {
       const breakdownPayload = parseBreakdown(closingBreakdown) ?? null
@@ -107,7 +120,7 @@ export async function POST(req: Request) {
           closedAt: new Date(),
           closingCount,
           closedById,
-          closingBreakdown: breakdownPayload
+          closingBreakdown: breakdownPayload ?? Prisma.JsonNull
         }
       })
       await log('info', 'Cash session closed', { route: '/api/admin/cash' })
@@ -118,7 +131,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Cash close failed', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
     }
   }
-  if (action === 'movement') {
+  if (isMovementAction(body)) {
     const { sessionId, kind, amount, note } = body
     try {
       const movement = await prisma.cashMovement.create({ data: { sessionId, kind, amount, note } })

@@ -1,6 +1,6 @@
 "use client"
 
-import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js'
+import { PayPalButtons, PayPalScriptProvider, type ReactPayPalScriptOptions } from '@paypal/react-paypal-js'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 type PayPalCopy = {
@@ -30,15 +30,16 @@ export default function PayPalButton({ amount, onSuccess, onError, messages }: P
     return genericErrorMsg
   }, [genericErrorMsg])
 
-  const paypalOptions = useMemo(() => {
+  const paypalOptions = useMemo<ReactPayPalScriptOptions | null>(() => {
     if (!clientId) return null
     return {
       'client-id': clientId,
+      clientId,
       currency: 'EUR',
       intent: 'capture',
       components: 'buttons',
       'disable-funding': 'card'
-    } as const
+    }
   }, [clientId])
 
   const forceRerenderDeps = useMemo(() => [amount, genericErrorMsg], [amount, genericErrorMsg])

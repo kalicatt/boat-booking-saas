@@ -105,11 +105,19 @@ export const BookingRequestSchema = z.object({
   captchaToken: z.string().optional(),
   message: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v,1000)!) : undefined),
   markAsPaid: z.boolean().optional(),
-  paymentMethod: z.enum(['cash','card','paypal','applepay','googlepay','ANCV','CityPass']).optional(),
+  paymentMethod: z.union([
+    z.enum(['cash','card','paypal','applepay','googlepay','ANCV','CityPass']),
+    z.object({
+      provider: z.string().optional(),
+      methodType: z.string().optional()
+    })
+  ]).optional(),
   invoiceEmail: z.string().email().optional().transform(v => v ? cleanString(v, 120)?.toLowerCase() : undefined),
   pendingOnly: z.boolean().optional(),
   forcedBoatId: z.coerce.number().int().positive().optional(),
-  groupChain: z.number().int().min(0).optional()
+  groupChain: z.number().int().min(0).optional(),
+  inheritPaymentForChain: z.boolean().optional(),
+  private: z.boolean().optional()
 }).refine(v => (v.adults + v.children + v.babies) > 0, { message: 'Au moins une personne requise' })
 
 // Simple helper to safely parse numbers

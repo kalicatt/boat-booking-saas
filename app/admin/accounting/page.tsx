@@ -415,7 +415,7 @@ export default function AccountingAdminPage() {
                     <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
                     Session ouverte
                   </span>
-                ) : lastClosedSession ? (
+                ) : lastClosedSession?.closedAt ? (
                   <span className="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                     Dernière clôture {format(new Date(lastClosedSession.closedAt), 'dd/MM HH:mm')}
                   </span>

@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
+import type { Stripe } from '@stripe/stripe-js'
 import { Elements, PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
 
 type Props = {
@@ -15,7 +16,7 @@ type Props = {
 
 function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', ensurePendingBooking, onSuccess, onError }: Props) {
   const stripe = useStripe()
-    const [paymentRequest, setPaymentRequest] = useState<StripePaymentRequest | null>(null)
+    const [paymentRequest, setPaymentRequest] = useState<ReturnType<Stripe['paymentRequest']> | null>(null)
 
   useEffect(() => {
     let mounted = true
@@ -121,7 +122,7 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
 
 export default function StripeWalletButton(props: Props) {
   const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  const [stripePromise] = useState<Promise<Stripe | null> | null>(() => (pk ? loadStripe(pk) : null))
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(() => (pk ? loadStripe(pk) : null))
   useEffect(() => {
     const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
     if (pk) setStripePromise(loadStripe(pk))

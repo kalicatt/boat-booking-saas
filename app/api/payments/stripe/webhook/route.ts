@@ -23,7 +23,7 @@ export async function POST(req: Request){
     event = stripe.webhooks.constructEvent(rawBody, sig || '', webhookSecret)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
-    await log('warn','Stripe signature verification failed',{ route:'/api/payments/stripe/webhook', message: msg })
+    await log('warn','Stripe signature verification failed',{ route:'/api/payments/stripe/webhook', error: msg })
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 400 })
   }
 
@@ -50,7 +50,7 @@ export async function POST(req: Request){
         amount: amountTotal,
         currency,
         status: 'succeeded',
-        rawPayload: session as Prisma.JsonValue
+        rawPayload: session as unknown as Prisma.InputJsonValue
       }})
       // Mark booking paid
       await prisma.booking.update({ where: { id: bookingId }, data: { isPaid: true, status: 'CONFIRMED' } })
@@ -72,7 +72,7 @@ export async function POST(req: Request){
       await log('info','Stripe payment recorded',{ route:'/api/payments/stripe/webhook', bookingId })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
-      await log('error','Stripe payment handling failed',{ route:'/api/payments/stripe/webhook', bookingId, message: msg })
+      await log('error','Stripe payment handling failed',{ route:'/api/payments/stripe/webhook', bookingId, error: msg })
       return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
     }
   }

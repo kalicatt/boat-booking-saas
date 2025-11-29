@@ -21,7 +21,7 @@ const FALLBACK_LANG: SupportedLang = 'en'
 const isSupportedLang = (value: string): value is SupportedLang =>
   LANGUAGE_OPTIONS.some(option => option.code === value)
 
-export default function LandingClient({ dict, lang }: { dict: Record<string, unknown>, lang: SupportedLang }) {
+export default function LandingClient({ dict, lang }: { dict: Record<string, any>, lang: SupportedLang }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -40,7 +40,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, unk
   const pathname = usePathname()
   const routeLang = pathname?.split('/')[1] || ''
   const [currentLang, setCurrentLang] = useState<SupportedLang>(isSupportedLang(lang) ? lang : FALLBACK_LANG)
-  const [liveDict, setLiveDict] = useState(dict)
+  const [liveDict, setLiveDict] = useState<Record<string, any>>(dict)
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
   const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
@@ -353,7 +353,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, unk
             <p className="text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
-            {liveDict.bento?.cards?.map((c: Record<string, unknown>, idx: number) => {
+            {liveDict.bento?.cards?.map((c: Record<string, any>, idx: number) => {
               const originalTitle = String(c.title || '').trim();
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
               // Use normalized display title for matching so "Frictionless" remap is honored
@@ -366,6 +366,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, unk
               else if (/(group|groupe|gruppo|grupo|privat)/i.test(t)) bg = '/images/group-private.jpg';
               else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
               else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.jpg';
+              const text = typeof c.text === 'string' ? c.text : String(c.text ?? '');
                 return (
                   <div
                     key={idx}
@@ -379,7 +380,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, unk
                   >
                     <div className="bg-white/85 rounded-md px-3 py-2 inline-block shadow-sm max-w-[85%]">
                       <h3 className="font-serif text-lg font-bold mb-0.5 text-[#0f172a] group-hover:text-[#0ea5e9] transition">{title}</h3>
-                      <p className="text-[13px] text-slate-700 leading-relaxed">{c.text}</p>
+                      <p className="text-[13px] text-slate-700 leading-relaxed">{text}</p>
                   </div>
                   </div>
                 );
