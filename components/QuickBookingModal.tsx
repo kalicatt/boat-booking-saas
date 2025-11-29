@@ -20,6 +20,8 @@ const BOOKING_STEPS = [
     { id: 'payment', label: 'Paiement' }
 ] as const
 
+const LAST_STEP_INDEX = BOOKING_STEPS.length - 1
+
 const PAYMENT_OPTIONS = [
     { value: 'cash', label: 'Espèces' },
     { value: 'card', label: 'Carte bancaire' },
@@ -245,9 +247,9 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setShowStepErrors(false)
     }
 
-    const handleSubmit = async (event: React.FormEvent) => {
-        event.preventDefault()
-        if (!canProceedStep(BOOKING_STEPS.length - 1)) {
+    const handleConfirm = async () => {
+        if (isLoading) return
+        if (!canProceedStep(LAST_STEP_INDEX)) {
             setShowStepErrors(true)
             return
         }
@@ -318,7 +320,21 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         }
     }
 
-    const progress = BOOKING_STEPS.length > 1 ? (stepIndex / (BOOKING_STEPS.length - 1)) * 100 : 100
+    const handleFormKeyDown = (event: React.KeyboardEvent<HTMLFormElement>) => {
+        if (event.key !== 'Enter') return
+        if (event.repeat) {
+            event.preventDefault()
+            return
+        }
+        event.preventDefault()
+        if (stepIndex < LAST_STEP_INDEX) {
+            handleNext()
+            return
+        }
+        void handleConfirm()
+    }
+
+    const progress = BOOKING_STEPS.length > 1 ? (stepIndex / LAST_STEP_INDEX) * 100 : 100
 
     const stepErrorMessage = useMemo(() => {
         if (!showStepErrors) return ''
@@ -398,7 +414,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5 px-5 py-6 text-slate-900">
+                <form
+                    onSubmit={(event) => event.preventDefault()}
+                    onKeyDown={handleFormKeyDown}
+                    className="space-y-5 px-5 py-6 text-slate-900"
+                >
                     {stepIndex === 0 && (
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
@@ -671,7 +691,8 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 </button>
                             ) : (
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onClick={() => void handleConfirm()}
                                     disabled={isLoading || isLocked || !canProceedStep(stepIndex)}
                                     className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
