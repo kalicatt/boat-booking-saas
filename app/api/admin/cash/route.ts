@@ -47,9 +47,17 @@ export async function POST(req: Request) {
     return NextResponse.json(s)
   }
   if (action === 'close') {
-    const { sessionId, closingCount, closedById } = body
+    const { sessionId, closingCount, closedById, closingBreakdown } = body
     try {
-      const s = await prisma.cashSession.update({ where: { id: sessionId }, data: { closedAt: new Date(), closingCount, closedById } })
+      const s = await prisma.cashSession.update({
+        where: { id: sessionId },
+        data: {
+          closedAt: new Date(),
+          closingCount,
+          closedById,
+          closingBreakdown: closingBreakdown ?? null
+        }
+      })
       await log('info', 'Cash session closed', { route: '/api/admin/cash' })
       return NextResponse.json(s)
     } catch (e: any) {

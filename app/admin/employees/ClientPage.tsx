@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import Link from 'next/link'
+import { AdminPageShell } from '../_components/AdminPageShell'
 
 type Props = { canManage?: boolean }
 
@@ -67,20 +67,18 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
     const localCanManage = canManage || myRole === 'SUPERADMIN' || myRole === 'ADMIN'
 
     return (
-        <div className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                    <Link href="/admin" className="text-slate-600 hover:text-slate-800">← Retour Tableau de bord</Link>
-                    {!localCanManage && !loading && (
-                        <p className="text-sm text-orange-600 mt-1 font-bold bg-orange-50 inline-block px-2 py-1 rounded border border-orange-200">
-                            🔒 Mode Lecture Seule
-                        </p>
-                    )}
-                </div>
-                {localCanManage && (
-                    <button onClick={()=>setShowCreateModal(true)} className="sn-btn-primary">+ Nouveau collaborateur</button>
-                )}
-            </div>
+        <AdminPageShell
+            title="Équipe & comptes"
+            description="Gérez les accès, les coordonnées et les statuts de l'équipe Sweet Narcisse."
+            actions={localCanManage ? (
+                <button onClick={()=>setShowCreateModal(true)} className="sn-btn-primary">+ Nouveau collaborateur</button>
+            ) : undefined}
+        >
+            {!localCanManage && !loading && (
+                <p className="inline-flex items-center gap-2 rounded border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
+                    🔒 Mode lecture seule — vous n'avez pas les droits de modification
+                </p>
+            )}
 
             <CreateEmployeeModal
                 open={showCreateModal}
@@ -169,7 +167,7 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                     </table>
                 </div>
             </div>
-        </div>
+        </AdminPageShell>
     )
 }
 

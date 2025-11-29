@@ -3,6 +3,7 @@ import useSWR from 'swr'
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { business } from '@/lib/business'
+import { AdminPageShell } from '../_components/AdminPageShell'
 
 const fetcher = (url: string) => fetch(url).then(r=>r.json())
 
@@ -29,13 +30,15 @@ export default function AccountingAdminPage(){
   }, [toast])
 
   return (
-    <div className="p-6 space-y-6">
+    <AdminPageShell
+      title="Comptabilité"
+      description="Surveillez la caisse, le journal comptable et exportez les clôtures en un clin d’œil."
+    >
       {toast && (
         <div className={`fixed top-4 right-4 z-50 rounded px-4 py-2 shadow ${toast.type==='success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
           {toast.message}
         </div>
       )}
-      <h1 className="text-2xl font-bold">Comptabilité</h1>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="rounded-xl border bg-white p-4">
           <div className="font-semibold mb-2">Caisse</div>
@@ -262,6 +265,6 @@ export default function AccountingAdminPage(){
           }}>Exporter CSV</button>
         </div>
       </div>
-    </div>
+    </AdminPageShell>
   )
 }

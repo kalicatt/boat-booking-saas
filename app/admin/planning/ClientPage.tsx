@@ -6,9 +6,9 @@ import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute 
 import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
-import Link from 'next/link'
 import QuickBookingModal from '@/components/QuickBookingModal'
 import useSWR from 'swr'
+import { AdminPageShell } from '../_components/AdminPageShell'
 
 const locales = { 'fr': fr }
 const localizer = dateFnsLocalizer({
@@ -636,18 +636,11 @@ export default function ClientPlanningPage() {
   }
 
   return (
-    <div className="h-screen p-6 bg-slate-50 flex flex-col">
-      <div className="flex justify-between items-center mb-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-1 inline-block">
-              ← Tableau de Bord
-            </Link>
-            <h1 className="text-2xl font-bold text-blue-900">Planning 🛶</h1>
-            <p className="text-sm text-slate-500">
-              {loadingBoats ? 'Chargement des barques...' : 'Cliquez sur une case vide pour ajouter une réservation.'}
-            </p>
-          </div>
+    <AdminPageShell
+      title="Planning 🛶"
+      description={loadingBoats ? 'Chargement des barques...' : 'Cliquez sur une case vide pour ajouter une réservation.'}
+      actions={
+        <div className="flex flex-wrap items-center gap-3">
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${
               !rawBookings && !error
@@ -667,8 +660,6 @@ export default function ClientPlanningPage() {
               </>
             )}
           </div>
-        </div>
-        <div className="flex gap-3">
           <button
             onClick={() => mutate()}
             className="px-4 py-2 bg-white border shadow-sm rounded hover:bg-slate-50 text-sm font-bold text-slate-600 transition"
@@ -682,10 +673,11 @@ export default function ClientPlanningPage() {
             Déconnexion 🚪
           </button>
         </div>
-      </div>
-
+      }
+      footerNote="Mises à jour automatiques toutes les 10 secondes."
+    >
       <div
-        className={`flex-1 min-h-0 sn-card p-4 sn-zoom ${compactZoom ? 'sn-compact' : ''} ${denseZoom ? 'sn-dense' : ''}`}
+        className={`sn-card sn-zoom flex h-[70vh] flex-col ${compactZoom ? 'sn-compact' : ''} ${denseZoom ? 'sn-dense' : ''}`}
         onWheelCapture={(e)=>{ if (e.ctrlKey) { e.preventDefault(); e.stopPropagation() } }}
         tabIndex={0}
         ref={containerRef}
@@ -695,56 +687,54 @@ export default function ClientPlanningPage() {
             ⚠️ Aucune barque trouvée. Relancez le seed.
           </div>
         ) : (
-          <div className="h-full overflow-auto" style={{ ['--slotH' as any]: `${Math.round(40 * zoomLevel)}px` }}>
-          <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            date={currentDate}
-            onNavigate={handleNavigate}
-            onRangeChange={handleRangeChange}
-            onSelectEvent={handleSelectBooking}
-            onSelectSlot={handleSlotSelect}
-            selectable={true}
-            view={currentView}
-            onView={handleViewChange}
-            defaultView={Views.DAY}
-            views={['day', 'work_week', 'month']}
-            resources={resources}
-            resourceIdAccessor="id"
-            resourceTitleAccessor="title"
-            step={5}
-            timeslots={1}
-            min={preset==='morning' ? new Date(0,0,0,10,0,0) : new Date(0, 0, 0, 10, 0, 0)}
-            max={preset==='morning' ? new Date(0,0,0,12,0,0) : new Date(0, 0, 0, 18, 30, 0)}
-            culture="fr"
-            onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
-            slotPropGetter={slotPropGetter}
-            components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
-            style={{ height: '100%' }}
-            eventPropGetter={(event: any) => {
-              let style = {
-                color: 'white',
-                backgroundColor: '#2563eb',
-                border: '1px solid rgba(255,255,255,0.6)',
-                borderRadius: '6px'
-              }
-              if (event.checkinStatus === 'EMBARQUED') style.backgroundColor = '#1f4068'
-              else if (event.checkinStatus === 'NO_SHOW') {
-                style.backgroundColor = '#60a5fa'
-                style.color = 'white'
-              } else if (event.resourceId === 2) style.backgroundColor = '#008b8b'
-              else if (event.resourceId === 3) style.backgroundColor = '#7c3aed'
-              else if (event.resourceId === 4) style.backgroundColor = '#d97706'
-              return { style }
-            }}
-          />
+          <div className="flex-1 overflow-auto" style={{ ['--slotH' as any]: `${Math.round(40 * zoomLevel)}px` }}>
+            <Calendar
+              localizer={localizer}
+              events={events}
+              startAccessor="start"
+              endAccessor="end"
+              date={currentDate}
+              onNavigate={handleNavigate}
+              onRangeChange={handleRangeChange}
+              onSelectEvent={handleSelectBooking}
+              onSelectSlot={handleSlotSelect}
+              selectable={true}
+              view={currentView}
+              onView={handleViewChange}
+              defaultView={Views.DAY}
+              views={['day', 'work_week', 'month']}
+              resources={resources}
+              resourceIdAccessor="id"
+              resourceTitleAccessor="title"
+              step={5}
+              timeslots={1}
+              min={preset==='morning' ? new Date(0,0,0,10,0,0) : new Date(0, 0, 0, 10, 0, 0)}
+              max={preset==='morning' ? new Date(0,0,0,12,0,0) : new Date(0, 0, 0, 18, 30, 0)}
+              culture="fr"
+              onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
+              slotPropGetter={slotPropGetter}
+              components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
+              style={{ height: '100%' }}
+              eventPropGetter={(event: any) => {
+                let style = {
+                  color: 'white',
+                  backgroundColor: '#2563eb',
+                  border: '1px solid rgba(255,255,255,0.6)',
+                  borderRadius: '6px'
+                }
+                if (event.checkinStatus === 'EMBARQUED') style.backgroundColor = '#1f4068'
+                else if (event.checkinStatus === 'NO_SHOW') {
+                  style.backgroundColor = '#60a5fa'
+                  style.color = 'white'
+                } else if (event.resourceId === 2) style.backgroundColor = '#008b8b'
+                else if (event.resourceId === 3) style.backgroundColor = '#7c3aed'
+                else if (event.resourceId === 4) style.backgroundColor = '#d97706'
+                return { style }
+              }}
+            />
           </div>
         )}
       </div>
-
-      
 
       <style jsx>{`
         .sn-zoom { overscroll-behavior: contain; }
@@ -797,6 +787,6 @@ export default function ClientPlanningPage() {
           onSuccess={handleQuickBookingSuccess}
         />
       )}
-    </div>
+    </AdminPageShell>
   )
 }

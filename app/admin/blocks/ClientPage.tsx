@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { AdminPageShell } from '../_components/AdminPageShell'
 
 export default function ClientBlocksAdminPage() {
   const [blocks, setBlocks] = useState<any[]>([])
@@ -81,15 +81,12 @@ export default function ClientBlocksAdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">Blocages de réservation</h1>
-          <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600">← Retour Tableau de bord</Link>
-        </div>
-        <p className="text-slate-600 mb-6">Créez des intervalles où la réservation est impossible (journée, matin, après-midi, ou spécifiques).</p>
-
-        <div className="bg-white border rounded p-4 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <AdminPageShell
+      title="Blocages de réservation"
+      description="Planifiez des indisponibilités ponctuelles ou récurrentes pour maîtriser l'ouverture des créneaux."
+    >
+      <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-4 rounded-xl border bg-white p-4 md:grid-cols-2">
           <div className="md:col-span-2 flex items-end gap-3">
             <div>
               <label className="block text-xs text-slate-500">Date (Europe/Paris)</label>
@@ -135,7 +132,7 @@ export default function ClientBlocksAdminPage() {
           </div>
         </div>
 
-        <div className="bg-white border rounded overflow-hidden">
+        <div className="overflow-hidden rounded-xl border bg-white">
           <table className="w-full text-sm">
             <thead className="bg-slate-100">
               <tr>
@@ -179,6 +176,6 @@ export default function ClientBlocksAdminPage() {
           </table>
         </div>
       </div>
-    </div>
+    </AdminPageShell>
   )
 }

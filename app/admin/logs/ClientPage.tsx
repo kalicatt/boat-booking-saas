@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { AdminPageShell } from '../_components/AdminPageShell'
 
 export default function ClientLogsPage() {
   const [logs, setLogs] = useState<any[]>([])
@@ -35,22 +35,16 @@ export default function ClientLogsPage() {
   })
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8 sn-admin">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-2 inline-block">
-              ← Retour Tableau de bord
-            </Link>
-            <h1 className="text-3xl font-bold text-slate-800">Journal d'Activité 🕵️‍♂️</h1>
-            <p className="text-slate-500">Historique des 100 dernières actions sensibles.</p>
-          </div>
-          <button onClick={fetchLogs} className="bg-white border px-4 py-2 rounded shadow-sm hover:bg-slate-50">
-            Actualiser
-          </button>
-        </div>
-
-        <div className="sn-card overflow-hidden">
+    <AdminPageShell
+      title="Journal d'activité 🕵️‍♂️"
+      description="Consultez les 100 dernières actions critiques enregistrées par la plateforme."
+      actions={(
+        <button onClick={fetchLogs} className="rounded border bg-white px-4 py-2 shadow-sm transition hover:bg-slate-50">
+          Actualiser
+        </button>
+      )}
+    >
+      <div className="sn-card overflow-hidden">
           <div className="p-4 flex gap-3 items-end border-b bg-slate-50">
             <div>
               <label className="block text-xs text-slate-500">Action contient</label>
@@ -147,8 +141,7 @@ export default function ClientLogsPage() {
               )}
             </tbody>
           </table>
-        </div>
       </div>
-    </div>
+    </AdminPageShell>
   )
 }

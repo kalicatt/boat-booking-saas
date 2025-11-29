@@ -206,6 +206,7 @@ model CashSession {
   closedAt     DateTime?
   closedById   String?
   closingCount Int?     // cents counted at close
+  closingBreakdown Json?
   movements    CashMovement[]
 }
 
