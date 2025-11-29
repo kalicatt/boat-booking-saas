@@ -30,7 +30,9 @@ export async function POST(request: Request) {
     })
     const parsed = schema.safeParse(json)
     if (!parsed.success) return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
-    let { firstName, lastName, email, phone, message, people, date, captchaToken, lang } = parsed.data
+    const { firstName, lastName, email, phone: rawPhone, message: rawMessage, people, date, captchaToken, lang } = parsed.data
+    let phone = rawPhone
+    let message = rawMessage
     const supported = ['fr','en','de','es','it'] as const
     type Lang = typeof supported[number]
     const referer = request.headers.get('referer') || ''
@@ -59,15 +61,17 @@ export async function POST(request: Request) {
     })
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 5000)
-    const captchaRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: verifyBody.toString(),
-      signal: controller.signal
-    }).catch((e) => {
+    let captchaRes: Response | undefined
+    try {
+      captchaRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: verifyBody.toString(),
+        signal: controller.signal
+      })
+    } catch (e) {
       console.warn('Captcha verify failed', e)
-      return undefined as any
-    })
+    }
     clearTimeout(timeout)
     const captchaData = captchaRes ? await captchaRes.json() : { success: false }
     if (!captchaData.success) {

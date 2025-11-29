@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     })
     const parsed = schema.safeParse(json)
     if (!parsed.success) return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
-    let { firstName, lastName, email, phone, message, people, company, reason, eventDate, eventTime, budget, captchaToken, lang } = parsed.data
+    const { firstName, lastName, email, phone: rawPhone, message, people, company, reason, eventDate, eventTime, budget, captchaToken, lang } = parsed.data
+    let phone = rawPhone
     const supported = ['fr','en','de','es','it'] as const
     type Lang = typeof supported[number]
     const referer = request.headers.get('referer') || ''
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
     if (!resend) {
       return NextResponse.json({ error: 'Email service non configuré' }, { status: 500 })
     }
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: EMAIL_FROM.notifications,
       to: [process.env.ADMIN_EMAIL || EMAIL_ROLES.notifications],
       subject: `Demande de Groupe - ${firstName} ${lastName}`,

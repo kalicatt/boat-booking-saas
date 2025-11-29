@@ -4,8 +4,10 @@ import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
 export async function POST(req: Request){
   try {
-    const body = await req.json()
-    const { name, email, message } = body || {}
+    type ContactPayload = { name?: string; email?: string; message?: string }
+    const body = (await req.json().catch(() => null)) as unknown
+    const payload: ContactPayload = body && typeof body === 'object' ? body as ContactPayload : {}
+    const { name, email, message } = payload
     if(!message || typeof message !== 'string'){
       return NextResponse.json({ error: 'Message requis' }, { status: 400 })
     }
@@ -18,7 +20,8 @@ export async function POST(req: Request){
       replyTo: email && typeof email === 'string' ? email : undefined
     })
     return NextResponse.json({ success: true })
-  } catch (e:any){
-    return NextResponse.json({ error: 'Contact failed', details: String(e?.message||e) }, { status: 500 })
+  } catch (error){
+    const err = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: 'Contact failed', details: err }, { status: 500 })
   }
 }
