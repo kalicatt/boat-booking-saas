@@ -61,6 +61,12 @@ const STATUS_THEME: Record<string, { label: string; background: string; backgrou
   }
 }
 
+const BOOKING_STATUS_THEME: Record<'PENDING' | 'CONFIRMED' | 'CANCELLED', { label: string; className: string }> = {
+  PENDING: { label: 'En attente', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+  CONFIRMED: { label: 'Confirmée', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
+  CANCELLED: { label: 'Annulée', className: 'border-rose-200 bg-rose-50 text-rose-700' }
+}
+
 const LANGUAGE_FLAGS: Record<string, string> = {
   FR: '🇫🇷',
   EN: '🇬🇧',
@@ -1217,156 +1223,336 @@ export default function ClientPlanningPage() {
   }
 
   const DetailsModal = ({ booking, onClose }: { booking: BookingDetails; onClose: () => void }) => {
-    if (!booking) return null
+    useEffect(() => {
+      setDetailsMarkPaid(null)
+    }, [booking.id])
+
     const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
+    const checkinStatus = (booking.checkinStatus || 'CONFIRMED') as BoardingStatus
+    const statusTheme = STATUS_THEME[checkinStatus] ?? STATUS_THEME.CONFIRMED
+    const bookingState = BOOKING_STATUS_THEME[booking.status] ?? BOOKING_STATUS_THEME.CONFIRMED
+    const boatTitle = resources.find((resource) => Number(resource.id) === Number(booking.resourceId))?.title ?? `Barque ${booking.resourceId}`
+    const languageFlag = booking.language ? LANGUAGE_FLAGS[booking.language] ?? booking.language : ''
+    const languageLabel = booking.language ? `${languageFlag ? `${languageFlag} ` : ''}${booking.language}` : '—'
+    const totalOnBoat = booking.totalOnBoat ?? booking.peopleCount ?? 0
+    const loadPct = booking.boatCapacity ? Math.round((totalOnBoat / booking.boatCapacity) * 100) : null
+    const priceFormatter = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
+    const totalPriceLabel = priceFormatter.format(booking.totalPrice || 0)
+    const message = (booking.message || '').trim()
+    const statusOptions: BoardingStatus[] = ['CONFIRMED', 'EMBARQUED', 'NO_SHOW']
+    const occupantBreakdown = [
+      { label: 'Adultes', value: booking.adults || 0 },
+      { label: 'Enfants', value: booking.children || 0 },
+      { label: 'Bébés', value: booking.babies || 0 }
+    ]
 
     return (
-      <div className="fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl w-full max-w-lg shadow-2xl">
-          <div className="p-5 border-b flex justify-between items-center bg-blue-50 rounded-t-xl">
-            <h3 className="text-xl font-bold text-blue-900">Détails {format(booking.start, 'HH:mm')}</h3>
-            <button onClick={onClose} className="text-xl text-slate-500 hover:text-black">
-              ✕
-            </button>
-          </div>
-          <div className="p-5 space-y-5">
-            <div className="grid grid-cols-3 gap-4 pt-2 text-center text-sm">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 p-4">
+        <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+          <div className="relative">
+            <div
+              className="absolute inset-0 opacity-95"
+              style={{ background: `linear-gradient(135deg, ${statusTheme.background}, ${statusTheme.backgroundSoft})` }}
+            />
+            <div className="relative flex flex-wrap items-start justify-between gap-4 px-6 py-5 text-white">
               <div>
-                <p className="font-bold text-slate-800">{format(booking.start, 'dd/MM')}</p>
-                <p className="text-xs text-slate-500">Date</p>
-              </div>
-              <div>
-                <p className="font-bold text-blue-600">{format(booking.start, 'HH:mm')}</p>
-                <p className="text-xs text-slate-500">Départ</p>
-              </div>
-              <div>
-                <p className="font-bold text-slate-800">{booking.peopleCount}p</p>
-                <p className="text-xs text-slate-500">({booking.language})</p>
-              </div>
-            </div>
-            <div className="border p-3 rounded bg-slate-50">
-              <p className="font-bold text-lg text-slate-800">{displayedClientName}</p>
-              <p className="text-sm text-slate-600">📧 {booking.user.email}</p>
-              <p className="text-sm text-slate-600">📞 {booking.user.phone || 'N/A'}</p>
-            </div>
-
-            {booking.message && (
-              <div className="bg-yellow-50 p-3 rounded border border-yellow-200 text-sm text-yellow-800">
-                <strong>Note / Commentaire :</strong>
-                <br />
-                {booking.message}
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div
-                className={`p-2 rounded border ${booking.isPaid ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}
-              >
-                <p className="text-xs font-bold uppercase">Paiement</p>
-                <p className="font-bold">{booking.isPaid ? 'RÉGLÉ' : 'NON PAYÉ'} ({booking.totalPrice}€)</p>
-              </div>
-              <div
-                className={`p-2 rounded border ${booking.checkinStatus === 'EMBARQUED' ? 'bg-blue-50 border-blue-200 text-blue-800' : 'bg-slate-50 border-slate-200 text-slate-700'}`}
-              >
-                <p className="text-xs font-bold uppercase">Statut</p>
-                <p className="font-bold">{booking.checkinStatus}</p>
-              </div>
-            </div>
-
-            {booking.payments && booking.payments.length > 0 && (
-              <div className="mt-3 p-3 rounded border bg-white">
-                <p className="text-xs font-bold uppercase text-slate-500">Détails Paiement</p>
-                <ul className="mt-1 text-sm text-slate-700 list-disc pl-4">
-                  {booking.payments.map((p) => (
-                    <li key={p.id}>
-                      {p.provider}{p.methodType ? ` (${p.methodType})` : ''} • {(p.amount/100).toFixed(2)} {p.currency} • {p.status}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-          <div className="p-5 flex flex-wrap justify-end gap-2 border-t bg-gray-50 rounded-b-xl">
-            <button
-              onClick={() => {
-                if (!booking.isPaid) {
-                  setDetailsMarkPaid({ provider: '', methodType: undefined })
-                } else {
-                  handleStatusUpdate(booking.id, undefined, false)
-                }
-              }}
-              className="bg-blue-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-blue-700"
-            >
-              {booking.isPaid ? 'Marquer Non Payé' : 'Marquer Payé'}
-            </button>
-            {detailsMarkPaid && (
-              <div className="w-full mt-2 p-2 border rounded bg-white">
-                <div className="text-xs mb-1">Sélectionnez le moyen de paiement</div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <select className="border rounded px-2 py-1" value={detailsMarkPaid.provider} onChange={e=>{
-                    const val = e.target.value
-                    setDetailsMarkPaid(prev=> prev ? { ...prev, provider: val, methodType: (val==='voucher' ? (prev.methodType||'ANCV') : undefined) } : null)
-                  }}>
-                    <option value="">-- moyen --</option>
-                    <option value="cash">Espèces</option>
-                    <option value="card">Carte</option>
-                    <option value="paypal">PayPal</option>
-                    <option value="applepay">Apple Pay</option>
-                    <option value="googlepay">Google Pay</option>
-                    <option value="voucher">ANCV / CityPass</option>
-                  </select>
-                  {detailsMarkPaid.provider==='voucher' && (
-                    <select className="border rounded px-2 py-1" value={detailsMarkPaid.methodType||'ANCV'} onChange={e=> setDetailsMarkPaid(prev=> prev ? { ...prev, methodType: e.target.value } : prev)}>
-                      <option value="ANCV">ANCV</option>
-                      <option value="CityPass">CityPass</option>
-                    </select>
-                  )}
-                  <button className="border rounded px-2 py-1 bg-green-600 text-white" onClick={async ()=>{
-                    if (!detailsMarkPaid.provider) { alert('Sélectionnez un moyen de paiement'); return }
-                    await handleStatusUpdate(booking.id, undefined, true)
-                    setDetailsMarkPaid(null)
-                    setShowDetailsModal(false)
-                  }}>Valider</button>
-                  <button className="border rounded px-2 py-1" onClick={()=> setDetailsMarkPaid(null)}>Annuler</button>
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-widest text-white/80">
+                  <span>{boatTitle}</span>
+                  <span className="hidden h-1 w-1 rounded-full bg-white/60 sm:inline" aria-hidden="true" />
+                  <span>Départ {format(booking.start, 'dd/MM')}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-baseline gap-3 text-white">
+                  <span className="text-3xl font-semibold leading-none">{format(booking.start, 'HH:mm')}</span>
+                  <span className="text-sm font-medium uppercase tracking-wide text-white/75">
+                    jusqu'à {format(booking.end, 'HH:mm')}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+                  <span className="rounded-full bg-white/15 px-3 py-1">Check-in : {statusTheme.label}</span>
+                  <span className="rounded-full bg-white/15 px-3 py-1">Réservation : {bookingState.label}</span>
+                  <span className="rounded-full bg-white/15 px-3 py-1">{languageLabel}</span>
                 </div>
               </div>
-            )}
-            {booking.checkinStatus === 'CONFIRMED' && (
-              <>
-                <button
-                  onClick={() => handleStatusUpdate(booking.id, 'EMBARQUED')}
-                  className="bg-green-600 text-white px-3 py-2 rounded font-bold text-sm hover:bg-green-700"
-                >
-                  Embarquer
-                </button>
-                <button
-                  onClick={() => handleStatusUpdate(booking.id, 'NO_SHOW')}
-                  className="bg-orange-500 text-white px-3 py-2 rounded font-bold text-sm hover:bg-orange-600"
-                >
-                  Non Show
-                </button>
-              </>
-            )}
-            {(booking.checkinStatus === 'EMBARQUED' || booking.checkinStatus === 'NO_SHOW') && (
               <button
-                onClick={() => handleStatusUpdate(booking.id, 'CONFIRMED')}
-                className="bg-slate-500 text-white px-3 py-2 rounded font-bold text-sm hover:bg-slate-600"
+                type="button"
+                onClick={onClose}
+                className="rounded-full bg-white/15 p-2 text-lg font-semibold leading-none text-white transition hover:bg-white/25"
+                aria-label="Fermer"
               >
-                Annuler Statut
+                ✕
               </button>
-            )}
-            <button
-              onClick={() => handleEditTime(booking)}
-              className="bg-white border border-slate-300 text-slate-700 px-3 py-2 rounded font-bold text-sm hover:bg-slate-50"
-            >
-              Heure
-            </button>
-            <button
-              onClick={() => handleDelete(booking.id, booking.clientName)}
-              className="bg-red-100 text-red-600 px-3 py-2 rounded font-bold text-sm hover:bg-red-200"
-            >
-              Supprimer
-            </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-50">
+            <div className="grid gap-6 p-6 lg:grid-cols-[280px,1fr]">
+              <div className="space-y-4">
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <span>Client</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{booking.user.role || 'Client'}</span>
+                  </header>
+                  <div className="mt-3 space-y-2">
+                    <p className="text-lg font-semibold text-slate-900">{displayedClientName}</p>
+                    <div className="flex flex-col gap-2 text-sm text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <span className="text-base" aria-hidden="true">📧</span>
+                        {booking.user.email ? (
+                          <a href={`mailto:${booking.user.email}`} className="break-all text-blue-600 hover:underline">
+                            {booking.user.email}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">Non renseigné</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-base" aria-hidden="true">📞</span>
+                        {booking.user.phone ? (
+                          <a href={`tel:${booking.user.phone}`} className="text-blue-600 hover:underline">
+                            {booking.user.phone}
+                          </a>
+                        ) : (
+                          <span className="text-slate-400">Non renseigné</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    <span>Départ</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{languageLabel}</span>
+                  </header>
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">{format(booking.start, 'dd/MM')}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">Date</p>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">{format(booking.start, 'HH:mm')}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">Départ</p>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">{format(booking.end, 'HH:mm')}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">Retour estimé</p>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-900">{totalOnBoat} / {booking.boatCapacity}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-400">Occupation</p>
+                    </div>
+                  </div>
+                  {loadPct !== null && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <span>Charge</span>
+                        <span>{Math.min(Math.max(loadPct, 0), 200)}%</span>
+                      </div>
+                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-sky-500"
+                          style={{ width: `${Math.min(Math.max(loadPct, 0), 110)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {occupantBreakdown.map((item) => (
+                      <div key={item.label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                        <p className="text-lg font-semibold text-slate-900">{item.value}</p>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-500">{item.label}</p>
+                      </div>
+                    ))}
+                    <div className="rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-center">
+                      <p className="text-lg font-semibold text-slate-900">{booking.peopleCount}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Total</p>
+                    </div>
+                  </div>
+                </section>
+
+                {message && (
+                  <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm">
+                    <header className="text-xs font-semibold uppercase tracking-wide text-amber-700">
+                      Note du client
+                    </header>
+                    <p className="mt-2 whitespace-pre-line leading-relaxed">{message}</p>
+                  </section>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <header className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Statut d'embarquement</p>
+                      <p className="text-sm text-slate-500">Ajustez l'état pour synchroniser le planning.</p>
+                    </div>
+                    <span className={`rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold ${statusTheme.badge}`}>{statusTheme.label}</span>
+                  </header>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {statusOptions.map((option) => {
+                      const optionTheme = STATUS_THEME[option]
+                      const isActive = checkinStatus === option
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            if (checkinStatus !== option) handleStatusUpdate(booking.id, option)
+                          }}
+                          disabled={isActive}
+                          className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${
+                            isActive
+                              ? `${optionTheme.badge} border-transparent shadow-sm`
+                              : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800'
+                          } ${isActive ? 'cursor-default opacity-90' : ''}`}
+                        >
+                          {optionTheme.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <header className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Paiement</p>
+                      <p className="text-sm text-slate-500">Total dû : {totalPriceLabel}</p>
+                    </div>
+                    <span
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                        booking.isPaid
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-amber-200 bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {booking.isPaid ? 'Réglé' : 'À encaisser'}
+                    </span>
+                  </header>
+                  <div className="mt-4 space-y-3 text-sm text-slate-600">
+                    {Array.isArray(booking.payments) && booking.payments.length > 0 ? (
+                      <ul className="space-y-2">
+                        {booking.payments.map((p) => (
+                          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                            <span className="font-semibold text-slate-700">{p.provider}{p.methodType ? ` · ${p.methodType}` : ''}</span>
+                            <span className="text-slate-500">
+                              {(p.amount / 100).toFixed(2)} {p.currency} · {format(new Date(p.createdAt), 'dd/MM HH:mm')}
+                            </span>
+                            <span className="text-xs uppercase tracking-wide text-slate-400">{p.status}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Aucun règlement enregistré.</p>
+                    )}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {booking.isPaid ? (
+                      <button
+                        type="button"
+                        onClick={() => handleStatusUpdate(booking.id, undefined, false)}
+                        className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                      >
+                        Marquer non payé
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setDetailsMarkPaid({ provider: detailsMarkPaid?.provider ?? '', methodType: detailsMarkPaid?.methodType })}
+                        className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
+                      >
+                        Enregistrer un paiement
+                      </button>
+                    )}
+                  </div>
+                  {!booking.isPaid && detailsMarkPaid && (
+                    <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Méthode utilisée</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <select
+                          className="rounded border border-slate-300 px-2 py-1 text-sm"
+                          value={detailsMarkPaid.provider}
+                          onChange={(event) => {
+                            const provider = event.target.value
+                            setDetailsMarkPaid((prev) =>
+                              prev
+                                ? {
+                                    provider,
+                                    methodType: provider === 'voucher' ? prev.methodType ?? 'ANCV' : undefined
+                                  }
+                                : { provider, methodType: provider === 'voucher' ? 'ANCV' : undefined }
+                            )
+                          }}
+                        >
+                          <option value="">-- moyen --</option>
+                          <option value="cash">Espèces</option>
+                          <option value="card">Carte</option>
+                          <option value="paypal">PayPal</option>
+                          <option value="applepay">Apple Pay</option>
+                          <option value="googlepay">Google Pay</option>
+                          <option value="voucher">ANCV / CityPass</option>
+                        </select>
+                        {detailsMarkPaid.provider === 'voucher' && (
+                          <select
+                            className="rounded border border-slate-300 px-2 py-1 text-sm"
+                            value={detailsMarkPaid.methodType ?? 'ANCV'}
+                            onChange={(event) =>
+                              setDetailsMarkPaid((prev) => (prev ? { ...prev, methodType: event.target.value } : prev))
+                            }
+                          >
+                            <option value="ANCV">ANCV</option>
+                            <option value="CityPass">CityPass</option>
+                          </select>
+                        )}
+                        <button
+                          type="button"
+                          className="rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow hover:bg-emerald-700"
+                          onClick={async () => {
+                            if (!detailsMarkPaid.provider) {
+                              alert('Sélectionnez un moyen de paiement')
+                              return
+                            }
+                            await handleStatusUpdate(booking.id, undefined, true)
+                            setDetailsMarkPaid(null)
+                            onClose()
+                          }}
+                        >
+                          Valider
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                          onClick={() => setDetailsMarkPaid(null)}
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <header className="text-xs font-semibold uppercase tracking-wide text-slate-500">Autres actions</header>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEditTime(booking)}
+                      className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                    >
+                      Modifier l'heure
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(booking.id, booking.clientName)}
+                      className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                    >
+                      Supprimer la réservation
+                    </button>
+                  </div>
+                </section>
+              </div>
+            </div>
           </div>
         </div>
       </div>
