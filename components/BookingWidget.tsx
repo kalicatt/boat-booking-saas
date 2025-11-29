@@ -82,6 +82,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         const [paymentProvider, setPaymentProvider] = useState<null | 'stripe' | 'paypal'>(null)
     const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null)
         const [stripeIntentId, setStripeIntentId] = useState<string | null>(null)
+    const widgetRef = useRef<HTMLDivElement | null>(null)
+    const initialStepRender = useRef(true)
 
     const validateLocalPhone = (digits: string) => {
         if (!digits) return 'Numéro requis'
@@ -200,6 +202,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             })
         }
     }, [ensurePendingBooking, step])
+
+    useEffect(() => {
+        if (initialStepRender.current) {
+            initialStepRender.current = false
+            return
+        }
+        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+            widgetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+    }, [step])
 
   // --- ACTIONS DU TUNNEL ---
 
@@ -408,18 +420,18 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   }
 
     return (
-        <div className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+        <div ref={widgetRef} className="max-w-6xl mx-auto sn-card overflow-hidden flex flex-col md:flex-row min-h-[600px]">
         
         {/* === COLONNE GAUCHE : RÉCAPITULATIF === */}
         <div className="bg-[#0f172a] p-8 text-white md:w-1/3 flex flex-col relative transition-all duration-500 order-2 md:order-1">
-            <h3 className="text-2xl font-serif text-[#eab308] mb-6">
+            <h3 className="text-2xl font-serif text-[#0ea5e9] mb-6">
                 {getMainTitle()}
             </h3>
             
             {/* Barre de progression */}
             <div className="mb-6 h-2 w-full rounded-full bg-slate-800">
                 <div
-                    className="h-full rounded-full bg-[#eab308] transition-[width] duration-500 ease-out"
+                    className="h-full rounded-full bg-[#0ea5e9] transition-[width] duration-500 ease-out"
                     style={{ width: `${Math.max(0, Math.min(1, progressRatio)) * 100}%` }}
                     aria-hidden="true"
                 />
@@ -431,12 +443,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     return (
                         <li key={segment.id} className="flex items-start gap-3">
                             <div className="flex flex-col items-center">
-                                <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${isReached ? 'border-[#eab308] bg-[#eab308] text-[#0f172a]' : 'border-slate-600 bg-slate-800 text-slate-400'}`}>{index + 1}</div>
+                                <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${isReached ? 'border-[#0ea5e9] bg-[#0ea5e9] text-[#0f172a]' : 'border-slate-600 bg-slate-800 text-slate-400'}`}>{index + 1}</div>
                                 {index < progressSegments.length - 1 && (
-                                    <div className={`mt-1 w-px flex-1 min-h-[28px] rounded-full ${nextReached ? 'bg-[#eab308]' : 'bg-slate-700'}`} aria-hidden="true" />
+                                    <div className={`mt-1 w-px flex-1 min-h-[28px] rounded-full ${nextReached ? 'bg-[#0ea5e9]' : 'bg-slate-700'}`} aria-hidden="true" />
                                 )}
                             </div>
-                            <div className={`pt-1 ${isReached ? 'text-[#eab308]' : 'text-slate-500'}`}>
+                            <div className={`pt-1 ${isReached ? 'text-[#0ea5e9]' : 'text-slate-500'}`}>
                                 {segment.label}
                             </div>
                         </li>
@@ -446,10 +458,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
             <div className="space-y-4 flex-1">
                 {/* BLOC 1 : DATE & PAX */}
-                <div className={`p-4 rounded-xl border transition-all ${step === STEPS.CRITERIA ? 'border-[#eab308] bg-slate-800 shadow-[0_0_15px_rgba(234,179,8,0.1)]' : 'border-slate-700 bg-transparent'}`}>
+                <div className={`p-4 rounded-xl border transition-all ${step === STEPS.CRITERIA ? 'border-[#0ea5e9] bg-slate-800 shadow-[0_0_15px_rgba(14,165,233,0.15)]' : 'border-slate-700 bg-transparent'}`}>
                     <div className="flex justify-between items-start mb-1">
                         <span className="text-xs uppercase font-bold text-slate-400">{dict.booking.widget.summary_details}</span>
-                        {step > STEPS.CRITERIA && <button onClick={() => setStep(STEPS.CRITERIA)} className="text-[10px] text-[#eab308] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
+                        {step > STEPS.CRITERIA && <button onClick={() => setStep(STEPS.CRITERIA)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
                     </div>
                                         <div className="font-semibold text-lg text-white">
                                                 {(() => {
@@ -463,7 +475,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     </div>
                     
                     {!isGroup && !isPrivate ? (
-                        <div className="text-[#eab308] font-bold text-xl mt-2">{totalPrice},00 €</div>
+                        <div className="text-[#38bdf8] font-bold text-xl mt-2">{totalPrice},00 €</div>
                     ) : (
                         <div className="mt-2 inline-block px-2 py-1 rounded bg-blue-900/50 text-blue-200 text-xs font-bold border border-blue-500/30">
                             {isPrivate ? "✨ " + dict.booking.widget.private_badge : "👥 " + dict.booking.widget.group_badge}
@@ -473,12 +485,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                 {/* BLOC 2 : HORAIRE */}
                 {selectedSlot && !isGroup && !isPrivate && (
-                    <div className={`p-4 rounded-xl border transition-all animate-in fade-in slide-in-from-left-4 ${step === STEPS.SLOTS ? 'border-[#eab308] bg-slate-800' : 'border-slate-700'}`}>
+                    <div className={`p-4 rounded-xl border transition-all animate-in fade-in slide-in-from-left-4 ${step === STEPS.SLOTS ? 'border-[#0ea5e9] bg-slate-800' : 'border-slate-700'}`}>
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-xs uppercase font-bold text-slate-400">{dict.booking.widget.summary_departure}</span>
-                            {step > STEPS.SLOTS && step < STEPS.SUCCESS && <button onClick={() => setStep(STEPS.SLOTS)} className="text-[10px] text-[#eab308] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
+                            {step > STEPS.SLOTS && step < STEPS.SUCCESS && <button onClick={() => setStep(STEPS.SLOTS)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{dict.booking.widget.modify_btn}</button>}
                         </div>
-                        <div className="font-bold text-2xl text-[#eab308]">{selectedSlot}</div>
+                        <div className="font-bold text-2xl text-[#38bdf8]">{selectedSlot}</div>
                         <div className="text-xs text-slate-400 mt-1">{dict.booking.widget.duration_text}</div>
                     </div>
                 )}
@@ -519,7 +531,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                   if (v && v < todayLocalISO) setDate(todayLocalISO)
                                   else setDate(v)
                                 }}
-                                className="w-full p-3 rounded-lg bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-[#eab308] outline-none transition"
+                                className="w-full p-3 rounded-lg bg-slate-50 border border-slate-200 focus:ring-2 focus:ring-[#0ea5e9] outline-none transition"
                             />
                         </div>
 
@@ -549,7 +561,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             <div className="flex gap-2">
                                 {['FR', 'EN', 'DE'].map(lang => (
                                     <button key={lang} onClick={() => setLanguage(lang)}
-                                        className={`flex-1 py-2 rounded-lg font-bold border transition-all text-sm ${language === lang ? 'border-[#eab308] bg-yellow-50 text-black shadow-sm' : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50'}`}>
+                                        className={`flex-1 py-2 rounded-lg font-bold border transition-all text-sm ${language === lang ? 'border-[#0ea5e9] bg-sky-50 text-slate-900 shadow-sm' : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50'}`}>
                                         {lang === 'FR' ? '🇫🇷' : lang === 'EN' ? '🇬🇧' : '🇩🇪'} {lang}
                                     </button>
                                 ))}
@@ -559,7 +571,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                     <div className="mt-6">
                         <button onClick={handleSearch} disabled={loading} 
-                            className="w-full bg-[#0f172a] text-[#eab308] py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-lg flex items-center justify-center gap-2">
+                            className="w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2">
                             {loading ? <span className="animate-spin">⏳</span> : null}
                             {loading ? dict.booking.widget.loading : isGroup ? dict.booking.widget.btn_continue_group : isPrivate ? dict.booking.widget.btn_continue_private : dict.booking.widget.btn_search}
                         </button>
@@ -579,7 +591,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 overflow-y-auto pr-2 custom-scrollbar">
                                 {availableSlots.map(slot => (
                                     <button key={slot} onClick={() => setSelectedSlot(slot)}
-                                        className={`py-3 rounded-lg border font-bold transition-all ${selectedSlot === slot ? 'border-[#0f172a] bg-[#0f172a] text-[#eab308] shadow-md transform scale-105' : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-[#eab308] hover:bg-white'}`}>
+                                        className={`py-3 rounded-lg border font-bold transition-all ${selectedSlot === slot ? 'border-[#0f172a] bg-[#0f172a] text-[#38bdf8] shadow-md transform scale-105' : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-[#0ea5e9] hover:bg-white'}`}>
                                         {slot}
                                     </button>
                                 ))}
@@ -603,8 +615,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     </div>
 
                     <div className="mt-6">
-                         <button onClick={() => setStep(STEPS.CONTACT)} disabled={!selectedSlot} 
-                            className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedSlot ? 'bg-[#eab308] text-black hover:bg-yellow-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                                 <button onClick={() => setStep(STEPS.CONTACT)} disabled={!selectedSlot} 
+                                     className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedSlot ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                             {dict.booking.widget.btn_validate_slot} →
                         </button>
                     </div>
@@ -632,19 +644,19 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_firstname}</label>
-                                <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none" 
+                                <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                     value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                             </div>
                             <div>
                                 <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_lastname}</label>
-                                <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none" 
+                                <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                     value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                             </div>
                         </div>
                         
                         <div>
                             <label className="text-xs font-bold uppercase text-slate-500">{dict.group_form.placeholder_email}</label>
-                            <input required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none" 
+                            <input required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                 value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                         
@@ -669,7 +681,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                         }
                                                                     }}
                                                                     placeholder="+1"
-                                                                    className={`p-3 border rounded-lg bg-white focus:ring-2 outline-none text-sm ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#eab308]'}`}
+                                                                    className={`p-3 border rounded-lg bg-white focus:ring-2 outline-none text-sm ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
                                                                 />
                                                                 <datalist id="phoneCodes">
                                                                     {PHONE_CODES.map(pc => (
@@ -683,7 +695,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                     required
                                                                     type="tel"
                                                                     inputMode="tel"
-                                                                    className={`w-full p-3 border rounded-lg bg-white focus:ring-2 outline-none ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#eab308]'}`}
+                                                                    className={`w-full p-3 border rounded-lg bg-white focus:ring-2 outline-none ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
                                                                     value={formData.phone}
                                                                     onChange={e => {
                                                                         const digits = e.target.value.replace(/[^0-9]/g,'')
@@ -712,26 +724,28 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         {(step === STEPS.GROUP_CONTACT || step === STEPS.PRIVATE_CONTACT) && (
                              <div>
                                 <label className="text-xs font-bold uppercase text-slate-500">{dict.private_form.message_label || "Message"}</label>
-                                <textarea className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#eab308] outline-none h-20" 
+                                <textarea className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none h-20" 
                                     placeholder={step === STEPS.PRIVATE_CONTACT ? dict.private_form.placeholder_message : dict.group_form.placeholder_message}
                                     value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
                             </div>
                         )}
 
-                                                <div className="bg-slate-100 p-4 rounded-xl flex justify-center">
+                                                <div className="bg-slate-100 p-4 rounded-xl flex justify-center overflow-x-auto">
                                                         {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
-                                                            <ReCAPTCHA
-                                                                ref={recaptchaRef}
-                                                                sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-                                                                onChange={(token) => setCaptchaToken(token)}
-                                                            />
+                                                            <div className="mx-auto scale-[0.9] origin-top sm:scale-100 sm:origin-center">
+                                                                <ReCAPTCHA
+                                                                    ref={recaptchaRef}
+                                                                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                                                                    onChange={(token) => setCaptchaToken(token)}
+                                                                />
+                                                            </div>
                                                         ) : (
                                                             <div className="text-xs text-slate-500">reCAPTCHA non configuré</div>
                                                         )}
                                                 </div>
                         
                         <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
-                            className="w-full bg-[#0f172a] text-[#eab308] py-4 rounded-xl font-bold text-lg hover:bg-black transition-all shadow-lg mt-4">
+                            className="w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg mt-4">
                             {isSubmitting ? dict.booking.widget.submitting : (dict.booking.widget.btn_go_to_payment || 'Continuer vers le paiement')}
                         </button>
                     </form>
@@ -886,7 +900,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         type="button"
                         onClick={() => handleBookingSubmit()}
                         disabled={isSubmitting || !paymentSucceeded}
-                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded ? 'bg-[#0f172a] text-[#eab308] hover:bg-black' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
                         {isSubmitting
                             ? dict.booking.widget.submitting
