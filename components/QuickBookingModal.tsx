@@ -56,6 +56,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [lastName, setLastName] = useState('')
     const [firstName, setFirstName] = useState('')
     const [phone, setPhone] = useState('')
+    const [email, setEmail] = useState('')
     const [message, setMessage] = useState('')
     const [adults, setAdults] = useState(2)
     const [children, setChildren] = useState(0)
@@ -150,6 +151,9 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setMarkAsPaid(false)
         setPaymentMethod('')
         setCashReceived('')
+        setIsCashPadOpen(false)
+        setCashTouched(false)
+        setEmail('')
     }, [slotStart])
 
     useEffect(() => {
@@ -284,6 +288,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setIsLoading(true)
         const finalFirstName = firstName.trim() || 'Client'
         const finalLastName = lastName.trim() || 'Guichet'
+        const providedEmail = email.trim().toLowerCase()
 
         const finalMessagePieces: string[] = []
         if (message.trim()) finalMessagePieces.push(message.trim())
@@ -313,7 +318,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             userDetails: {
                 firstName: finalFirstName,
                 lastName: finalLastName,
-                email: 'guichet@sweet-narcisse.com',
+                email: providedEmail || 'guichet@sweet-narcisse.com',
                 phone: phone.trim()
             },
             isStaffOverride: true,
@@ -322,6 +327,10 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
         if (!Number.isNaN(numericBoatId)) {
             bookingData.forcedBoatId = numericBoatId
+        }
+
+        if (providedEmail) {
+            bookingData.invoiceEmail = providedEmail
         }
 
         if (markAsPaid && paymentMethod) {
@@ -606,47 +615,59 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
                     {stepIndex === 2 && (
                         <div className="space-y-4">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Nom du client
-                                    </label>
-                                    <input
-                                        value={lastName}
-                                        onChange={(event) => setLastName(event.target.value)}
-                                        placeholder="Nom"
-                                        className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Prénom
-                                    </label>
-                                    <input
-                                        value={firstName}
-                                        onChange={(event) => setFirstName(event.target.value)}
-                                        placeholder="Prénom"
-                                        className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-                                    />
-                                </div>
-                            </div>
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                        <div>
+                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Nom du client
+                                            </label>
+                                            <input
+                                                value={lastName}
+                                                onChange={(event) => setLastName(event.target.value)}
+                                                placeholder="Nom"
+                                                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Prénom
+                                            </label>
+                                            <input
+                                                value={firstName}
+                                                onChange={(event) => setFirstName(event.target.value)}
+                                                placeholder="Prénom"
+                                                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Email (facture)
+                                            </label>
+                                            <input
+                                                type="email"
+                                                value={email}
+                                                onChange={(event) => setEmail(event.target.value)}
+                                                placeholder="client@email.com"
+                                                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                                <div>
-                                    <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                        Téléphone
-                                    </label>
-                                    <input
-                                        value={phone}
-                                        onChange={(event) => setPhone(event.target.value)}
-                                        placeholder="Optionnel"
-                                        className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-                                    />
-                                </div>
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                                    L'adresse email est générée automatiquement pour les réservations guichet.
-                                </div>
-                            </div>
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                Téléphone
+                                            </label>
+                                            <input
+                                                value={phone}
+                                                onChange={(event) => setPhone(event.target.value)}
+                                                placeholder="Optionnel"
+                                                className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                                            />
+                                        </div>
+                                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                                            L'adresse email est facultative : laissez vide pour une réservation guichet classique.
+                                        </div>
+                                    </div>
 
                             <div>
                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -794,6 +815,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     </li>
                                     <li>Montant estimé : {totalPrice} €</li>
                                     <li>Barque : {targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`}</li>
+                                    <li>Email : {email.trim() || 'par défaut guichet'}</li>
                                     <li>
                                         Paiement :
                                         {' '}

@@ -106,6 +106,7 @@ export const BookingRequestSchema = z.object({
   message: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v,1000)!) : undefined),
   markAsPaid: z.boolean().optional(),
   paymentMethod: z.enum(['cash','card','paypal','applepay','googlepay','ANCV','CityPass']).optional(),
+  invoiceEmail: z.string().email().optional().transform(v => v ? cleanString(v, 120)?.toLowerCase() : undefined),
   pendingOnly: z.boolean().optional(),
   forcedBoatId: z.coerce.number().int().positive().optional(),
   groupChain: z.number().int().min(0).optional()

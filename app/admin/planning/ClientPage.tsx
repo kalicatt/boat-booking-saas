@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Calendar, dateFnsLocalizer, Views } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute } from 'date-fns'
+import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -110,11 +110,10 @@ const fetcher = (url: string) => fetch(url).then((res) => {
 export default function ClientPlanningPage() {
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
-  const [compactZoom, setCompactZoom] = useState(false)
-  const [denseZoom, setDenseZoom] = useState(false)
-  const [preset, setPreset] = useState<'standard'|'morning'|'fullday'>('standard')
+  const [preset, setPreset] = useState<'standard'|'morning'|'afternoon'>('standard')
   const [zoomLevel, setZoomLevel] = useState(1)
   const containerRef = useRef<HTMLDivElement|null>(null)
+  const clampZoom = useCallback((value: number) => Number(Math.min(2, Math.max(0.5, value)).toFixed(2)), [])
 
   useEffect(()=>{
     const el = containerRef.current
@@ -125,8 +124,8 @@ export default function ClientPlanningPage() {
         e.stopPropagation()
         const delta = e.deltaY
         setZoomLevel(prev => {
-          const next = Math.min(1.0, Math.max(0.1, prev + (delta > 0 ? -0.05 : 0.05)))
-          return Number(next.toFixed(2))
+          const step = delta > 0 ? -0.1 : 0.1
+          return clampZoom(prev + step)
         })
       }
     }
@@ -141,10 +140,9 @@ export default function ClientPlanningPage() {
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('gesturestart', onGestureStart as any)
     }
-  }, [])
+  }, [clampZoom])
 
   const [currentDate, setCurrentDate] = useState(startOfDay(new Date()))
-  const [currentView, setCurrentView] = useState(Views.DAY as 'day' | 'week' | 'month' | 'work_week')
   const [currentRange, setCurrentRange] = useState({ start: startOfDay(new Date()), end: endOfDay(new Date()) })
 
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
@@ -156,12 +154,13 @@ export default function ClientPlanningPage() {
 
   const calendarMin = useMemo(() => {
     if (preset === 'morning') return new Date(0, 0, 0, 9, 30, 0)
+    if (preset === 'afternoon') return new Date(0, 0, 0, 13, 0, 0)
     return new Date(0, 0, 0, 10, 0, 0)
   }, [preset])
 
   const calendarMax = useMemo(() => {
     if (preset === 'morning') return new Date(0, 0, 0, 12, 30, 0)
-    if (preset === 'fullday') return new Date(0, 0, 0, 20, 0, 0)
+    if (preset === 'afternoon') return new Date(0, 0, 0, 20, 0, 0)
     return new Date(0, 0, 0, 18, 30, 0)
   }, [preset])
 
@@ -330,8 +329,11 @@ export default function ClientPlanningPage() {
     fetchBoats()
   }, [fetchBoats])
 
-  const handleNavigate = (date: Date) => setCurrentDate(date)
-  const handleViewChange = (view: any) => setCurrentView(view)
+  const handleNavigate = (date: Date) => {
+    const next = startOfDay(date)
+    setCurrentDate(next)
+    setCurrentRange({ start: next, end: endOfDay(next) })
+  }
 
   const handleRangeChange = (range: Date[] | { start: Date; end: Date }) => {
     let start: Date, end: Date
@@ -344,6 +346,23 @@ export default function ClientPlanningPage() {
     }
     setCurrentRange({ start, end })
   }
+
+  const shiftCurrentDay = useCallback((delta: number) => {
+    setCurrentDate((prev) => {
+      const next = startOfDay(addDays(prev, delta))
+      setCurrentRange({ start: next, end: endOfDay(next) })
+      return next
+    })
+  }, [setCurrentRange])
+
+  const handleDateInputChange = useCallback((value: string) => {
+    if (!value) return
+    const parsed = parseISO(value)
+    if (Number.isNaN(parsed.getTime())) return
+    const next = startOfDay(parsed)
+    setCurrentDate(next)
+    setCurrentRange({ start: next, end: endOfDay(next) })
+  }, [setCurrentRange])
 
   const handleSelectBooking = (event: BookingDetails) => {
     setSelectedBooking(event)
@@ -898,31 +917,37 @@ export default function ClientPlanningPage() {
       )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vue</span>
-        {[
-          { key: Views.DAY, label: 'Jour' },
-          { key: Views.WORK_WEEK, label: 'Sem. travail' },
-          { key: Views.MONTH, label: 'Mois' }
-        ].map((option) => (
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Jour</span>
+        <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
           <button
-            key={option.key}
             type="button"
-            onClick={() => setCurrentView(option.key as typeof currentView)}
-            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-              currentView === option.key
-                ? 'border-blue-600 bg-blue-600 text-white shadow'
-                : 'border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'
-            }`}
+            onClick={() => shiftCurrentDay(-1)}
+            className="rounded-full px-2 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
+            aria-label="Jour précédent"
           >
-            {option.label}
+            ◀
           </button>
-        ))}
+          <input
+            type="date"
+            value={format(currentDate, 'yyyy-MM-dd')}
+            onChange={(event) => handleDateInputChange(event.target.value)}
+            className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 focus:border-blue-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => shiftCurrentDay(1)}
+            className="rounded-full px-2 text-xs font-semibold text-slate-500 transition hover:text-slate-800"
+            aria-label="Jour suivant"
+          >
+            ▶
+          </button>
+        </div>
 
         <span className="ml-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Plages</span>
         {[
           { key: 'standard' as const, label: 'Classique' },
           { key: 'morning' as const, label: 'Matin' },
-          { key: 'fullday' as const, label: 'Étendue' }
+          { key: 'afternoon' as const, label: 'Après-midi' }
         ].map((option) => (
           <button
             key={option.key}
@@ -939,43 +964,10 @@ export default function ClientPlanningPage() {
         ))}
 
         <span className="ml-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Zoom</span>
-        <button
-          type="button"
-          onClick={() => {
-            setCompactZoom((prev) => {
-              if (!prev) setDenseZoom(false)
-              return !prev
-            })
-          }}
-          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-            compactZoom
-              ? 'border-slate-900 bg-slate-900 text-white shadow'
-              : 'border-slate-200 text-slate-600 hover:border-slate-400'
-          }`}
-        >
-          Compact
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setDenseZoom((prev) => {
-              if (!prev) setCompactZoom(false)
-              return !prev
-            })
-          }}
-          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-            denseZoom
-              ? 'border-slate-900 bg-slate-900 text-white shadow'
-              : 'border-slate-200 text-slate-600 hover:border-slate-400'
-          }`}
-        >
-          Dense
-        </button>
-
-        <div className="ml-4 flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+        <div className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
           <button
             type="button"
-            onClick={() => setZoomLevel((prev) => Number(Math.max(0.1, (prev - 0.1)).toFixed(2)))}
+            onClick={() => setZoomLevel((prev) => clampZoom(prev - 0.1))}
             className="rounded-full px-2 font-bold text-slate-500 transition hover:text-slate-800"
           >
             −
@@ -983,7 +975,7 @@ export default function ClientPlanningPage() {
           <span className="min-w-[3rem] text-center font-semibold">{Math.round(zoomLevel * 100)}%</span>
           <button
             type="button"
-            onClick={() => setZoomLevel((prev) => Number(Math.min(1, prev + 0.1).toFixed(2)))}
+            onClick={() => setZoomLevel((prev) => clampZoom(prev + 0.1))}
             className="rounded-full px-2 font-bold text-slate-500 transition hover:text-slate-800"
           >
             +
@@ -999,7 +991,7 @@ export default function ClientPlanningPage() {
       </div>
 
       <div
-        className={`sn-card sn-zoom flex h-[70vh] flex-col ${compactZoom ? 'sn-compact' : ''} ${denseZoom ? 'sn-dense' : ''}`}
+        className="sn-card sn-zoom flex h-[70vh] flex-col"
         onWheelCapture={(e)=>{ if (e.ctrlKey) { e.preventDefault(); e.stopPropagation() } }}
         tabIndex={0}
         ref={containerRef}
@@ -1021,10 +1013,9 @@ export default function ClientPlanningPage() {
               onSelectEvent={handleSelectBooking}
               onSelectSlot={handleSlotSelect}
               selectable={true}
-              view={currentView}
-              onView={handleViewChange}
+              view={Views.DAY}
               defaultView={Views.DAY}
-              views={['day', 'work_week', 'month']}
+              views={['day']}
               resources={resources}
               resourceIdAccessor="id"
               resourceTitleAccessor="title"
@@ -1058,19 +1049,6 @@ export default function ClientPlanningPage() {
       <style jsx>{`
         .sn-zoom { overscroll-behavior: contain; }
         .sn-zoom { touch-action: none; }
-        .sn-compact :global(.rbc-time-slot) { height: 6px; }
-        .sn-compact :global(.rbc-time-gutter .rbc-time-slot) { height: 6px; }
-        .sn-compact :global(.rbc-timeslot-group) { border-bottom-width: 0; }
-        .sn-compact :global(.rbc-time-content) { height: auto; overflow: hidden; }
-        .sn-compact :global(.rbc-time-header) { font-size: 11px; }
-        .sn-compact :global(.rbc-event) { padding: 2px 4px; }
-        .sn-compact :global(.rbc-label) { font-size: 9px; line-height: 1; }
-        .sn-compact :global(.rbc-row) { min-height: 0; }
-        .sn-compact :global(.rbc-time-view) { overflow: hidden; }
-        .sn-dense :global(.rbc-time-slot) { height: 10px; }
-        .sn-dense :global(.rbc-time-gutter .rbc-time-slot) { height: 10px; }
-        .sn-dense :global(.rbc-time-header) { font-size: 12px; }
-        .sn-dense :global(.rbc-event) { padding: 3px 5px; }
         .sn-zoom :global(.rbc-time-slot) { height: var(--slotH, 40px); }
         .sn-zoom :global(.rbc-time-gutter .rbc-time-slot) { height: var(--slotH, 40px); }
         :global(.rbc-time-content) { scrollbar-width: thin; }

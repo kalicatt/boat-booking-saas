@@ -47,6 +47,7 @@ export async function POST(request: Request) {
       message,
       paymentMethod,
       markAsPaid,
+      invoiceEmail,
       forcedBoatId,
       groupChain,
       inheritPaymentForChain,
@@ -250,6 +251,18 @@ export async function POST(request: Request) {
         await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
       }
       await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${newBooking.id}`)
+
+      if (invoiceEmail && invoiceEmail !== userEmailToUse) {
+        const invoiceSubject = `Facture – Réservation ${date} ${time}`
+        if(process.env.RESEND_API_KEY && resend){
+          await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: invoiceEmail, subject: invoiceSubject, html })
+          await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+        } else {
+          await sendMail({ to: invoiceEmail, subject: invoiceSubject, html })
+          await sendMail({ to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+        }
+        await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${newBooking.id}`)
+      }
     } catch (e) {
       console.error('Email send failed:', e)
       await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmailToUse}: ${String((e as any)?.message||e)}`)
