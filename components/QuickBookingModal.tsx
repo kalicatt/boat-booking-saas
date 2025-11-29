@@ -42,6 +42,8 @@ const LANGUAGE_OPTIONS = [
 
 type PaymentOption = (typeof PAYMENT_OPTIONS)[number]['value']
 
+const CASH_KEYPAD_KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '00', '.'] as const
+
 export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess }: QuickBookingModalProps) {
     const dialogRef = useRef<HTMLDivElement | null>(null)
     const [isLocked, setIsLocked] = useState(false)
@@ -61,6 +63,10 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [markAsPaid, setMarkAsPaid] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState<PaymentOption | ''>('')
     const [cashReceived, setCashReceived] = useState('')
+    const [isCashPadOpen, setIsCashPadOpen] = useState(false)
+    const [cashTouched, setCashTouched] = useState(false)
+    const cashInputRef = useRef<HTMLInputElement | null>(null)
+    const cashPadRef = useRef<HTMLDivElement | null>(null)
 
     const numericBoatId = useMemo(() => Number(boatId), [boatId])
     const targetBoat = useMemo(
@@ -206,22 +212,44 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     useEffect(() => {
         if (!markAsPaid) {
             if (cashReceived !== '') setCashReceived('')
+            if (cashTouched) setCashTouched(false)
             return
         }
         if (paymentMethod !== 'cash') {
             if (cashReceived !== '') setCashReceived('')
+            if (cashTouched) setCashTouched(false)
             return
         }
-        if (cashReceived === '') {
-            setCashReceived(String(totalPrice))
+        if (!cashTouched && cashReceived === '') {
+            setCashReceived(sanitizeCashValue(String(totalPrice)))
         }
-    }, [markAsPaid, paymentMethod, totalPrice, cashReceived])
+    }, [markAsPaid, paymentMethod, totalPrice, cashReceived, cashTouched])
+
+    useEffect(() => {
+        if (!isCashPadOpen) return
+        const handleClick = (event: MouseEvent) => {
+            const target = event.target as Node
+            if (cashPadRef.current?.contains(target)) return
+            if (cashInputRef.current?.contains(target as Node)) return
+            setIsCashPadOpen(false)
+        }
+        document.addEventListener('mousedown', handleClick)
+        return () => document.removeEventListener('mousedown', handleClick)
+    }, [isCashPadOpen])
+
+    useEffect(() => {
+        if (stepIndex !== LAST_STEP_INDEX) setIsCashPadOpen(false)
+    }, [stepIndex])
+
+    useEffect(() => {
+        if (!markAsPaid || paymentMethod !== 'cash') setIsCashPadOpen(false)
+    }, [markAsPaid, paymentMethod])
 
     const canProceedStep = (index: number) => {
         const stepId = BOOKING_STEPS[index]?.id
         if (stepId === 'slot') return Boolean(time)
         if (stepId === 'passengers') return totalPeople > 0
-        if (stepId === 'client') return lastName.trim().length > 0
+        if (stepId === 'client') return true
         if (stepId === 'payment') {
             if (!markAsPaid) return true
             if (!paymentMethod) return false
@@ -334,6 +362,74 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         void handleConfirm()
     }
 
+    function sanitizeCashValue(raw: string) {
+        if (!raw) return ''
+        let next = raw.replace(/[^0-9.,]/g, '').replace(/,/g, '.')
+        const dotIndex = next.indexOf('.')
+        if (dotIndex >= 0) {
+            const before = next.slice(0, dotIndex + 1)
+            const after = next
+                .slice(dotIndex + 1)
+                .replace(/\./g, '')
+                .slice(0, 2)
+            next = `${before}${after}`
+        }
+        if (!next.startsWith('0.') && next.startsWith('0')) {
+            next = next.replace(/^0+(\d)/, '$1')
+        }
+        return next
+    }
+
+    const handleCashInputChange = (value: string) => {
+        if (!cashTouched) setCashTouched(true)
+        const sanitized = sanitizeCashValue(value)
+        setCashReceived(sanitized)
+        if (showStepErrors) setShowStepErrors(false)
+    }
+
+    const handleCashPadOpen = () => {
+        if (!isCashPadOpen) setIsCashPadOpen(true)
+        requestAnimationFrame(() => cashInputRef.current?.focus())
+    }
+
+    const handleCashPadInput = (key: string) => {
+        if (key === 'CLOSE') {
+            setIsCashPadOpen(false)
+            return
+        }
+        if (key === 'CLEAR') {
+            if (!cashTouched) setCashTouched(true)
+            setCashReceived('')
+            if (showStepErrors) setShowStepErrors(false)
+            return
+        }
+        if (key === 'BACK') {
+            if (!cashTouched) setCashTouched(true)
+            setCashReceived((prev) => (prev ? prev.slice(0, -1) : ''))
+            if (showStepErrors) setShowStepErrors(false)
+            return
+        }
+        if (!cashTouched) setCashTouched(true)
+        setCashReceived((prev) => {
+            const base = prev || ''
+            if (key === '.') {
+                if (base.includes('.')) return base
+                const appended = base === '' ? '0.' : `${base}.`
+                return sanitizeCashValue(appended)
+            }
+            if (key === '00') {
+                const appended = `${base}00`
+                return sanitizeCashValue(appended)
+            }
+            if (/^\d$/.test(key)) {
+                const appended = base === '0' ? key : `${base}${key}`
+                return sanitizeCashValue(appended)
+            }
+            return base
+        })
+        if (showStepErrors) setShowStepErrors(false)
+    }
+
     const progress = BOOKING_STEPS.length > 1 ? (stepIndex / LAST_STEP_INDEX) * 100 : 100
 
     const stepErrorMessage = useMemo(() => {
@@ -341,13 +437,12 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         const stepId = BOOKING_STEPS[stepIndex]?.id
         if (stepId === 'slot' && !time) return 'Sélectionnez une heure de départ.'
         if (stepId === 'passengers' && totalPeople === 0) return 'Ajoutez au moins un passager.'
-        if (stepId === 'client' && lastName.trim().length === 0) return 'Indiquez le nom du client.'
         if (stepId === 'payment' && markAsPaid) {
             if (!paymentMethod) return 'Choisissez un moyen de paiement.'
             if (lacksCash) return 'Le montant espèces est insuffisant.'
         }
         return ''
-    }, [showStepErrors, stepIndex, time, totalPeople, lastName, markAsPaid, paymentMethod, lacksCash])
+    }, [showStepErrors, stepIndex, time, totalPeople, markAsPaid, paymentMethod, lacksCash])
 
     return (
         <div
@@ -606,17 +701,71 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                         </div>
 
                                         {paymentMethod === 'cash' && (
-                                            <div>
+                                            <div className="relative">
                                                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                     Montant perçu (€)
                                                 </label>
-                                                <input
-                                                    value={cashReceived}
-                                                    onChange={(event) => setCashReceived(event.target.value)}
-                                                    inputMode="decimal"
-                                                    placeholder={String(totalPrice)}
-                                                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-                                                />
+                                                <div className="mt-1 flex items-center gap-2">
+                                                    <input
+                                                        ref={cashInputRef}
+                                                        value={cashReceived}
+                                                        onChange={(event) => handleCashInputChange(event.target.value)}
+                                                        onFocus={handleCashPadOpen}
+                                                        inputMode="decimal"
+                                                        autoComplete="off"
+                                                        placeholder={String(totalPrice)}
+                                                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleCashPadOpen}
+                                                        className="rounded-full border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                                    >
+                                                        Pavé
+                                                    </button>
+                                                </div>
+                                                {isCashPadOpen && (
+                                                    <div
+                                                        ref={cashPadRef}
+                                                        className="absolute right-0 z-20 mt-2 w-52 rounded-2xl border border-slate-200 bg-white p-3 shadow-xl"
+                                                    >
+                                                        <div className="grid grid-cols-3 gap-2">
+                                                            {CASH_KEYPAD_KEYS.map((key) => (
+                                                                <button
+                                                                    key={key}
+                                                                    type="button"
+                                                                    onClick={() => handleCashPadInput(key)}
+                                                                    className="rounded-xl bg-slate-100 py-2 text-base font-semibold text-slate-800 shadow-inner hover:bg-slate-200"
+                                                                >
+                                                                    {key}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                        <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCashPadInput('BACK')}
+                                                                className="rounded-xl bg-slate-100 py-2 font-semibold text-slate-800 shadow-inner hover:bg-slate-200"
+                                                            >
+                                                                ⌫
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCashPadInput('CLEAR')}
+                                                                className="rounded-xl bg-slate-100 py-2 font-semibold text-rose-600 shadow-inner hover:bg-rose-100"
+                                                            >
+                                                                Effacer
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleCashPadInput('CLOSE')}
+                                                                className="rounded-xl bg-emerald-500 py-2 font-semibold text-white shadow hover:bg-emerald-600"
+                                                            >
+                                                                Fermer
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 {markAsPaid && paymentMethod === 'cash' && !Number.isNaN(parsedCash) && (
                                                     <p
                                                         className={`mt-1 text-xs font-semibold ${
