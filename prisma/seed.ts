@@ -12,11 +12,15 @@ async function main() {
   ]
 
   for (const boat of boats) {
-    await prisma.boat.upsert({
-      where: { name: boat.name },
-      update: { capacity: boat.capacity },
-      create: boat
-    })
+    const existing = await prisma.boat.findFirst({ where: { name: boat.name } })
+    if (existing) {
+      await prisma.boat.update({
+        where: { id: existing.id },
+        data: { capacity: boat.capacity }
+      })
+    } else {
+      await prisma.boat.create({ data: boat })
+    }
   }
   console.log('✅ Flotte de barques synchronisée')
 
