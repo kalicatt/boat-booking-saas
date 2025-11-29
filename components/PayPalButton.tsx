@@ -91,7 +91,7 @@ export default function PayPalButton({ amount, onSuccess, onError, messages }: P
   return (
     <PayPalScriptProvider options={paypalOptions} deferLoading={false}>
       <PayPalButtons
-        style={{ layout: 'vertical', shape: 'rect', color: 'gold', label: 'pay' }}
+        style={{ layout: 'vertical', shape: 'rect', color: 'white', label: 'pay' }}
         fundingSource="paypal"
         forceReRender={forceRerenderDeps}
         createOrder={handleCreateOrder}
