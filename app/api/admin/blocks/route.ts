@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
-    const { start, end, scope, reason } = parsed.data
+    const { start, end, scope, reason, repeat, repeatUntil } = parsed.data
 
     // Normalize incoming datetime-local to UTC by appending Z if missing seconds
     const normalizeToUtc = (s: string) => {
@@ -45,13 +45,84 @@ export async function POST(req: Request) {
       return new Date(s + "Z")
     }
 
+    const normalizedStart = normalizeToUtc(start)
+    const normalizedEnd = normalizeToUtc(end)
+
+    if (isNaN(normalizedStart.getTime()) || isNaN(normalizedEnd.getTime())) {
+      return NextResponse.json({ error: 'Dates invalides' }, { status: 422 })
+    }
+
+    if (normalizedEnd.getTime() <= normalizedStart.getTime()) {
+      return NextResponse.json({ error: 'Fin avant le début' }, { status: 422 })
+    }
+
+    if (repeat === 'daily') {
+      if (!repeatUntil) {
+        return NextResponse.json({ error: 'repeatUntil requis' }, { status: 422 })
+      }
+
+      const repeatLimit = 370
+      const startDay = Date.UTC(
+        normalizedStart.getUTCFullYear(),
+        normalizedStart.getUTCMonth(),
+        normalizedStart.getUTCDate()
+      )
+      const repeatEnd = new Date(`${repeatUntil}T00:00:00Z`)
+      if (isNaN(repeatEnd.getTime())) {
+        return NextResponse.json({ error: 'repeatUntil invalide' }, { status: 422 })
+      }
+      const endDay = Date.UTC(repeatEnd.getUTCFullYear(), repeatEnd.getUTCMonth(), repeatEnd.getUTCDate())
+      if (endDay < startDay) {
+        return NextResponse.json({ error: 'La fin de période doit être après le début' }, { status: 422 })
+      }
+
+      const durationMs = normalizedEnd.getTime() - normalizedStart.getTime()
+      const blocksToCreate: Parameters<typeof prisma.blockedInterval.create>[0]['data'][] = []
+
+      for (
+        let dayIndex = 0, currentDay = startDay;
+        currentDay <= endDay;
+        dayIndex += 1, currentDay += 86_400_000
+      ) {
+        if (dayIndex >= repeatLimit) {
+          return NextResponse.json({ error: 'Période trop longue (limite 370 jours)' }, { status: 422 })
+        }
+
+        const currentStart = new Date(currentDay)
+        currentStart.setUTCHours(
+          normalizedStart.getUTCHours(),
+          normalizedStart.getUTCMinutes(),
+          normalizedStart.getUTCSeconds(),
+          0
+        )
+        const currentEnd = new Date(currentStart.getTime() + durationMs)
+        blocksToCreate.push({
+          start: currentStart,
+          end: currentEnd,
+          scope,
+          reason,
+          createdById: session.user.id
+        })
+      }
+
+      const createdBlocks = await prisma.$transaction(
+        blocksToCreate.map((data) => prisma.blockedInterval.create({ data }))
+      )
+
+      await createLog(
+        'BLOCK_ADD',
+        `Blocage récurrent ${scope} du ${start} au ${repeatUntil}${reason ? ` (${reason})` : ''}`
+      )
+      return NextResponse.json({ created: createdBlocks.length })
+    }
+
     const created = await prisma.blockedInterval.create({
       data: {
-        start: normalizeToUtc(start),
-        end: normalizeToUtc(end),
+        start: normalizedStart,
+        end: normalizedEnd,
         scope,
         reason,
-        createdById: session.user.id,
+        createdById: session.user.id
       }
     })
 

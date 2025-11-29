@@ -52,12 +52,26 @@ export const EmployeeUpdateSchema = EmployeeCreateSchema.partial().extend({
 })
 
 // Blocks schema (start/end ISO strings & reason)
-export const BlockCreateSchema = z.object({
-  start: z.string().min(1),
-  end: z.string().min(1),
-  scope: z.enum(['day','morning','afternoon','specific']),
-  reason: z.string().max(200).optional().transform(v => v ? stripScriptTags(cleanString(v,200)!) : undefined)
-})
+export const BlockCreateSchema = z
+  .object({
+    start: z.string().min(1),
+    end: z.string().min(1),
+    scope: z.enum(['day', 'morning', 'afternoon', 'specific']),
+    reason: z
+      .string()
+      .max(200)
+      .optional()
+      .transform((v) => (v ? stripScriptTags(cleanString(v, 200)!) : undefined)),
+    repeat: z.enum(['none', 'daily']).default('none'),
+    repeatUntil: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional()
+  })
+  .refine((data) => (data.repeat === 'daily' ? !!data.repeatUntil : true), {
+    message: 'La date de fin est requise pour un blocage récurrent.',
+    path: ['repeatUntil']
+  })
 
 export const BlockUpdateSchema = z.object({
   id: z.string().uuid(),
