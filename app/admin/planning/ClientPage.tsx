@@ -302,7 +302,7 @@ export default function ClientPlanningPage() {
 
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
-  const [detailsMarkPaid, setDetailsMarkPaid] = useState<{ provider: string, methodType?: string }|null>(null)
+  const [detailsMarkPaid, setDetailsMarkPaid] = useState<{ provider: string; methodType?: string; cashGiven?: string } | null>(null)
   const [detailsPaymentSelectorOpen, setDetailsPaymentSelectorOpen] = useState(false)
   const openDetailsPaymentSelector = useCallback(() => setDetailsPaymentSelectorOpen(true), [])
   const closeDetailsPaymentSelector = useCallback(() => {
@@ -728,8 +728,21 @@ export default function ClientPlanningPage() {
     if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
     if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
     // If marking as paid and we have a selected payment method from details modal, include it
+    const rawCashValue = detailsMarkPaid?.provider === 'cash' ? detailsMarkPaid.cashGiven ?? '' : ''
+    const parsedCashValue = rawCashValue ? Number.parseFloat(rawCashValue) : Number.NaN
+    const hasCashAmount = detailsMarkPaid?.provider === 'cash' && !Number.isNaN(parsedCashValue)
+    const normalizedCashValue = hasCashAmount ? Number(parsedCashValue.toFixed(2)) : undefined
+
     if (newIsPaid === true && detailsMarkPaid?.provider) {
-      body.paymentMethod = { provider: detailsMarkPaid.provider, methodType: detailsMarkPaid.provider==='voucher' ? detailsMarkPaid.methodType : undefined }
+      body.paymentMethod = {
+        provider: detailsMarkPaid.provider,
+        methodType: detailsMarkPaid.provider === 'voucher' ? detailsMarkPaid.methodType : undefined,
+        amountReceived: normalizedCashValue,
+        changeDue:
+          normalizedCashValue !== undefined && typeof selectedBooking?.totalPrice === 'number'
+            ? Number((normalizedCashValue - selectedBooking.totalPrice).toFixed(2))
+            : undefined
+      }
     }
 
     if (selectedBooking) {
@@ -1334,6 +1347,31 @@ export default function ClientPlanningPage() {
     const loadPct = booking.boatCapacity ? Math.round((totalOnBoat / booking.boatCapacity) * 100) : null
     const priceFormatter = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
     const totalPriceLabel = priceFormatter.format(booking.totalPrice || 0)
+    const dueAmount = typeof booking.totalPrice === 'number' && Number.isFinite(booking.totalPrice) ? booking.totalPrice : 0
+    const defaultCashPreset = dueAmount.toFixed(2)
+    const rawCashInput = detailsMarkPaid?.provider === 'cash' ? detailsMarkPaid.cashGiven ?? '' : ''
+    const parsedCashInput = rawCashInput ? Number.parseFloat(rawCashInput) : Number.NaN
+    const normalizedCashInput = !Number.isNaN(parsedCashInput) ? Number(parsedCashInput.toFixed(2)) : null
+    const hasCashValue = detailsMarkPaid?.provider === 'cash' && normalizedCashInput !== null
+    const cashDifference = hasCashValue && normalizedCashInput !== null ? normalizedCashInput - dueAmount : null
+
+    const sanitizeCashInput = (raw: string) => {
+      if (!raw) return ''
+      let next = raw.replace(/[^0-9.,]/g, '').replace(/,/g, '.')
+      const dotIndex = next.indexOf('.')
+      if (dotIndex >= 0) {
+        const before = next.slice(0, dotIndex + 1)
+        const after = next
+          .slice(dotIndex + 1)
+          .replace(/\./g, '')
+          .slice(0, 2)
+        next = `${before}${after}`
+      }
+      if (!next.startsWith('0.') && next.startsWith('0')) {
+        next = next.replace(/^0+(\d)/, '$1')
+      }
+      return next
+    }
     const message = (booking.message || '').trim()
     const statusOptions: BoardingStatus[] = ['CONFIRMED', 'EMBARQUED', 'NO_SHOW']
     const occupantBreakdown = [
@@ -1588,7 +1626,7 @@ export default function ClientPlanningPage() {
                             onPaymentSelectorClose()
                           } else {
                             onPaymentSelectorOpen()
-                            setDetailsMarkPaid((prev) => (prev && prev.provider ? prev : { provider: '', methodType: undefined }))
+                            setDetailsMarkPaid((prev) => prev ?? { provider: '', methodType: undefined, cashGiven: '' })
                           }
                         }}
                         className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
@@ -1606,14 +1644,20 @@ export default function ClientPlanningPage() {
                           value={detailsMarkPaid?.provider ?? ''}
                           onChange={(event) => {
                             const provider = event.target.value
-                            setDetailsMarkPaid((prev) =>
-                              prev
-                                ? {
-                                    provider,
-                                    methodType: provider === 'voucher' ? prev.methodType ?? 'ANCV' : undefined
-                                  }
-                                : { provider, methodType: provider === 'voucher' ? 'ANCV' : undefined }
-                            )
+                            setDetailsMarkPaid((prev) => {
+                              if (!provider) {
+                                return { provider: '', methodType: undefined, cashGiven: undefined }
+                              }
+                              const next: { provider: string; methodType?: string; cashGiven?: string } = { provider }
+                              if (provider === 'voucher') {
+                                next.methodType = prev?.methodType ?? 'ANCV'
+                              }
+                              if (provider === 'cash') {
+                                const preserved = prev?.provider === 'cash' ? prev.cashGiven : undefined
+                                next.cashGiven = preserved && preserved !== '' ? preserved : defaultCashPreset
+                              }
+                              return next
+                            })
                           }}
                         >
                           <option value="">-- moyen --</option>
@@ -1636,6 +1680,57 @@ export default function ClientPlanningPage() {
                             <option value="CityPass">CityPass</option>
                           </select>
                         )}
+                        {detailsMarkPaid?.provider === 'cash' && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              pattern="[0-9]*[.,]?[0-9]*"
+                              className="w-28 rounded border border-slate-300 px-2 py-1 text-sm"
+                              value={detailsMarkPaid.cashGiven ?? ''}
+                              onChange={(event) => {
+                                const sanitized = sanitizeCashInput(event.target.value)
+                                setDetailsMarkPaid((prev) => (prev ? { ...prev, cashGiven: sanitized } : prev))
+                              }}
+                              onBlur={() => {
+                                setDetailsMarkPaid((prev) => {
+                                  if (!prev || !prev.cashGiven) return prev
+                                  const parsed = Number.parseFloat(prev.cashGiven)
+                                  if (Number.isNaN(parsed)) return prev
+                                  return { ...prev, cashGiven: parsed.toFixed(2) }
+                                })
+                              }}
+                              placeholder={defaultCashPreset}
+                              aria-label="Montant reçu"
+                            />
+                            <button
+                              type="button"
+                              className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                              onClick={() =>
+                                setDetailsMarkPaid((prev) =>
+                                  prev ? { ...prev, cashGiven: defaultCashPreset } : prev
+                                )
+                              }
+                            >
+                              Montant dû
+                            </button>
+                            <span
+                              className={`text-xs font-semibold ${
+                                hasCashValue
+                                  ? cashDifference !== null && cashDifference >= 0
+                                    ? 'text-emerald-600'
+                                    : 'text-rose-600'
+                                  : 'text-slate-500'
+                              }`}
+                            >
+                              {hasCashValue
+                                ? cashDifference !== null && cashDifference >= 0
+                                  ? `À rendre : ${priceFormatter.format(Math.max(cashDifference!, 0))}`
+                                  : `Montant manquant : ${priceFormatter.format(Math.abs(cashDifference!))}`
+                                : 'Indiquez le montant reçu'}
+                            </span>
+                          </div>
+                        )}
                         <button
                           type="button"
                           className="rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow hover:bg-emerald-700"
@@ -1643,6 +1738,18 @@ export default function ClientPlanningPage() {
                             if (!detailsMarkPaid?.provider) {
                               alert('Sélectionnez un moyen de paiement')
                               return
+                            }
+                            if (detailsMarkPaid.provider === 'cash') {
+                              if (normalizedCashInput === null) {
+                                alert('Montant espèces invalide')
+                                return
+                              }
+                              if (normalizedCashInput < dueAmount) {
+                                const confirmShort = window.confirm(
+                                  `Le montant reçu (${priceFormatter.format(normalizedCashInput)}) est inférieur au total dû (${priceFormatter.format(dueAmount)}). Valider quand même ?`
+                                )
+                                if (!confirmShort) return
+                              }
                             }
                             await handleStatusUpdate(booking.id, undefined, true)
                             onPaymentSelectorClose()
