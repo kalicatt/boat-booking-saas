@@ -14,6 +14,12 @@ Param(
   [string]$PaypalClientId,
   [string]$PaypalClientSecret,
   [string]$PaypalMode,
+  [string]$RateLimitRedisUrl,
+  [string]$RateLimitRedisToken,
+  [string]$GenericAdminSeedPassword = "ChangeMe123!",
+  [int]$PasswordMinScore = 3,
+  [string]$GrafanaAdminUser = "admin",
+  [string]$GrafanaAdminPassword = "admin",
   [string]$PostgresUser = "snarcisse",
   [string]$PostgresPassword = "changeMe",
   [string]$PostgresDb = "snarcisse"
@@ -35,6 +41,28 @@ if (-not $StripeWebhookSecret) { $StripeWebhookSecret = Read-Host "Enter STRIPE 
 if (-not $PaypalClientId) { $PaypalClientId = Read-Host "Enter PAYPAL client id" }
 if (-not $PaypalClientSecret) { $PaypalClientSecret = Read-Host "Enter PAYPAL client secret" }
 if (-not $PaypalMode) { $PaypalMode = Read-Host "PayPal mode (live/sandbox)" }
+if (-not $RateLimitRedisUrl) { $RateLimitRedisUrl = Read-Host "Redis REST URL (Upstash) [leave blank for in-memory]" }
+if (-not $RateLimitRedisToken) { $RateLimitRedisToken = Read-Host "Redis REST token (Upstash) [leave blank for in-memory]" }
+if ($GenericAdminSeedPassword -eq "ChangeMe123!" -and -not $PSBoundParameters.ContainsKey('GenericAdminSeedPassword')) {
+  $GenericAdminSeedPassword = Read-Host "Generic admin seed password [ChangeMe123!]"
+  if ([string]::IsNullOrWhiteSpace($GenericAdminSeedPassword)) { $GenericAdminSeedPassword = "ChangeMe123!" }
+}
+if (-not $PSBoundParameters.ContainsKey('PasswordMinScore')) {
+  $PasswordMinScore = Read-Host "Password minimum score 0-4 [3]"
+  if ([string]::IsNullOrWhiteSpace($PasswordMinScore)) {
+    $PasswordMinScore = 3
+  } else {
+    $PasswordMinScore = [int]$PasswordMinScore
+  }
+}
+if (-not $PSBoundParameters.ContainsKey('GrafanaAdminUser')) {
+  $GrafanaAdminUser = Read-Host "Grafana admin user [admin]"
+  if ([string]::IsNullOrWhiteSpace($GrafanaAdminUser)) { $GrafanaAdminUser = "admin" }
+}
+if (-not $PSBoundParameters.ContainsKey('GrafanaAdminPassword')) {
+  $GrafanaAdminPassword = Read-Host "Grafana admin password [admin]"
+  if ([string]::IsNullOrWhiteSpace($GrafanaAdminPassword)) { $GrafanaAdminPassword = "admin" }
+}
 
 $NextAuthUrl = "https://$Domain"
 
@@ -47,6 +75,12 @@ RECAPTCHA_SECRET_KEY=$RecaptchaSecret
 
 VAT_RATE=20
 ALERT_WEBHOOK_URL=
+RATE_LIMIT_REDIS_URL=$RateLimitRedisUrl
+RATE_LIMIT_REDIS_TOKEN=$RateLimitRedisToken
+PASSWORD_MIN_SCORE=$PasswordMinScore
+GENERIC_ADMIN_SEED_PASSWORD=$GenericAdminSeedPassword
+GRAFANA_ADMIN_USER=$GrafanaAdminUser
+GRAFANA_ADMIN_PASSWORD=$GrafanaAdminPassword
 
 POSTGRES_USER=$PostgresUser
 POSTGRES_PASSWORD=$PostgresPassword

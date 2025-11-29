@@ -105,6 +105,10 @@ Verify site (HTTP): `curl -I http://yourdomain` → 200.
 - `RESEND_API_KEY`: set if you use Resend for emails. If not set, the app gracefully falls back or returns a configured error on specific routes.
 - `RECAPTCHA_SECRET_KEY`: for server-side captcha verification.
 - Any business-specific variables (see `config/business.json`).
+- `RATE_LIMIT_REDIS_URL` & `RATE_LIMIT_REDIS_TOKEN`: Upstash/Redis REST credentials powering the distributed token-bucket rate limiter. Leave empty to degrade to in-memory mode (not recommended for production).
+- `PASSWORD_MIN_SCORE`: zxcvbn score threshold (0-4, default 3) for password policy enforcement on account creation/updates.
+- `GENERIC_ADMIN_SEED_PASSWORD`: default password applied when seeding shared admin accounts (`guichet@`, `gestion@`, `tract@`). Rotate immediately after bootstrapping.
+- `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`: credentials seeded into the Grafana monitoring UI.
 
 ## Notes on the Build
 - The Dockerfile uses Node 22 (Debian bookworm) for compatibility with Prisma’s OpenSSL requirements and react-email packages.
@@ -186,6 +190,17 @@ DB logs:
 docker compose logs -f db
 ```
 Add an external alert webhook URL to `ALERT_WEBHOOK_URL` for critical events.
+
+Prometheus, Alertmanager, et Grafana sont désormais intégrés au `docker-compose.yml` :
+- Prometheus écoute sur http://localhost:9090 (scrape `/api/metrics`).
+- Grafana est disponible sur http://localhost:3001 (utilise les identifiants `GRAFANA_ADMIN_*`).
+- Alertmanager fournit des alertes via webhook configuré (`ALERT_WEBHOOK_URL`).
+
+Déployer le stack :
+```bash
+docker compose up -d prometheus alertmanager grafana
+```
+Les métriques applicatives comprennent les compteurs de rate limiting (`rate_limiter_allowed_total`, `rate_limiter_blocked_total`) et les métriques système exposées par `prom-client`.
 
 ## 14. Upgrades (Zero-ish Downtime)
 1. Pull latest code: `git pull`.

@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { createLog } from '@/lib/logger'
 import { z } from 'zod'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { evaluatePassword } from '@/lib/passwordPolicy'
 
 export async function POST(request: Request) {
   try {
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const ip = getClientIp(request.headers)
-    const rl = rateLimit({ key: `auth:pwchange:${ip}`, limit: 10, windowMs: 300_000 })
+    const rl = await rateLimit({ key: `auth:pwchange:${ip}`, limit: 10, windowMs: 300_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de tentatives', retryAfter: rl.retryAfter }, { status: 429 })
 
     const json = await request.json()
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
 
     if (!currentPassword || !newPassword) {
         return NextResponse.json({ error: "Tous les champs sont requis" }, { status: 400 })
+    }
+
+    const policy = evaluatePassword(newPassword, [email, session?.user?.firstName ?? '', session?.user?.lastName ?? ''])
+    if (!policy.valid) {
+      return NextResponse.json({ error: policy.feedback || 'Mot de passe trop faible', score: policy.score }, { status: 422 })
     }
 
     // Force: already validated length & complexity via zod

@@ -85,7 +85,7 @@ export async function PATCH(request: Request) {
   }
 
   const ip = getClientIp(request.headers)
-  const rl = rateLimit({ key: `profile:update:${userId}:${ip}`, limit: 40, windowMs: 60_000 })
+  const rl = await rateLimit({ key: `profile:update:${userId}:${ip}`, limit: 40, windowMs: 60_000 })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
   }

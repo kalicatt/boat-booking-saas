@@ -5,6 +5,7 @@ import { auth } from '@/auth'
 import { createLog } from '@/lib/logger'
 import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber, cleanString } from '@/lib/validation'
 import { normalizeIncoming } from '@/lib/phone'
+import { evaluatePassword } from '@/lib/passwordPolicy'
 
 // 1. FIX: Interface pour définir que le rôle existe pour TypeScript
 interface ExtendedUser {
@@ -99,6 +100,11 @@ export async function POST(request: Request) {
 
     const existingUser = await prisma.user.findUnique({ where: { email } })
     if (existingUser) return NextResponse.json({ error: "Email déjà utilisé." }, { status: 409 })
+
+    const passwordPolicy = evaluatePassword(password, [email, firstName, lastName])
+    if (!passwordPolicy.valid) {
+      return NextResponse.json({ error: passwordPolicy.feedback || 'Mot de passe trop faible', score: passwordPolicy.score }, { status: 422 })
+    }
 
     const hashedPassword = await hash(password, 10)
 
@@ -244,6 +250,20 @@ export async function PUT(request: Request) {
 
     // Si un nouveau mot de passe est fourni, on le hache et on l'ajoute
     if (password && password.trim() !== '') {
+      let policyInputs: string[] = []
+      if (email) policyInputs.push(email)
+      if (firstName) policyInputs.push(firstName)
+      if (lastName) policyInputs.push(lastName)
+      if (policyInputs.length === 0) {
+        const existing = await prisma.user.findUnique({ where: { id }, select: { email: true, firstName: true, lastName: true } })
+        if (existing) {
+          policyInputs = [existing.email, existing.firstName, existing.lastName].filter(Boolean) as string[]
+        }
+      }
+      const policy = evaluatePassword(password, policyInputs)
+      if (!policy.valid) {
+        return NextResponse.json({ error: policy.feedback || 'Mot de passe trop faible', score: policy.score }, { status: 422 })
+      }
       dataToUpdate.password = await hash(password, 10)
     }
 

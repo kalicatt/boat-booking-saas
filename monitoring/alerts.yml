@@ -1,0 +1,11 @@
+groups:
+  - name: application
+    rules:
+      - alert: RateLimiterBlockSpike
+        expr: increase(rate_limiter_blocked_total[5m]) > 25
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pics de blocages par le rate limiter"
+          description: "Plus de 25 requêtes bloquées par le rate limiter sur 5 minutes. Vérifier les flux suspects."

@@ -12,7 +12,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request.headers)
-    const rl = rateLimit({ key: `contact:private:${ip}`, limit: 5, windowMs: 300_000 })
+    const rl = await rateLimit({ key: `contact:private:${ip}`, limit: 5, windowMs: 300_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de demandes', retryAfter: rl.retryAfter }, { status: 429 })
 
     const json = await request.json()
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     }
 
     // Additional per-email rate limit (after validation & captcha)
-    const rlEmail = rateLimit({ key: `contact:private:email:${email.toLowerCase()}`, limit: 3, windowMs: 300_000 })
+    const rlEmail = await rateLimit({ key: `contact:private:email:${email.toLowerCase()}`, limit: 3, windowMs: 300_000 })
     if (!rlEmail.allowed) return NextResponse.json({ error: 'Trop de demandes pour cet email', retryAfter: rlEmail.retryAfter }, { status: 429 })
 
     // Email addresses

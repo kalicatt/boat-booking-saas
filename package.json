@@ -21,6 +21,7 @@
     "@react-email/render": "^0.0.15",
     "@stripe/react-stripe-js": "^5.4.1",
     "@stripe/stripe-js": "^8.5.3",
+    "@upstash/redis": "^1.29.0",
     "@types/react-google-recaptcha": "^2.1.9",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^3.0.3",
@@ -30,6 +31,7 @@
     "next": "16.0.3",
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^6.9.10",
+    "prom-client": "^15.1.2",
     "react": "19.2.0",
     "react-big-calendar": "^1.19.4",
     "react-dom": "19.2.0",
@@ -37,7 +39,8 @@
     "resend": "^6.5.2",
     "stripe": "^20.0.0",
     "swr": "^2.3.6",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
@@ -48,6 +51,7 @@
     "@types/react": "^19",
     "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19",
+    "@types/zxcvbn": "^4.4.1",
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",

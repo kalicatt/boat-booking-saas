@@ -52,7 +52,50 @@ services:
       - certbot_www:/var/www/certbot
       - certbot_etc:/etc/letsencrypt
 
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL}
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --config.expand-env
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "3001:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
+
 volumes:
   postgres_data:
   certbot_www:
   certbot_etc:
+  prometheus_data:
+  grafana_data:

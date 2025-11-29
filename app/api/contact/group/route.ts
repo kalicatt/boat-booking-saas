@@ -12,7 +12,7 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request.headers)
-    const rl = rateLimit({ key: `contact:group:${ip}`, limit: 5, windowMs: 300_000 })
+    const rl = await rateLimit({ key: `contact:group:${ip}`, limit: 5, windowMs: 300_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de demandes', retryAfter: rl.retryAfter }, { status: 429 })
 
     const json = await request.json()

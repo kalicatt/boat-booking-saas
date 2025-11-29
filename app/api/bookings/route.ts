@@ -26,7 +26,7 @@ const PRICE_BABY = 0
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request.headers)
-    const rl = rateLimit({ key: `booking:create:${ip}`, limit: 50, windowMs: 60_000 })
+    const rl = await rateLimit({ key: `booking:create:${ip}`, limit: 50, windowMs: 60_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     const json = await request.json()
     const parsed = BookingRequestSchema.safeParse(json)

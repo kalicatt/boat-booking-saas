@@ -13,8 +13,16 @@ function applySecurityHeaders(res: NextResponse) {
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
   res.headers.set('Permissions-Policy', 'geolocation=(), camera=()')
   res.headers.set('X-XSS-Protection', '0') // Obsolète (mise à 0 pour éviter faux sens)
+  res.headers.set('Cross-Origin-Resource-Policy', 'same-origin')
+  res.headers.set('Cross-Origin-Opener-Policy', 'same-origin')
+  res.headers.set('X-DNS-Prefetch-Control', 'off')
+  res.headers.set('X-Permitted-Cross-Domain-Policies', 'none')
 
   const isProd = process.env.NODE_ENV === 'production'
+
+  if (isProd) {
+    res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
+  }
 
   // Directives de base communes
   const baseDirectives: string[] = [
@@ -33,6 +41,7 @@ function applySecurityHeaders(res: NextResponse) {
     // Mode production (plus strict) – pas d'eval, on garde inline si Next injecte des scripts data
     baseDirectives.push("script-src 'self' 'unsafe-inline' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com")
     baseDirectives.push("style-src 'self' 'unsafe-inline'")
+    baseDirectives.push('upgrade-insecure-requests')
   } else {
     // Dev: autoriser eval pour outils React / sourcemaps
     baseDirectives.push("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://js.stripe.com https://www.paypal.com")
@@ -41,6 +50,7 @@ function applySecurityHeaders(res: NextResponse) {
 
   // Tighten embedding: disallow all ancestors
   baseDirectives.push("frame-ancestors 'none'")
+  baseDirectives.push("script-src-attr 'none'")
   res.headers.set('Content-Security-Policy', baseDirectives.join('; '))
   return res
 }

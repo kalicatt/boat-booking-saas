@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   try {
     const session = await auth()
     const ip = getClientIp(req.headers)
-    const rl = rateLimit({ key: `block:create:${ip}`, limit: 20, windowMs: 60_000 })
+    const rl = await rateLimit({ key: `block:create:${ip}`, limit: 20, windowMs: 60_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
@@ -137,7 +137,7 @@ export async function DELETE(req: Request) {
   try {
     const session = await auth()
     const ip = getClientIp(req.headers)
-    const rl = rateLimit({ key: `block:delete:${ip}`, limit: 40, windowMs: 60_000 })
+    const rl = await rateLimit({ key: `block:delete:${ip}`, limit: 40, windowMs: 60_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
@@ -160,7 +160,7 @@ export async function PUT(req: Request) {
   try {
     const session = await auth()
     const ip = getClientIp(req.headers)
-    const rl = rateLimit({ key: `block:update:${ip}`, limit: 40, windowMs: 60_000 })
+    const rl = await rateLimit({ key: `block:update:${ip}`, limit: 40, windowMs: 60_000 })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
     if (session.user.role !== 'ADMIN' && session.user.role !== 'SUPERADMIN') {
