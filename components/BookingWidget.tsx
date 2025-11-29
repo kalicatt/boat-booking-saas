@@ -100,11 +100,18 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const isGroup = totalPeople > GROUP_THRESHOLD // Bascule automatiquement en mode Groupe
     const totalPrice = (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
         const progressSegments = [
-                { id: STEPS.CRITERIA, label: dict.booking?.widget?.step_criteria_short || dict.booking?.widget?.step_criteria_title || 'Critères' },
-                { id: STEPS.SLOTS, label: dict.booking?.widget?.step_slots_short || dict.booking?.widget?.step_slots_title || 'Horaires' },
-                { id: STEPS.CONTACT, label: dict.booking?.widget?.step_contact_short || dict.booking?.widget?.form_title || 'Contact' },
-                { id: STEPS.PAYMENT, label: dict.booking?.widget?.payment_title || 'Paiement' }
+            { id: STEPS.CRITERIA, label: dict.booking?.widget?.step_criteria_short || dict.booking?.widget?.step_criteria_title || 'Critères' },
+            { id: STEPS.SLOTS, label: dict.booking?.widget?.step_slots_short || dict.booking?.widget?.step_slots_title || 'Horaires' },
+            { id: STEPS.CONTACT, label: dict.booking?.widget?.step_contact_short || dict.booking?.widget?.form_title || 'Contact' },
+            { id: STEPS.PAYMENT, label: dict.booking?.widget?.payment_title || 'Paiement' }
         ]
+        const orderedSteps = progressSegments.map(segment => segment.id)
+        const currentStepIndex = step >= STEPS.SUCCESS
+            ? orderedSteps.length - 1
+            : Math.max(0, orderedSteps.findIndex((ordered) => ordered === step))
+        const progressRatio = orderedSteps.length > 1
+            ? currentStepIndex / (orderedSteps.length - 1)
+            : 1
 
   // Reset des créneaux si on change les critères
   useEffect(() => {
@@ -454,17 +461,28 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             </h3>
             
             {/* Barre de progression */}
-            <ol className="mb-8 flex flex-col gap-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:flex-row sm:items-center" aria-label={dict.booking?.widget?.progress_label || 'Progression de la réservation'}>
+            <div className="mb-6 h-2 w-full rounded-full bg-slate-800">
+                <div
+                    className="h-full rounded-full bg-[#eab308] transition-[width] duration-500 ease-out"
+                    style={{ width: `${Math.max(0, Math.min(1, progressRatio)) * 100}%` }}
+                    aria-hidden="true"
+                />
+            </div>
+            <ol className="mb-8 w-full space-y-4 text-[11px] font-semibold uppercase tracking-wide text-slate-500" aria-label={dict.booking?.widget?.progress_label || 'Progression de la réservation'}>
                 {progressSegments.map((segment, index) => {
-                    const isReached = step >= segment.id || step >= STEPS.SUCCESS
-                    const nextReached = step >= (progressSegments[index + 1]?.id ?? segment.id)
+                    const isReached = step >= STEPS.SUCCESS || currentStepIndex >= index
+                    const nextReached = step >= STEPS.SUCCESS || currentStepIndex > index
                     return (
-                        <li key={segment.id} className="flex items-center gap-3">
-                            <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${isReached ? 'border-[#eab308] bg-[#eab308] text-[#0f172a]' : 'border-slate-600 bg-slate-800 text-slate-400'}`}>{index + 1}</div>
-                            <span className={`${isReached ? 'text-[#eab308]' : 'text-slate-500'}`}>{segment.label}</span>
-                            {index < progressSegments.length - 1 && (
-                                <div className={`hidden sm:block h-[2px] w-12 rounded-full transition-colors ${nextReached ? 'bg-[#eab308]' : 'bg-slate-700'}`} aria-hidden="true" />
-                            )}
+                        <li key={segment.id} className="flex items-start gap-3">
+                            <div className="flex flex-col items-center">
+                                <div className={`flex h-7 w-7 items-center justify-center rounded-full border text-[11px] font-bold transition-colors ${isReached ? 'border-[#eab308] bg-[#eab308] text-[#0f172a]' : 'border-slate-600 bg-slate-800 text-slate-400'}`}>{index + 1}</div>
+                                {index < progressSegments.length - 1 && (
+                                    <div className={`mt-1 w-px flex-1 min-h-[28px] rounded-full ${nextReached ? 'bg-[#eab308]' : 'bg-slate-700'}`} aria-hidden="true" />
+                                )}
+                            </div>
+                            <div className={`pt-1 ${isReached ? 'text-[#eab308]' : 'text-slate-500'}`}>
+                                {segment.label}
+                            </div>
                         </li>
                     )
                 })}
