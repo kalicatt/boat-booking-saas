@@ -11,6 +11,7 @@ import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
+import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
 
@@ -226,7 +227,9 @@ export async function POST(request: Request) {
       const secret = process.env.NEXTAUTH_SECRET || 'changeme'
       const token = (await import('crypto')).createHmac('sha256', secret).update(String(newBooking.id)).digest('hex').slice(0,16)
       const cancelUrl = `${baseUrl}/api/bookings/${newBooking.id}?action=cancel&token=${token}`
-      const emailSender = process.env.EMAIL_SENDER || 'no-reply@sweet-narcisse.fr'
+      const reservationSender = EMAIL_FROM.reservations
+      const billingSender = EMAIL_FROM.billing
+      const replyToContact = EMAIL_ROLES.contact
       const html = await renderBookingHtml({
         firstName: userDetails.firstName || 'Client',
         date,
@@ -239,27 +242,27 @@ export async function POST(request: Request) {
         totalPrice: finalPrice,
       })
       if(process.env.RESEND_API_KEY && resend){
-        await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html })
+        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, replyTo: replyToContact })
       } else {
-        await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html })
+        await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, from: reservationSender, replyTo: replyToContact })
       }
       // Also send a simple text with cancel link as fallback
       const cancelText = `Pour annuler votre réservation, cliquez: ${cancelUrl}`
       if(process.env.RESEND_API_KEY && resend){
-        await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, replyTo: replyToContact })
       } else {
-        await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+        await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, from: reservationSender, replyTo: replyToContact })
       }
       await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${newBooking.id}`)
 
       if (invoiceEmail && invoiceEmail !== userEmailToUse) {
         const invoiceSubject = `Facture – Réservation ${date} ${time}`
         if(process.env.RESEND_API_KEY && resend){
-          await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: invoiceEmail, subject: invoiceSubject, html })
-          await resend.emails.send({ from: `Sweet Narcisse <${emailSender}>`, to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: invoiceSubject, html, replyTo: EMAIL_ROLES.billing })
+          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, replyTo: EMAIL_ROLES.billing })
         } else {
-          await sendMail({ to: invoiceEmail, subject: invoiceSubject, html })
-          await sendMail({ to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText })
+          await sendMail({ to: invoiceEmail, subject: invoiceSubject, html, from: billingSender, replyTo: EMAIL_ROLES.billing })
+          await sendMail({ to: invoiceEmail, subject: `Lien d'annulation – Réservation ${newBooking.id}`, text: cancelText, from: billingSender, replyTo: EMAIL_ROLES.billing })
         }
         await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${newBooking.id}`)
       }

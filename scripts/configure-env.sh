@@ -2,8 +2,17 @@
 set -euo pipefail
 
 read -p "Domain (e.g., sweet-narcisse.fr): " DOMAIN
-read -p "Sender email (e.g., contact@${DOMAIN}): " EMAIL_SENDER
-read -p "Admin notification email (e.g., admin@${DOMAIN}): " ADMIN_EMAIL
+read -p "Display name for outgoing emails [Sweet Narcisse]: " EMAIL_FROM_NAME
+EMAIL_FROM_NAME=${EMAIL_FROM_NAME:-Sweet Narcisse}
+read -p "Contact email [contact@${DOMAIN}]: " EMAIL_CONTACT
+EMAIL_CONTACT=${EMAIL_CONTACT:-contact@${DOMAIN}}
+read -p "Reservations email [reservations@${DOMAIN}]: " EMAIL_RESERVATIONS
+EMAIL_RESERVATIONS=${EMAIL_RESERVATIONS:-reservations@${DOMAIN}}
+read -p "Billing email [facturation@${DOMAIN}]: " EMAIL_BILLING
+EMAIL_BILLING=${EMAIL_BILLING:-facturation@${DOMAIN}}
+read -p "Notifications email [operations@${DOMAIN}]: " EMAIL_NOTIFICATIONS
+EMAIL_NOTIFICATIONS=${EMAIL_NOTIFICATIONS:-operations@${DOMAIN}}
+read -p "Admin notification email (blank to reuse notifications): " ADMIN_EMAIL
 read -p "NEXTAUTH_SECRET (auto if blank): " NEXTAUTH_SECRET
 read -p "RESEND_API_KEY (blank to use SMTP): " RESEND_API_KEY
 read -p "RECAPTCHA_SECRET_KEY: " RECAPTCHA_SECRET
@@ -39,8 +48,9 @@ if [ -z "${NEXTAUTH_SECRET}" ]; then
   NEXTAUTH_SECRET=$(openssl rand -hex 32)
 fi
 if [ -z "${ADMIN_EMAIL}" ]; then
-  ADMIN_EMAIL="${EMAIL_SENDER}"
+  ADMIN_EMAIL="${EMAIL_NOTIFICATIONS}"
 fi
+EMAIL_SENDER="${EMAIL_NOTIFICATIONS}"
 NEXTAUTH_URL="https://${DOMAIN}"
 
 cat > .env.production.local <<EOF
@@ -67,6 +77,11 @@ DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${P
 NEXT_PUBLIC_BASE_URL=${NEXTAUTH_URL}
 EMAIL_SENDER=${EMAIL_SENDER}
 ADMIN_EMAIL=${ADMIN_EMAIL}
+EMAIL_FROM_NAME="${EMAIL_FROM_NAME}"
+EMAIL_CONTACT=${EMAIL_CONTACT}
+EMAIL_RESERVATIONS=${EMAIL_RESERVATIONS}
+EMAIL_BILLING=${EMAIL_BILLING}
+EMAIL_NOTIFICATIONS=${EMAIL_NOTIFICATIONS}
 SMTP_HOST=${SMTP_HOST}
 SMTP_PORT=${SMTP_PORT}
 SMTP_USER=${SMTP_USER}

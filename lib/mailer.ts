@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import { getEmailSender } from './emailAddresses'
 
 export function getSmtpTransport(){
   const host = process.env.SMTP_HOST
@@ -12,8 +13,17 @@ export function getSmtpTransport(){
   return nodemailer.createTransport({ host, port, secure, auth: { user, pass } })
 }
 
-export async function sendMail({ to, subject, html, text, from }: { to: string|string[]; subject: string; html?: string; text?: string; from?: string }){
+type SendMailOptions = {
+  to: string | string[]
+  subject: string
+  html?: string
+  text?: string
+  from?: string
+  replyTo?: string | string[]
+}
+
+export async function sendMail({ to, subject, html, text, from, replyTo }: SendMailOptions){
   const transport = getSmtpTransport()
-  const sender = from || process.env.EMAIL_SENDER || process.env.SMTP_USER || 'no-reply@sweet-narcisse.fr'
-  await transport.sendMail({ from: sender, to, subject, html, text })
+  const sender = from || getEmailSender('notifications')
+  await transport.sendMail({ from: sender, to, subject, html, text, replyTo })
 }

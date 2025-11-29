@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import crypto from 'crypto'
 import { sendMail } from '@/lib/mailer'
+import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
 function makeCancelToken(id: string){
   const secret = process.env.NEXTAUTH_SECRET || 'changeme'
@@ -40,12 +41,21 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     const updated = await prisma.booking.update({ where: { id }, data: { status: 'CANCELLED' } })
 
     // Notify customer + admin
-    const sender = process.env.EMAIL_SENDER || 'no-reply@sweet-narcisse.fr'
-    const admin = process.env.EMAIL_SENDER || 'contact@sweet-narcisse.fr'
+    const admin = EMAIL_ROLES.notifications
     const toCustomer = booking.user?.email || admin
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
-    await sendMail({ to: toCustomer, subject: `Annulation confirmée – Réservation ${booking.id}`, text: `Votre réservation a bien été annulée. ID: ${booking.id}. Si ce n'était pas prévu, contactez-nous: ${admin}.` , from: sender })
-    await sendMail({ to: admin, subject: `Annulation effectuée – ${booking.id}`, text: `La réservation ${booking.id} a été annulée par lien. Client: ${booking.user?.email || 'inconnu'}.` , from: sender })
+    await sendMail({
+      to: toCustomer,
+      subject: `Annulation confirmée – Réservation ${booking.id}`,
+      text: `Votre réservation a bien été annulée. ID: ${booking.id}. Si ce n'était pas prévu, contactez-nous: ${EMAIL_ROLES.contact}.`,
+      from: EMAIL_FROM.reservations,
+      replyTo: EMAIL_ROLES.contact
+    })
+    await sendMail({
+      to: admin,
+      subject: `Annulation effectuée – ${booking.id}`,
+      text: `La réservation ${booking.id} a été annulée par lien. Client: ${booking.user?.email || 'inconnu'}.`,
+      from: EMAIL_FROM.notifications
+    })
 
     return NextResponse.json({ success: true, status: updated.status })
   } catch (e:any){

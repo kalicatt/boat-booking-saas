@@ -39,7 +39,12 @@ Keep the repository under version control to simplify upgrades.
 
 ## 3. Configure Environment Variables (Automated Script)
 Gather the required values before running the helper script:
-- Domain name and contact email(s)
+- Domain name and DNS-ready mailboxes:
+	- `contact@your-domain` → public contact forms + acknowledgements
+	- `reservations@your-domain` → booking confirmations & cancellation links
+	- `facturation@your-domain` → invoices and finance copies
+	- `operations@your-domain` (or similar) → internal alerts (group/private requests, staff notifications)
+- Friendly display name for outgoing emails (defaults to “Sweet Narcisse”)
 - SMTP host/port/user/password
 - Stripe publishable/secret/webhook keys
 - PayPal REST client ID/secret for both **live** and **sandbox**

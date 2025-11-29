@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { normalizeIncoming } from '@/lib/phone'
 import { prisma } from '@/lib/prisma'
+import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
 
@@ -78,8 +79,7 @@ export async function POST(request: Request) {
     if (!rlEmail.allowed) return NextResponse.json({ error: 'Trop de demandes pour cet email', retryAfter: rlEmail.retryAfter }, { status: 429 })
 
     // Email addresses
-    const EMAIL_FROM = process.env.EMAIL_FROM || 'Sweet Narcisse <onboarding@resend.dev>'
-    const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim()
+    const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim() || EMAIL_ROLES.notifications
     if (!process.env.RESEND_API_KEY) {
       console.warn('RESEND_API_KEY is not set')
     }
@@ -113,8 +113,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Email service non configuré' }, { status: 500 })
     }
     const { error } = await resend.emails.send({
-      from: EMAIL_FROM,
-      to: [ADMIN_EMAIL || 'votre-email-admin@example.com'],
+      from: EMAIL_FROM.notifications,
+      to: [ADMIN_EMAIL || EMAIL_ROLES.notifications],
       subject: `Demande de Privatisation - ${firstName} ${lastName}${typeof people === 'number' ? ` - ${people}p` : ''}${date ? ` - ${date}` : ''}`,
       replyTo: email,
       react: await GroupRequestTemplate({
@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       } as const
 
       if (resend) await resend.emails.send({
-        from: EMAIL_FROM,
+        from: EMAIL_FROM.contact,
         to: [email],
         subject: subjects[userLang],
         text: greetings[userLang]

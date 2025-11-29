@@ -1,5 +1,10 @@
 Param(
   [string]$Domain,
+  [string]$EmailFromName = "Sweet Narcisse",
+  [string]$EmailContact,
+  [string]$EmailReservations,
+  [string]$EmailBilling,
+  [string]$EmailNotifications,
   [string]$EmailSender,
   [string]$AdminEmail,
   [string]$NextAuthSecret,
@@ -29,8 +34,12 @@ Param(
 Write-Host "Configuring environment .env.production.local..."
 
 if (-not $Domain) { $Domain = Read-Host "Enter your domain (e.g., sweet-narcisse.fr)" }
-if (-not $EmailSender) { $EmailSender = Read-Host "Enter sender email (e.g., contact@$Domain)" }
-if (-not $AdminEmail) { $AdminEmail = Read-Host "Enter admin notification email (e.g., admin@$Domain)" }
+if (-not $EmailFromName) { $EmailFromName = Read-Host "Display name for outgoing emails [Sweet Narcisse]"; if ([string]::IsNullOrWhiteSpace($EmailFromName)) { $EmailFromName = "Sweet Narcisse" } }
+if (-not $EmailContact) { $EmailContact = Read-Host "Contact email [contact@$Domain]"; if ([string]::IsNullOrWhiteSpace($EmailContact)) { $EmailContact = "contact@$Domain" } }
+if (-not $EmailReservations) { $EmailReservations = Read-Host "Reservations email [reservations@$Domain]"; if ([string]::IsNullOrWhiteSpace($EmailReservations)) { $EmailReservations = "reservations@$Domain" } }
+if (-not $EmailBilling) { $EmailBilling = Read-Host "Billing email [facturation@$Domain]"; if ([string]::IsNullOrWhiteSpace($EmailBilling)) { $EmailBilling = "facturation@$Domain" } }
+if (-not $EmailNotifications) { $EmailNotifications = Read-Host "Notifications email [operations@$Domain]"; if ([string]::IsNullOrWhiteSpace($EmailNotifications)) { $EmailNotifications = "operations@$Domain" } }
+if (-not $AdminEmail) { $AdminEmail = Read-Host "Admin notification email (blank to reuse notifications)" }
 if (-not $NextAuthSecret) { $NextAuthSecret = [Guid]::NewGuid().ToString("N") }
 if (-not $ResendApiKey) { $ResendApiKey = Read-Host "Enter RESEND_API_KEY" }
 if (-not $RecaptchaSecret) { $RecaptchaSecret = Read-Host "Enter RECAPTCHA_SECRET_KEY" }
@@ -66,7 +75,8 @@ if (-not $PSBoundParameters.ContainsKey('GrafanaAdminPassword')) {
   if ([string]::IsNullOrWhiteSpace($GrafanaAdminPassword)) { $GrafanaAdminPassword = "admin" }
 }
 
-if ([string]::IsNullOrWhiteSpace($AdminEmail)) { $AdminEmail = $EmailSender }
+if ([string]::IsNullOrWhiteSpace($AdminEmail)) { $AdminEmail = $EmailNotifications }
+$EmailSender = $EmailNotifications
 
 $NextAuthUrl = "https://$Domain"
 
@@ -94,6 +104,11 @@ DATABASE_URL=postgres://${PostgresUser}:${PostgresPassword}@localhost:5432/${Pos
 NEXT_PUBLIC_BASE_URL=$NextAuthUrl
 EMAIL_SENDER=$EmailSender
 ADMIN_EMAIL=$AdminEmail
+EMAIL_FROM_NAME="$EmailFromName"
+EMAIL_CONTACT=$EmailContact
+EMAIL_RESERVATIONS=$EmailReservations
+EMAIL_BILLING=$EmailBilling
+EMAIL_NOTIFICATIONS=$EmailNotifications
 SMTP_HOST=$SmtpHost
 SMTP_PORT=$SmtpPort
 SMTP_USER=$SmtpUser

@@ -106,9 +106,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             { id: STEPS.PAYMENT, label: dict.booking?.widget?.payment_title || 'Paiement' }
         ]
         const orderedSteps = progressSegments.map(segment => segment.id)
-        const currentStepIndex = step >= STEPS.SUCCESS
-            ? orderedSteps.length - 1
-            : Math.max(0, orderedSteps.findIndex((ordered) => ordered === step))
+        const stepForProgress = step >= STEPS.SUCCESS ? STEPS.PAYMENT : Math.min(step, STEPS.PAYMENT)
+        const matchedIndex = orderedSteps.findIndex((ordered) => ordered === stepForProgress)
+        const currentStepIndex = matchedIndex === -1
+            ? (stepForProgress >= orderedSteps[orderedSteps.length - 1] ? orderedSteps.length - 1 : 0)
+            : matchedIndex
         const progressRatio = orderedSteps.length > 1
             ? currentStepIndex / (orderedSteps.length - 1)
             : 1
