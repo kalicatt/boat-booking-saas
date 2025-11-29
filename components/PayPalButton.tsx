@@ -1,122 +1,103 @@
 "use client"
-import { useEffect, useRef } from 'react'
 
-declare global {
-  interface Window {
-    paypal?: {
-      Buttons: (opts: {
-        createOrder?: () => Promise<string>
-        onApprove?: (data: { orderID?: string } | unknown) => void
-        onError?: (err: unknown) => void
-      }) => { render: (el: HTMLElement) => void }
-    }
-  }
+import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
+
+type PayPalCopy = {
+  notConfigured?: string
+  genericError?: string
+  sdkLoadFailed?: string
 }
 
-export default function PayPalButton({ amount, onSuccess, onError, messages }:{ amount: number, onSuccess: (orderId: string)=>void, onError: (msg:string)=>void, messages?: { notConfigured?: string, genericError?: string, sdkLoadFailed?: string } }) {
-  const containerRef = useRef<HTMLDivElement|null>(null)
-  const successRef = useRef(onSuccess)
-  const errorRef = useRef(onError)
-  const amountRef = useRef(amount)
+interface PayPalButtonProps {
+  amount: number
+  onSuccess: (orderId: string) => void
+  onError: (message: string) => void
+  messages?: PayPalCopy
+}
+
+export default function PayPalButton({ amount, onSuccess, onError, messages }: PayPalButtonProps) {
   const notConfiguredMsg = messages?.notConfigured || 'PayPal not configured'
   const genericErrorMsg = messages?.genericError || 'PayPal error'
   const sdkLoadFailedMsg = messages?.sdkLoadFailed || 'Failed to load PayPal SDK'
-  useEffect(()=>{ successRef.current = onSuccess }, [onSuccess])
-  useEffect(()=>{ errorRef.current = onError }, [onError])
-  useEffect(()=>{ amountRef.current = amount }, [amount])
+  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
+  const missingClientId = !clientId
 
-  useEffect(()=>{
-    const container = containerRef.current
-    const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID
-    if (!clientId) { errorRef.current(notConfiguredMsg); return }
-    if (!container) { errorRef.current('Zone PayPal introuvable'); return }
+  const resolveMessage = useCallback((err: unknown) => {
+    const normalize = (value: string) => (/zoid destroyed/i.test(value) ? genericErrorMsg : value)
+    if (err instanceof Error && err.message) return normalize(err.message)
+    if (typeof err === 'string' && err.trim().length) return normalize(err.trim())
+    return genericErrorMsg
+  }, [genericErrorMsg])
 
-    const resolveMessage = (err: unknown) => {
-      const sanitize = (value: string) => (/zoid destroyed/i.test(value) ? genericErrorMsg : value)
-      if (err instanceof Error && err.message) return sanitize(err.message)
-      if (typeof err === 'string' && err.trim().length) return sanitize(err.trim())
-      return genericErrorMsg
-    }
+  const paypalOptions = useMemo(() => {
+    if (!clientId) return null
+    return {
+      'client-id': clientId,
+      currency: 'EUR',
+      intent: 'capture',
+      components: 'buttons',
+      'disable-funding': 'card'
+    } as const
+  }, [clientId])
 
-    let cleaned = false
-    let buttonsInstance: { close?: () => Promise<void> } | null = null
-    let orderBlocked = false
+  const forceRerenderDeps = useMemo(() => [amount, genericErrorMsg], [amount, genericErrorMsg])
+  const amountRef = useRef(amount)
+  amountRef.current = amount
 
-    const handleError = (err: unknown) => {
-      if (cleaned) return
+  const handleCreateOrder = useCallback(async () => {
+    try {
+      const response = await fetch('/api/payments/paypal/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: amountRef.current, currency: 'EUR' })
+      })
+      const body = await response.json()
+      if (!response.ok || !body?.orderId) {
+        const message = resolveMessage(body?.error || genericErrorMsg)
+        throw new Error(message)
+      }
+      return body.orderId as string
+    } catch (err) {
       const message = resolveMessage(err)
-      orderBlocked = true
-      errorRef.current(message)
-      if (buttonsInstance?.close) {
-        buttonsInstance.close().catch(()=>{})
-      }
+      onError(message)
+      throw err instanceof Error ? err : new Error(message)
     }
+  }, [genericErrorMsg, onError, resolveMessage])
 
-    const handleSuccess = (orderId: string) => {
-      if (cleaned) return
-      successRef.current(orderId)
+  const handleApprove = useCallback(async (data: Record<string, unknown>) => {
+    const orderId = typeof data?.orderID === 'string' ? data.orderID : null
+    if (!orderId) {
+      onError(genericErrorMsg)
+      return
     }
+    onSuccess(orderId)
+  }, [genericErrorMsg, onError, onSuccess])
 
-    const script = document.createElement('script')
-    script.src = `https://www.paypal.com/sdk/js?client-id=${clientId}&currency=EUR&disable-funding=card`
-    script.onload = async () => {
-      if (!window.paypal) { errorRef.current(sdkLoadFailedMsg); return }
-      try {
-        const buttons = window.paypal.Buttons({
-          createOrder: async () => {
-            if (orderBlocked) return ''
-            try {
-              const response = await fetch('/api/payments/paypal/create-order', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: amountRef.current, currency: 'EUR' })
-              })
-              const body = await response.json()
-              if (!response.ok) {
-                const message = body?.error || genericErrorMsg
-                handleError(message)
-                orderBlocked = true
-                return ''
-              }
-              if (!body?.orderId) {
-                const message = 'Commande PayPal absente'
-                handleError(message)
-                orderBlocked = true
-                return ''
-              }
-              return body.orderId as string
-            } catch (err) {
-              const message = resolveMessage(err)
-              handleError(message)
-              orderBlocked = true
-              return ''
-            }
-          },
-          onApprove: async (data: { orderID?: string } | unknown) => {
-            if (!data || typeof data !== 'object' || typeof (data as { orderID?: string }).orderID !== 'string') {
-              handleError('Commande PayPal introuvable')
-              return
-            }
-            handleSuccess((data as { orderID: string }).orderID)
-          },
-          onError: (err: unknown) => handleError(err)
-        })
-        buttonsInstance = buttons
-        await buttons.render(container)
-      } catch (err) {
-        handleError(err)
-      }
-    }
-    script.onerror = () => handleError(sdkLoadFailedMsg)
-    document.body.appendChild(script)
-    return ()=>{
-      cleaned = true
-      if (buttonsInstance?.close) {
-        buttonsInstance.close().catch(()=>{})
-      }
-      script.remove()
-    }
-  }, [amount, genericErrorMsg, notConfiguredMsg, sdkLoadFailedMsg])
+  const handleError = useCallback((err: unknown) => {
+    onError(resolveMessage(err) || sdkLoadFailedMsg)
+  }, [onError, resolveMessage, sdkLoadFailedMsg])
 
-  return <div ref={containerRef} />
+  useEffect(() => {
+    if (missingClientId) {
+      onError(notConfiguredMsg)
+    }
+  }, [missingClientId, notConfiguredMsg, onError])
+
+  if (!clientId || !paypalOptions) {
+    return null
+  }
+
+  return (
+    <PayPalScriptProvider options={paypalOptions} deferLoading={false}>
+      <PayPalButtons
+        style={{ layout: 'vertical', shape: 'rect', color: 'gold', label: 'pay' }}
+        fundingSource="paypal"
+        forceReRender={forceRerenderDeps}
+        createOrder={handleCreateOrder}
+        onApprove={handleApprove}
+        onError={handleError}
+      />
+    </PayPalScriptProvider>
+  )
 }
