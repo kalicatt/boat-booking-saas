@@ -1,0 +1,112 @@
+Roadmap : Module Météo & Alertes (Operational Safety)
+Ce document détaille l'intégration des données météorologiques en temps réel (OpenWeatherMap) dans l'interface d'administration.
+
+Objectif Business : Sécuriser les sorties (alertes vent/orage) et anticiper l'affluence ou les annulations.
+
+⚙️ Phase 1 : Infrastructure & API Externe
+Objectif : Connecter l'application à un fournisseur de données fiable sans exposer les clés API.
+
+1. Choix du Fournisseur
+Utilisation de OpenWeatherMap (One Call API 3.0) qui fournit :
+
+Météo actuelle.
+
+Prévisions horaires (48h) pour anticiper les grains.
+
+Vitesse du vent et rafales (Critique pour les barques).
+
+2. Configuration des Variables
+Fichier : .env (et .env.local)
+
+Variables à ajouter :
+
+Bash
+
+# WEATHER (OpenWeatherMap)
+WEATHER_API_KEY="votre_cle_api_ici"
+# Coordonnées de la base nautique (Ex: Base Sweet Narcisse)
+WEATHER_LAT="48.5839" 
+WEATHER_LON="7.7455"
+# Seuil d'alerte vent (km/h) pour affichage rouge
+NEXT_PUBLIC_WIND_ALERT_THRESHOLD="25"
+🏗️ Phase 2 : Backend (Proxy & Cache)
+Objectif : Créer une route API interne pour servir les données au front tout en gérant le cache (limiter les coûts/appels).
+
+1. Service Météo (Server-Side)
+Fichier : lib/weather.ts (Nouveau)
+
+Logique :
+
+Fonction getWeatherForecast().
+
+Utilisation de fetch avec next: { revalidate: 900 } (Cache de 15 min).
+
+Conversion des unités si nécessaire (m/s vers km/h pour le vent).
+
+TypeScript
+
+// Exemple simplifié
+export async function getWeatherForecast() {
+  const apiKey = process.env.WEATHER_API_KEY
+  const lat = process.env.WEATHER_LAT
+  const lon = process.env.WEATHER_LON
+  
+  const url = `https://api.openweathermap.org/data/3.0/onecall?lat=${lat}&lon=${lon}&exclude=minutely&units=metric&lang=fr&appid=${apiKey}`
+  
+  const res = await fetch(url, { next: { revalidate: 900 } }) // Cache 15 min
+  if (!res.ok) throw new Error('Weather fetch failed')
+  return res.json()
+}
+2. Route API
+Fichier : app/api/admin/weather/route.ts (Nouveau)
+
+Rôle : Exposer les données nettoyées au front-end (Admin seulement).
+
+Sécurité : Vérifier que l'utilisateur est bien un membre du staff (via auth()).
+
+🖥️ Phase 3 : Composants UI (Le Widget)
+Objectif : Un affichage compact mais riche en informations décisionnelles.
+
+1. Composant WeatherWidget
+Fichier : app/admin/_components/WeatherWidget.tsx (Nouveau)
+
+Design (Cartes) :
+
+Gauche (Actuel) : Icône énorme (Soleil/Nuage), Température, Vent (avec code couleur).
+
+Droite (Timeline) : Prévisions h+1, h+2, h+3 (Pluie/Vent).
+
+Logique d'Alerte :
+
+Si vent > WIND_ALERT_THRESHOLD (ex: 25 km/h) → Fond rouge clignotant ou bannière "NAVIGATION DANGEREUSE".
+
+Si pluie prévue dans < 1h → Badge "Pluie imminente".
+
+2. Intégration des Icônes
+Utiliser la librairie lucide-react déjà installée (Wind, CloudRain, Sun, CloudLightning).
+
+🚀 Phase 4 : Intégration Dashboard
+Objectif : Rendre l'information visible dès la connexion.
+
+1. Ajout au Dashboard "Aujourd'hui"
+Fichier : app/admin/today/page.tsx
+
+Action : Insérer le <WeatherWidget /> tout en haut de la page, au-dessus de la liste des départs.
+
+Pourquoi ? C'est la première chose que le staff doit voir en ouvrant la caisse pour savoir s'ils peuvent louer.
+
+2. (Bonus) Indicateur dans la Navigation
+Fichier : app/admin/_components/AdminPageShell.tsx
+
+Idée : Ajouter une petite pastille météo (ex: "☀️ 24°C") dans la TopBar à côté du profil utilisateur, visible sur toutes les pages admin.
+
+✅ Checklist de Validation
+[ ] Compte API : Clé OpenWeatherMap active et "One Call 3.0" souscrit (1000 appels/jour gratuits).
+
+[ ] Env : Coordonnées GPS précises de la base ajoutées au .env.
+
+[ ] Cache : Vérifier que les appels ne se font pas à chaque rafraîchissement de page (via logs serveur).
+
+[ ] Sécurité : Le widget affiche une alerte visuelle claire si le vent dépasse 25 km/h.
+
+[ ] Unités : Le vent est bien affiché en km/h (plus parlant pour le staff que m/s ou nœuds).
