@@ -34,7 +34,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
     const pendingOnly = Boolean((json as any)?.pendingOnly)
-    const { date, time, adults, children, babies, language, userDetails, isStaffOverride, captchaToken, message, paymentMethod, groupChain, inheritPaymentForChain, private: isPrivate } = parsed.data as any
+    const {
+      date,
+      time,
+      adults,
+      children,
+      babies,
+      language,
+      userDetails,
+      isStaffOverride,
+      captchaToken,
+      message,
+      paymentMethod,
+      markAsPaid,
+      forcedBoatId,
+      groupChain,
+      inheritPaymentForChain,
+      private: isPrivate
+    } = parsed.data as any
     let newBooking: any
 
     // 1. CAPTCHA
@@ -55,6 +72,7 @@ export async function POST(request: Request) {
 
     const people = adults + children + babies
     const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
+    const shouldMarkPaid = Boolean(markAsPaid && paymentMethod)
 
     // --- VALIDATION HORAIRES ---
     // On utilise getUTCHours() car on a forcé le Z (UTC)
@@ -93,13 +111,21 @@ export async function POST(request: Request) {
     const startHourRef = parseInt(OPEN_TIME.split(':')[0])
     const startMinRef = parseInt(OPEN_TIME.split(':')[1])
     const startTimeInMinutes = startHourRef * 60 + startMinRef
-    
-    // Calcul des slots écoulés depuis 10h00
-    const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
-    
-    // Rotation simple : 10h00 = Bateau 0, 10h10 = Bateau 1, etc.
-    const boatIndex = ((Math.floor(slotsElapsed) % boats.length) + boats.length) % boats.length
-    const targetBoat = boats[boatIndex]
+
+    let targetBoat = undefined as (typeof boats)[number] | undefined
+
+    if (isStaffOverride && typeof forcedBoatId === 'number' && Number.isFinite(forcedBoatId)) {
+      targetBoat = boats.find((boat) => boat.id === forcedBoatId)
+    }
+
+    if (!targetBoat) {
+      // Calcul des slots écoulés depuis 10h00
+      const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
+
+      // Rotation simple : 10h00 = Bateau 0, 10h10 = Bateau 1, etc.
+      const boatIndex = ((Math.floor(slotsElapsed) % boats.length) + boats.length) % boats.length
+      targetBoat = boats[boatIndex]
+    }
 
     if (!targetBoat) return NextResponse.json({ error: "Erreur rotation barque." }, { status: 409 })
 
@@ -175,7 +201,7 @@ export async function POST(request: Request) {
               }
             }
           },
-          isPaid: pendingOnly ? false : true
+          isPaid: pendingOnly ? false : shouldMarkPaid
         }
       })
 

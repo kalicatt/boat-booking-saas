@@ -10,6 +10,67 @@ import QuickBookingModal from '@/components/QuickBookingModal'
 import useSWR from 'swr'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
+const STATUS_THEME: Record<string, { label: string; background: string; backgroundSoft: string; border: string; text: string; badge: string }> = {
+  CONFIRMED: {
+    label: 'Confirmée',
+    background: '#2563eb',
+    backgroundSoft: '#1d4ed8',
+    border: '#93c5fd',
+    text: '#f8fafc',
+    badge: 'bg-blue-100 text-blue-700'
+  },
+  EMBARQUED: {
+    label: 'Embarquée',
+    background: '#0f766e',
+    backgroundSoft: '#047857',
+    border: '#6ee7b7',
+    text: '#ecfdf5',
+    badge: 'bg-emerald-100 text-emerald-700'
+  },
+  NO_SHOW: {
+    label: 'No-show',
+    background: '#f97316',
+    backgroundSoft: '#ea580c',
+    border: '#fcd34d',
+    text: '#fff7ed',
+    badge: 'bg-amber-100 text-amber-700'
+  },
+  PENDING: {
+    label: 'En attente',
+    background: '#64748b',
+    backgroundSoft: '#475569',
+    border: '#cbd5f5',
+    text: '#f8fafc',
+    badge: 'bg-slate-200 text-slate-700'
+  },
+  CANCELLED: {
+    label: 'Annulée',
+    background: '#dc2626',
+    backgroundSoft: '#b91c1c',
+    border: '#fecaca',
+    text: '#fef2f2',
+    badge: 'bg-rose-100 text-rose-700'
+  },
+  DEFAULT: {
+    label: 'Autre',
+    background: '#334155',
+    backgroundSoft: '#1e293b',
+    border: '#cbd5f5',
+    text: '#e2e8f0',
+    badge: 'bg-slate-200 text-slate-700'
+  }
+}
+
+const LANGUAGE_FLAGS: Record<string, string> = {
+  FR: '🇫🇷',
+  EN: '🇬🇧',
+  DE: '🇩🇪',
+  ES: '🇪🇸',
+  IT: '🇮🇹',
+  PT: '🇵🇹',
+  NL: '🇳🇱'
+}
+
 const locales = { 'fr': fr }
 const localizer = dateFnsLocalizer({
   format, parse, startOfWeek, getDay, locales
@@ -93,6 +154,17 @@ export default function ClientPlanningPage() {
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
 
+  const calendarMin = useMemo(() => {
+    if (preset === 'morning') return new Date(0, 0, 0, 9, 30, 0)
+    return new Date(0, 0, 0, 10, 0, 0)
+  }, [preset])
+
+  const calendarMax = useMemo(() => {
+    if (preset === 'morning') return new Date(0, 0, 0, 12, 30, 0)
+    if (preset === 'fullday') return new Date(0, 0, 0, 20, 0, 0)
+    return new Date(0, 0, 0, 18, 30, 0)
+  }, [preset])
+
   const apiUrl = `/api/admin/all-bookings?start=${currentRange.start.toISOString()}&end=${currentRange.end.toISOString()}`
 
   const { data: rawBookings, error, mutate } = useSWR(apiUrl, fetcher, {
@@ -159,6 +231,88 @@ export default function ClientPlanningPage() {
       .filter((event: any) => event !== null) as BookingDetails[]
   }, [rawBookings])
 
+  const focusDayKey = useMemo(() => format(currentDate, 'yyyy-MM-dd'), [currentDate])
+
+  const boatDailyStats = useMemo(() => {
+    if (!resources.length) return [] as Array<{
+      id: number
+      title: string
+      capacity: number
+      passengers: number
+      bookings: number
+      peakLoad: number
+      loadPct: number
+      nextSlot: BookingDetails | null
+      nextRemaining: number | null
+    }>
+
+    const now = new Date()
+
+    return resources.map((resource) => {
+      const todaysEvents = events.filter(
+        (event) => event.resourceId === resource.id && format(event.start, 'yyyy-MM-dd') === focusDayKey
+      )
+
+      const passengers = todaysEvents.reduce((sum, event) => sum + (event.peopleCount || 0), 0)
+      const bookings = todaysEvents.length
+      const peakLoad = todaysEvents.reduce(
+        (max, event) => Math.max(max, event.totalOnBoat ?? event.peopleCount ?? 0),
+        0
+      )
+      const upcoming = todaysEvents
+        .filter((event) => event.start.getTime() >= now.getTime())
+        .sort((a, b) => a.start.getTime() - b.start.getTime())
+      const nextSlot = upcoming[0] ?? null
+      const nextRemaining = nextSlot
+        ? Math.max((resource.capacity || 0) - (nextSlot.totalOnBoat ?? nextSlot.peopleCount ?? 0), 0)
+        : null
+      const loadPct = resource.capacity ? Math.min(peakLoad / resource.capacity, 1) : 0
+
+      return {
+        id: resource.id,
+        title: resource.title,
+        capacity: resource.capacity,
+        passengers,
+        bookings,
+        peakLoad,
+        loadPct,
+        nextSlot,
+        nextRemaining
+      }
+    })
+  }, [resources, events, focusDayKey])
+
+  const statusSummary = useMemo(() => {
+    const summaryMap = new Map<
+      string,
+      { key: string; label: string; count: number; theme: (typeof STATUS_THEME)['DEFAULT'] }
+    >()
+
+    events.forEach((event) => {
+      if (format(event.start, 'yyyy-MM-dd') !== focusDayKey) return
+      const key = event.checkinStatus || event.status || 'DEFAULT'
+      const theme = STATUS_THEME[key] ?? STATUS_THEME.DEFAULT
+      const current = summaryMap.get(key)
+      if (current) {
+        summaryMap.set(key, { ...current, count: current.count + 1 })
+      } else {
+        summaryMap.set(key, { key, label: theme.label, count: 1, theme })
+      }
+    })
+
+    return Array.from(summaryMap.values()).sort((a, b) => b.count - a.count)
+  }, [events, focusDayKey])
+
+  const { totalPassengersToday, totalBookingsToday } = useMemo(() => {
+    return boatDailyStats.reduce(
+      (accumulator, stat) => ({
+        totalPassengersToday: accumulator.totalPassengersToday + stat.passengers,
+        totalBookingsToday: accumulator.totalBookingsToday + stat.bookings
+      }),
+      { totalPassengersToday: 0, totalBookingsToday: 0 }
+    )
+  }, [boatDailyStats])
+
   const fetchBoats = useCallback(async () => {
     try {
       const res = await fetch('/api/admin/boats')
@@ -202,14 +356,14 @@ export default function ClientPlanningPage() {
 
     const s = new Date(slotInfo.start)
     const startTime = new Date(Date.UTC(s.getFullYear(), s.getMonth(), s.getDate(), s.getHours(), s.getMinutes()))
-    const boatId = slotInfo.resourceId
+    const boatId = Number(slotInfo.resourceId ?? 0) || 1
 
     const conflicts = events.some(
-      (e) => e.resourceId === boatId && isSameMinute(e.start, startTime)
+      (e) => Number(e.resourceId) === boatId && isSameMinute(e.start, startTime)
     )
 
     if (!conflicts) {
-      setSelectedSlotDetails({ start: startTime, boatId: boatId || 1 })
+      setSelectedSlotDetails({ start: startTime, boatId })
       setShowQuickBookModal(true)
     }
   }
@@ -338,10 +492,10 @@ export default function ClientPlanningPage() {
           v.getMinutes()
         )
       )
-      const boatId = resource?.id ?? resource ?? 1
+      const boatId = Number(resource?.id ?? resource ?? 1) || 1
 
       const hasConflict = events.some(
-        (e) => e.resourceId === boatId && isSameMinute(e.start, startTime)
+        (e) => Number(e.resourceId) === boatId && isSameMinute(e.start, startTime)
       )
       if (hasConflict) return
 
@@ -386,77 +540,82 @@ export default function ClientPlanningPage() {
 
   const EventComponent = ({ event }: { event: BookingDetails }) => {
     const displayName = event.title
-    const flag = event.language === 'FR' ? '🇫🇷' : event.language === 'DE' ? '🇩🇪' : '🇬🇧'
+    const statusKey = event.checkinStatus || event.status || 'DEFAULT'
+    const theme = STATUS_THEME[statusKey] ?? STATUS_THEME.DEFAULT
+    const flag = LANGUAGE_FLAGS[event.language?.toUpperCase?.() ?? 'FR'] ?? '🌐'
+    const remaining = Math.max(0, (event.boatCapacity || 0) - (event.totalOnBoat || 0))
+    const usage = event.boatCapacity ? (event.totalOnBoat ?? 0) / event.boatCapacity : 0
 
     return (
-      <div className="flex flex-col justify-between h-full w-full p-1 overflow-hidden group relative">
-        <div className="absolute top-0 right-0 m-1">
-          {(() => {
-            const usage = event.boatCapacity > 0 ? event.totalOnBoat / event.boatCapacity : 0
-            const style =
-              usage >= 1
-                ? 'bg-red-500 text-white'
-                : usage >= 0.85
-                ? 'bg-amber-500 text-black'
-                : usage >= 0.5
-                ? 'bg-green-500 text-white'
-                : 'bg-white/20 text-white'
-            return (
-              <span
-                className={`px-1.5 py-0.5 rounded text-[10px] font-extrabold ring-1 ring-white/40 ${style}`}
-                title={`Charge: ${event.totalOnBoat}/${event.boatCapacity}`}
-              >
-                {event.totalOnBoat}/{event.boatCapacity}p
-              </span>
-            )
-          })()}
-        </div>
-        <div className="absolute bottom-0 right-0 m-1">
-          {(() => {
-            const remaining = Math.max(0, (event.boatCapacity || 0) - (event.totalOnBoat || 0))
-            const style =
-              remaining === 0
-                ? 'bg-red-500 text-white'
-                : remaining <= 2
-                ? 'bg-sky-500 text-white'
-                : 'bg-white/30 text-white'
-            return (
-              <span
-                className={`px-1.5 py-0.5 rounded text-[10px] font-bold ring-1 ring-white/40 ${style}`}
-                title={`Places restantes: ${remaining}`}
-              >
-                {remaining} rest.
-              </span>
-            )
-          })()}
-        </div>
-        <div className="flex justify-start items-start leading-tight pr-5">
-          <span className="font-bold text-[11px] whitespace-normal break-words">
-            {flag} {displayName}
+      <div
+        className="group relative flex h-full w-full flex-col justify-between overflow-hidden rounded-lg px-2 py-1.5 text-[11px] text-white"
+        style={{ color: theme.text }}
+      >
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            handleDelete(event.id, event.clientName)
+          }}
+          className="absolute right-1 top-1 rounded px-1 text-[10px] font-bold text-white/60 transition hover:bg-white/20 hover:text-white opacity-0 group-hover:opacity-100"
+          aria-label="Supprimer"
+        >
+          ✕
+        </button>
+
+        <div className="flex items-start justify-between gap-1 pr-5">
+          <div className="flex min-w-0 items-center gap-1 font-semibold">
+            <span className="text-sm leading-none">{flag}</span>
+            <span className="truncate leading-tight">{displayName}</span>
+          </div>
+          <span className={`rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${theme.badge}`}>
+            {theme.label}
           </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              handleDelete(event.id, event.clientName)
-            }}
-            className="absolute top-0 right-0 text-white/60 hover:text-white hover:bg-red-500/60 rounded px-1 text-[10px] opacity-0 group-hover:opacity-100 transition"
-            aria-label="Supprimer"
-          >
-            ✕
-          </button>
         </div>
-        <div className="flex flex-wrap gap-x-2 gap-y-0 text-[10px] font-medium opacity-90 mt-0.5">
-          {event.adults > 0 && <span>{event.adults}Ad</span>}
-          {event.children > 0 && <span>{event.children}En</span>}
-          {event.babies > 0 && <span>{event.babies}Bé</span>}
+
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">
+            {event.peopleCount} pax
+          </span>
+          <span className="flex items-center gap-1 text-[10px] text-white/90">
+            <span>A{event.adults}</span>
+            <span>E{event.children}</span>
+            <span>B{event.babies}</span>
+          </span>
         </div>
-        <div className="flex items-center gap-1 mt-auto pt-1">
-          <div
-            className={`w-2 h-2 rounded-full ${event.isPaid ? 'bg-green-400' : 'bg-red-500'} ring-1 ring-white/40`}
-            title={event.isPaid ? 'Payé' : 'Non Payé'}
-          />
-          <span className="text-[10px] font-bold ml-auto">{event.peopleCount}p</span>
+
+        <div className="mt-1 flex flex-col gap-1 text-[10px]">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold text-white/90">Charge {event.totalOnBoat}/{event.boatCapacity}</span>
+            <span
+              className={`rounded-full border border-white/40 px-2 py-0.5 font-bold ${
+                remaining === 0 ? 'bg-rose-500/80' : remaining <= 2 ? 'bg-amber-400/60 text-slate-900' : 'bg-white/20'
+              }`}
+            >
+              {remaining} libres
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/20">
+            <div
+              className="h-full rounded-full"
+              style={{
+                width: `${Math.min(100, Math.max(0, usage * 100))}%`,
+                backgroundColor: 'rgba(255,255,255,0.85)'
+              }}
+            />
+          </div>
         </div>
+
+        <div className="mt-2 flex items-center justify-between text-[10px] text-white/90">
+          <div className="flex items-center gap-1">
+            <span
+              className={`h-2 w-2 rounded-full ${event.isPaid ? 'bg-emerald-300' : 'bg-rose-300'}`}
+              title={event.isPaid ? 'Payé' : 'À régler'}
+            />
+            <span>{event.isPaid ? 'Payé' : 'À régler'}</span>
+          </div>
+          <span className="font-semibold">{format(event.start, 'HH:mm')}</span>
+        </div>
+
       </div>
     )
   }
@@ -676,6 +835,169 @@ export default function ClientPlanningPage() {
       }
       footerNote="Mises à jour automatiques toutes les 10 secondes."
     >
+      {boatDailyStats.length > 0 && (
+        <div className="mb-4">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Occupation du {format(currentDate, 'dd/MM')}
+            </span>
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <span className="font-semibold text-slate-700">{totalPassengersToday} passagers</span>
+              <span>{totalBookingsToday} réservations</span>
+            </div>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+            {boatDailyStats.map((stat) => (
+              <div key={stat.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+                  <span className="truncate">{stat.title}</span>
+                  <span className="text-xs font-bold text-slate-400">Cap. {stat.capacity}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+                  <span>{stat.passengers} passagers</span>
+                  <span>{stat.bookings} réservation{stat.bookings > 1 ? 's' : ''}</span>
+                </div>
+                <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-sky-500"
+                    style={{ width: `${Math.min(100, Math.round(stat.loadPct * 100))}%` }}
+                  />
+                </div>
+                <div className="mt-3 flex flex-col gap-1 text-xs text-slate-500">
+                  <span>Pic: {stat.peakLoad}/{stat.capacity}</span>
+                  <span>
+                    {stat.nextSlot
+                      ? `Prochain ${format(stat.nextSlot.start, 'HH:mm')} • ${stat.nextRemaining} libres`
+                      : 'Aucun départ futur'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {statusSummary.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Statuts</span>
+          {statusSummary.map((item) => (
+            <span
+              key={item.key}
+              className="flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-sm"
+              style={{
+                background: `linear-gradient(135deg, ${item.theme.background}, ${item.theme.backgroundSoft})`,
+                color: item.theme.text,
+                border: `1px solid ${item.theme.border}`
+              }}
+            >
+              {item.label}
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold">{item.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vue</span>
+        {[
+          { key: Views.DAY, label: 'Jour' },
+          { key: Views.WORK_WEEK, label: 'Sem. travail' },
+          { key: Views.MONTH, label: 'Mois' }
+        ].map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setCurrentView(option.key as typeof currentView)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              currentView === option.key
+                ? 'border-blue-600 bg-blue-600 text-white shadow'
+                : 'border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-600'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+
+        <span className="ml-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Plages</span>
+        {[
+          { key: 'standard' as const, label: 'Classique' },
+          { key: 'morning' as const, label: 'Matin' },
+          { key: 'fullday' as const, label: 'Étendue' }
+        ].map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setPreset(option.key)}
+            className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+              preset === option.key
+                ? 'border-sky-600 bg-sky-600 text-white shadow'
+                : 'border-slate-200 text-slate-600 hover:border-sky-300 hover:text-sky-600'
+            }`}
+          >
+            {option.label}
+          </button>
+        ))}
+
+        <span className="ml-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Zoom</span>
+        <button
+          type="button"
+          onClick={() => {
+            setCompactZoom((prev) => {
+              if (!prev) setDenseZoom(false)
+              return !prev
+            })
+          }}
+          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+            compactZoom
+              ? 'border-slate-900 bg-slate-900 text-white shadow'
+              : 'border-slate-200 text-slate-600 hover:border-slate-400'
+          }`}
+        >
+          Compact
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDenseZoom((prev) => {
+              if (!prev) setCompactZoom(false)
+              return !prev
+            })
+          }}
+          className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+            denseZoom
+              ? 'border-slate-900 bg-slate-900 text-white shadow'
+              : 'border-slate-200 text-slate-600 hover:border-slate-400'
+          }`}
+        >
+          Dense
+        </button>
+
+        <div className="ml-4 flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-600">
+          <button
+            type="button"
+            onClick={() => setZoomLevel((prev) => Number(Math.max(0.1, (prev - 0.1)).toFixed(2)))}
+            className="rounded-full px-2 font-bold text-slate-500 transition hover:text-slate-800"
+          >
+            −
+          </button>
+          <span className="min-w-[3rem] text-center font-semibold">{Math.round(zoomLevel * 100)}%</span>
+          <button
+            type="button"
+            onClick={() => setZoomLevel((prev) => Number(Math.min(1, prev + 0.1).toFixed(2)))}
+            className="rounded-full px-2 font-bold text-slate-500 transition hover:text-slate-800"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => setZoomLevel(1)}
+            className="ml-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500 hover:text-slate-800"
+          >
+            Reset
+          </button>
+        </div>
+      </div>
+
       <div
         className={`sn-card sn-zoom flex h-[70vh] flex-col ${compactZoom ? 'sn-compact' : ''} ${denseZoom ? 'sn-dense' : ''}`}
         onWheelCapture={(e)=>{ if (e.ctrlKey) { e.preventDefault(); e.stopPropagation() } }}
@@ -708,28 +1030,25 @@ export default function ClientPlanningPage() {
               resourceTitleAccessor="title"
               step={5}
               timeslots={1}
-              min={preset==='morning' ? new Date(0,0,0,10,0,0) : new Date(0, 0, 0, 10, 0, 0)}
-              max={preset==='morning' ? new Date(0,0,0,12,0,0) : new Date(0, 0, 0, 18, 30, 0)}
+              min={calendarMin}
+              max={calendarMax}
               culture="fr"
               onDoubleClickEvent={(event: any) => handleDelete(event.id, event.clientName)}
               slotPropGetter={slotPropGetter}
               components={{ event: EventComponent, resourceHeader: ResourceHeader, timeSlotWrapper: AddButtonWrapper }}
               style={{ height: '100%' }}
               eventPropGetter={(event: any) => {
-                let style = {
-                  color: 'white',
-                  backgroundColor: '#2563eb',
-                  border: '1px solid rgba(255,255,255,0.6)',
-                  borderRadius: '6px'
+                const statusKey = event.checkinStatus || event.status || 'DEFAULT'
+                const theme = STATUS_THEME[statusKey] ?? STATUS_THEME.DEFAULT
+                return {
+                  style: {
+                    background: `linear-gradient(135deg, ${theme.background}, ${theme.backgroundSoft})`,
+                    border: `1px solid ${theme.border}`,
+                    color: theme.text,
+                    borderRadius: '12px',
+                    boxShadow: '0 12px 22px rgba(15, 23, 42, 0.28)'
+                  }
                 }
-                if (event.checkinStatus === 'EMBARQUED') style.backgroundColor = '#1f4068'
-                else if (event.checkinStatus === 'NO_SHOW') {
-                  style.backgroundColor = '#60a5fa'
-                  style.color = 'white'
-                } else if (event.resourceId === 2) style.backgroundColor = '#008b8b'
-                else if (event.resourceId === 3) style.backgroundColor = '#7c3aed'
-                else if (event.resourceId === 4) style.backgroundColor = '#d97706'
-                return { style }
               }}
             />
           </div>
