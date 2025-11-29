@@ -1,6 +1,7 @@
 Param(
   [string]$Domain,
   [string]$EmailSender,
+  [string]$AdminEmail,
   [string]$NextAuthSecret,
   [string]$ResendApiKey,
   [string]$RecaptchaSecret,
@@ -29,6 +30,7 @@ Write-Host "Configuring environment .env.production.local..."
 
 if (-not $Domain) { $Domain = Read-Host "Enter your domain (e.g., sweet-narcisse.fr)" }
 if (-not $EmailSender) { $EmailSender = Read-Host "Enter sender email (e.g., contact@$Domain)" }
+if (-not $AdminEmail) { $AdminEmail = Read-Host "Enter admin notification email (e.g., admin@$Domain)" }
 if (-not $NextAuthSecret) { $NextAuthSecret = [Guid]::NewGuid().ToString("N") }
 if (-not $ResendApiKey) { $ResendApiKey = Read-Host "Enter RESEND_API_KEY" }
 if (-not $RecaptchaSecret) { $RecaptchaSecret = Read-Host "Enter RECAPTCHA_SECRET_KEY" }
@@ -64,6 +66,8 @@ if (-not $PSBoundParameters.ContainsKey('GrafanaAdminPassword')) {
   if ([string]::IsNullOrWhiteSpace($GrafanaAdminPassword)) { $GrafanaAdminPassword = "admin" }
 }
 
+if ([string]::IsNullOrWhiteSpace($AdminEmail)) { $AdminEmail = $EmailSender }
+
 $NextAuthUrl = "https://$Domain"
 
 $content = @"
@@ -89,11 +93,13 @@ POSTGRES_DB=$PostgresDb
 DATABASE_URL=postgres://${PostgresUser}:${PostgresPassword}@localhost:5432/${PostgresDb}
 NEXT_PUBLIC_BASE_URL=$NextAuthUrl
 EMAIL_SENDER=$EmailSender
+ADMIN_EMAIL=$AdminEmail
 SMTP_HOST=$SmtpHost
 SMTP_PORT=$SmtpPort
 SMTP_USER=$SmtpUser
 SMTP_PASS=$SmtpPass
 NEXT_PUBLIC_STRIPE_KEY=$StripePublicKey
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=$StripePublicKey
 STRIPE_SECRET_KEY=$StripeSecretKey
 STRIPE_WEBHOOK_SECRET=$StripeWebhookSecret
 PAYPAL_CLIENT_ID=$PaypalClientId

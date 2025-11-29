@@ -39,6 +39,12 @@ Ce document résume les protections côté serveur mises en place et les recomma
 9. File Upload: si ajout futur, valider Mimetype, taille, scanner antivirus (ClamAV) et stocker hors racine.
 10. Secrets: vérifier que clés (RESEND, RECAPTCHA) ne sont jamais exposées dans le client; conserver dans variables d’environnement.
 
+### Infrastructure & Ops
+- Base de données isolée: `docker-compose.db.yml` exécute Postgres dans un stack dédié (`sweetnarcisse-net`) afin que les déploiements applicatifs ne touchent pas le volume `sweetnarcisse-postgres`. Limiter l’accès réseau à ce bridge uniquement.
+- Gestion des secrets: `scripts/configure-env.sh` génère `.env.production.local` avec toutes les variables (Stripe, PayPal, SMTP, reCAPTCHA, Grafana). Stocker ce fichier hors dépôt git (`chmod 600`) et régénérer après rotation des clés.
+- Snapshots & sauvegardes: utiliser la procédure décrite dans `DEPLOYMENT.md` (dump logique + archive du volume) et chiffrer les exports avant offsite.
+- Tests PayPal sandbox: basculer `PAYPAL_MODE` en `sandbox` via le script, utiliser des identifiants dédiés, puis revenir en `live` dès la recette terminée pour limiter l’exposition des clés.
+
 ### Vérification Rapide (Checklist)
 | Domaine | OK | Action Future |
 |---------|----|---------------|

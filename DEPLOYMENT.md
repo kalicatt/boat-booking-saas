@@ -1,291 +1,155 @@
-# Sweet Narcisse Production Deployment (Debian/OVH VPS)
+# Sweet Narcisse Production Deployment (Debian 25)
 
-> Checklist-driven, step-by-step guide to install, configure, operate, and upgrade.
+Practical checklist to prepare, configure, and operate the production stack on a fresh Debian 25 (or newer) VPS.
 
-## 1. Prerequisites
-- Debian 12 VPS with sudo user.
-- DNS A record for your domain pointing to VPS IP (e.g. `sweet-narcisse.fr`).
-- SMTP credentials (OVH / Zimbra or other).
-- Stripe account (Checkout enabled) + webhook secret.
-- PayPal REST app (live + sandbox credentials).
-- Postgres data volume (docker-managed).
+## 1. Server Preparation
+- Log in as a sudo-enabled user on your Debian 25 VPS.
+- Update base packages and install prerequisites:
+	```bash
+	sudo apt update
+	sudo apt install -y ca-certificates curl gnupg git ufw
+	```
+- Install Docker Engine + Compose plugin (adapts to your codename automatically):
+	```bash
+	. /etc/os-release
+	sudo install -m 0755 -d /etc/apt/keyrings
+	curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+	echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $VERSION_CODENAME stable" | \
+		sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+	sudo apt update
+	sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+	sudo systemctl enable --now docker
+	```
+- Optional hardening:
+	```bash
+	sudo ufw allow OpenSSH
+	sudo ufw allow 80/tcp
+	sudo ufw allow 443/tcp
+	sudo ufw enable
+	```
 
-## 2. System Packages
-```bash
-sudo apt update
-sudo apt install -y ca-certificates curl gnupg git
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo systemctl enable --now docker
-```
-
-## 3. Clone Repository
+## 2. Repository Layout
 ```bash
 sudo mkdir -p /opt/sweetnarcisse
 sudo chown $USER: /opt/sweetnarcisse
-git clone https://github.com/kalicatt/SweetNarcisse-demo.git /opt/sweetnarcisse
-# Deployment
+cd /opt/sweetnarcisse
+git clone https://github.com/kalicatt/SweetNarcisse-demo.git .
+```
+Keep the repository under version control to simplify upgrades.
 
-This document describes production deployment options for the Sweet Narcisse app, including a simple image transfer flow using Docker and an optional container registry workflow. It also covers environment variables and service management.
+## 3. Configure Environment Variables (Automated Script)
+Gather the required values before running the helper script:
+- Domain name and contact email(s)
+- SMTP host/port/user/password
+- Stripe publishable/secret/webhook keys
+- PayPal REST client ID/secret for both **live** and **sandbox**
+- Google reCAPTCHA secret key
+- Redis URL/token if you enable Upstash rate limiting
+- Grafana admin credentials (defaults are fine for first boot)
 
-## Prerequisites
-- A VPS or server with Docker installed and running.
-- Ports open for HTTP/HTTPS (e.g., `3000` or via reverse proxy like Nginx).
-- Environment variables set appropriately (see below).
-
-## Build Locally and Transfer via Tar
-This approach avoids registry setup and works well for quick deployments.
-
-1) Build and save the image locally
-
-```powershell
-## 4. Generate Environment File
-Option A (bash on Linux):
+Generate `.env.production.local` directly on the VPS:
 ```bash
 cd scripts
 ./configure-env.sh
+cd ..
 ```
-Option B (Windows prep locally): run `configure-env.ps1` then upload `.env.production.local`.
+The script prompts for every value (including payment gateways) and writes `.env.production.local` at the repository root. Rerun it anytime you need to rotate secrets; review the output before restarting containers.
 
-
-2) Copy to VPS and load
-
+## 4. Persistent Database Stack
+A dedicated Compose file keeps Postgres independent from application deploys and simplifies snapshots.
 ```bash
-Add Stripe webhook secret (if not prompted) by editing `.env.production.local` and appending:
+# One-time network creation
+sudo docker network create sweetnarcisse-net || true
+
+# Start (or restart) the database using the same env file
+sudo docker compose -f docker-compose.db.yml --env-file .env.production.local up -d
+
+# Confirm healthy
+sudo docker compose -f docker-compose.db.yml ps
 ```
-STRIPE_WEBHOOK_SECRET=whsec_xxx
-```
+The database data lives in the named volume `sweetnarcisse-postgres` and persists between releases.
 
-Ensure these exist:
-
-3) Run the container on VPS
-
+## 5. Build and Start the Application Stack
 ```bash
+sudo docker compose --env-file .env.production.local pull
+sudo docker compose --env-file .env.production.local up -d --build
 ```
-NEXTAUTH_URL=https://yourdomain
-NEXT_PUBLIC_STRIPE_KEY=pk_live_...
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-PAYPAL_CLIENT_ID=...
-PAYPAL_CLIENT_SECRET=...
-PAYPAL_MODE=live   # or sandbox
-```
+The application service automatically reaches the database through the shared `sweetnarcisse-net` network.
 
-## 5. Configure Nginx Domain
-Edit `nginx/nginx.conf` replacing all placeholder `DOMAIN` with your real domain. Example search/replace:
+## 6. TLS and Nginx Reverse Proxy
+1. Edit `nginx/nginx.conf` and replace every `DOMAIN` placeholder with your FQDN.
+2. Bring up the proxy + ACME helper:
+	 ```bash
+	 sudo docker compose --env-file .env.production.local up -d nginx certbot
+	 ```
+3. Issue certificates when DNS is ready:
+	 ```bash
+	 sudo docker compose run --rm certbot certonly \
+		 --webroot -w /var/www/certbot \
+		 -d your-domain.fr \
+		 --email admin@your-domain.fr \
+		 --agree-tos --no-eff-email
+	 ```
+4. Reload Nginx to pick up certificates:
+	 ```bash
+	 sudo docker compose exec nginx nginx -t
+	 sudo docker compose exec nginx nginx -s reload
+	 ```
+
+## 7. Database Initialization (Prisma)
+Run migrations and seed data once the containers are up:
 ```bash
-sed -i "s/DOMAIN/sweet-narcisse.fr/g" nginx/nginx.conf
-
-## Using a Container Registry (Optional)
-If you prefer pulling directly on the VPS:
-
-```powershell
+sudo docker compose exec app npx prisma migrate deploy
+sudo docker compose exec app npx prisma db seed || true
 ```
 
-## 6. First Startup (HTTP Only + ACME Webroot)
-```bash
+## 8. PayPal Sandbox Testing Workflow
+1. In the PayPal dashboard, create (or locate) sandbox REST credentials.
+2. Rerun `./scripts/configure-env.sh` (or manually edit `.env.production.local`) with:
+	 - `PAYPAL_CLIENT_ID` set to the sandbox client ID
+	 - `PAYPAL_CLIENT_SECRET` set to the sandbox secret
+	 - `PAYPAL_MODE=sandbox`
+3. Restart only the app container to apply the new values:
+	 ```bash
+	 sudo docker compose --env-file .env.production.local up -d app
+	 ```
+4. Perform your test bookings. When finished, restore live credentials and set `PAYPAL_MODE=live`, then restart the app container again.
 
-```bash
-docker compose pull
-docker compose up -d
-```
-Verify site (HTTP): `curl -I http://yourdomain` → 200.
-
-## Environment Variables
-- `NODE_ENV`: should be `production`.
-- `NEXT_TELEMETRY_DISABLED`: set to `1` to disable Next.js telemetry.
-- `NEXTAUTH_SECRET`: required by NextAuth; use a strong secret.
-- `AUTH_URL`: base URL for Auth.js (use your domain in prod, `http://localhost:3000` in dev).
-- `AUTH_TRUST_HOST`: set to `true` to trust the host (required by Auth.js v5 when behind proxies or non-standard hosts).
-- `EMAIL_SENDER`: default sender address for emails.
-- `ADMIN_EMAIL`: admin notification address for contact forms.
-- `RESEND_API_KEY`: set if you use Resend for emails. If not set, the app gracefully falls back or returns a configured error on specific routes.
-- `RECAPTCHA_SECRET_KEY`: for server-side captcha verification.
-- Any business-specific variables (see `config/business.json`).
-- `RATE_LIMIT_REDIS_URL` & `RATE_LIMIT_REDIS_TOKEN`: Upstash/Redis REST credentials powering the distributed token-bucket rate limiter. Leave empty to degrade to in-memory mode (not recommended for production).
-- `PASSWORD_MIN_SCORE`: zxcvbn score threshold (0-4, default 3) for password policy enforcement on account creation/updates.
-- `GENERIC_ADMIN_SEED_PASSWORD`: default password applied when seeding shared admin accounts (`guichet@`, `gestion@`, `tract@`). Rotate immediately after bootstrapping.
-- `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`: credentials seeded into the Grafana monitoring UI.
-
-## Dedicated Database Stack
-Bring up the Postgres container independently to keep data persistent across app releases and enable snapshots.
-
-1. Create (once) the shared Docker network:
+## 9. Backups and Snapshots
+- Logical dump:
 	```bash
-	docker network create sweetnarcisse-net
+	sudo docker compose -f docker-compose.db.yml exec db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
 	```
-2. Start the database stack with your production env file:
+- Cold snapshot of the volume:
 	```bash
-	docker compose -f docker-compose.db.yml --env-file .env.production.local up -d
+	sudo docker compose -f docker-compose.db.yml stop db
+	sudo docker run --rm \
+		-v sweetnarcisse-postgres:/var/lib/postgresql/data \
+		-v $(pwd):/backup \
+		busybox tar czf /backup/postgres-$(date +%Y%m%d-%H%M).tgz /var/lib/postgresql/data
+	sudo docker compose -f docker-compose.db.yml start db
 	```
-3. Confirm the healthcheck passes:
-	```bash
-	docker compose -f docker-compose.db.yml ps
-	```
-4. Leave this stack running; application deploys only touch the app compose file. To stop/start safely:
-	```bash
-	docker compose -f docker-compose.db.yml stop db
-	docker compose -f docker-compose.db.yml start db
-	```
+Automate these with cron or an external backup service.
 
-The database volume (`sweetnarcisse-postgres`) now persists independently of the application release cycle, and snapshots can be taken without affecting the web stack.
+## 10. Operations and Monitoring
+- Application logs: `sudo docker compose logs -f app`
+- Database logs: `sudo docker compose -f docker-compose.db.yml logs -f db`
+- Prometheus/Alertmanager/Grafana services come up with `sudo docker compose up -d prometheus alertmanager grafana`; credentials are controlled via the env script.
+- Configure `ALERT_WEBHOOK_URL` to forward monitoring alerts to your preferred channel (Teams, Slack, etc.).
 
-## Notes on the Build
-- The Dockerfile uses Node 22 (Debian bookworm) for compatibility with Prisma’s OpenSSL requirements and react-email packages.
-- NPM postinstall scripts (e.g., Prisma generate) are ignored in the final runtime install step to avoid needing build-time binaries. Prisma client is generated during the builder stage.
-- The container uses `next start` with the production build.
+## 11. Upgrades & Zero-Downtime Tips
+1. Pull latest code: `git pull`
+2. Regenerate `.env.production.local` if new variables were introduced.
+3. Update images/build: `sudo docker compose pull` or `sudo docker compose build`
+4. Apply migrations: `sudo docker compose exec app npx prisma migrate deploy`
+5. Restart the app: `sudo docker compose up -d app`
+6. Verify health endpoints (`/api/health`, booking flow, payments)
+7. Rollback strategy: restore previous image + database snapshot.
 
-## Reverse Proxy (Optional)
-If you use Nginx to terminate TLS and proxy to the app:
+## 12. Troubleshooting
+- Prisma OpenSSL errors: ensure the Dockerfile keeps the Debian base image (already configured).
+- Missing `RESEND_API_KEY`: some email routes degrade gracefully; set it for production.
+- TypeScript auto-install notice: ensure `typescript` and `@types/node` remain in devDependencies when rebuilding locally.
+- Network issues: confirm both stacks (`app` and `db`) share the `sweetnarcisse-net` bridge.
 
-```nginx
-
-## 7. Issue TLS Certificates
-```bash
-docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d sweet-narcisse.fr --email contact@sweet-narcisse.fr --agree-tos --no-eff-email
-```
-Certificates appear under `./certbot/conf/live/yourdomain/`.
-Uncomment / enable the HTTPS server block in `nginx.conf` if needed, then reload:
-```bash
-docker compose exec nginx nginx -t
-docker compose exec nginx nginx -s reload
-```
-
-## 8. Database Initialization
-Ensure the dedicated Postgres stack is healthy (see *Dedicated Database Stack* above) before applying schema changes:
-```bash
-docker compose exec app npx prisma migrate deploy
-docker compose exec app npx prisma db seed || true
-```
-
-## Systemd Service (Optional)
-You can wrap `docker run` via a systemd unit or use Docker Compose if preferred. A sample unit file exists under `systemd/`.
-
-## Troubleshooting
-- If Prisma complains about OpenSSL on Alpine, use Debian-based images (already handled in Dockerfile).
-- Missing `RESEND_API_KEY` now yields controlled behavior in contact routes; set the key to enable email sending.
-- If Next.js tries to install TypeScript automatically, ensure `typescript` and `@types/node` are present in `devDependencies` locally or rely on the Docker multi-stage build where these are not needed at runtime.
-
-## 9. Stripe Webhook Setup
-In Stripe Dashboard → Developers → Webhooks → Add endpoint:
-- URL: `https://yourdomain/api/payments/stripe/webhook`
-- Events: `checkout.session.completed`
-Copy the signing secret → add to `.env.production.local` as `STRIPE_WEBHOOK_SECRET`.
-Restart app:
-```bash
-docker compose restart app
-```
-Test: create a test/live Checkout session (according to your mode) and confirm booking marked paid.
-
-## 10. PayPal Sandbox Mode (Optional)
-Set `PAYPAL_MODE=sandbox` and use sandbox credentials. Restart app.
-Return to `live` for production.
-
-## 11. Systemd Integration
-Move unit files:
-```bash
-sudo cp systemd/sweetnarcisse-app.service /etc/systemd/system/
-sudo cp systemd/sweetnarcisse-certbot-renew.service /etc/systemd/system/
-sudo cp systemd/sweetnarcisse-certbot-renew.timer /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now sweetnarcisse-app.service
-sudo systemctl enable --now sweetnarcisse-certbot-renew.timer
-```
-App updates: run `sudo systemctl restart sweetnarcisse-app.service` after env/image changes.
-
-## 12. Backups
-Ad-hoc DB dump (database stack runs from `docker-compose.db.yml`):
-```bash
-docker compose -f docker-compose.db.yml exec db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
-```
-Snapshot the volume directly for cold backups:
-```bash
-docker compose -f docker-compose.db.yml stop db
-docker run --rm \
-	-v sweetnarcisse-postgres:/var/lib/postgresql/data \
-	-v $(pwd):/backup \
-	busybox tar czf /backup/postgres-$(date +%Y%m%d-%H%M).tgz /var/lib/postgresql/data
-docker compose -f docker-compose.db.yml start db
-```
-Automate with cron or offsite sync (e.g. restic, borg).
-
-## 13. Logs & Monitoring
-App logs:
-```bash
-docker compose logs -f app
-```
-DB logs:
-```bash
-docker compose -f docker-compose.db.yml logs -f db
-```
-Add an external alert webhook URL to `ALERT_WEBHOOK_URL` for critical events.
-
-Prometheus, Alertmanager, et Grafana sont désormais intégrés au `docker-compose.yml` :
-- Prometheus écoute sur http://localhost:9090 (scrape `/api/metrics`).
-- Grafana est disponible sur http://localhost:3001 (utilise les identifiants `GRAFANA_ADMIN_*`).
-- Alertmanager fournit des alertes via webhook configuré (`ALERT_WEBHOOK_URL`).
-
-Déployer le stack :
-```bash
-docker compose up -d prometheus alertmanager grafana
-```
-Les métriques applicatives comprennent les compteurs de rate limiting (`rate_limiter_allowed_total`, `rate_limiter_blocked_total`) et les métriques système exposées par `prom-client`.
-
-## 14. Upgrades (Zero-ish Downtime)
-1. Pull latest code: `git pull`.
-2. Review diff & changelog.
-3. Update env (new variables).
-4. Build/pull images: `docker compose pull || docker compose build`.
-5. Apply migrations:
-```bash
-docker compose run --rm app npx prisma migrate deploy
-```
-6. Restart stack:
-```bash
-sudo systemctl restart sweetnarcisse-app.service
-```
-7. Validate health: HTTP 200, payment test.
-
-Rollback: restore previous commit + DB dump → redeploy.
-
-## 15. Certificate Renewal
-Timer runs daily; verify:
-```bash
-systemctl list-timers | grep certbot-renew
-```
-Manual trigger:
-```bash
-sudo systemctl start sweetnarcisse-certbot-renew.service
-```
-
-## 16. Security Hardening
-- Keep system packages updated (`unattended-upgrades`).
-- Enforce strong SMTP password; rotate secrets quarterly.
-- Restrict SSH (fail2ban + key auth).
-- Monitor Stripe / PayPal dashboards for anomalies.
-
-## 17. Operational Smoke Test
-After deployment:
-```bash
-curl -I https://yourdomain
-docker compose exec app npx prisma db pull
-docker compose exec app node -e "console.log('Stripe key ok:', !!process.env.STRIPE_SECRET_KEY)"
-```
-Confirm booking flow + email + payment capture.
-
-## 18. Common Issues
-- 403 on webhook: missing/incorrect `STRIPE_WEBHOOK_SECRET`.
-- Emails not sent: check SMTP credentials / port (587 vs 465 TLS).
-- PayPal sandbox failure: ensure `PAYPAL_MODE=sandbox` and sandbox keys.
-- Nginx TLS errors: verify cert paths & permissions inside volume.
-
-## 19. Next Improvements
-- Add healthcheck container.
-- Add metrics endpoint & Prometheus scraper.
-- Implement log shipping (e.g. Loki or ELK).
-
----
-Deployment complete. Refer back here for future upgrades.
+Deployment complete. Keep this checklist close for future releases and audits.
