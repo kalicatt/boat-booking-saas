@@ -53,6 +53,15 @@ Two options are documented in `DEPLOYMENT.md`:
 
 Reverse proxy, systemd service files, and TLS scripts are provided under `systemd/` and `scripts/`.
 
+### Persistent Postgres Stack
+Run the database container via the dedicated compose file so deployments of the web stack do not wipe data:
+```bash
+docker network create sweetnarcisse-net                # once
+docker compose -f docker-compose.db.yml --env-file .env.production.local up -d
+docker compose up -d                                   # app stack
+```
+See `DEPLOYMENT.md` for snapshot and backup guidance.
+
 ## Payments
 - Stripe: Cards + Apple Pay + Google Pay via Payment Request. Webhook finalizes server state; `daily-maintenance.ps1` cleans stale pending bookings.
 - PayPal: Standard button integration for alternative checkout.

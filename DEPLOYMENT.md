@@ -110,6 +110,29 @@ Verify site (HTTP): `curl -I http://yourdomain` → 200.
 - `GENERIC_ADMIN_SEED_PASSWORD`: default password applied when seeding shared admin accounts (`guichet@`, `gestion@`, `tract@`). Rotate immediately after bootstrapping.
 - `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`: credentials seeded into the Grafana monitoring UI.
 
+## Dedicated Database Stack
+Bring up the Postgres container independently to keep data persistent across app releases and enable snapshots.
+
+1. Create (once) the shared Docker network:
+	```bash
+	docker network create sweetnarcisse-net
+	```
+2. Start the database stack with your production env file:
+	```bash
+	docker compose -f docker-compose.db.yml --env-file .env.production.local up -d
+	```
+3. Confirm the healthcheck passes:
+	```bash
+	docker compose -f docker-compose.db.yml ps
+	```
+4. Leave this stack running; application deploys only touch the app compose file. To stop/start safely:
+	```bash
+	docker compose -f docker-compose.db.yml stop db
+	docker compose -f docker-compose.db.yml start db
+	```
+
+The database volume (`sweetnarcisse-postgres`) now persists independently of the application release cycle, and snapshots can be taken without affecting the web stack.
+
 ## Notes on the Build
 - The Dockerfile uses Node 22 (Debian bookworm) for compatibility with Prisma’s OpenSSL requirements and react-email packages.
 - NPM postinstall scripts (e.g., Prisma generate) are ignored in the final runtime install step to avoid needing build-time binaries. Prisma client is generated during the builder stage.
@@ -132,6 +155,11 @@ docker compose exec nginx nginx -s reload
 ```
 
 ## 8. Database Initialization
+Ensure the dedicated Postgres stack is healthy (see *Dedicated Database Stack* above) before applying schema changes:
+```bash
+docker compose exec app npx prisma migrate deploy
+docker compose exec app npx prisma db seed || true
+```
 
 ## Systemd Service (Optional)
 You can wrap `docker run` via a systemd unit or use Docker Compose if preferred. A sample unit file exists under `systemd/`.
@@ -140,11 +168,6 @@ You can wrap `docker run` via a systemd unit or use Docker Compose if preferred.
 - If Prisma complains about OpenSSL on Alpine, use Debian-based images (already handled in Dockerfile).
 - Missing `RESEND_API_KEY` now yields controlled behavior in contact routes; set the key to enable email sending.
 - If Next.js tries to install TypeScript automatically, ensure `typescript` and `@types/node` are present in `devDependencies` locally or rely on the Docker multi-stage build where these are not needed at runtime.
-
-```bash
-docker compose exec app npx prisma migrate deploy
-docker compose exec app npx prisma db seed || true
-```
 
 ## 9. Stripe Webhook Setup
 In Stripe Dashboard → Developers → Webhooks → Add endpoint:
@@ -174,9 +197,18 @@ sudo systemctl enable --now sweetnarcisse-certbot-renew.timer
 App updates: run `sudo systemctl restart sweetnarcisse-app.service` after env/image changes.
 
 ## 12. Backups
-Ad-hoc DB dump:
+Ad-hoc DB dump (database stack runs from `docker-compose.db.yml`):
 ```bash
-docker compose exec db pg_dump -U $POSTGRES_USER $POSTGRES_DB > backup.sql
+docker compose -f docker-compose.db.yml exec db pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" > backup.sql
+```
+Snapshot the volume directly for cold backups:
+```bash
+docker compose -f docker-compose.db.yml stop db
+docker run --rm \
+	-v sweetnarcisse-postgres:/var/lib/postgresql/data \
+	-v $(pwd):/backup \
+	busybox tar czf /backup/postgres-$(date +%Y%m%d-%H%M).tgz /var/lib/postgresql/data
+docker compose -f docker-compose.db.yml start db
 ```
 Automate with cron or offsite sync (e.g. restic, borg).
 
@@ -187,7 +219,7 @@ docker compose logs -f app
 ```
 DB logs:
 ```bash
-docker compose logs -f db
+docker compose -f docker-compose.db.yml logs -f db
 ```
 Add an external alert webhook URL to `ALERT_WEBHOOK_URL` for critical events.
 
