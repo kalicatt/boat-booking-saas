@@ -303,6 +303,14 @@ export default function ClientPlanningPage() {
   const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [detailsMarkPaid, setDetailsMarkPaid] = useState<{ provider: string, methodType?: string }|null>(null)
+  const [detailsPaymentSelectorOpen, setDetailsPaymentSelectorOpen] = useState(false)
+  const openDetailsPaymentSelector = useCallback(() => setDetailsPaymentSelectorOpen(true), [])
+  const closeDetailsPaymentSelector = useCallback(() => {
+    setDetailsPaymentSelectorOpen(false)
+    setDetailsMarkPaid(null)
+  }, [])
+  const [detailsGroup, setDetailsGroup] = useState<BookingDetails[]>([])
+  const [detailsGroupIndex, setDetailsGroupIndex] = useState(0)
 
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
@@ -512,7 +520,18 @@ export default function ClientPlanningPage() {
   }, [setCurrentRange])
 
   const handleSelectBooking = (event: BookingDetails) => {
-    setSelectedBooking(event)
+    const siblings = events
+      .filter((booking) => isSameMinute(booking.start, event.start))
+      .sort((a, b) => {
+        if (a.resourceId !== b.resourceId) return a.resourceId - b.resourceId
+        return (a.clientName || '').localeCompare(b.clientName || '')
+      })
+
+    setDetailsGroup(siblings)
+    const index = Math.max(0, siblings.findIndex((booking) => booking.id === event.id))
+    setDetailsGroupIndex(index)
+    setSelectedBooking(siblings[index] ?? event)
+    closeDetailsPaymentSelector()
     setShowDetailsModal(true)
   }
 
@@ -554,6 +573,61 @@ export default function ClientPlanningPage() {
     setShowQuickBookModal(false)
     mutate()
   }
+
+  const closeDetailsModal = useCallback(() => {
+    setShowDetailsModal(false)
+    setSelectedBooking(null)
+    closeDetailsPaymentSelector()
+  }, [closeDetailsPaymentSelector])
+
+  const navigateDetailsBooking = useCallback(
+    (direction: 'prev' | 'next') => {
+      if (!detailsGroup.length) return
+      const delta = direction === 'prev' ? -1 : 1
+      const nextIndex = detailsGroupIndex + delta
+      if (nextIndex < 0 || nextIndex >= detailsGroup.length) return
+      setDetailsGroupIndex(nextIndex)
+      closeDetailsPaymentSelector()
+      setSelectedBooking(detailsGroup[nextIndex])
+    },
+    [closeDetailsPaymentSelector, detailsGroup, detailsGroupIndex]
+  )
+
+  useEffect(() => {
+    if (!showDetailsModal || !selectedBooking) return
+    const siblings = events
+      .filter((booking) => isSameMinute(booking.start, selectedBooking.start))
+      .sort((a, b) => {
+        if (a.resourceId !== b.resourceId) return a.resourceId - b.resourceId
+        return (a.clientName || '').localeCompare(b.clientName || '')
+      })
+
+    if (!siblings.length) {
+      setShowDetailsModal(false)
+      setSelectedBooking(null)
+      setDetailsGroup([])
+      setDetailsGroupIndex(0)
+      closeDetailsPaymentSelector()
+      return
+    }
+
+    setDetailsGroup(siblings)
+    const foundIndex = siblings.findIndex((booking) => booking.id === selectedBooking.id)
+    const targetIndex = foundIndex === -1 ? 0 : foundIndex
+    const targetBooking = siblings[targetIndex]
+    setDetailsGroupIndex(targetIndex)
+    if (targetBooking) {
+      setSelectedBooking(targetBooking)
+    }
+  }, [events, selectedBooking?.id, selectedBooking ? selectedBooking.start.getTime() : null, showDetailsModal])
+
+  useEffect(() => {
+    if (!showDetailsModal) {
+      setDetailsGroup([])
+      setDetailsGroupIndex(0)
+      closeDetailsPaymentSelector()
+    }
+  }, [closeDetailsPaymentSelector, showDetailsModal])
 
   const openBoatPlanForStat = useCallback((stat: BoatDailyStat) => {
     if (!stat.nextSlot) {
@@ -674,8 +748,12 @@ export default function ClientPlanningPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     })
-    if (res.ok) mutate()
-    else alert('Erreur mise à jour')
+    if (res.ok) {
+      if (newIsPaid !== undefined) {
+        closeDetailsPaymentSelector()
+      }
+      mutate()
+    } else alert('Erreur mise à jour')
   }
 
   const handleDelete = async (id: string, title: string) => {
@@ -1222,11 +1300,29 @@ export default function ClientPlanningPage() {
     )
   }
 
-  const DetailsModal = ({ booking, onClose }: { booking: BookingDetails; onClose: () => void }) => {
-    useEffect(() => {
-      setDetailsMarkPaid(null)
-    }, [booking.id])
-
+  const DetailsModal = ({
+    booking,
+    onClose,
+    onNavigate,
+    hasPrev,
+    hasNext,
+    groupIndex,
+    groupTotal,
+    paymentSelectorOpen,
+    onPaymentSelectorOpen,
+    onPaymentSelectorClose
+  }: {
+    booking: BookingDetails
+    onClose: () => void
+    onNavigate: (direction: 'prev' | 'next') => void
+    hasPrev: boolean
+    hasNext: boolean
+    groupIndex: number
+    groupTotal: number
+    paymentSelectorOpen: boolean
+    onPaymentSelectorOpen: () => void
+    onPaymentSelectorClose: () => void
+  }) => {
     const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
     const checkinStatus = (booking.checkinStatus || 'CONFIRMED') as BoardingStatus
     const statusTheme = STATUS_THEME[checkinStatus] ?? STATUS_THEME.CONFIRMED
@@ -1248,7 +1344,28 @@ export default function ClientPlanningPage() {
 
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 p-4">
-        <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="relative flex w-full max-w-5xl justify-center">
+          {hasPrev && (
+            <button
+              type="button"
+              onClick={() => onNavigate('prev')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-3 text-2xl font-semibold text-white shadow-lg transition hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/60"
+              aria-label="Réservation précédente"
+            >
+              ◀
+            </button>
+          )}
+          {hasNext && (
+            <button
+              type="button"
+              onClick={() => onNavigate('next')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 rounded-full bg-white/20 p-3 text-2xl font-semibold text-white shadow-lg transition hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/60"
+              aria-label="Réservation suivante"
+            >
+              ▶
+            </button>
+          )}
+          <div className="w-full max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl">
           <div className="relative">
             <div
               className="absolute inset-0 opacity-95"
@@ -1273,14 +1390,21 @@ export default function ClientPlanningPage() {
                   <span className="rounded-full bg-white/15 px-3 py-1">{languageLabel}</span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-full bg-white/15 p-2 text-lg font-semibold leading-none text-white transition hover:bg-white/25"
-                aria-label="Fermer"
-              >
-                ✕
-              </button>
+              <div className="ml-auto flex items-start gap-3">
+                {groupTotal > 1 && (
+                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/90">
+                    Réservation {groupIndex + 1}/{groupTotal}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-full bg-white/15 p-2 text-lg font-semibold leading-none text-white transition hover:bg-white/25"
+                  aria-label="Fermer"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1459,20 +1583,27 @@ export default function ClientPlanningPage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setDetailsMarkPaid({ provider: detailsMarkPaid?.provider ?? '', methodType: detailsMarkPaid?.methodType })}
+                        onClick={() => {
+                          if (paymentSelectorOpen) {
+                            onPaymentSelectorClose()
+                          } else {
+                            onPaymentSelectorOpen()
+                            setDetailsMarkPaid((prev) => (prev && prev.provider ? prev : { provider: '', methodType: undefined }))
+                          }
+                        }}
                         className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700"
                       >
-                        Enregistrer un paiement
+                        {paymentSelectorOpen ? 'Fermer' : 'Enregistrer un paiement'}
                       </button>
                     )}
                   </div>
-                  {!booking.isPaid && detailsMarkPaid && (
+                  {!booking.isPaid && paymentSelectorOpen && (
                     <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Méthode utilisée</p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <select
                           className="rounded border border-slate-300 px-2 py-1 text-sm"
-                          value={detailsMarkPaid.provider}
+                          value={detailsMarkPaid?.provider ?? ''}
                           onChange={(event) => {
                             const provider = event.target.value
                             setDetailsMarkPaid((prev) =>
@@ -1493,10 +1624,10 @@ export default function ClientPlanningPage() {
                           <option value="googlepay">Google Pay</option>
                           <option value="voucher">ANCV / CityPass</option>
                         </select>
-                        {detailsMarkPaid.provider === 'voucher' && (
+                        {detailsMarkPaid?.provider === 'voucher' && (
                           <select
                             className="rounded border border-slate-300 px-2 py-1 text-sm"
-                            value={detailsMarkPaid.methodType ?? 'ANCV'}
+                            value={detailsMarkPaid?.methodType ?? 'ANCV'}
                             onChange={(event) =>
                               setDetailsMarkPaid((prev) => (prev ? { ...prev, methodType: event.target.value } : prev))
                             }
@@ -1509,13 +1640,12 @@ export default function ClientPlanningPage() {
                           type="button"
                           className="rounded-full bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow hover:bg-emerald-700"
                           onClick={async () => {
-                            if (!detailsMarkPaid.provider) {
+                            if (!detailsMarkPaid?.provider) {
                               alert('Sélectionnez un moyen de paiement')
                               return
                             }
                             await handleStatusUpdate(booking.id, undefined, true)
-                            setDetailsMarkPaid(null)
-                            onClose()
+                            onPaymentSelectorClose()
                           }}
                         >
                           Valider
@@ -1523,7 +1653,9 @@ export default function ClientPlanningPage() {
                         <button
                           type="button"
                           className="rounded-full border border-slate-200 px-3 py-1.5 text-sm font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
-                          onClick={() => setDetailsMarkPaid(null)}
+                          onClick={() => {
+                            onPaymentSelectorClose()
+                          }}
                         >
                           Annuler
                         </button>
@@ -1554,6 +1686,7 @@ export default function ClientPlanningPage() {
               </div>
             </div>
           </div>
+        </div>
         </div>
       </div>
     )
@@ -1897,7 +2030,18 @@ export default function ClientPlanningPage() {
       `}</style>
 
       {showDetailsModal && selectedBooking && (
-        <DetailsModal booking={selectedBooking} onClose={() => setShowDetailsModal(false)} />
+        <DetailsModal
+          booking={selectedBooking}
+          onClose={closeDetailsModal}
+          onNavigate={navigateDetailsBooking}
+          hasPrev={detailsGroupIndex > 0}
+          hasNext={detailsGroupIndex < detailsGroup.length - 1}
+          groupIndex={detailsGroupIndex}
+          groupTotal={detailsGroup.length}
+          paymentSelectorOpen={detailsPaymentSelectorOpen}
+          onPaymentSelectorOpen={openDetailsPaymentSelector}
+          onPaymentSelectorClose={closeDetailsPaymentSelector}
+        />
       )}
 
       {showQuickBookModal && selectedSlotDetails && (
