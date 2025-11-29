@@ -641,7 +641,7 @@ export default function ClientPlanningPage() {
 
   const slotPropGetter = (date: Date) => {
     const m = date.getHours() * 60 + date.getMinutes()
-    if (m >= 705 && m < 810) {
+    if (m >= 720 && m < 810) {
       return {
         style: {
           backgroundColor: '#f3f4f6',
