@@ -6,14 +6,12 @@ const config: CapacitorConfig = {
   appId: 'com.sweetnarcisse.admin',
   appName: 'Sweet Narcisse Admin',
   webDir: 'out',
-  ...(serverUrl
+  server: serverUrl
     ? {
-        server: {
-          url: serverUrl,
-          cleartext: serverUrl.startsWith('http://')
-        },
+        url: serverUrl,
+        cleartext: serverUrl.startsWith('http://')
       }
-    : {}),
+    : undefined
 };
 
 export default config;
