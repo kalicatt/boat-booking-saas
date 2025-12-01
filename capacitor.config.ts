@@ -16,7 +16,27 @@ const config: CapacitorConfig = {
   appId: 'com.sweetnarcisse.admin',
   appName: 'Sweet Narcisse Admin',
   webDir: 'out',
-  server: serverConfig as unknown as CapacitorConfig['server'] | undefined
+  server: serverConfig as unknown as CapacitorConfig['server'] | undefined,
+  ios: {
+    backgroundColor: '#0f172a'
+  },
+  android: {
+    backgroundColor: '#0f172a'
+  },
+  plugins: {
+    SplashScreen: {
+      launchShowDuration: 0,
+      backgroundColor: '#0f172a',
+      showSpinner: false,
+      androidSplashResourceName: 'splash',
+      androidScaleType: 'CENTER_CROP'
+    },
+    StatusBar: {
+      style: 'LIGHT',
+      backgroundColor: '#0f172a',
+      overlaysWebView: false
+    }
+  }
 };
 
 export default config;

@@ -92,14 +92,15 @@ Gérer les barres de navigation et les encoches des téléphones récents.
 ## 💎 Phase 5 : Finitions & Biométrie
 **Objectif :** Une expérience fluide sans mot de passe répété.
 
-### 1. Login Biométrique
-* **Feature :** Connexion via FaceID / TouchID.
-* **Outil :** `@capacitor-community/native-biometric`
-* **Fichier concerné :** `app/login/page.tsx`
+### 1. Option "Se souvenir de moi"
+* **Feature :** Proposer une case à cocher pour conserver la session du staff.
+* **Logique :** Stocker un refresh token ou un cookie persistant via Capacitor Storage de façon sécurisée.
+* **Fichiers concernés :** `app/login/page.tsx`, `lib/auth.ts`
 
 ### 2. Branding Natif
-* **Status Bar :** Colorer la barre d'état en `#0f172a` pour fondre l'app avec l'écran.
-* **Splash Screen :** Ajouter le logo au démarrage.
+* **Status Bar :** `@capacitor/status-bar` appliqué via `components/NativeBrandingInitializer.tsx` pour un fond `#0f172a` et un contenu clair.
+* **Splash Screen :** Assets régénérés (`scripts/update-splash-assets.js`) avec logo centré sur fond `#0f172a` + storyboard teinté.
+* **Icône d'app :** `scripts/update-native-icons.js` produit les ressources Android/iOS (logo + fond brandé).
 
 ---
 

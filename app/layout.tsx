@@ -1,6 +1,8 @@
 import "./globals.css";
 import { Playfair_Display, Inter } from 'next/font/google'
 
+import NativeBrandingInitializer from '@/components/NativeBrandingInitializer'
+
 const display = Playfair_Display({ subsets: ['latin'], variable: '--font-display' })
 const inter = Inter({ subsets: ['latin'], variable: '--font-body' })
 
@@ -28,6 +30,7 @@ export default function RootLayout({
       </head>
       <body className="font-[var(--font-body)] bg-slate-50 text-slate-900">
         {/* Dark mode removed */}
+        <NativeBrandingInitializer />
         {children}
       </body>
     </html>

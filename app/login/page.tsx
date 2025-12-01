@@ -2,29 +2,71 @@
 
 import Image from 'next/image'
 import { authenticate } from '@/lib/actions'
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
+
+const REMEMBER_EMAIL_KEY = 'sn-admin-remember-email'
+const REMEMBER_PASSWORD_KEY = 'sn-admin-remember-password'
 
 export default function LoginPage() {
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const storedEmail = window.localStorage.getItem(REMEMBER_EMAIL_KEY)
+    const storedPassword = window.localStorage.getItem(REMEMBER_PASSWORD_KEY)
+
+    if (storedEmail) {
+      setEmail(storedEmail)
+    }
+    if (storedPassword) {
+      try {
+        setPassword(window.atob(storedPassword))
+      } catch {
+        window.localStorage.removeItem(REMEMBER_PASSWORD_KEY)
+      }
+    }
+    if (storedEmail || storedPassword) {
+      setRememberMe(true)
+    }
+  }, [])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsLoading(true);
-    setErrorMessage('');
+    event.preventDefault()
+    setIsLoading(true)
+    setErrorMessage('')
 
-    const formData = new FormData(event.currentTarget);
+    const formData = new FormData(event.currentTarget)
+    const trimmedEmail = email.trim()
+    formData.set('email', trimmedEmail)
+    formData.set('password', password)
+
+    if (typeof window !== 'undefined') {
+      if (rememberMe && trimmedEmail.length > 0) {
+        window.localStorage.setItem(REMEMBER_EMAIL_KEY, trimmedEmail)
+      } else {
+        window.localStorage.removeItem(REMEMBER_EMAIL_KEY)
+      }
+      if (rememberMe && password.length > 0) {
+        window.localStorage.setItem(REMEMBER_PASSWORD_KEY, window.btoa(password))
+      } else {
+        window.localStorage.removeItem(REMEMBER_PASSWORD_KEY)
+      }
+    }
     
     // On appelle notre Server Action pour se connecter
-    const result = await authenticate(formData);
+    const result = await authenticate(formData)
     
     if (result?.error) {
-      setErrorMessage(result.error);
-      setIsLoading(false);
+      setErrorMessage(result.error)
+      setIsLoading(false)
     } else {
       // Si succès, la redirection se fait côté serveur, on ne fait rien
     }
-  };
+  }
  
   return (
     <div className="flex h-screen items-center justify-center bg-slate-900">
@@ -39,14 +81,40 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Email</label>
-            <input type="email" name="email" required placeholder="admin@sweet-narcisse.fr"
-              className="w-full border p-2 rounded focus:border-[#eab308] outline-none" />
+            <input
+              type="email"
+              name="email"
+              required
+              placeholder="admin@sweet-narcisse.fr"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="w-full border p-2 rounded focus:border-[#eab308] outline-none"
+              autoComplete="email"
+            />
           </div>
           <div>
             <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Mot de passe</label>
-            <input type="password" name="password" required placeholder="••••••"
-              className="w-full border p-2 rounded focus:border-[#eab308] outline-none" />
+            <input
+              type="password"
+              name="password"
+              required
+              placeholder="••••••"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="w-full border p-2 rounded focus:border-[#eab308] outline-none"
+              autoComplete="current-password"
+            />
           </div>
+
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#eab308]"
+            />
+            Se souvenir de mes identifiants
+          </label>
           
           <button type="submit" disabled={isLoading} className="w-full bg-[#0f172a] text-[#eab308] py-3 rounded font-bold hover:bg-black transition">
             {isLoading ? "Connexion..." : "Se connecter"}
@@ -60,5 +128,5 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
-  );
+  )
 }
