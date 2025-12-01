@@ -2,10 +2,11 @@
 **Objectif :** Rendre l'admin utilisable sur le terrain et activer l'encaissement physique.
 
 ### Mobile Architecture (Capacitor) [ROADMAP_MOBILE]
-- [ ] **Init:** Installer Capacitor (iOS/Android) et initialiser le projet (`npx cap init`).
-- [ ] **UI:** Installer Konsta UI et configurer `tailwind.config.cjs`.
-- [ ] **Layout:** Créer `MobileAdminLayout.tsx` avec TabBar (Aujourd'hui, Planning, Réservations).
-- [ ] **Logic:** Implémenter le switch automatique Desktop/Mobile dans `app/admin/layout.tsx`.
+- [x] **Init:** Installer Capacitor (iOS/Android) et initialiser le projet (`npx cap init`).
+- [x] **UI:** Installer Konsta UI et configurer `tailwind.config.cjs`.
+- [x] **Safe Areas:** Ajouter `tailwindcss-safe-area` et `viewport-fit=cover`.
+- [x] **Layout:** Créer `MobileAdminLayout.tsx` avec TabBar (Aujourd'hui, Planning, Réservations).
+- [x] **Logic:** Implémenter le switch automatique Desktop/Mobile dans `app/admin/layout.tsx`.
 - [ ] **Views:** Adapter la vue "Aujourd'hui" (Liste de cartes) et "Planning" (Agenda vertical).
 
 ### POS & Payments (Stripe Terminal) [ROADMAP_POS]

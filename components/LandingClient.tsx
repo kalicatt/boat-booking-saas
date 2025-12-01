@@ -21,7 +21,9 @@ const FALLBACK_LANG: SupportedLang = 'en'
 const isSupportedLang = (value: string): value is SupportedLang =>
   LANGUAGE_OPTIONS.some(option => option.code === value)
 
-export default function LandingClient({ dict, lang }: { dict: Record<string, any>, lang: SupportedLang }) {
+type LandingCopy = Record<string, any>
+
+export default function LandingClient({ dict, lang }: { dict: LandingCopy, lang: SupportedLang }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -40,7 +42,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, any
   const pathname = usePathname()
   const routeLang = pathname?.split('/')[1] || ''
   const [currentLang, setCurrentLang] = useState<SupportedLang>(isSupportedLang(lang) ? lang : FALLBACK_LANG)
-  const [liveDict, setLiveDict] = useState<Record<string, any>>(dict)
+  const [liveDict, setLiveDict] = useState<LandingCopy>(dict)
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
   const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
@@ -171,7 +173,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, any
     let cancelled = false
     fetch(`/api/dict/${currentLang}`)
       .then(r=>r.json())
-      .then(data=>{ if(!cancelled && data?.dict) setLiveDict(data.dict) })
+      .then(data=>{ if(!cancelled && data?.dict) setLiveDict(data.dict as LandingCopy) })
       .catch(()=>{})
     return ()=>{ cancelled = true }
   },[currentLang])
@@ -353,7 +355,7 @@ export default function LandingClient({ dict, lang }: { dict: Record<string, any
             <p className="text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
           <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
-            {liveDict.bento?.cards?.map((c: Record<string, any>, idx: number) => {
+            {liveDict.bento?.cards?.map((c: Record<string, unknown>, idx: number) => {
               const originalTitle = String(c.title || '').trim();
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
               // Use normalized display title for matching so "Frictionless" remap is honored

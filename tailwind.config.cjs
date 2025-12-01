@@ -1,10 +1,26 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 /** Tailwind CSS config (stable v3 compatibility for Next dev) */
-module.exports = {
+const fs = require('fs')
+const path = require('path')
+const plugin = require('tailwindcss/plugin')
+
+const konstaPresetPath = path.join(__dirname, 'node_modules', 'konsta', 'config.js')
+let konstaConfig
+if (fs.existsSync(konstaPresetPath)) {
+  konstaConfig = require('konsta/config')
+} else {
+  console.warn('Konsta Tailwind preset not found, continuing without it.')
+  konstaConfig = (config) => config
+}
+
+module.exports = konstaConfig({
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './components/**/*.{js,ts,jsx,tsx}',
     './lib/**/*.{js,ts,jsx,tsx}',
+    './node_modules/konsta/**/*.{js,ts,jsx,tsx}',
   ],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -18,5 +34,27 @@ module.exports = {
       },
     },
   },
-  plugins: [],
-};
+  plugins: [
+    plugin(({ addUtilities }) => {
+      const safeArea = {
+        '.safe-area-inset-t': { paddingTop: 'env(safe-area-inset-top)' },
+        '.safe-area-inset-b': { paddingBottom: 'env(safe-area-inset-bottom)' },
+        '.safe-area-inset-l': { paddingLeft: 'env(safe-area-inset-left)' },
+        '.safe-area-inset-r': { paddingRight: 'env(safe-area-inset-right)' },
+        '.pt-safe': { paddingTop: 'env(safe-area-inset-top)' },
+        '.pb-safe': { paddingBottom: 'env(safe-area-inset-bottom)' },
+        '.pl-safe': { paddingLeft: 'env(safe-area-inset-left)' },
+        '.pr-safe': { paddingRight: 'env(safe-area-inset-right)' },
+        '.px-safe': {
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)'
+        },
+        '.py-safe': {
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)'
+        }
+      }
+      addUtilities(safeArea)
+    })
+  ],
+})

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { PHONE_CODES } from '@/lib/phoneData'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
@@ -84,10 +84,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // --- ÉTATS ---
   const [step, setStep] = useState(STEPS.CRITERIA)
     const [globalErrors, setGlobalErrors] = useState<string[]>([])
-    const bookingDict = (dict.booking ?? {}) as BookingWidgetDict
-    const widgetCopy = (bookingDict.widget ?? {}) as BookingWidgetCopy
-    const groupFormCopy = (dict.group_form ?? {}) as GroupFormCopy
-    const privateFormCopy = (dict.private_form ?? {}) as PrivateFormCopy
+    const bookingDict = useMemo(() => (dict.booking ?? {}) as BookingWidgetDict, [dict])
+    const widgetCopy = useMemo(() => (bookingDict.widget ?? {}) as BookingWidgetCopy, [bookingDict])
+    const groupFormCopy = useMemo(() => (dict.group_form ?? {}) as GroupFormCopy, [dict])
+    const privateFormCopy = useMemo(() => (dict.private_form ?? {}) as PrivateFormCopy, [dict])
   
   // Données de réservation
     // Date locale (YYYY-MM-DD) pour éviter tout décalage de fuseau
@@ -193,7 +193,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         }
         setPendingBookingId(newId)
         return newId
-    }, [adults, babies, buildE164, captchaToken, children, date, dict, formData, language, pendingBookingId, selectedSlot])
+    }, [adults, babies, buildE164, captchaToken, children, date, formData, language, pendingBookingId, selectedSlot, widgetCopy])
 
   // Calculs
   const totalPeople = adults + children + babies

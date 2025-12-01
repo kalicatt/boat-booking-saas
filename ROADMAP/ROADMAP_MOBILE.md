@@ -58,4 +58,57 @@ Gérer les barres de navigation et les encoches des téléphones récents.
 
 ### 2. Module "Planning"
 * **Transformation :** Passer d'une vue Calendrier Grille à une vue **Agenda Vertical** (Timeline).
-* **Fichier concerné :** `app/admin/planning/page.tsx` [cite: kalicatt/sweetnarcisse-demo/kalicatt-SweetNarcisse-demo-e9264bd00c9a571fddd9ddff
+* **Fichier concerné :** `app/admin/planning/page.tsx`
+
+### 3. Module "Employés" (Pointage)
+* **Feature :** Géolocalisation obligatoire au pointage.
+* **Outil :** `@capacitor/geolocation`
+* **Fichier concerné :** `app/admin/hours/page.tsx`
+
+---
+
+## 🚀 Phase 4 : Feature Star "Scan & Go"
+**Objectif :** Embarquement ultra-rapide par QR Code.
+
+### 1. Backend : Génération QR Code
+* **Action :** Intégrer un QR Code (contenant le `bookingId`) dans l'email de confirmation.
+* **Outil :** Librairie `qrcode`.
+* **Fichier concerné :** `components/emails/BookingTemplate.tsx`
+
+### 2. Frontend Mobile : Scanner & Haptique
+* **UI :** Ajouter un **FAB (Floating Action Button)** caméra dans le module "Aujourd'hui".
+* **Logique :**
+    1.  Ouvrir caméra (`@capacitor-mlkit/barcode-scanning`).
+    2.  Au scan, appeler l'API de Check-in.
+    3.  Succès = Vibration lourde (`@capacitor/haptics`) + Écran Vert.
+    4.  Erreur = Vibration double + Écran Rouge.
+
+### 3. API : Route Fast Check-in
+* **Nouvelle Route :** `app/api/bookings/[id]/checkin/route.ts`
+* **Action :** Mettre à jour `checkinStatus` vers `EMBARQUED` dans Prisma.
+
+---
+
+## 💎 Phase 5 : Finitions & Biométrie
+**Objectif :** Une expérience fluide sans mot de passe répété.
+
+### 1. Login Biométrique
+* **Feature :** Connexion via FaceID / TouchID.
+* **Outil :** `@capacitor-community/native-biometric`
+* **Fichier concerné :** `app/login/page.tsx`
+
+### 2. Branding Natif
+* **Status Bar :** Colorer la barre d'état en `#0f172a` pour fondre l'app avec l'écran.
+* **Splash Screen :** Ajouter le logo au démarrage.
+
+---
+
+## 📦 Phase 6 : Build & Déploiement
+**Objectif :** Mettre l'app dans la poche du staff.
+
+1.  **Build Web :** `npm run build`
+2.  **Synchro Mobile :** `npx cap sync`
+3.  **Compilation Native :**
+    * **iOS :** `npx cap open ios` (Xcode)
+    * **Android :** `npx cap open android` (Android Studio)
+4.  **Distribution :** Via TestFlight (iOS) ou APK direct (Android).

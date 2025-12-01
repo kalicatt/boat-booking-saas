@@ -19,6 +19,7 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
+import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -101,6 +102,7 @@ export default function ClientTodayList() {
   const [stats, setStats] = useState({ totalPeople: 0, count: 0 })
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('day')
+  const isNative = useIsNativePlatform()
 
   const dateRange = useMemo(() => {
     const now = currentDate
@@ -166,179 +168,259 @@ export default function ClientTodayList() {
     return format(currentDate, 'MMMM yyyy', { locale: fr })
   }
 
-  return (
-    <div className="min-h-screen bg-slate-50 p-8 sn-admin">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-8 print:hidden">
-          <Link href="/admin" className="text-sm text-slate-500 hover:text-blue-600 mb-4 inline-block">
-            ← Retour Tableau de bord
-          </Link>
+  const formatTimeLabel = (iso: string) => format(new Date(iso), 'HH:mm')
+  const formatDateLabel = (iso: string) => format(new Date(iso), 'EEEE d MMMM', { locale: fr })
+  const formatShortDateLabel = (iso: string) => format(new Date(iso), 'dd/MM', { locale: fr })
+  const renderStatusBadge = (status: string | null) => {
+    if (status === 'CONFIRMED') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
+          <span aria-hidden="true">✔</span>
+          Confirmé
+        </span>
+      )
+    }
+    if (status === 'CANCELLED') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-600">
+          <span aria-hidden="true">✖</span>
+          Annulé
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-600">
+        <span aria-hidden="true">•</span>
+        {status ?? 'En attente'}
+      </span>
+    )
+  }
 
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+  const renderDesktopTable = () => (
+    <div className="sn-card overflow-hidden">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-slate-50 text-slate-500 font-bold border-b">
+          <tr>
+            <th className="p-4">{viewMode === 'day' ? 'Heure' : 'Date & Heure'}</th>
+            <th className="p-4">Barque</th>
+            <th className="p-4">Client</th>
+            <th className="p-4">Contact</th>
+            <th className="p-4 text-center">Pax</th>
+            <th className="p-4 text-right">Statut</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {loading ? (
+            <tr>
+              <td colSpan={6} className="p-8 text-center">
+                Chargement...
+              </td>
+            </tr>
+          ) : bookings.length === 0 ? (
+            <tr>
+              <td colSpan={6} className="p-8 text-center text-slate-400">
+                Aucun départ sur cette période.
+              </td>
+            </tr>
+          ) : (
+            bookings.map((b, index) => {
+              const showDateSeparator =
+                viewMode !== 'day' && (index === 0 || !isSameDay(new Date(b.startTime), new Date(bookings[index - 1].startTime)))
+
+              return (
+                <tr key={`${b.id}-${index}`} className="hover:bg-slate-50 transition">
+                  <td className="p-4 align-top">
+                    <div className="font-bold text-blue-900 text-lg">{formatTimeLabel(b.startTime)}</div>
+                    {viewMode !== 'day' && (
+                      <div className="text-[10px] text-slate-400 font-normal">
+                        {formatShortDateLabel(b.startTime)}
+                      </div>
+                    )}
+                    {showDateSeparator && (
+                      <div className="mt-2 text-[11px] uppercase tracking-widest text-slate-400">
+                        {formatDateLabel(b.startTime)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="p-4 align-top">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+                        b.boatId === 1
+                          ? 'bg-blue-100 text-blue-800'
+                          : b.boatId === 2
+                          ? 'bg-green-100 text-green-800'
+                          : b.boatId === 3
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-orange-100 text-orange-800'
+                      }`}
+                    >
+                      {b.boat?.name ?? '—'}
+                    </span>
+                  </td>
+                  <td className="p-4 align-top">
+                    <div className="font-medium">{`${b.user.firstName ?? ''} ${b.user.lastName ?? ''}`.trim() || '—'}</div>
+                    <div className="text-xs uppercase text-slate-400">{b.language ?? '—'}</div>
+                  </td>
+                  <td className="p-4 align-top text-slate-600">
+                    <div className="font-semibold">📞 {b.user.phone ?? 'Non renseigné'}</div>
+                    <div className="text-xs text-slate-400">{b.user.email ?? '—'}</div>
+                  </td>
+                  <td className="p-4 align-top text-center font-bold text-slate-700">{b.numberOfPeople}</td>
+                  <td className="p-4 align-top text-right">{renderStatusBadge(b.status)}</td>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  const renderMobileList = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center py-10 text-sm font-semibold text-slate-500">Chargement en cours…</div>
+      )
+    }
+    if (bookings.length === 0) {
+      return (
+        <div className="rounded-2xl bg-white p-6 text-center text-sm font-medium text-slate-500 shadow-sm ring-1 ring-slate-200">
+          Aucun départ sur cette période.
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col gap-3">
+        {bookings.map((b, index) => {
+          const showDateSeparator =
+            viewMode !== 'day' && (index === 0 || !isSameDay(new Date(b.startTime), new Date(bookings[index - 1].startTime)))
+
+          return (
+            <div key={b.id} className="flex flex-col gap-2">
+              {showDateSeparator && (
+                <div className="px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  {formatDateLabel(b.startTime)}
+                </div>
+              )}
+              <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-2xl font-extrabold text-slate-900">{formatTimeLabel(b.startTime)}</div>
+                    {viewMode !== 'day' && (
+                      <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">
+                        {formatShortDateLabel(b.startTime)}
+                      </div>
+                    )}
+                  </div>
+                  {renderStatusBadge(b.status)}
+                </div>
+                <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">{b.boat?.name ?? 'Barque ?'}</span>
+                    <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5 text-xs font-bold text-white">
+                      {b.numberOfPeople} pax
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-900">{`${b.user.firstName ?? ''} ${b.user.lastName ?? ''}`.trim() || 'Client inconnu'}</p>
+                    <p className="text-xs uppercase tracking-widest text-slate-400">{b.language ?? '—'}</p>
+                  </div>
+                  <div className="flex flex-col gap-1 text-xs text-slate-500">
+                    <span className="font-semibold text-slate-700">📞 {b.user.phone ?? 'Non renseigné'}</span>
+                    <span>{b.user.email ?? '—'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const bookingsContent = isNative ? renderMobileList() : renderDesktopTable()
+  const containerClass = isNative ? 'flex flex-1 flex-col gap-4 pb-safe' : 'min-h-screen bg-slate-50 p-8 sn-admin'
+  const innerClass = isNative ? 'flex flex-1 flex-col gap-4' : 'max-w-6xl mx-auto'
+  const headerWrapperClass = isNative ? 'flex flex-col gap-4' : 'mb-8 print:hidden'
+  const statsGridClass = isNative ? 'grid grid-cols-2 gap-3' : 'grid grid-cols-2 md:grid-cols-4 gap-4'
+  const viewButtonClass = (mode: ViewMode) => {
+    const base = `${isNative ? 'flex-1 text-center' : ''} px-3 py-1 text-sm rounded transition`
+    const active = viewMode === mode ? 'bg-sky-100 text-sky-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'
+    return `${base} ${active}`.trim()
+  }
+
+  return (
+    <div className={containerClass}>
+      <div className={innerClass}>
+        <div className={headerWrapperClass}>
+          {!isNative && (
+            <Link href="/admin" className="mb-4 inline-block text-sm text-slate-500 transition hover:text-sky-600">
+              ← Retour Tableau de bord
+            </Link>
+          )}
+          <div className={`flex flex-col gap-4 ${isNative ? '' : 'md:flex-row md:items-center md:justify-between'}`}>
             <div>
-              <h1 className="text-3xl font-bold text-slate-800 capitalize">{getPeriodTitle()} 🗓️</h1>
-              <p className="text-slate-500 text-sm mt-1">
+              <h1 className={`${isNative ? 'text-2xl' : 'text-3xl'} font-bold capitalize text-slate-900`}>{getPeriodTitle()} <span aria-hidden="true">🗓️</span></h1>
+              <p className="mt-1 text-sm text-slate-500">
                 Vue : {viewMode === 'day' ? 'Journalière' : viewMode === 'week' ? 'Hebdomadaire' : 'Mensuelle'}
               </p>
             </div>
-
-            <div className="flex flex-col items-end gap-3">
-              <div className="bg-white rounded-lg shadow-sm border p-1 flex">
-                <button
-                  onClick={() => setViewMode('day')}
-                  className={`px-3 py-1 text-sm rounded ${
-                    viewMode === 'day' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
+            <div className={`flex flex-col gap-3 ${isNative ? '' : 'items-end'}`}>
+              <div className="flex rounded-full bg-white p-1 shadow-sm ring-1 ring-slate-200">
+                <button onClick={() => setViewMode('day')} className={viewButtonClass('day')}>
                   Jour
                 </button>
-                <button
-                  onClick={() => setViewMode('week')}
-                  className={`px-3 py-1 text-sm rounded ${
-                    viewMode === 'week' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
+                <button onClick={() => setViewMode('week')} className={viewButtonClass('week')}>
                   Semaine
                 </button>
-                <button
-                  onClick={() => setViewMode('month')}
-                  className={`px-3 py-1 text-sm rounded ${
-                    viewMode === 'month' ? 'bg-blue-100 text-blue-700 font-bold' : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
+                <button onClick={() => setViewMode('month')} className={viewButtonClass('month')}>
                   Mois
                 </button>
               </div>
-
-              <div className="flex gap-2">
-                <button onClick={() => handleNavigate('prev')} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50">
+              <div className={isNative ? 'grid grid-cols-3 gap-2' : 'flex items-center gap-2'}>
+                <button
+                  onClick={() => handleNavigate('prev')}
+                  className={`${isNative ? 'rounded-xl bg-white py-2 text-sm font-semibold text-slate-600 shadow-sm' : 'rounded-md border px-3 py-1 shadow-sm transition hover:bg-slate-100'}`}
+                >
                   ◀
                 </button>
-                <button onClick={goToToday} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50 text-sm font-bold">
+                <button
+                  onClick={goToToday}
+                  className={`${isNative ? 'rounded-xl bg-slate-900 py-2 text-sm font-semibold text-white' : 'rounded-md border px-3 py-1 text-sm font-bold shadow-sm transition hover:bg-slate-100'}`}
+                >
                   Aujourd&apos;hui
                 </button>
-                <button onClick={() => handleNavigate('next')} className="bg-white border px-3 py-1 rounded shadow-sm hover:bg-slate-50">
+                <button
+                  onClick={() => handleNavigate('next')}
+                  className={`${isNative ? 'rounded-xl bg-white py-2 text-sm font-semibold text-slate-600 shadow-sm' : 'rounded-md border px-3 py-1 shadow-sm transition hover:bg-slate-100'}`}
+                >
                   ▶
                 </button>
-                <button onClick={() => window.print()} className="ml-2 bg-slate-800 text-white px-3 py-1 rounded shadow-sm hover:bg-slate-700 text-sm">
-                  🖨️ Imprimer
-                </button>
+                {!isNative && (
+                  <button
+                    onClick={() => window.print()}
+                    className="ml-2 rounded-md bg-slate-900 px-3 py-1 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700"
+                  >
+                    🖨️ Imprimer
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 print:mb-4">
-          <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500">
-            <div className="text-xs text-slate-500 uppercase font-bold">Réservations</div>
-            <div className="text-2xl font-bold">{stats.count}</div>
+        <div className={`${statsGridClass} ${isNative ? '' : 'mb-8 print:mb-4'}`}>
+          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Réservations</div>
+            <div className={`${isNative ? 'text-xl' : 'text-2xl'} font-bold text-slate-900`}>{stats.count}</div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500">
-            <div className="text-xs text-slate-500 uppercase font-bold">Passagers Total</div>
-            <div className="text-2xl font-bold">{stats.totalPeople}</div>
+          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Passagers Total</div>
+            <div className={`${isNative ? 'text-xl' : 'text-2xl'} font-bold text-slate-900`}>{stats.totalPeople}</div>
           </div>
         </div>
 
-        <div className="sn-card overflow-hidden">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-slate-500 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-              <tr>
-                <th className="p-4">{viewMode === 'day' ? 'Heure' : 'Date & Heure'}</th>
-                <th className="p-4">Barque</th>
-                <th className="p-4">Client</th>
-                <th className="p-4">Contact</th>
-                <th className="p-4 text-center">Pax</th>
-                <th className="p-4 text-right">Statut</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center">
-                    Chargement...
-                  </td>
-                </tr>
-              ) : bookings.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    Aucun départ sur cette période.
-                  </td>
-                </tr>
-              ) : (
-                bookings.map((b, index) => {
-                  const showDateSeparator =
-                    viewMode !== 'day' && (index === 0 || !isSameDay(new Date(b.startTime), new Date(bookings[index - 1].startTime)))
-
-                  return (
-                    <>
-                      {showDateSeparator && (
-                        <tr className="bg-slate-100 border-y border-slate-200 dark:bg-slate-800 dark:border-slate-700">
-                          <td colSpan={6} className="px-4 py-2 font-bold text-slate-600 uppercase text-xs">
-                            {format(new Date(b.startTime), 'EEEE d MMMM', { locale: fr })}
-                          </td>
-                        </tr>
-                      )}
-                      <tr key={b.id} className="hover:bg-slate-50 transition dark:hover:bg-slate-800">
-                        <td className="p-4 font-bold text-blue-900 text-lg">
-                          {(() => {
-                            const d = new Date(b.startTime)
-                            const hh = String(d.getUTCHours()).padStart(2, '0')
-                            const mm = String(d.getUTCMinutes()).padStart(2, '0')
-                            return `${hh}:${mm}`
-                          })()}
-                          {viewMode !== 'day' && (
-                            <div className="text-[10px] text-slate-400 font-normal print:block hidden">
-                              {(() => {
-                                const d = new Date(b.startTime)
-                                const y = d.getUTCFullYear()
-                                const m = d.getUTCMonth()
-                                const day = d.getUTCDate()
-                                const wall = new Date(Date.UTC(y, m, day))
-                                return format(wall, 'dd/MM')
-                              })()}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-bold 
-                                ${b.boatId === 1 ? 'bg-blue-100 text-blue-800' : 
-                                  b.boatId === 2 ? 'bg-green-100 text-green-800' :
-                                  b.boatId === 3 ? 'bg-purple-100 text-purple-800' : 
-                                  'bg-orange-100 text-orange-800'}`}
-                          >
-                            {b.boat?.name ?? '—'}
-                          </span>
-                        </td>
-                        <td className="p-4 font-medium">
-                          {(b.user.firstName ?? '')} {(b.user.lastName ?? '')}
-                          <div className="text-xs text-slate-400 uppercase">{b.language ?? '—'}</div>
-                        </td>
-                        <td className="p-4 text-slate-600">
-                          <div className="font-bold">📞 {b.user.phone ?? 'Non renseigné'}</div>
-                          <div className="text-xs text-slate-400">{b.user.email ?? '—'}</div>
-                        </td>
-                        <td className="p-4 text-center font-bold text-slate-700">{b.numberOfPeople}</td>
-                        <td className="p-4 text-right">
-                          {b.status === 'CONFIRMED' && (
-                            <span className="text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200 text-xs font-bold">
-                              CONFIRMÉ
-                            </span>
-                          )}
-                          {b.status === 'CANCELLED' && (
-                            <span className="text-red-600 bg-red-50 px-2 py-1 rounded border border-red-200 text-xs font-bold">
-                              ANNULÉ
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    </>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        {bookingsContent}
       </div>
     </div>
   )

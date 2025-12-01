@@ -60,7 +60,6 @@ function tDict(dict: ContactDict, lang: Lang) {
 
 export default function ContactForms({ lang, dict }: { lang: Lang, dict: ContactDict }) {
   const tr = tDict(dict, lang)
-  const groupDict = (dict.group_form ?? {}) as ContactGroupCopy
   const privateDict = (dict.private_form ?? {}) as ContactPrivateCopy
   const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
   const [active, setActive] = useState<'group'|'private'>('group')

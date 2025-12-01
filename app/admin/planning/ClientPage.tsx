@@ -12,6 +12,7 @@ import QuickBookingModal from '@/components/QuickBookingModal'
 import useSWR from 'swr'
 import type { Prisma } from '@prisma/client'
 import { AdminPageShell } from '../_components/AdminPageShell'
+import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
 
 const STATUS_THEME: Record<string, { label: string; background: string; backgroundSoft: string; border: string; text: string; badge: string }> = {
   CONFIRMED: {
@@ -126,6 +127,7 @@ type AdminBookingWithRelations = Prisma.BookingGetPayload<{
     }
   }
 }>
+
 
 type AdminBookingDto = Omit<
   AdminBookingWithRelations,
@@ -409,6 +411,7 @@ export default function ClientPlanningPage() {
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
   const [boatPlanModal, setBoatPlanModal] = useState<BoatPlanModalState | null>(null)
+  const isNative = useIsNativePlatform()
 
   const calendarMin = useMemo(() => {
     if (preset === 'morning') return new Date(0, 0, 0, 9, 30, 0)
@@ -536,6 +539,26 @@ export default function ClientPlanningPage() {
       return accumulator
     }, [])
   }, [rawBookings])
+
+  const resourceMap = useMemo(() => {
+    const map = new Map<number, BoatResource>()
+    resources.forEach((resource) => {
+      map.set(resource.id, resource)
+    })
+    return map
+  }, [resources])
+
+  const dayBookings = useMemo(() => {
+    return events.filter((event) => isSameDay(event.start, currentDate))
+  }, [events, currentDate])
+
+  const dayEvents = useMemo(() => {
+    return [...dayBookings].sort((a, b) => {
+      const timeDiff = a.start.getTime() - b.start.getTime()
+      if (timeDiff !== 0) return timeDiff
+      return Number(a.resourceId || 0) - Number(b.resourceId || 0)
+    })
+  }, [dayBookings])
 
   const boatDailyStats = useMemo<BoatDailyStat[]>(() => {
     if (!resources.length) return []
@@ -1990,6 +2013,187 @@ export default function ClientPlanningPage() {
     )
   }
 
+  const sharedModals = (
+    <>
+      {showDetailsModal && selectedBooking && (
+        <DetailsModal
+          booking={selectedBooking}
+          onClose={closeDetailsModal}
+          onNavigate={navigateDetailsBooking}
+          hasPrev={detailsGroupIndex > 0}
+          hasNext={detailsGroupIndex < detailsGroup.length - 1}
+          groupIndex={detailsGroupIndex}
+          groupTotal={detailsGroup.length}
+          paymentSelectorOpen={detailsPaymentSelectorOpen}
+          onPaymentSelectorOpen={openDetailsPaymentSelector}
+          onPaymentSelectorClose={closeDetailsPaymentSelector}
+        />
+      )}
+
+      {showQuickBookModal && selectedSlotDetails && (
+        <QuickBookingModal
+          slotStart={selectedSlotDetails.start}
+          boatId={selectedSlotDetails.boatId}
+          resources={resources}
+          onClose={() => setShowQuickBookModal(false)}
+          onSuccess={handleQuickBookingSuccess}
+        />
+      )}
+
+      {boatPlanModal && (
+        <BoatDepartureModal
+          boat={boatPlanModal.boat}
+          bookings={boatPlanModal.bookings}
+          departure={boatPlanModal.departure}
+          onClose={() => setBoatPlanModal(null)}
+          onDepart={handleDepartureSubmission}
+        />
+      )}
+    </>
+  )
+
+  if (isNative) {
+    const dayTitle = format(currentDate, 'EEEE d MMMM', { locale: fr })
+    const daySubtitle = format(currentDate, 'yyyy', { locale: fr })
+
+    return (
+      <AdminPageShell
+        title="Planning"
+        description="Agenda quotidien en vue mobile"
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => mutate()}
+              className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-slate-600 shadow-sm"
+            >
+              Actualiser
+            </button>
+            <button
+              onClick={() => logout()}
+              className="rounded-full bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-600 shadow-sm"
+            >
+              Déconnexion
+            </button>
+          </div>
+        }
+        footerNote="Données mises à jour automatiquement."
+      >
+        <div className="flex flex-1 flex-col gap-4 px-4 pb-safe pt-4">
+          <header className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => shiftCurrentDay(-1)}
+              className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm"
+              aria-label="Jour précédent"
+            >
+              ◀
+            </button>
+            <div className="text-center">
+              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">{daySubtitle}</div>
+              <div className="text-2xl font-bold capitalize text-slate-900">{dayTitle}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => shiftCurrentDay(1)}
+              className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm"
+              aria-label="Jour suivant"
+            >
+              ▶
+            </button>
+          </header>
+
+          <section className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400">Départs</div>
+              <div className="text-xl font-bold text-slate-900">{totalBookingsToday}</div>
+            </div>
+            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.25em] text-slate-400">Passagers</div>
+              <div className="text-xl font-bold text-slate-900">{totalPassengersToday}</div>
+            </div>
+          </section>
+
+          {statusSummary.length > 0 && (
+            <section className="flex flex-wrap gap-2">
+              {statusSummary.map((item) => (
+                <span
+                  key={item.key}
+                  className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold"
+                  style={{
+                    background: item.theme.background,
+                    color: item.theme.text,
+                    border: `1px solid ${item.theme.border}`
+                  }}
+                >
+                  {item.label}
+                  <span className="rounded-full bg-white/15 px-2 py-px text-[10px] font-bold">{item.count}</span>
+                </span>
+              ))}
+            </section>
+          )}
+
+          <section className="flex flex-col gap-3">
+            {loadingBoats ? (
+              <div className="flex justify-center py-10 text-sm font-semibold text-slate-500">Chargement du planning…</div>
+            ) : dayEvents.length === 0 ? (
+              <div className="rounded-2xl bg-white p-6 text-center text-sm font-medium text-slate-500 shadow-sm ring-1 ring-slate-200">
+                Aucun départ prévu ce jour-là.
+              </div>
+            ) : (
+              dayEvents.map((event) => {
+                const boat = event.resourceId ? resourceMap.get(Number(event.resourceId)) : undefined
+                const statusKey = event.checkinStatus || event.status || 'DEFAULT'
+                const theme = STATUS_THEME[statusKey] ?? STATUS_THEME.DEFAULT
+                const flag = LANGUAGE_FLAGS[event.language?.toUpperCase?.() ?? 'FR'] ?? '🌐'
+                const occupancy = `${event.totalOnBoat ?? event.peopleCount}/${boat?.capacity ?? '—'}`
+                const emailLabel = event.user?.email || '—'
+                const phoneLabel = event.user?.phone || 'Non renseigné'
+
+                return (
+                  <button
+                    key={event.id}
+                    type="button"
+                    onClick={() => handleSelectBooking(event)}
+                    className="flex flex-col gap-3 rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 active:scale-[0.995]"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-2xl font-extrabold text-slate-900">{format(event.start, 'HH:mm')}</div>
+                        <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">{format(event.start, 'dd/MM', { locale: fr })}</div>
+                      </div>
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold"
+                        style={{ background: theme.background, color: theme.text, border: `1px solid ${theme.border}` }}
+                      >
+                        {theme.label}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-slate-700">
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-slate-900">{event.clientName}</span>
+                        <span className="text-xs uppercase tracking-[0.25em] text-slate-400">{flag} {emailLabel}</span>
+                      </div>
+                      <div className="flex flex-col items-end text-xs text-slate-500">
+                        <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5 text-xs font-bold text-white">{event.peopleCount} pax</span>
+                        <span>{occupancy} places</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 text-xs text-slate-500">
+                      <span className="font-semibold text-slate-700">Barque : {boat?.title ?? '—'}</span>
+                      <span>📞 {phoneLabel}</span>
+                    </div>
+                  </button>
+                )
+              })
+            )}
+          </section>
+        </div>
+
+        {sharedModals}
+      </AdminPageShell>
+    )
+  }
+
   return (
     <AdminPageShell
       title="Planning 🛶"
@@ -2327,39 +2531,7 @@ export default function ClientPlanningPage() {
         }
       `}</style>
 
-      {showDetailsModal && selectedBooking && (
-        <DetailsModal
-          booking={selectedBooking}
-          onClose={closeDetailsModal}
-          onNavigate={navigateDetailsBooking}
-          hasPrev={detailsGroupIndex > 0}
-          hasNext={detailsGroupIndex < detailsGroup.length - 1}
-          groupIndex={detailsGroupIndex}
-          groupTotal={detailsGroup.length}
-          paymentSelectorOpen={detailsPaymentSelectorOpen}
-          onPaymentSelectorOpen={openDetailsPaymentSelector}
-          onPaymentSelectorClose={closeDetailsPaymentSelector}
-        />
-      )}
-
-      {showQuickBookModal && selectedSlotDetails && (
-        <QuickBookingModal
-          slotStart={selectedSlotDetails.start}
-          boatId={selectedSlotDetails.boatId}
-          resources={resources}
-          onClose={() => setShowQuickBookModal(false)}
-          onSuccess={handleQuickBookingSuccess}
-        />
-      )}
-      {boatPlanModal && (
-        <BoatDepartureModal
-          boat={boatPlanModal.boat}
-          bookings={boatPlanModal.bookings}
-          departure={boatPlanModal.departure}
-          onClose={() => setBoatPlanModal(null)}
-          onDepart={handleDepartureSubmission}
-        />
-      )}
+      {sharedModals}
     </AdminPageShell>
   )
 }

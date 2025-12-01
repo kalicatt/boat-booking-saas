@@ -24,9 +24,9 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${display.variable} ${inter.variable}`}>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
-      <body className="font-[var(--font-body)]">
+      <body className="font-[var(--font-body)] bg-slate-50 text-slate-900">
         {/* Dark mode removed */}
         {children}
       </body>
