@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   format,
   startOfDay,
@@ -19,7 +19,21 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import Link from 'next/link'
+import { Capacitor } from '@capacitor/core'
+import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning'
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
+
+declare global {
+  interface Window {
+    ScannerOverlay?: {
+      showOverlay: () => void
+      hideOverlay: () => void
+      hideWebView?: () => void
+      showWebView?: () => void
+    }
+  }
+}
 
 type ViewMode = 'day' | 'week' | 'month'
 
@@ -41,6 +55,7 @@ type TodayBooking = {
   language: string | null
   numberOfPeople: number
   status: string | null
+  checkinStatus: string | null
   boatId: number | null
   boat: TodayBookingBoat | null
   user: TodayBookingUser
@@ -83,6 +98,7 @@ const parseTodayBookings = (input: unknown): TodayBooking[] => {
         language: typeof record.language === 'string' ? record.language : null,
         numberOfPeople: typeof record.numberOfPeople === 'number' ? record.numberOfPeople : 0,
         status: typeof record.status === 'string' ? record.status : null,
+        checkinStatus: typeof record.checkinStatus === 'string' ? record.checkinStatus : null,
         boatId: typeof record.boatId === 'number' ? record.boatId : boat?.id ?? null,
         boat,
         user: {
@@ -96,13 +112,18 @@ const parseTodayBookings = (input: unknown): TodayBooking[] => {
     .filter((booking): booking is TodayBooking => booking !== null)
 }
 
-export default function ClientTodayList() {
+export default function ClientPage() {
   const [bookings, setBookings] = useState<TodayBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalPeople: 0, count: 0 })
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('day')
   const isNative = useIsNativePlatform()
+  const [scanState, setScanState] = useState<'idle' | 'scanning' | 'submitting' | 'success' | 'error'>('idle')
+  const [scanMessage, setScanMessage] = useState('')
+  const scanResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelScanRef = useRef<(() => Promise<void>) | null>(null)
+  const cancelledByUserRef = useRef(false)
 
   const dateRange = useMemo(() => {
     const now = currentDate
@@ -144,9 +165,266 @@ export default function ClientTodayList() {
     }
   }, [dateRange])
 
+  const clearScanReset = useCallback(() => {
+    if (scanResetTimer.current) {
+      clearTimeout(scanResetTimer.current)
+      scanResetTimer.current = null
+    }
+  }, [])
+
+  const scheduleScanReset = useCallback(() => {
+    clearScanReset()
+    scanResetTimer.current = setTimeout(() => {
+      setScanState('idle')
+      setScanMessage('')
+      if (typeof window !== 'undefined') {
+        const overlayBridge = window.ScannerOverlay
+        overlayBridge?.hideOverlay()
+        if (overlayBridge?.showWebView) {
+          overlayBridge.showWebView()
+        }
+      }
+      scanResetTimer.current = null
+    }, 2600)
+  }, [clearScanReset])
+
+  const handleScanCancel = useCallback(async () => {
+    if (scanState === 'idle') return
+    cancelledByUserRef.current = true
+    const cancelFn = cancelScanRef.current
+    cancelScanRef.current = null
+    if (cancelFn) {
+      await cancelFn().catch(() => undefined)
+    }
+    await BarcodeScanner.stopScan().catch(() => undefined)
+    if (typeof window !== 'undefined') {
+      const overlayBridge = window.ScannerOverlay
+      overlayBridge?.hideOverlay()
+      if (overlayBridge?.showWebView) {
+        overlayBridge.showWebView()
+      }
+    }
+    clearScanReset()
+    setScanState('idle')
+    setScanMessage('')
+  }, [scanState, clearScanReset])
+
+  const ensureCameraPermission = useCallback(async () => {
+    try {
+      const status = await BarcodeScanner.checkPermissions()
+      if (status.camera === 'granted') return true
+      const request = await BarcodeScanner.requestPermissions()
+      return request.camera === 'granted'
+    } catch {
+      return false
+    }
+  }, [])
+
+  const handleScanPress = useCallback(async () => {
+    if (!isNative) return
+
+    if (!Capacitor.isPluginAvailable('BarcodeScanner')) {
+      setScanState('error')
+      setScanMessage('Scanner indisponible sur cet appareil.')
+      scheduleScanReset()
+      return
+    }
+
+    if (typeof BarcodeScanner.isSupported === 'function') {
+      try {
+        const { supported } = await BarcodeScanner.isSupported()
+        if (!supported) {
+          setScanState('error')
+          setScanMessage('Scanner indisponible sur cet appareil.')
+          scheduleScanReset()
+          return
+        }
+      } catch {
+        // ignore and attempt scan
+      }
+    }
+
+    const granted = await ensureCameraPermission()
+    if (!granted) {
+      setScanState('error')
+      setScanMessage("Autorisez l'accès à la caméra pour scanner.")
+      scheduleScanReset()
+      return
+    }
+
+    try {
+      setScanState('scanning')
+      setScanMessage('Scannez un QR code…')
+      if (typeof window !== 'undefined') {
+        const overlayBridge = window.ScannerOverlay
+        overlayBridge?.showOverlay()
+        if (overlayBridge?.hideWebView) {
+          overlayBridge.hideWebView()
+        }
+      }
+
+      let readyResolver: (() => void) | null = null
+      let listenersSetupSuccessful = false
+      const listenersReady = new Promise<void>((resolve) => {
+        readyResolver = resolve
+      })
+
+      const barcodeRawValuePromise = new Promise<string>(async (resolve, reject) => {
+        let settled = false
+        let cleanup: (() => Promise<void>) | null = null
+
+        const finishSuccess = async (value: string) => {
+          if (settled) return
+          settled = true
+          if (cleanup) {
+            await cleanup().catch(() => undefined)
+          }
+          cancelScanRef.current = null
+          resolve(value)
+        }
+
+        const finishError = async (error: Error) => {
+          if (settled) return
+          settled = true
+          if (cleanup) {
+            await cleanup().catch(() => undefined)
+          }
+          cancelScanRef.current = null
+          reject(error)
+        }
+
+        cancelScanRef.current = async () => {
+          await finishError(new Error('Scan annulé.'))
+        }
+
+        try {
+          const barcodeHandle = await BarcodeScanner.addListener(
+            'barcodesScanned',
+            (event: { barcodes?: Array<{ rawValue?: string | null }> }) => {
+              const candidate = event?.barcodes?.find(
+                (item) => typeof item?.rawValue === 'string' && item.rawValue.length > 0
+              )
+              if (!candidate?.rawValue) {
+                return
+              }
+              void finishSuccess(candidate.rawValue)
+            }
+          )
+
+          const addAnyListener = BarcodeScanner.addListener as unknown as (
+            eventName: string,
+            listenerFunc: (event: unknown) => void
+          ) => Promise<{ remove: () => Promise<void> }>
+
+          const errorHandle = await addAnyListener('scanError', (event) => {
+            const errorEvent = event as { error?: string }
+            const message =
+              typeof errorEvent?.error === 'string' && errorEvent.error.trim().length > 0
+                ? errorEvent.error
+                : 'Scan interrompu.'
+            void finishError(new Error(message))
+          })
+
+          cleanup = async () => {
+            await Promise.all([barcodeHandle.remove(), errorHandle.remove()])
+          }
+          listenersSetupSuccessful = true
+        } catch (listenerError: unknown) {
+          const message = listenerError instanceof Error ? listenerError.message : 'Initialisation du scanner impossible.'
+          await finishError(new Error(message))
+        } finally {
+          readyResolver?.()
+        }
+      })
+
+      await listenersReady
+      if (!listenersSetupSuccessful) {
+        throw new Error('Initialisation du scanner impossible.')
+      }
+      await BarcodeScanner.startScan({ formats: [BarcodeFormat.QrCode] })
+
+      const rawValue = await barcodeRawValuePromise
+
+      let bookingId: string | null = null
+      try {
+        const parsed = JSON.parse(rawValue) as { type?: string; bookingId?: unknown }
+        if (parsed?.type === 'booking' && typeof parsed.bookingId === 'string') {
+          bookingId = parsed.bookingId
+        }
+      } catch {
+        // ignore parsing error
+      }
+
+      if (!bookingId) {
+        throw new Error('QR code non reconnu.')
+      }
+
+      await Haptics.impact({ style: ImpactStyle.Medium }).catch(() => undefined)
+
+      setScanState('submitting')
+      setScanMessage('Validation en cours…')
+
+      const response = await fetch(`/api/bookings/${bookingId}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'EMBARQUED' })
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(payload?.error ?? 'Validation impossible.')
+      }
+
+      await fetchBookings()
+      await Haptics.notification({ type: NotificationType.Success }).catch(() => undefined)
+
+      setScanState('success')
+      setScanMessage('Embarquement validé ✅')
+      scheduleScanReset()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Scan impossible.'
+      const wasCancelled = cancelledByUserRef.current && message === 'Scan annulé.'
+      if (wasCancelled) {
+        cancelledByUserRef.current = false
+        setScanState('idle')
+        setScanMessage('')
+        clearScanReset()
+      } else {
+        await Haptics.notification({ type: NotificationType.Error }).catch(() => undefined)
+        setScanState('error')
+        setScanMessage(message)
+        scheduleScanReset()
+      }
+    } finally {
+      cancelScanRef.current = null
+      cancelledByUserRef.current = false
+      await BarcodeScanner.stopScan().catch(() => undefined)
+      if (typeof window !== 'undefined') {
+        const overlayBridge = window.ScannerOverlay
+        overlayBridge?.hideOverlay()
+        if (overlayBridge?.showWebView) {
+          overlayBridge.showWebView()
+        }
+      }
+    }
+  }, [isNative, ensureCameraPermission, fetchBookings, scheduleScanReset, clearScanReset])
+
   useEffect(() => {
     fetchBookings()
   }, [fetchBookings])
+
+  useEffect(() => {
+    return () => {
+      clearScanReset()
+      if (typeof window !== 'undefined') {
+        const overlayBridge = window.ScannerOverlay
+        overlayBridge?.hideOverlay()
+        if (overlayBridge?.showWebView) {
+          overlayBridge.showWebView()
+        }
+      }
+    }
+  }, [])
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'day') {
@@ -171,7 +449,23 @@ export default function ClientTodayList() {
   const formatTimeLabel = (iso: string) => format(new Date(iso), 'HH:mm')
   const formatDateLabel = (iso: string) => format(new Date(iso), 'EEEE d MMMM', { locale: fr })
   const formatShortDateLabel = (iso: string) => format(new Date(iso), 'dd/MM', { locale: fr })
-  const renderStatusBadge = (status: string | null) => {
+  const renderStatusBadge = (status: string | null, checkinStatus: string | null) => {
+    if (checkinStatus === 'EMBARQUED') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
+          <span aria-hidden="true">✅</span>
+          Embarqué
+        </span>
+      )
+    }
+    if (checkinStatus === 'NO_SHOW') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-xs font-bold text-rose-700">
+          <span aria-hidden="true">⚠</span>
+          No-show
+        </span>
+      )
+    }
     if (status === 'CONFIRMED') {
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
@@ -266,7 +560,7 @@ export default function ClientTodayList() {
                     <div className="text-xs text-slate-400">{b.user.email ?? '—'}</div>
                   </td>
                   <td className="p-4 align-top text-center font-bold text-slate-700">{b.numberOfPeople}</td>
-                  <td className="p-4 align-top text-right">{renderStatusBadge(b.status)}</td>
+                  <td className="p-4 align-top text-right">{renderStatusBadge(b.status, b.checkinStatus)}</td>
                 </tr>
               )
             })
@@ -312,7 +606,7 @@ export default function ClientTodayList() {
                       </div>
                     )}
                   </div>
-                  {renderStatusBadge(b.status)}
+                  {renderStatusBadge(b.status, b.checkinStatus)}
                 </div>
                 <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
                   <div className="flex items-center justify-between">
@@ -348,6 +642,7 @@ export default function ClientTodayList() {
     const active = viewMode === mode ? 'bg-sky-100 text-sky-700 font-semibold' : 'text-slate-600 hover:bg-slate-100'
     return `${base} ${active}`.trim()
   }
+  const isScanBusy = scanState === 'scanning' || scanState === 'submitting'
 
   return (
     <div className={containerClass}>
@@ -421,6 +716,55 @@ export default function ClientTodayList() {
         </div>
 
         {bookingsContent}
+
+        {isNative && (
+          <>
+            {(scanState === 'scanning' || scanState === 'submitting') && (
+              <div className="pointer-events-none fixed inset-0 z-30 flex flex-col items-center justify-center gap-10 bg-slate-900/45 pb-20 pt-32 text-white">
+                <button
+                  type="button"
+                  onClick={handleScanCancel}
+                  disabled={scanState === 'submitting'}
+                  className="pointer-events-auto absolute top-10 right-6 rounded-full border border-white/40 bg-slate-900/50 px-4 py-1 text-xl font-bold text-white shadow-lg backdrop-blur-sm transition hover:bg-slate-900/70 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Fermer le scan"
+                >
+                  ×
+                </button>
+                <div className="flex w-full flex-1 items-center justify-center">
+                  <div className="relative flex h-60 w-60 max-w-[70%] items-center justify-center rounded-[2rem] border-4 border-white/80 shadow-[0_0_50px_rgba(15,23,42,0.55)]">
+                    <div className="absolute inset-4 rounded-[1.5rem] border border-white/35" />
+                    <div className="absolute inset-x-0 bottom-4 mx-auto h-1 w-20 rounded-full bg-white/70" />
+                  </div>
+                </div>
+                <p className="px-10 text-center text-sm font-semibold uppercase tracking-[0.3em] text-white/90">
+                  Centrez le QR code dans le cadre
+                </p>
+              </div>
+            )}
+            {scanState !== 'idle' && scanMessage && (
+              <div
+                className={`fixed bottom-28 left-1/2 z-40 w-[90%] max-w-sm -translate-x-1/2 rounded-2xl px-4 py-3 text-center text-sm font-semibold text-white shadow-xl ${
+                  scanState === 'success'
+                    ? 'bg-emerald-500'
+                    : scanState === 'error'
+                    ? 'bg-rose-500'
+                    : 'bg-slate-900/90'
+                }`}
+              >
+                {scanMessage}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleScanPress}
+              disabled={isScanBusy}
+              className="fixed bottom-24 right-5 z-40 flex items-center gap-2 rounded-full bg-sky-600 px-4 py-3 text-sm font-semibold text-white shadow-xl transition active:scale-95 disabled:cursor-not-allowed disabled:bg-sky-400"
+            >
+              <span aria-hidden="true">📷</span>
+              {isScanBusy ? 'Scan en cours…' : 'Scan & Go'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

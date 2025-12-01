@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { Resend } from 'resend'
+import { createElement } from 'react'
 import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { sendMail } from '@/lib/mailer'
 import { renderBookingHtml } from '@/lib/emailRender'
@@ -13,6 +14,7 @@ import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import type { Booking } from '@prisma/client'
+import { generateBookingQrCodeDataUrl } from '@/lib/qr'
 
 const resend: Resend | null = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 
@@ -241,7 +243,8 @@ export async function POST(request: Request) {
       const reservationSender = EMAIL_FROM.reservations
       const billingSender = EMAIL_FROM.billing
       const replyToContact = EMAIL_ROLES.contact
-      const html = await renderBookingHtml({
+      const qrCodeDataUrl = await generateBookingQrCodeDataUrl(String(createdBooking.id))
+      const emailProps = {
         firstName: userDetails.firstName || 'Client',
         date,
         time,
@@ -251,7 +254,9 @@ export async function POST(request: Request) {
         babies,
         bookingId: String(createdBooking.id),
         totalPrice: finalPrice,
-      })
+        qrCodeDataUrl
+      }
+      const html = await renderBookingHtml(emailProps)
       if(process.env.RESEND_API_KEY && resend){
         await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, replyTo: replyToContact })
       } else {
@@ -507,15 +512,22 @@ export async function POST(request: Request) {
     // 9. EMAIL
     try {
       if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@') && resend) {
+          const qrCodeDataUrl = await generateBookingQrCodeDataUrl(String(createdBooking.id))
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userEmailToUse],
             subject: 'Confirmation de votre tour en barque 🛶',
-            react: await BookingTemplate({ 
+            react: createElement(BookingTemplate, {
               firstName: userDetails.firstName,
-              date, time, people, adults, children, babies,
+              date,
+              time,
+              people,
+              adults,
+              children,
+              babies,
               totalPrice: finalPrice,
-              bookingId: createdBooking.id
+              bookingId: createdBooking.id,
+              qrCodeDataUrl
             })
           })
       }

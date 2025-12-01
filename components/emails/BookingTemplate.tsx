@@ -11,13 +11,23 @@ interface BookingEmailProps {
   babies: number;
   bookingId: string;
   totalPrice: number;
+    qrCodeDataUrl?: string | null;
 }
 
 const PRICE_ADULT = 9.00;
 const PRICE_CHILD = 4.00;
 
 export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
-  firstName, date, time, people, adults, children, babies, bookingId, totalPrice
+    firstName,
+    date,
+    time,
+    people,
+    adults,
+    children,
+    babies,
+    bookingId,
+    totalPrice,
+    qrCodeDataUrl
 }) => {
   
   const mapLink = "https://maps.app.goo.gl/v2S3t2Wq83B7k6996"; // Lien vers Pont-Saint Pierre
@@ -49,6 +59,24 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
           <p style={{ margin: 0 }}>👥 Total Passagers : <strong>{people}</strong></p>
           <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>Réf. Réservation : {bookingId}</p>
         </div>
+
+                {qrCodeDataUrl && (
+                    <div style={{ backgroundColor: '#fff7ed', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', border: '1px solid #fed7aa' }}>
+                        <p style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: 'bold', color: '#c2410c' }}>
+                            Présentez ce QR Code à l&apos;embarquement (Scan &amp; Go)
+                        </p>
+                        <img
+                            src={qrCodeDataUrl}
+                            alt={`QR Code réservation ${bookingId}`}
+                            width={180}
+                            height={180}
+                            style={{ display: 'block', margin: '0 auto', backgroundColor: '#fff', padding: '8px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}
+                        />
+                        <p style={{ margin: '12px 0 0', fontSize: '12px', color: '#92400e', lineHeight: 1.5 }}>
+                            Si le QR Code n&apos;apparaît pas correctement, conservez ce message : l&apos;équipage pourra rechercher la réservation avec la référence ci-dessus.
+                        </p>
+                    </div>
+                )}
 
         {/* FACTURE / DÉTAIL DES PRIX */}
         <h3 style={{ fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '5px', margin: '30px 0 15px' }}>

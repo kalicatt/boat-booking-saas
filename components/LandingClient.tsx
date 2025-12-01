@@ -21,7 +21,7 @@ const FALLBACK_LANG: SupportedLang = 'en'
 const isSupportedLang = (value: string): value is SupportedLang =>
   LANGUAGE_OPTIONS.some(option => option.code === value)
 
-interface LandingDictionary {
+interface LandingDictionary extends Record<string, unknown> {
   hero?: { title?: string; subtitle?: string; cta?: string }
   nav?: { home?: string; experience?: string; contact?: string; book?: string }
   partners?: { nav?: string }
@@ -246,23 +246,23 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
             <nav className="flex-1 overflow-y-auto py-4">
               <ul className="px-4 text-sm font-semibold space-y-1">
                 <li className="menu-link-animate" style={{ animationDelay: '40ms' }}>
-                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.experience}</a>
+                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav?.experience ?? 'Experience'}</a>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '80ms' }}>
                   <Link onClick={closeMenu} href={`/${currentLang}/partners`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9] uppercase">{liveDict.partners?.nav || 'Partners'}</Link>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '120ms' }}>
-                  <a onClick={closeMenu} href="#contact" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.contact}</a>
+                  <a onClick={closeMenu} href="#contact" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav?.contact ?? 'Contact'}</a>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '160ms' }}>
-                  <a onClick={closeMenu} href="#reservation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav.book}</a>
+                  <a onClick={closeMenu} href="#reservation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav?.book ?? 'Book'}</a>
                 </li>
                 <li className="menu-link-animate border-t border-slate-200 mt-3 pt-3" style={{ animationDelay: '200ms' }}>
-                  <span className="block px-3 pb-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">{liveDict.footer.infos}</span>
+                  <span className="block px-3 pb-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">{liveDict.footer?.infos ?? 'Infos'}</span>
                   <div className="space-y-1">
-                    <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer.legal}</Link>
-                    <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer.cgv}</Link>
-                    <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer.privacy}</Link>
+                    <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer?.legal ?? 'Legal'}</Link>
+                    <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer?.cgv ?? 'Terms'}</Link>
+                    <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer?.privacy ?? 'Privacy'}</Link>
                   </div>
                 </li>
                 <li className="pt-2 border-t border-slate-200 menu-link-animate" style={{ animationDelay: '320ms' }}>
@@ -335,10 +335,10 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
           </div>
         </div>
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto fade-in">
-          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{liveDict.hero.title}</h1>
-          <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{liveDict.hero.subtitle}</p>
+          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{liveDict.hero?.title ?? 'Sweet Narcisse'}</h1>
+          <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{liveDict.hero?.subtitle ?? ''}</p>
           <div className="flex flex-col items-center justify-center gap-5">
-            <a href="#reservation" className="bg-[#0ea5e9] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero.cta}</a>
+            <a href="#reservation" className="bg-[#0ea5e9] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero?.cta ?? 'Book now'}</a>
             <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#0ea5e9] decoration-2 underline-offset-4">{liveDict.partners?.nav}</Link>
           </div>
         </div>
@@ -349,10 +349,10 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div className="space-y-6 fade-in">
             <h4 className="text-[#0ea5e9] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
-            <h2 className="text-4xl font-serif font-bold text-deep">{liveDict.presentation.title}</h2>
-            <p className="text-slate-600 leading-relaxed text-lg text-justify">{liveDict.presentation.text}</p>
+            <h2 className="text-4xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
+            <p className="text-slate-600 leading-relaxed text-lg text-justify">{liveDict.presentation?.text ?? ''}</p>
             <ul className="space-y-3 pt-4">
-              {liveDict.presentation.points.map((item: string) => (
+              {(liveDict.presentation?.points ?? []).map((item: string) => (
                 <li key={item} className="flex items-center gap-3 text-slate-700 font-medium">
                   <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold">✓</span>
                   {item}
@@ -450,8 +450,8 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
           <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
         </div>
         <div className="relative z-10 max-w-6xl mx-auto text-center mb-12">
-          <h2 className="text-4xl font-serif font-bold text-white mb-4">{liveDict.booking.title}</h2>
-          <p className="text-slate-400 text-lg">{liveDict.booking.subtitle}</p>
+          <h2 className="text-4xl font-serif font-bold text-white mb-4">{liveDict.booking?.title ?? 'Book now'}</h2>
+          <p className="text-slate-400 text-lg">{liveDict.booking?.subtitle ?? ''}</p>
         </div>
         <div className="relative z-10 fade-in">
           <div className="sn-card sn-card-body">
@@ -469,35 +469,35 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
               <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={110} height={34} className="h-6 w-auto rounded-sm" priority />
               <span>Sweet <span className="text-[#0ea5e9]">Narcisse</span></span>
             </h5>
-            <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer.departure_label}</p>
+            <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer?.departure_label ?? 'Departures'}</p>
             <p className="leading-relaxed">10 Rue de la Herse<br/>68000 Colmar, France</p>
             <p className="mt-4 font-bold text-white">📞 +33 3 89 20 68 92</p>
             <p>📧 contact@sweet-narcisse.fr</p>
           </div>
           <div className="fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.hours_title}</h5>
-            <p>{liveDict.footer.open_days}</p>
+            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer?.hours_title ?? 'Hours'}</h5>
+            <p>{liveDict.footer?.open_days ?? 'Open daily'}</p>
             <div className="mt-2 space-y-1">
-              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{liveDict.footer.morning_label}</span> <span>{liveDict.footer.morning_hours}</span></p>
-              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{liveDict.footer.afternoon_label}</span> <span>{liveDict.footer.afternoon_hours}</span></p>
+              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{liveDict.footer?.morning_label ?? 'Morning'}</span> <span>{liveDict.footer?.morning_hours ?? '--'}</span></p>
+              <p className="text-white font-bold flex justify-between w-full max-w-[200px] whitespace-nowrap"><span>{liveDict.footer?.afternoon_label ?? 'Afternoon'}</span> <span>{liveDict.footer?.afternoon_hours ?? '--'}</span></p>
             </div>
           </div>
           <div className="fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.infos}</h5>
-            <Link href={`/${currentLang}/legal`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer.legal}</Link>
-            <Link href={`/${currentLang}/cgv`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer.cgv}</Link>
-            <Link href={`/${currentLang}/privacy`} className="block hover:text-[#0ea5e9] transition">{liveDict.footer.privacy}</Link>
+            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer?.infos ?? 'Infos'}</h5>
+            <Link href={`/${currentLang}/legal`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer?.legal ?? 'Legal'}</Link>
+            <Link href={`/${currentLang}/cgv`} className="block hover:text-[#0ea5e9] transition mb-2">{liveDict.footer?.cgv ?? 'Terms'}</Link>
+            <Link href={`/${currentLang}/privacy`} className="block hover:text-[#0ea5e9] transition">{liveDict.footer?.privacy ?? 'Privacy'}</Link>
           </div>
           <div className="md:col-span-1 fade-in">
-            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer.access_map}</h5>
+            <h5 className="text-white font-serif font-bold text-lg mb-4">{liveDict.footer?.access_map ?? 'Access map'}</h5>
             <div className="rounded-lg overflow-hidden shadow-lg h-40 w-full border border-slate-700">
-              <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2665.933730020825!2d7.3546046767205695!3d48.0729220556597!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x479165e89c124c77%3A0x9da47dac5d840502!2sBarque%20Colmar%20au%20fil%20de%20l%E2%80%99eau%20*2A%20Sweet%20Narcisse!5e0!3m2!1sfr!2sfr!4v1764011388547!5m2!1sfr!2sfr" width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" title={liveDict.footer.map_title}></iframe>
+              <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2665.933730020825!2d7.3546046767205695!3d48.0729220556597!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x479165e89c124c77%3A0x9da47dac5d840502!2sBarque%20Colmar%20au%20fil%20de%20l%E2%80%99eau%20*2A%20Sweet%20Narcisse!5e0!3m2!1sfr!2sfr!4v1764011388547!5m2!1sfr!2sfr" width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" title={liveDict.footer?.map_title ?? 'Map'}></iframe>
             </div>
           </div>
         </div>
         <div className="text-center mt-12 pt-8 border-t border-slate-800 text-xs opacity-50 flex flex-col items-center gap-2">
           <Link href={`/${currentLang}/partners`} className="text-slate-400 hover:text-[#0ea5e9] transition text-xs font-semibold">{liveDict.partners?.nav || 'Partners'}</Link>
-          <span>{liveDict.footer.rights}</span>
+          <span>{liveDict.footer?.rights ?? 'All rights reserved.'}</span>
         </div>
       </footer>
     </div>

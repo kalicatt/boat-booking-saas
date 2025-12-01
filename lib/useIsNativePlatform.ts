@@ -5,10 +5,26 @@ import { Capacitor } from '@capacitor/core'
 
 const getNativeStatus = () => {
   try {
-    return Capacitor?.isNativePlatform?.() ?? false
+    if (Capacitor?.isNativePlatform?.()) {
+      return true
+    }
+
+    const platform = Capacitor?.getPlatform?.()
+    if (platform && platform !== 'web') {
+      return true
+    }
+
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent || ''
+      if (/Capacitor|SweetNarcisse/i.test(ua)) {
+        return true
+      }
+    }
   } catch {
-    return false
+    // ignore runtime detection errors and fall through to false
   }
+
+  return false
 }
 
 export function useIsNativePlatform(): boolean {

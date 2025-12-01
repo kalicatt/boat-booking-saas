@@ -4,17 +4,19 @@ const fallbackDevServer = process.env.CAP_FALLBACK_SERVER_URL ?? 'http://192.168
 
 const serverUrl = process.env.CAP_SERVER_URL ?? (process.env.NODE_ENV === 'production' ? undefined : fallbackDevServer)
 
+const serverConfig = serverUrl
+  ? {
+      url: serverUrl,
+      cleartext: serverUrl.startsWith('http://'),
+      appendUserAgent: ' SweetNarcisseApp'
+    }
+  : undefined;
+
 const config: CapacitorConfig = {
   appId: 'com.sweetnarcisse.admin',
   appName: 'Sweet Narcisse Admin',
   webDir: 'out',
-  server: serverUrl
-    ? {
-        url: serverUrl,
-        cleartext: serverUrl.startsWith('http://'),
-        appendUserAgent: ' SweetNarcisseApp'
-      }
-    : undefined
+  server: serverConfig as unknown as CapacitorConfig['server'] | undefined
 };
 
 export default config;
