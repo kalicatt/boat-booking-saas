@@ -424,7 +424,7 @@ export default function ClientPage() {
         }
       }
     }
-  }, [])
+  }, [clearScanReset])
 
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'day') {

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
@@ -139,7 +140,7 @@ async function generateIosIcons() {
 async function main() {
   try {
     await fs.promises.access(SRC_ICON, fs.constants.R_OK);
-  } catch (error) {
+  } catch {
     console.error('Source icon missing at', SRC_ICON);
     process.exit(1);
   }

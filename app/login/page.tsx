@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import { authenticate } from '@/lib/actions'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useState, startTransition } from 'react'
 
 const REMEMBER_EMAIL_KEY = 'sn-admin-remember-email'
 const REMEMBER_PASSWORD_KEY = 'sn-admin-remember-password'
@@ -19,19 +19,28 @@ export default function LoginPage() {
     const storedEmail = window.localStorage.getItem(REMEMBER_EMAIL_KEY)
     const storedPassword = window.localStorage.getItem(REMEMBER_PASSWORD_KEY)
 
-    if (storedEmail) {
-      setEmail(storedEmail)
-    }
+    let decodedPassword = ''
     if (storedPassword) {
       try {
-        setPassword(window.atob(storedPassword))
+        decodedPassword = window.atob(storedPassword)
       } catch {
         window.localStorage.removeItem(REMEMBER_PASSWORD_KEY)
       }
     }
-    if (storedEmail || storedPassword) {
-      setRememberMe(true)
+
+    if (!storedEmail && !decodedPassword) {
+      return
     }
+
+    startTransition(() => {
+      if (storedEmail) {
+        setEmail(storedEmail)
+      }
+      if (decodedPassword) {
+        setPassword(decodedPassword)
+      }
+      setRememberMe(true)
+    })
   }, [])
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {

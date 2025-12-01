@@ -7,7 +7,7 @@ interface BookingEmailProps {
   time: string;
   people: number;
   adults: number;
-  children: number;
+    childrenCount: number;
   babies: number;
   bookingId: string;
   totalPrice: number;
@@ -23,7 +23,7 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     time,
     people,
     adults,
-    children,
+    childrenCount,
     babies,
     bookingId,
     totalPrice,
@@ -100,12 +100,12 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                         <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>{(adults * PRICE_ADULT).toFixed(2)} €</td>
                     </tr>
                 )}
-                {children > 0 && (
+                {childrenCount > 0 && (
                     <tr>
                         <td style={{ textAlign: 'left', border: '1px solid #ddd' }}>Enfants (4-10 ans)</td>
                         <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{PRICE_CHILD.toFixed(2)} €</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{children}</td>
-                        <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>{(children * PRICE_CHILD).toFixed(2)} €</td>
+                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{childrenCount}</td>
+                        <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>{(childrenCount * PRICE_CHILD).toFixed(2)} €</td>
                     </tr>
                 )}
                 {babies > 0 && (
