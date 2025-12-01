@@ -3,6 +3,30 @@ import { prisma } from '@/lib/prisma'
 import { parseISO, startOfMonth, endOfMonth, differenceInMinutes } from 'date-fns'
 import { auth } from '@/auth'
 
+type GeoPoint = {
+  latitude: number
+  longitude: number
+  accuracy: number | null
+}
+
+const parseLocation = (payload: unknown): GeoPoint | null => {
+  if (!payload || typeof payload !== 'object') return null
+  const raw = payload as Record<string, unknown>
+  const lat = raw.latitude
+  const lng = raw.longitude
+  const acc = raw.accuracy
+
+  const latitude = typeof lat === 'number' && Number.isFinite(lat) ? lat : null
+  const longitude = typeof lng === 'number' && Number.isFinite(lng) ? lng : null
+  const accuracy = typeof acc === 'number' && Number.isFinite(acc) ? acc : null
+
+  if (latitude === null || longitude === null) return null
+  if (latitude > 90 || latitude < -90) return null
+  if (longitude > 180 || longitude < -180) return null
+
+  return { latitude, longitude, accuracy }
+}
+
 export const dynamic = 'force-dynamic'
 
 // 1. RÉCUPÉRER LE RAPPORT MENSUEL
@@ -72,29 +96,44 @@ export async function GET(request: Request) {
 // 2. AJOUTER UN SHIFT AVEC PAUSE
 export async function POST(request: Request) {
   try {
-    // Authorize: only ADMIN or SUPER_ADMIN can modify hours
     const session = await auth()
-      const role = (session?.user as { role?: string })?.role || 'GUEST'
-      if (!['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN'].includes(role)) {
-      return NextResponse.json({ error: 'Accès refusé: réservé aux administrateurs.' }, { status: 403 })
-    }
+    const sessionUser = session?.user as { id?: string | null; role?: string | null } | null
+    const sessionRole = sessionUser?.role || 'GUEST'
+    const sessionUserId = typeof sessionUser?.id === 'string' ? sessionUser.id : null
+    const isAdmin = ['ADMIN', 'SUPER_ADMIN', 'SUPERADMIN'].includes(sessionRole)
 
     const body = await request.json()
-    const { userId, date, start, end, breakTime, note } = body
+    const { userId, date, start, end, breakTime, note, location } = body ?? {}
 
-    // Construct UTC "wall-clock" timestamps to avoid timezone drift
+    if (!userId || typeof userId !== 'string') {
+      return NextResponse.json({ error: 'Collaborateur manquant.' }, { status: 400 })
+    }
+
+    if (!date || typeof date !== 'string' || !start || !end) {
+      return NextResponse.json({ error: 'Date ou horaires invalides.' }, { status: 400 })
+    }
+
     const startTime = new Date(`${date}T${start}:00.000Z`)
     const endTime = new Date(`${date}T${end}:00.000Z`)
-    const pause = parseInt(breakTime) || 0
+    const pause = parseInt(breakTime, 10) || 0
+    const locationData = parseLocation(location)
 
-    // Validation logique
-    if (endTime <= startTime) {
-        return NextResponse.json({ error: "La fin doit être après le début." }, { status: 400 })
+    if (!isAdmin) {
+      if (!sessionUserId || sessionUserId !== userId) {
+        return NextResponse.json({ error: 'Accès refusé.' }, { status: 403 })
+      }
+      if (!locationData) {
+        return NextResponse.json({ error: 'Géolocalisation requise pour pointer.' }, { status: 422 })
+      }
     }
-    
+
+    if (endTime <= startTime) {
+      return NextResponse.json({ error: 'La fin doit être après le début.' }, { status: 400 })
+    }
+
     const duration = differenceInMinutes(endTime, startTime)
     if (pause >= duration) {
-        return NextResponse.json({ error: "La pause ne peut pas être plus longue que le temps de travail !" }, { status: 400 })
+      return NextResponse.json({ error: 'La pause ne peut pas être plus longue que le temps de travail !' }, { status: 400 })
     }
 
     await prisma.workShift.create({
@@ -102,8 +141,11 @@ export async function POST(request: Request) {
         userId,
         startTime,
         endTime,
-        breakMinutes: pause, // Enregistrement de la pause
-        note
+        breakMinutes: pause,
+        note,
+        clockLatitude: locationData?.latitude ?? null,
+        clockLongitude: locationData?.longitude ?? null,
+        clockAccuracy: locationData?.accuracy ?? null
       }
     })
 
@@ -125,12 +167,13 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { id, date, start, end, breakTime, note } = body
+    const { id, date, start, end, breakTime, note, location } = body
     if (!id) return NextResponse.json({ error: 'ID manquant' }, { status: 400 })
 
     const startTime = new Date(`${date}T${start}:00.000Z`)
     const endTime = new Date(`${date}T${end}:00.000Z`)
     const pause = parseInt(breakTime) || 0
+    const locationData = parseLocation(location)
 
     if (endTime <= startTime) {
       return NextResponse.json({ error: 'La fin doit être après le début.' }, { status: 400 })
@@ -143,7 +186,19 @@ export async function PUT(request: Request) {
 
     await prisma.workShift.update({
       where: { id },
-      data: { startTime, endTime, breakMinutes: pause, note }
+      data: {
+        startTime,
+        endTime,
+        breakMinutes: pause,
+        note,
+        ...(locationData
+          ? {
+              clockLatitude: locationData.latitude,
+              clockLongitude: locationData.longitude,
+              clockAccuracy: locationData.accuracy
+            }
+          : {})
+      }
     })
 
     return NextResponse.json({ success: true })

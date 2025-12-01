@@ -1,0 +1,4 @@
+ALTER TABLE "WorkShift"
+  ADD COLUMN "clockLatitude" DOUBLE PRECISION,
+  ADD COLUMN "clockLongitude" DOUBLE PRECISION,
+  ADD COLUMN "clockAccuracy" DOUBLE PRECISION;

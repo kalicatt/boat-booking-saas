@@ -63,6 +63,8 @@ function getLocale(request: NextRequest) {
 // --- LE PROXY COMBINÉ ---
 export const proxy = auth((req) => {
   const { pathname } = req.nextUrl
+  const userAgent = req.headers.get('user-agent') || ''
+  const isNativeApp = /(Capacitor|SweetNarcisseApp)/i.test(userAgent) || /;\s?wv\)/i.test(userAgent)
 
   if (pathname.startsWith('/admin/employees')) {
     type ProxyAuth = { auth?: { user?: { role?: string | null } } }
@@ -85,6 +87,13 @@ export const proxy = auth((req) => {
 
   if (pathname.startsWith('/api')) {
     return applySecurityHeaders(NextResponse.next())
+  }
+
+  if (isNativeApp) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = ''
+    return applySecurityHeaders(NextResponse.redirect(url))
   }
 
   const pathnameHasLocale = locales.some(

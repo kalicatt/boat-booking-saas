@@ -7,7 +7,12 @@ import type { ResourceHeaderProps } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { logout } from '@/lib/actions'
-import 'react-big-calendar/lib/css/react-big-calendar.css'
+if (typeof document !== 'undefined') {
+  const link = document.createElement('link')
+  link.rel = 'stylesheet'
+  link.href = 'https://cdn.jsdelivr.net/npm/react-big-calendar@1.19.4/lib/css/react-big-calendar.css'
+  document.head.appendChild(link)
+}
 import QuickBookingModal from '@/components/QuickBookingModal'
 import useSWR from 'swr'
 import type { Prisma } from '@prisma/client'

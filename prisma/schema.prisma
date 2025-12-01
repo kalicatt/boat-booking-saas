@@ -99,6 +99,9 @@ model WorkShift {
   endTime      DateTime
   breakMinutes Int      @default(0) // <--- NOUVEAU : Temps de pause en minutes
   note         String?
+  clockLatitude Float?
+  clockLongitude Float?
+  clockAccuracy Float?
   
   userId       String
   user         User     @relation(fields: [userId], references: [id])

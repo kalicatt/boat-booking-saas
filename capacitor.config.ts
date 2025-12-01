@@ -1,6 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-const serverUrl = process.env.CAP_SERVER_URL;
+const fallbackDevServer = process.env.CAP_FALLBACK_SERVER_URL ?? 'http://192.168.1.55:3000'
+
+const serverUrl = process.env.CAP_SERVER_URL ?? (process.env.NODE_ENV === 'production' ? undefined : fallbackDevServer)
 
 const config: CapacitorConfig = {
   appId: 'com.sweetnarcisse.admin',
@@ -9,7 +11,8 @@ const config: CapacitorConfig = {
   server: serverUrl
     ? {
         url: serverUrl,
-        cleartext: serverUrl.startsWith('http://')
+        cleartext: serverUrl.startsWith('http://'),
+        appendUserAgent: ' SweetNarcisseApp'
       }
     : undefined
 };

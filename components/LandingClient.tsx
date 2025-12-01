@@ -21,9 +21,38 @@ const FALLBACK_LANG: SupportedLang = 'en'
 const isSupportedLang = (value: string): value is SupportedLang =>
   LANGUAGE_OPTIONS.some(option => option.code === value)
 
-type LandingCopy = Record<string, any>
+interface LandingDictionary {
+  hero?: { title?: string; subtitle?: string; cta?: string }
+  nav?: { home?: string; experience?: string; contact?: string; book?: string }
+  partners?: { nav?: string }
+  logos?: { title?: string }
+  presentation?: { title?: string; text?: string; points?: string[] }
+  bento?: {
+    title?: string
+    subtitle?: string
+    cards?: Array<{ title?: string; text?: string }>
+  }
+  social?: { title?: string; subtitle?: string }
+  booking?: { title?: string; subtitle?: string }
+  footer?: {
+    infos?: string
+    legal?: string
+    cgv?: string
+    privacy?: string
+    access_map?: string
+    map_title?: string
+    hours_title?: string
+    open_days?: string
+    morning_label?: string
+    morning_hours?: string
+    afternoon_label?: string
+    afternoon_hours?: string
+    departure_label?: string
+    rights?: string
+  }
+}
 
-export default function LandingClient({ dict, lang }: { dict: LandingCopy, lang: SupportedLang }) {
+export default function LandingClient({ dict, lang }: { dict: LandingDictionary; lang: SupportedLang }) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -42,7 +71,7 @@ export default function LandingClient({ dict, lang }: { dict: LandingCopy, lang:
   const pathname = usePathname()
   const routeLang = pathname?.split('/')[1] || ''
   const [currentLang, setCurrentLang] = useState<SupportedLang>(isSupportedLang(lang) ? lang : FALLBACK_LANG)
-  const [liveDict, setLiveDict] = useState<LandingCopy>(dict)
+  const [liveDict, setLiveDict] = useState<LandingDictionary>(dict)
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
   const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
@@ -173,7 +202,9 @@ export default function LandingClient({ dict, lang }: { dict: LandingCopy, lang:
     let cancelled = false
     fetch(`/api/dict/${currentLang}`)
       .then(r=>r.json())
-      .then(data=>{ if(!cancelled && data?.dict) setLiveDict(data.dict as LandingCopy) })
+      .then(data=>{
+        if(!cancelled && data?.dict) setLiveDict(data.dict as LandingDictionary)
+      })
       .catch(()=>{})
     return ()=>{ cancelled = true }
   },[currentLang])

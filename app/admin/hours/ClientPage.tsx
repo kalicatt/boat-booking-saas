@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback, Fragment } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { Geolocation } from '@capacitor/geolocation'
 import type { FormEvent } from 'react'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
@@ -25,6 +27,9 @@ type ShiftDetail = {
   endTime: string
   breakMinutes: number
   note?: string | null
+  clockLatitude?: number | null
+  clockLongitude?: number | null
+  clockAccuracy?: number | null
 }
 
 type MonthlyReportEntry = {
@@ -153,6 +158,43 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
 
   const [errors, setErrors] = useState<string[]>([])
   const [form, setForm] = useState<ShiftForm>(() => createDefaultShiftForm())
+  const [geoError, setGeoError] = useState<string | null>(null)
+  const [geoPending, setGeoPending] = useState(false)
+
+  const requiresLocation = !canManage
+
+  const captureLocation = useCallback(async () => {
+    const buildPayload = (coords: { latitude: number; longitude: number; accuracy?: number | null }) => ({
+      latitude: Number(coords.latitude),
+      longitude: Number(coords.longitude),
+      accuracy: typeof coords.accuracy === 'number' && Number.isFinite(coords.accuracy) ? coords.accuracy : null
+    })
+
+    if (Capacitor.isNativePlatform()) {
+      const status = await Geolocation.checkPermissions()
+      if (status.location === 'denied' || status.location === 'prompt' || status.location === 'prompt-with-rationale') {
+        const request = await Geolocation.requestPermissions()
+        if (request.location === 'denied') {
+          throw new Error('Autorisez la localisation pour enregistrer votre pointage.')
+        }
+      }
+      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true })
+      return buildPayload(position.coords)
+    }
+
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        })
+      })
+      return buildPayload(position.coords)
+    }
+
+    throw new Error('Géolocalisation indisponible sur cet appareil.')
+  }, [])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -215,6 +257,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrors([])
+    setGeoError(null)
 
     const startMinutes = timeToMinutes(form.start)
     const endMinutes = timeToMinutes(form.end)
@@ -239,20 +282,40 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
       return
     }
 
+    let locationPayload: { latitude: number; longitude: number; accuracy: number | null } | null = null
+    if (requiresLocation) {
+      setGeoPending(true)
+      try {
+        locationPayload = await captureLocation()
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error)
+        setGeoError(message || 'Impossible de récupérer la localisation.')
+        setGeoPending(false)
+        return
+      }
+      setGeoPending(false)
+    }
+
     try {
       const res = await fetch('/api/admin/hours', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...form,
-          breakTime: breakInMinutes
+          breakTime: breakInMinutes,
+          location: locationPayload
         })
       })
       if (res.ok) {
         await fetchData()
         alert('✅ Shift ajouté avec succès !')
+        setGeoError(null)
       } else {
         const err = (await res.json().catch(() => null)) as { error?: string } | null
+        if (res.status === 422) {
+          setGeoError(err?.error ?? 'Autorisez la localisation pour pointer.')
+          return
+        }
         alert(`❌ Erreur : ${err?.error ?? 'Création impossible'}`)
       }
     } catch (error) {
@@ -261,7 +324,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
     }
   }
   const exportCSV = () => {
-    const headers = ['Employé', 'Date', 'Début', 'Fin', 'Pause(min)', 'Net(h)']
+    const headers = ['Employé', 'Date', 'Début', 'Fin', 'Pause(min)', 'Net(h)', 'Latitude', 'Longitude', 'Précision(m)']
     const rows: string[] = [headers.join(',')]
     report.forEach((entry) => {
       const sortedDetails = [...entry.details].sort(
@@ -283,7 +346,16 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
             startStr,
             endStr,
             String(breakMinutes),
-            netH
+            netH,
+            typeof shift.clockLatitude === 'number' && Number.isFinite(shift.clockLatitude)
+              ? shift.clockLatitude.toFixed(6)
+              : '',
+            typeof shift.clockLongitude === 'number' && Number.isFinite(shift.clockLongitude)
+              ? shift.clockLongitude.toFixed(6)
+              : '',
+            typeof shift.clockAccuracy === 'number' && Number.isFinite(shift.clockAccuracy)
+              ? shift.clockAccuracy.toFixed(1)
+              : ''
           ].join(',')
         )
       })
@@ -401,8 +473,13 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
           <div className="sn-card sticky top-8">
             <h3 className="mb-4 border-b pb-2 text-lg font-bold text-slate-800">Saisir une journée</h3>
             {!canManage && (
-              <div className="mb-4 rounded border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                Seuls les administrateurs peuvent modifier les heures.
+              <div className="mb-4 rounded border border-sky-200 bg-sky-50 p-3 text-sm text-sky-700">
+                Vous pointez uniquement pour vous-même. La localisation GPS sera enregistrée avec votre pointage.
+              </div>
+            )}
+            {geoError && (
+              <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {geoError}
               </div>
             )}
             {errors.length > 0 && (
@@ -505,10 +582,10 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
 
               <button
                 type="submit"
-                disabled={!canManage}
-                className="sn-btn-primary w-full disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={geoPending}
+                className="sn-btn-primary w-full disabled:cursor-wait disabled:bg-slate-300"
               >
-                Enregistrer le pointage
+                {geoPending ? 'Obtention de la position…' : 'Enregistrer le pointage'}
               </button>
             </form>
           </div>
@@ -625,6 +702,22 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                                             <td className="p-2 pl-4 font-medium">{day}</td>
                                             <td className="p-2 text-slate-600">
                                               {formatWallTime(shift.startTime)} - {formatWallTime(shift.endTime)}
+                                              {typeof shift.clockLatitude === 'number' && Number.isFinite(shift.clockLatitude) &&
+                                                typeof shift.clockLongitude === 'number' && Number.isFinite(shift.clockLongitude) && (
+                                                  <div className="mt-1 text-[11px] text-slate-400">
+                                                    <a
+                                                      href={`https://maps.google.com/?q=${shift.clockLatitude},${shift.clockLongitude}`}
+                                                      target="_blank"
+                                                      rel="noreferrer"
+                                                      className="hover:underline underline-offset-2"
+                                                    >
+                                                      📍 {shift.clockLatitude.toFixed(4)}, {shift.clockLongitude.toFixed(4)}
+                                                    </a>
+                                                    {typeof shift.clockAccuracy === 'number' && Number.isFinite(shift.clockAccuracy) && (
+                                                      <span> • ±{Math.round(shift.clockAccuracy)} m</span>
+                                                    )}
+                                                  </div>
+                                                )}
                                             </td>
                                             <td className="p-2 italic text-slate-500">
                                               {breakMinutes > 0 ? `-${breakHours}h${breakRemainder}` : '-'}
