@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-const serverUrl = process.env.CAPACITOR_SERVER_URL;
+const serverUrl = process.env.CAP_SERVER_URL;
 
 const config: CapacitorConfig = {
   appId: 'com.sweetnarcisse.admin',
@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     ? {
         server: {
           url: serverUrl,
-          cleartext: true,
+          cleartext: serverUrl.startsWith('http://')
         },
       }
     : {}),

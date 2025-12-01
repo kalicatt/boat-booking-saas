@@ -11,6 +11,7 @@
     "lint": "eslint",
     "postinstall": "prisma generate",
     "test": "vitest run",
+    "export": "next export",
     "generate:icons": "node scripts/generate-icons.cjs",
     "release": "node scripts/release-version.js",
     "cap:sync": "npx cap sync",
