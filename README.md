@@ -47,7 +47,7 @@ docker save sweetnarcisse:local -o sweetnarcisse-image.tar
 ```
 
 ## Deployment (VPS)
-`DEPLOYMENT.md` now walks through a Debian 25 setup end-to-end, including Docker installation, persistent Postgres, TLS, and monitoring.
+`DEPLOYMENT.md` now walks through a Debian 25 setup end-to-end, including Docker installation, persistent Postgres, TLS, monitoring, and an optional hardening helper (`scripts/harden-vps.sh`).
 
 Key commands (see the guide for full context):
 - `./scripts/configure-env.sh` prompts for every production variable (SMTP, Stripe, PayPal live/sandbox, reCAPTCHA, Grafana, etc.) and writes `.env.production.local`.
@@ -63,7 +63,7 @@ docker network create sweetnarcisse-net                # once
 docker compose -f docker-compose.db.yml --env-file .env.production.local up -d
 docker compose up -d                                   # app stack
 ```
-See `DEPLOYMENT.md` for snapshot/backup automation and the PayPal sandbox testing workflow.
+See `DEPLOYMENT.md` for snapshot/backup automation, PayPal sandbox testing workflow, mobile packaging, and the hardening checklist.
 
 ## Payments
 - Stripe: Cards + Apple Pay + Google Pay via Payment Request. Webhook finalizes server state; `daily-maintenance.ps1` cleans stale pending bookings.
