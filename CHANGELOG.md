@@ -9,6 +9,22 @@ The format is based on Keep a Changelog and adheres to Semantic Versioning (MAJO
 
 ---
 
+## [1.0.4] - 2025-12-02
+### Added
+- `scripts/harden-vps.sh` to automate SSH hardening, firewall rules, and fail2ban setup on fresh servers.
+
+### Changed
+- Native splash screen, status bar, and launcher icons refreshed to align with the Sweet Narcisse branding.
+- Capacitor configuration and environment defaults now target `https://sweet-narcisse.fr` with updated Android version metadata (`versionCode 100`, `versionName "Alpha Sweet-Narcisse"`).
+
+### Documentation
+- `README.md`, `DEPLOYMENT.md`, and `RELEASE.md` updated with the 1.0.4 workflow, VPS hardening guidance, and new release tagging steps.
+
+### Credits
+- Release owner: Lucas Servais.
+
+---
+
 ## [1.0.3] - 2025-11-29
 ### Changed
 - Booking creation now normalizes inherited payment metadata and applies the `shouldMarkPaid` guard consistently across chained reservations.
