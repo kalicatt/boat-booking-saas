@@ -108,8 +108,8 @@ Gérer les barres de navigation et les encoches des téléphones récents.
 **Objectif :** Mettre l'app dans la poche du staff.
 
 1.  **Build Web :** `npm run build`
-2.  **Synchro Mobile :** `npx cap sync`
+2.  **Synchro Mobile :** `npm run cap:sync` (ou `npm run cap:sync:dev` pour cibler le LAN)
 3.  **Compilation Native :**
     * **iOS :** `npx cap open ios` (Xcode)
     * **Android :** `npx cap open android` (Android Studio)
-4.  **Distribution :** Via TestFlight (iOS) ou APK direct (Android).
+4.  **Distribution :** Voir les étapes détaillées dans `DEPLOYMENT.md` (section "Mobile Packaging & Distribution") pour TestFlight / Play Console / APK interne.

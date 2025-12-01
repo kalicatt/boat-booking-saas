@@ -14,7 +14,8 @@
     "export": "next export",
     "generate:icons": "node scripts/generate-icons.cjs",
     "release": "node scripts/release-version.js",
-    "cap:sync": "cross-env CAP_SERVER_URL=http://192.168.1.55:3000 npx cap sync",
+    "cap:sync": "npx cap sync",
+    "cap:sync:dev": "cross-env CAP_USE_DEV=true npx cap sync",
     "cap:open:ios": "npx cap open ios",
     "cap:open:android": "npx cap open android"
   },

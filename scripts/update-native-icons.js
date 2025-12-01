@@ -3,7 +3,7 @@ const path = require('path');
 const sharp = require('sharp');
 
 const BRAND_COLOR = '#0f172a';
-const SRC_LOGO = path.join(__dirname, '..', 'public', 'images', 'logo.jpg');
+const SRC_ICON = path.join(__dirname, '..', 'public', 'images', 'IconApp.jpg');
 
 const ANDROID_BASE = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'res');
 const IOS_APPICON = path.join(__dirname, '..', 'ios', 'App', 'App', 'Assets.xcassets', 'AppIcon.appiconset');
@@ -41,8 +41,8 @@ async function ensureDir(p) {
   await fs.promises.mkdir(path.dirname(p), { recursive: true });
 }
 
-async function loadLogo(width) {
-  return sharp(SRC_LOGO)
+async function loadIcon(width) {
+  return sharp(SRC_ICON)
     .resize({ width, height: width, fit: 'inside', withoutEnlargement: true })
     .removeAlpha()
     .png()
@@ -61,18 +61,18 @@ async function generateAndroidIcons() {
         background: BRAND_COLOR
       }
     });
-    const logoSizeSquare = Math.round(launcherSize * 0.7);
-    const logoSquare = await loadLogo(logoSizeSquare);
+    const iconSizeSquare = Math.round(launcherSize * 0.7);
+    const iconSquare = await loadIcon(iconSizeSquare);
     await ensureDir(path.join(densityDir, 'ic_launcher.png'));
-    await squareCanvas.composite([{ input: logoSquare, gravity: 'center' }]).png().toFile(path.join(densityDir, 'ic_launcher.png'));
+    await squareCanvas.composite([{ input: iconSquare, gravity: 'center' }]).png().toFile(path.join(densityDir, 'ic_launcher.png'));
 
     const circleSvg = Buffer.from(
       `<svg width="${launcherSize}" height="${launcherSize}" viewBox="0 0 ${launcherSize} ${launcherSize}" xmlns="http://www.w3.org/2000/svg"><circle cx="${launcherSize / 2}" cy="${launcherSize / 2}" r="${launcherSize / 2}" fill="${BRAND_COLOR}"/></svg>`
     );
     const circleCanvas = sharp(circleSvg).png();
-    const logoSizeRound = Math.round(launcherSize * 0.62);
-    const logoRound = await loadLogo(logoSizeRound);
-    await circleCanvas.composite([{ input: logoRound, gravity: 'center' }]).png().toFile(path.join(densityDir, 'ic_launcher_round.png'));
+    const iconSizeRound = Math.round(launcherSize * 0.62);
+    const iconRound = await loadIcon(iconSizeRound);
+    await circleCanvas.composite([{ input: iconRound, gravity: 'center' }]).png().toFile(path.join(densityDir, 'ic_launcher_round.png'));
 
     const foregroundCanvas = sharp({
       create: {
@@ -82,10 +82,10 @@ async function generateAndroidIcons() {
         background: { r: 0, g: 0, b: 0, alpha: 0 }
       }
     });
-    const logoSizeForeground = Math.round(foregroundSize * 0.75);
-    const logoForeground = await loadLogo(logoSizeForeground);
+    const iconSizeForeground = Math.round(foregroundSize * 0.75);
+    const iconForeground = await loadIcon(iconSizeForeground);
     await foregroundCanvas
-      .composite([{ input: logoForeground, gravity: 'center' }])
+      .composite([{ input: iconForeground, gravity: 'center' }])
       .png()
       .toFile(path.join(densityDir, 'ic_launcher_foreground.png'));
   }
@@ -113,9 +113,9 @@ async function generateIosIcons() {
         background: BRAND_COLOR
       }
     });
-    const logoSize = Math.round(pixelSize * 0.72);
-    const logo = await loadLogo(logoSize);
-    await canvas.composite([{ input: logo, gravity: 'center' }]).png().toFile(path.join(IOS_APPICON, filename));
+    const iconSize = Math.round(pixelSize * 0.72);
+    const icon = await loadIcon(iconSize);
+    await canvas.composite([{ input: icon, gravity: 'center' }]).png().toFile(path.join(IOS_APPICON, filename));
 
     images.push({
       idiom: spec.idiom,
@@ -138,9 +138,9 @@ async function generateIosIcons() {
 
 async function main() {
   try {
-    await fs.promises.access(SRC_LOGO, fs.constants.R_OK);
+    await fs.promises.access(SRC_ICON, fs.constants.R_OK);
   } catch (error) {
-    console.error('Source logo missing at', SRC_LOGO);
+    console.error('Source icon missing at', SRC_ICON);
     process.exit(1);
   }
 

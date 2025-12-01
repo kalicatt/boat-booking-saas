@@ -157,4 +157,20 @@ Automate these with cron or an external backup service.
 - TypeScript auto-install notice: ensure `typescript` and `@types/node` remain in devDependencies when rebuilding locally.
 - Network issues: confirm both stacks (`app` and `db`) share the `sweetnarcisse-net` bridge.
 
+## 13. Mobile Packaging & Distribution
+- **Préparer le bundle web :** `npm run build`
+- **Synchroniser les projets natifs :** `npm run cap:sync` (production) ou `npm run cap:sync:dev` pour cibler le serveur LAN.
+- **Android :**
+	- `npx cap open android` puis configurer `app/build.gradle` (`versionCode`, `versionName`).
+	- Lancer un build `Bundle` (AAB) pour Play Console ou `APK` pour diffusion interne.
+	- Tester sur un device en mode Release.
+- **iOS :**
+	- `npx cap open ios`, mettre à jour `General > Version`/`Build`. Vérifier la team de signature.
+	- Product → Archive → Distribuer via TestFlight ou Ad Hoc.
+- **Vérifications avant envoi :**
+	- Connexion à `https://sweet-narcisse.fr` (Splash + status bar).
+	- Scan & Go, login remember-me, flux paiement (mode sandbox si besoin).
+	- Billets emails/QR générés correctement.
+- **Après publication :** tenir `DEPLOYMENT.md` à jour avec les numéros de version mobile et noter les builds distribués.
+
 Deployment complete. Keep this checklist close for future releases and audits.
