@@ -2154,7 +2154,7 @@ export default function ClientPlanningPage() {
                     key={event.id}
                     type="button"
                     onClick={() => handleSelectBooking(event)}
-                    className="flex flex-col gap-3 rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 active:scale-[0.995]"
+                    className="flex flex-col gap-3 overflow-hidden rounded-2xl bg-white p-4 text-left shadow-sm ring-1 ring-slate-200 active:scale-[0.995]"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -2168,19 +2168,21 @@ export default function ClientPlanningPage() {
                         {theme.label}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-sm text-slate-700">
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-slate-900">{event.clientName}</span>
-                        <span className="text-xs uppercase tracking-[0.25em] text-slate-400">{flag} {emailLabel}</span>
+                    <div className="flex items-center justify-between gap-3 text-sm text-slate-700">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="break-words text-sm font-semibold text-slate-900">{event.clientName}</span>
+                        <span className="break-words text-[11px] font-medium tracking-[0.05em] text-slate-500">
+                          <span className="mr-1 text-base">{flag}</span>{emailLabel}
+                        </span>
                       </div>
-                      <div className="flex flex-col items-end text-xs text-slate-500">
+                      <div className="flex shrink-0 flex-col items-end gap-1 text-xs text-slate-500">
                         <span className="inline-flex items-center rounded-full bg-slate-900 px-2 py-0.5 text-xs font-bold text-white">{event.peopleCount} pax</span>
-                        <span>{occupancy} places</span>
+                        <span className="text-[11px] text-slate-500">{occupancy} places</span>
                       </div>
                     </div>
                     <div className="flex flex-col gap-1 text-xs text-slate-500">
                       <span className="font-semibold text-slate-700">Barque : {boat?.title ?? '—'}</span>
-                      <span>📞 {phoneLabel}</span>
+                      <span className="break-words text-slate-500">📞 {phoneLabel}</span>
                     </div>
                   </button>
                 )
