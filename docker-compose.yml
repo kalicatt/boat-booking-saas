@@ -6,7 +6,7 @@ services:
     environment:
       AUTH_TRUST_HOST: "true"
       NODE_ENV: production
-      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@sweetnarcisse-db:5432/${POSTGRES_DB}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       
       # --- VARIABLES EMAILS ---
