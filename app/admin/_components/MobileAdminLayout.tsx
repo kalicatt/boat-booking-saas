@@ -2,7 +2,8 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 
 const TABS = [
@@ -21,11 +22,20 @@ const iconMap: Record<string, string> = {
 
 export default function MobileAdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (pathname?.startsWith('/admin/planning')) {
+      router.replace('/admin/today')
+    }
+  }, [pathname, router])
 
   const isActive = (href: string) => {
     if (href === '/admin/today') return pathname === '/admin' || pathname?.startsWith('/admin/today')
     return Boolean(pathname?.startsWith(href))
   }
+
+  const navigationTabs = TABS.filter((tab) => tab.href !== '/admin/planning')
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-white">
@@ -49,7 +59,7 @@ export default function MobileAdminLayout({ children }: { children: ReactNode })
 
       <nav className="safe-area-inset-b sticky bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-2 py-2">
-          {TABS.map((tab) => {
+          {navigationTabs.map((tab) => {
             const active = isActive(tab.href)
             return (
               <Link

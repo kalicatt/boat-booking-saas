@@ -23,6 +23,15 @@ import { Capacitor } from '@capacitor/core'
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning'
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
+import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileTimeline'
+import { getBoatTheme } from '../_components/boatThemes'
+import { BookingDetailsModal } from '../_components/BookingDetailsModal'
+import {
+  type BookingDetails,
+  type PaymentMarkState,
+  type BoardingStatus,
+  type AdminBookingDto
+} from '../_components/bookingTypes'
 
 declare global {
   interface Window {
@@ -60,6 +69,32 @@ type TodayBooking = {
   boatId: number | null
   boat: TodayBookingBoat | null
   user: TodayBookingUser
+}
+
+interface BoatResource {
+  id: number
+  title: string
+  capacity: number
+}
+
+interface BoatApiRow {
+  id?: unknown
+  title?: unknown
+  name?: unknown
+  capacity?: unknown
+}
+
+interface PaymentMethodPayload {
+  provider: string
+  methodType?: string
+  amountReceived?: number
+  changeDue?: number
+}
+
+interface BookingUpdatePayload {
+  newCheckinStatus?: BoardingStatus
+  newIsPaid?: boolean
+  paymentMethod?: PaymentMethodPayload
 }
 
 const DEFAULT_BOAT_CAPACITY = 12
@@ -116,12 +151,110 @@ const parseTodayBookings = (input: unknown): TodayBooking[] => {
     .filter((booking): booking is TodayBooking => booking !== null)
 }
 
+const buildBookingDetails = (booking: AdminBookingDto, loadMap: Record<string, number>): BookingDetails => {
+  const rawStart = new Date(booking.startTime)
+  const rawEnd = new Date(booking.endTime)
+  const startWall = new Date(
+    rawStart.getUTCFullYear(),
+    rawStart.getUTCMonth(),
+    rawStart.getUTCDate(),
+    rawStart.getUTCHours(),
+    rawStart.getUTCMinutes()
+  )
+  const endWall = new Date(
+    rawEnd.getUTCFullYear(),
+    rawEnd.getUTCMonth(),
+    rawEnd.getUTCDate(),
+    rawEnd.getUTCHours(),
+    rawEnd.getUTCMinutes()
+  )
+
+  const firstName = booking.user?.firstName ?? ''
+  const lastName = booking.user?.lastName ?? ''
+  const clientFullName = `${firstName} ${lastName}`.trim() || 'Client'
+  const displayTitle = clientFullName === 'Client Guichet' ? 'Guichet' : clientFullName
+
+  const normalizedStatus = booking.status === 'CANCELLED'
+    ? 'CANCELLED'
+    : booking.status === 'CONFIRMED'
+      ? 'CONFIRMED'
+      : 'PENDING'
+
+  const normalizedCheckin: BoardingStatus = booking.checkinStatus === 'NO_SHOW'
+    ? 'NO_SHOW'
+    : booking.checkinStatus === 'EMBARQUED'
+      ? 'EMBARQUED'
+      : 'CONFIRMED'
+
+  const normalizedPayments = Array.isArray(booking.payments)
+    ? booking.payments.map((payment) => ({
+        id: payment.id,
+        provider: payment.provider,
+        methodType: payment.methodType ?? null,
+        amount: payment.amount,
+        currency: payment.currency,
+        status: payment.status,
+        createdAt: String(payment.createdAt)
+      }))
+    : []
+
+  const totalPrice =
+    typeof booking.totalPrice === 'number' && Number.isFinite(booking.totalPrice)
+      ? booking.totalPrice
+      : null
+
+  return {
+    id: booking.id,
+    title: displayTitle,
+    start: startWall,
+    end: endWall,
+    resourceId: Number(booking.boatId ?? 0),
+    clientName: clientFullName,
+    peopleCount: Number(booking.numberOfPeople ?? 0),
+    adults: Number(booking.adults ?? 0),
+    children: Number(booking.children ?? 0),
+    babies: Number(booking.babies ?? 0),
+    boatCapacity: Number(booking.boat?.capacity ?? 0),
+    totalOnBoat: loadMap[`${booking.startTime}_${booking.boatId ?? 'boat'}`] ?? 0,
+    user: {
+      firstName: firstName || 'Client',
+      lastName: lastName || '',
+      email: booking.user?.email ?? '',
+      phone: booking.user?.phone ?? '',
+      role: booking.user?.role ?? 'CLIENT'
+    },
+    language: booking.language ?? 'FR',
+    totalPrice,
+    checkinStatus: normalizedCheckin,
+    isPaid: Boolean(booking.isPaid),
+    status: normalizedStatus,
+    message: booking.message ?? '',
+    payments: normalizedPayments.length > 0 ? normalizedPayments : undefined
+  }
+}
+
 export default function ClientPage() {
   const [bookings, setBookings] = useState<TodayBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalPeople: 0, count: 0 })
   const [currentDate, setCurrentDate] = useState(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('day')
+  const [resources, setResources] = useState<BoatResource[]>([])
+  const bookingDetailsRef = useRef<Map<string, BookingDetails>>(new Map())
+  const [selectedBooking, setSelectedBooking] = useState<BookingDetails | null>(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [detailsGroup, setDetailsGroup] = useState<BookingDetails[]>([])
+  const [detailsGroupIndex, setDetailsGroupIndex] = useState(0)
+  const [detailsMarkPaid, setDetailsMarkPaid] = useState<PaymentMarkState>(null)
+  const [detailsPaymentSelectorOpen, setDetailsPaymentSelectorOpen] = useState(false)
+  const openDetailsPaymentSelector = useCallback(() => setDetailsPaymentSelectorOpen(true), [])
+  const closeDetailsPaymentSelector = useCallback(() => {
+    setDetailsPaymentSelectorOpen(false)
+    setDetailsMarkPaid(null)
+  }, [])
+  const selectedBookingRef = useRef<BookingDetails | null>(null)
+  const detailsGroupRef = useRef<BookingDetails[]>([])
+  const detailsGroupIndexRef = useRef(0)
   const isNative = useIsNativePlatform()
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'submitting' | 'success' | 'error'>('idle')
   const [scanMessage, setScanMessage] = useState('')
@@ -145,6 +278,18 @@ export default function ClientPage() {
     }
   }, [currentDate, viewMode])
 
+  useEffect(() => {
+    selectedBookingRef.current = selectedBooking
+  }, [selectedBooking])
+
+  useEffect(() => {
+    detailsGroupRef.current = detailsGroup
+  }, [detailsGroup])
+
+  useEffect(() => {
+    detailsGroupIndexRef.current = detailsGroupIndex
+  }, [detailsGroupIndex])
+
   const fetchBookings = useCallback(async () => {
     setLoading(true)
     const { start, end } = dateRange
@@ -157,13 +302,93 @@ export default function ClientPage() {
         throw new Error(`Erreur de chargement ${res.status}`)
       }
       const payload: unknown = await res.json()
-      const parsed = parseTodayBookings(payload)
+      if (!Array.isArray(payload)) {
+        bookingDetailsRef.current = new Map()
+        setBookings([])
+        setStats({ totalPeople: 0, count: 0 })
+        return
+      }
+
+      const rawList = payload as AdminBookingDto[]
+      const parsed = parseTodayBookings(rawList)
       const sortedData = [...parsed].sort(
         (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
       )
       setBookings(sortedData)
       const people = sortedData.reduce((acc, booking) => acc + booking.numberOfPeople, 0)
       setStats({ totalPeople: people, count: sortedData.length })
+
+      const loadMap = rawList.reduce<Record<string, number>>((accumulator, booking) => {
+        const boatKey = `${booking.startTime}_${booking.boatId ?? 'boat'}`
+        const pax = Number(booking.numberOfPeople ?? 0)
+        accumulator[boatKey] = (accumulator[boatKey] || 0) + (Number.isFinite(pax) ? pax : 0)
+        return accumulator
+      }, {})
+
+      const detailsMap = new Map<string, BookingDetails>()
+      rawList.forEach((booking) => {
+        const detail = buildBookingDetails(booking, loadMap)
+        detailsMap.set(detail.id, detail)
+      })
+      bookingDetailsRef.current = detailsMap
+
+      if (rawList.length > 0) {
+        setResources((prev) => {
+          const map = new Map(prev.map((item) => [item.id, item] as const))
+          rawList.forEach((booking) => {
+            const boatId = typeof booking.boatId === 'number' ? booking.boatId : Number(booking.boatId ?? 0)
+            if (!Number.isFinite(boatId) || boatId <= 0) return
+            const capacity =
+              typeof booking.boat?.capacity === 'number' && Number.isFinite(booking.boat.capacity)
+                ? booking.boat.capacity
+                : DEFAULT_BOAT_CAPACITY
+            if (!map.has(boatId)) {
+              map.set(boatId, { id: boatId, title: `Barque ${boatId}`, capacity })
+            } else {
+              const existing = map.get(boatId)
+              if (existing && (!existing.capacity || existing.capacity === 0)) {
+                map.set(boatId, { ...existing, capacity })
+              }
+            }
+          })
+          return Array.from(map.values())
+        })
+      }
+
+      const currentSelection = selectedBookingRef.current
+      if (currentSelection) {
+        const updatedSelection = detailsMap.get(currentSelection.id)
+        if (updatedSelection) {
+          setSelectedBooking(updatedSelection)
+        }
+      }
+
+      const currentGroup = detailsGroupRef.current
+      if (currentGroup.length > 0) {
+        const updatedGroup = currentGroup
+          .map((item) => detailsMap.get(item.id))
+          .filter((item): item is BookingDetails => Boolean(item))
+
+        if (updatedGroup.length === 0) {
+          setShowDetailsModal(false)
+          setSelectedBooking(null)
+          setDetailsGroup([])
+          setDetailsGroupIndex(0)
+        } else {
+          setDetailsGroup(updatedGroup)
+          const currentIndex = Math.min(detailsGroupIndexRef.current, updatedGroup.length - 1)
+          if (currentIndex !== detailsGroupIndexRef.current) {
+            setDetailsGroupIndex(currentIndex)
+          }
+          const selected = selectedBookingRef.current
+          if (selected) {
+            const refreshed = detailsMap.get(selected.id)
+            if (refreshed) {
+              setSelectedBooking(refreshed)
+            }
+          }
+        }
+      }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
       console.error(msg)
@@ -171,6 +396,67 @@ export default function ClientPage() {
       setLoading(false)
     }
   }, [dateRange])
+
+  const fetchBoatResources = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/boats')
+      if (!response.ok) return
+      const data: unknown = await response.json()
+      if (!Array.isArray(data)) return
+
+      const parseNumber = (value: unknown) => {
+        if (typeof value === 'number') return Number.isFinite(value) ? value : NaN
+        if (typeof value === 'string') {
+          const parsed = Number(value)
+          return Number.isFinite(parsed) ? parsed : NaN
+        }
+        return NaN
+      }
+
+      const normalized = data
+        .map((item): BoatResource | null => {
+          if (!item || typeof item !== 'object') return null
+          const candidate = item as BoatApiRow
+          const parsedId = parseNumber(candidate.id)
+          if (!Number.isFinite(parsedId)) return null
+          const rawTitle =
+            typeof candidate.title === 'string' && candidate.title.trim().length
+              ? candidate.title.trim()
+              : typeof candidate.name === 'string' && candidate.name.trim().length
+                ? candidate.name.trim()
+                : null
+          const parsedCapacity = parseNumber(candidate.capacity)
+          const capacity =
+            Number.isFinite(parsedCapacity) && parsedCapacity > 0
+              ? Math.round(parsedCapacity)
+              : DEFAULT_BOAT_CAPACITY
+          return {
+            id: parsedId,
+            title: rawTitle ?? `Barque ${parsedId}`,
+            capacity
+          }
+        })
+        .filter((boat): boat is BoatResource => boat !== null)
+
+      if (normalized.length > 0) {
+        setResources((prev) => {
+          const map = new Map<number, BoatResource>()
+          normalized.forEach((boat) => {
+            map.set(boat.id, boat)
+          })
+          prev.forEach((boat) => {
+            if (!map.has(boat.id)) {
+              map.set(boat.id, boat)
+            }
+          })
+          return Array.from(map.values())
+        })
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('Erreur chargement barques', message)
+    }
+  }, [])
 
   const clearScanReset = useCallback(() => {
     if (scanResetTimer.current) {
@@ -429,10 +715,6 @@ export default function ClientPage() {
   }, [isNative, ensureCameraPermission, fetchBookings, scheduleScanReset, clearScanReset])
 
   useEffect(() => {
-    fetchBookings()
-  }, [fetchBookings])
-
-  useEffect(() => {
     return () => {
       clearScanReset()
       if (typeof window !== 'undefined') {
@@ -449,6 +731,14 @@ export default function ClientPage() {
     }
   }, [clearScanReset])
 
+  useEffect(() => {
+    void fetchBoatResources()
+  }, [fetchBoatResources])
+
+  useEffect(() => {
+    fetchBookings()
+  }, [fetchBookings])
+
   const handleNavigate = (direction: 'prev' | 'next') => {
     if (viewMode === 'day') {
       setCurrentDate((prev) => (direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1)))
@@ -458,7 +748,6 @@ export default function ClientPage() {
       setCurrentDate((prev) => (direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1)))
     }
   }
-
   const goToToday = () => setCurrentDate(new Date())
 
   const getPeriodTitle = () => {
@@ -527,35 +816,6 @@ export default function ClientPage() {
     )
   }
 
-  const getBoatTheme = (boatId: number | null) => {
-    switch (boatId) {
-      case 1:
-        return {
-          badge: 'bg-blue-100 text-blue-800',
-          indicator: 'border-blue-400 text-blue-900 shadow-[0_0_0_3px_rgba(147,197,253,0.35)]',
-          pax: 'bg-blue-600 text-white'
-        }
-      case 2:
-        return {
-          badge: 'bg-emerald-100 text-emerald-700',
-          indicator: 'border-emerald-400 text-emerald-900 shadow-[0_0_0_3px_rgba(134,239,172,0.35)]',
-          pax: 'bg-emerald-600 text-white'
-        }
-      case 3:
-        return {
-          badge: 'bg-purple-100 text-purple-800',
-          indicator: 'border-purple-400 text-purple-900 shadow-[0_0_0_3px_rgba(216,180,254,0.35)]',
-          pax: 'bg-purple-600 text-white'
-        }
-      default:
-        return {
-          badge: 'bg-orange-100 text-orange-800',
-          indicator: 'border-orange-400 text-orange-900 shadow-[0_0_0_3px_rgba(253,186,116,0.35)]',
-          pax: 'bg-orange-500 text-white'
-        }
-    }
-  }
-
   const handleQuickStatusChange = useCallback(
     async (bookingId: string, nextStatus: 'EMBARQUED' | 'NO_SHOW') => {
       setStatusLoading(bookingId)
@@ -592,6 +852,206 @@ export default function ClientPage() {
     [fetchBookings, isNative, showActionFeedback]
   )
 
+  const openBookingDetails = useCallback(
+    (bookingId: string, groupItems: TodayBooking[], itemIndex: number) => {
+      const map = bookingDetailsRef.current
+      const selected = map.get(bookingId)
+      if (!selected) return
+
+      const groupDetails = groupItems
+        .map((item) => map.get(item.id))
+        .filter((detail): detail is BookingDetails => Boolean(detail))
+
+      const finalGroup = groupDetails.length > 0 ? groupDetails : [selected]
+      const inferredIndex = groupDetails.findIndex((detail) => detail.id === selected.id)
+      const nextIndex = inferredIndex >= 0 ? inferredIndex : Math.min(itemIndex, finalGroup.length - 1)
+
+      setDetailsGroup(finalGroup)
+      setDetailsGroupIndex(nextIndex)
+      setSelectedBooking(selected)
+      closeDetailsPaymentSelector()
+      setShowDetailsModal(true)
+    },
+    [closeDetailsPaymentSelector]
+  )
+
+  const closeDetailsModal = useCallback(() => {
+    setShowDetailsModal(false)
+    setSelectedBooking(null)
+    setDetailsGroup([])
+    setDetailsGroupIndex(0)
+    closeDetailsPaymentSelector()
+  }, [closeDetailsPaymentSelector])
+
+  const navigateDetailsBooking = useCallback(
+    (direction: 'prev' | 'next') => {
+      setDetailsGroupIndex((currentIndex) => {
+        const nextIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1
+        const target = detailsGroupRef.current[nextIndex]
+        if (!target) return currentIndex
+        setSelectedBooking(target)
+        closeDetailsPaymentSelector()
+        return nextIndex
+      })
+    },
+    [closeDetailsPaymentSelector]
+  )
+
+  const handleModalStatusUpdate = useCallback(
+    async (id: string, newCheckinStatus?: BoardingStatus, newIsPaid?: boolean) => {
+      const body: BookingUpdatePayload = {}
+      if (newCheckinStatus) body.newCheckinStatus = newCheckinStatus
+      if (newIsPaid !== undefined) body.newIsPaid = newIsPaid
+
+      const rawCashValue = detailsMarkPaid?.provider === 'cash' ? detailsMarkPaid.cashGiven ?? '' : ''
+      const parsedCashValue = rawCashValue ? Number.parseFloat(rawCashValue) : Number.NaN
+      const hasCashAmount = detailsMarkPaid?.provider === 'cash' && !Number.isNaN(parsedCashValue)
+      const normalizedCashValue = hasCashAmount ? Number(parsedCashValue.toFixed(2)) : undefined
+      const basePrice = selectedBookingRef.current?.totalPrice
+
+      if (newIsPaid === true && detailsMarkPaid?.provider) {
+        body.paymentMethod = {
+          provider: detailsMarkPaid.provider,
+          methodType: detailsMarkPaid.provider === 'voucher' ? detailsMarkPaid.methodType : undefined,
+          amountReceived: normalizedCashValue,
+          changeDue:
+            normalizedCashValue !== undefined && typeof basePrice === 'number'
+              ? Number((normalizedCashValue - basePrice).toFixed(2))
+              : undefined
+        }
+      }
+
+      try {
+        const response = await fetch(`/api/bookings/${id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        })
+
+        if (!response.ok) {
+          throw new Error('Mise à jour impossible.')
+        }
+
+        setSelectedBooking((previous) => {
+          if (!previous || previous.id !== id) return previous
+          return {
+            ...previous,
+            checkinStatus: newCheckinStatus ?? previous.checkinStatus,
+            isPaid: newIsPaid !== undefined ? newIsPaid : previous.isPaid
+          }
+        })
+        setDetailsGroup((previous) =>
+          previous.map((detail) =>
+            detail.id === id
+              ? {
+                  ...detail,
+                  checkinStatus: newCheckinStatus ?? detail.checkinStatus,
+                  isPaid: newIsPaid !== undefined ? newIsPaid : detail.isPaid
+                }
+              : detail
+          )
+        )
+
+        closeDetailsPaymentSelector()
+        await fetchBookings()
+        if (isNative) {
+          showActionFeedback('success', 'Réservation mise à jour.')
+        }
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Action impossible.'
+        if (isNative) {
+          showActionFeedback('error', message)
+        } else {
+          alert(message)
+        }
+      }
+    },
+    [closeDetailsPaymentSelector, detailsMarkPaid, fetchBookings, isNative, showActionFeedback]
+  )
+
+  const handleEditTime = useCallback(
+    (booking: BookingDetails) => {
+      void (async () => {
+        try {
+          const defaultTime = format(booking.start, 'HH:mm')
+          const input = prompt('Nouvelle heure (HH:mm)', defaultTime) || ''
+          const match = input.trim().match(/^(\d{1,2}):(\d{2})$/)
+          if (!match) return
+          const hours = Number.parseInt(match[1], 10)
+          const minutes = Number.parseInt(match[2], 10)
+          if (
+            Number.isNaN(hours) ||
+            Number.isNaN(minutes) ||
+            hours < 0 ||
+            hours > 23 ||
+            minutes < 0 ||
+            minutes > 59
+          ) {
+            return
+          }
+
+          const wallStart = new Date(booking.start)
+          wallStart.setHours(hours, minutes, 0, 0)
+          const utcStart = new Date(
+            Date.UTC(wallStart.getFullYear(), wallStart.getMonth(), wallStart.getDate(), hours, minutes, 0)
+          )
+
+          const response = await fetch(`/api/bookings/${booking.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ start: utcStart.toISOString() })
+          })
+
+          if (!response.ok) {
+            alert("Échec de la mise à jour de l'heure")
+            return
+          }
+
+          setSelectedBooking((previous) => (
+            previous && previous.id === booking.id
+              ? { ...previous, start: wallStart }
+              : previous
+          ))
+          setDetailsGroup((previous) =>
+            previous.map((detail) => (detail.id === booking.id ? { ...detail, start: wallStart } : detail))
+          )
+          await fetchBookings()
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : String(error)
+          console.error(message)
+        }
+      })()
+    },
+    [fetchBookings]
+  )
+
+  const handleDelete = useCallback(
+    (id: string, title: string) => {
+      void (async () => {
+        if (!confirm(`ANNULER la réservation de ${title} ?`)) return
+        try {
+          const response = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
+          if (!response.ok) {
+            throw new Error('Suppression impossible.')
+          }
+          await fetchBookings()
+          closeDetailsModal()
+          if (isNative) {
+            showActionFeedback('success', 'Réservation supprimée.')
+          }
+        } catch (error: unknown) {
+          const message = error instanceof Error ? error.message : 'Suppression impossible.'
+          if (isNative) {
+            showActionFeedback('error', message)
+          } else {
+            alert(message)
+          }
+        }
+      })()
+    },
+    [closeDetailsModal, fetchBookings, isNative, showActionFeedback]
+  )
+
   const renderDesktopTable = () => (
     <div className="sn-card overflow-hidden">
       <table className="w-full text-left text-sm">
@@ -624,9 +1084,30 @@ export default function ClientPage() {
                 viewMode !== 'day' &&
                 (index === 0 || !isSameDay(toWallClock(b.startTime), toWallClock(bookings[index - 1].startTime)))
               const theme = getBoatTheme(b.boatId)
+              const resource = b.boatId !== null ? resources.find((boat) => boat.id === b.boatId) : undefined
+              const boatLabel = resource?.title ?? b.boat?.name ?? '—'
+              const groupItems = bookings.filter((candidate) =>
+                toWallClock(candidate.startTime).getTime() === toWallClock(b.startTime).getTime()
+              )
+              const groupIndex = Math.max(
+                groupItems.findIndex((candidate) => candidate.id === b.id),
+                0
+              )
 
               return (
-                <tr key={`${b.id}-${index}`} className="hover:bg-slate-50 transition">
+                <tr
+                  key={`${b.id}-${index}`}
+                  className="hover:bg-slate-50 transition cursor-pointer"
+                  onClick={() => openBookingDetails(b.id, groupItems, groupIndex)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      openBookingDetails(b.id, groupItems, groupIndex)
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                >
                   <td className="p-4 align-top">
                     <div className="font-bold text-blue-900 text-lg">{formatTimeLabel(b.startTime)}</div>
                     {viewMode !== 'day' && (
@@ -642,7 +1123,7 @@ export default function ClientPage() {
                   </td>
                   <td className="p-4 align-top">
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${theme.badge}`}>
-                      {b.boat?.name ?? '—'}
+                      {boatLabel}
                     </span>
                   </td>
                   <td className="p-4 align-top">
@@ -677,6 +1158,7 @@ export default function ClientPage() {
         </div>
       )
     }
+
     const grouped: Array<{ wallDate: Date; items: TodayBooking[] }> = []
     let currentKey: string | null = null
     bookings.forEach((booking) => {
@@ -690,172 +1172,181 @@ export default function ClientPage() {
       }
     })
 
+    const timelineGroups: MobileTimelineGroup<TodayBooking>[] = grouped.map((group, groupIndex) => {
+      const representative = group.items[0]
+      const loadEntries: Array<{
+        key: string
+        label: string
+        total: number
+        capacity: number
+        themeClass: string
+      }> = []
+
+      group.items.forEach((booking) => {
+        const boatKey = booking.boatId !== null ? `boat-${booking.boatId}` : `boat-${booking.boat?.name ?? 'unknown'}`
+        let entry = loadEntries.find((item) => item.key === boatKey)
+        const resource = booking.boatId !== null ? resources.find((boat) => boat.id === booking.boatId) : undefined
+        if (!entry) {
+          entry = {
+            key: boatKey,
+            label: resource?.title ?? booking.boat?.name ?? 'Barque ?',
+            total: 0,
+            capacity: resource?.capacity ?? booking.boat?.capacity ?? DEFAULT_BOAT_CAPACITY,
+            themeClass: getBoatTheme(booking.boatId).badge
+          }
+          loadEntries.push(entry)
+        }
+        entry.total += booking.numberOfPeople
+        if (!entry.capacity || entry.capacity <= 0) {
+          entry.capacity = resource?.capacity ?? booking.boat?.capacity ?? DEFAULT_BOAT_CAPACITY
+        }
+      })
+
+      return {
+        id: `${representative.startTime}-${groupIndex}`,
+        slotTime: group.wallDate,
+        items: group.items,
+        indicatorClass: getBoatTheme(representative.boatId).indicator,
+        loadSummary: loadEntries.map((entry) => ({
+          key: entry.key,
+          label: entry.label,
+          total: entry.total,
+          capacity: entry.capacity,
+          badgeClass: entry.themeClass
+        }))
+      }
+    })
+
     return (
-      <div className="flex flex-col gap-5">
-        {grouped.map((group, groupIndex) => {
-          const representative = group.items[0]
-          const showDateSeparator =
-            viewMode !== 'day' &&
-            (groupIndex === 0 || !isSameDay(group.wallDate, grouped[groupIndex - 1].wallDate))
-          const connectToNext =
-            groupIndex < grouped.length - 1 && isSameDay(group.wallDate, grouped[groupIndex + 1].wallDate)
-
-          const loadEntries: Array<{
-            key: string
-            label: string
-            total: number
-            capacity: number
-            theme: ReturnType<typeof getBoatTheme>
-          }> = []
-
-          group.items.forEach((booking) => {
-            const boatKey = booking.boatId !== null ? `boat-${booking.boatId}` : `boat-${booking.boat?.name ?? 'unknown'}`
-            let entry = loadEntries.find((item) => item.key === boatKey)
-            if (!entry) {
-              entry = {
-                key: boatKey,
-                label: booking.boat?.name ?? 'Barque ?',
-                total: 0,
-                capacity: booking.boat?.capacity ?? DEFAULT_BOAT_CAPACITY,
-                theme: getBoatTheme(booking.boatId)
-              }
-              loadEntries.push(entry)
-            }
-            entry.total += booking.numberOfPeople
-            if (!entry.capacity || entry.capacity <= 0) {
-              entry.capacity = booking.boat?.capacity ?? DEFAULT_BOAT_CAPACITY
-            }
-          })
+      <MobileTimeline
+        groups={timelineGroups}
+        locale={fr}
+        renderDateSeparator={({ group, prevGroup }) => {
+          if (viewMode === 'day') return null
+          if (!prevGroup || !isSameDay(group.slotTime, prevGroup.slotTime)) {
+            const first = group.items[0]
+            return (
+              <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                {formatDateLabel(first.startTime)}
+              </div>
+            )
+          }
+          return null
+        }}
+        shouldConnectToNext={({ group, nextGroup }) => Boolean(nextGroup && isSameDay(group.slotTime, nextGroup.slotTime))}
+        getItemKey={(booking) => booking.id}
+        renderCard={(booking, context) => {
+          const theme = getBoatTheme(booking.boatId)
+          const isBusy = statusLoading === booking.id
+          const isEmbarqued = booking.checkinStatus === 'EMBARQUED'
+          const isNoShow = booking.checkinStatus === 'NO_SHOW'
+          const canCall = Boolean(booking.user.phone && booking.user.phone.trim().length > 0)
+          const canEmail = Boolean(booking.user.email && booking.user.email.trim().length > 0)
+          const resource = booking.boatId !== null ? resources.find((boat) => boat.id === booking.boatId) : undefined
+          const boatLabel = resource?.title ?? booking.boat?.name ?? 'Barque ?'
 
           return (
-            <div key={`${representative.startTime}-${groupIndex}`} className="relative">
-              {showDateSeparator && (
-                <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {formatDateLabel(representative.startTime)}
+            <div
+              role="button"
+              tabIndex={0}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  openBookingDetails(booking.id, context.group.items, context.itemIndex)
+                }
+              }}
+              onClick={() => openBookingDetails(booking.id, context.group.items, context.itemIndex)}
+              className="snap-center min-w-[82vw] flex-shrink-0 cursor-pointer rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200 transition hover:ring-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-lg font-extrabold text-slate-900">{`${booking.user.firstName ?? ''} ${booking.user.lastName ?? ''}`.trim() || 'Client inconnu'}</div>
+                  <div className="mt-0.5 text-xs uppercase tracking-widest text-slate-400">
+                    {booking.language ?? '—'}
+                  </div>
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Départ {formatTimeLabel(booking.startTime)}
+                  </div>
+                  {viewMode !== 'day' && (
+                    <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                      {formatShortDateLabel(booking.startTime)}
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="relative pl-16">
-                {connectToNext && <span aria-hidden="true" className="absolute left-6 top-16 h-[90%] w-px translate-y-2 bg-slate-200" />}
-                <div
-                  aria-hidden="true"
-                  className={`absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white text-[0.8rem] font-black uppercase leading-none ${getBoatTheme(representative.boatId).indicator}`}
+                {renderStatusBadge(booking.status, booking.checkinStatus)}
+              </div>
+              <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${theme.badge}`}>
+                    {boatLabel}
+                  </span>
+                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${theme.pax}`}>
+                    {booking.numberOfPeople} pax
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1 text-xs text-slate-500">
+                  <span className="font-semibold text-slate-700">📞 {booking.user.phone ?? 'Non renseigné'}</span>
+                  <span>{booking.user.email ?? '—'}</span>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                {canCall && (
+                  <a
+                    href={`tel:${booking.user.phone}`}
+                    onClick={(event) => event.stopPropagation()}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-white shadow-sm transition active:scale-95"
+                  >
+                    <span aria-hidden="true">📞</span>
+                    Appeler
+                  </a>
+                )}
+                {canEmail && (
+                  <a
+                    href={`mailto:${booking.user.email}`}
+                    onClick={(event) => event.stopPropagation()}
+                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-700 shadow-sm transition active:scale-95"
+                  >
+                    <span aria-hidden="true">✉</span>
+                    Email
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleQuickStatusChange(booking.id, 'EMBARQUED')
+                  }}
+                  disabled={isBusy || isEmbarqued}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
+                    isEmbarqued
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-emerald-500 text-white active:scale-95 disabled:bg-emerald-400 disabled:opacity-90'
+                  }`}
                 >
-                  {formatTimeLabel(representative.startTime)}
-                </div>
-                <div className="ml-2 flex flex-wrap gap-2 pl-4 pt-1 text-[11px] font-semibold text-slate-500">
-                  {loadEntries.map((entry) => (
-                    <span
-                      key={entry.key}
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${entry.theme.badge}`}
-                    >
-                      <span className="truncate text-xs font-bold">{entry.label}</span>
-                      <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-black text-slate-800">
-                        {entry.total} / {entry.capacity}
-                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">pax</span>
-                      </span>
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-3 flex gap-3 overflow-x-auto pb-2 pr-4 snap-x snap-mandatory">
-                  {group.items.map((b, index) => {
-                    const theme = getBoatTheme(b.boatId)
-                    const isBusy = statusLoading === b.id
-                    const isEmbarqued = b.checkinStatus === 'EMBARQUED'
-                    const isNoShow = b.checkinStatus === 'NO_SHOW'
-                    const canCall = Boolean(b.user.phone && b.user.phone.trim().length > 0)
-                    const canEmail = Boolean(b.user.email && b.user.email.trim().length > 0)
-
-                    return (
-                      <div
-                        key={`${b.id}-${index}`}
-                        className="snap-center min-w-[82vw] flex-shrink-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="text-lg font-extrabold text-slate-900">{`${b.user.firstName ?? ''} ${b.user.lastName ?? ''}`.trim() || 'Client inconnu'}</div>
-                            <div className="mt-0.5 text-xs uppercase tracking-widest text-slate-400">
-                              {b.language ?? '—'}
-                            </div>
-                            <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                              Départ {formatTimeLabel(b.startTime)}
-                            </div>
-                            {viewMode !== 'day' && (
-                              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                {formatShortDateLabel(b.startTime)}
-                              </div>
-                            )}
-                          </div>
-                          {renderStatusBadge(b.status, b.checkinStatus)}
-                        </div>
-                        <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${theme.badge}`}>
-                              {b.boat?.name ?? 'Barque ?'}
-                            </span>
-                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${theme.pax}`}>
-                              {b.numberOfPeople} pax
-                            </span>
-                          </div>
-                          <div className="flex flex-col gap-1 text-xs text-slate-500">
-                            <span className="font-semibold text-slate-700">📞 {b.user.phone ?? 'Non renseigné'}</span>
-                            <span>{b.user.email ?? '—'}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                          {canCall && (
-                            <a
-                              href={`tel:${b.user.phone}`}
-                              className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-white shadow-sm transition active:scale-95"
-                            >
-                              <span aria-hidden="true">📞</span>
-                              Appeler
-                            </a>
-                          )}
-                          {canEmail && (
-                            <a
-                              href={`mailto:${b.user.email}`}
-                              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-700 shadow-sm transition active:scale-95"
-                            >
-                              <span aria-hidden="true">✉</span>
-                              Email
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStatusChange(b.id, 'EMBARQUED')}
-                            disabled={isBusy || isEmbarqued}
-                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
-                              isEmbarqued
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-emerald-500 text-white active:scale-95 disabled:bg-emerald-400 disabled:opacity-90'
-                            }`}
-                          >
-                            <span aria-hidden="true">✅</span>
-                            {isBusy && !isEmbarqued ? 'Patientez…' : isEmbarqued ? 'Embarqué' : 'Check-in'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleQuickStatusChange(b.id, 'NO_SHOW')}
-                            disabled={isBusy || isNoShow}
-                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
-                              isNoShow
-                                ? 'bg-rose-100 text-rose-700'
-                                : 'bg-rose-500 text-white active:scale-95 disabled:bg-rose-400 disabled:opacity-90'
-                            }`}
-                          >
-                            <span aria-hidden="true">⚠</span>
-                            {isBusy && !isNoShow ? 'Patientez…' : isNoShow ? 'No-show' : 'Absent'}
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                  <span aria-hidden="true">✅</span>
+                  {isBusy && !isEmbarqued ? 'Patientez…' : isEmbarqued ? 'Embarqué' : 'Check-in'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleQuickStatusChange(booking.id, 'NO_SHOW')
+                  }}
+                  disabled={isBusy || isNoShow}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
+                    isNoShow
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-rose-500 text-white active:scale-95 disabled:bg-rose-400 disabled:opacity-90'
+                  }`}
+                >
+                  <span aria-hidden="true">⚠</span>
+                  {isBusy && !isNoShow ? 'Patientez…' : isNoShow ? 'No-show' : 'Absent'}
+                </button>
               </div>
             </div>
           )
-        })}
-      </div>
+        }}
+      />
     )
   }
 
@@ -953,6 +1444,27 @@ export default function ClientPage() {
         )}
 
         {bookingsContent}
+
+        {showDetailsModal && selectedBooking && (
+          <BookingDetailsModal
+            booking={selectedBooking}
+            resources={resources}
+            detailsMarkPaid={detailsMarkPaid}
+            setDetailsMarkPaid={setDetailsMarkPaid}
+            onClose={closeDetailsModal}
+            onNavigate={navigateDetailsBooking}
+            hasPrev={detailsGroupIndex > 0}
+            hasNext={detailsGroupIndex < detailsGroup.length - 1}
+            groupIndex={detailsGroupIndex}
+            groupTotal={detailsGroup.length}
+            paymentSelectorOpen={detailsPaymentSelectorOpen}
+            onPaymentSelectorOpen={openDetailsPaymentSelector}
+            onPaymentSelectorClose={closeDetailsPaymentSelector}
+            onStatusUpdate={handleModalStatusUpdate}
+            onEditTime={handleEditTime}
+            onDelete={handleDelete}
+          />
+        )}
 
         {isNative && (
           <>
