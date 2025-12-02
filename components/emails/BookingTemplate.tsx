@@ -2,20 +2,36 @@
 import * as React from 'react';
 
 interface BookingEmailProps {
-  firstName: string;
-  date: string;
-  time: string;
-  people: number;
-  adults: number;
-    childrenCount: number;
-  babies: number;
-  bookingId: string;
-  totalPrice: number;
-    qrCodeDataUrl?: string | null;
+    firstName: string
+    date: string
+    time: string
+    people: number
+    adults: number
+    childrenCount: number
+    babies: number
+    bookingId: string
+    publicReference?: string | null
+    totalPrice: number
+    qrCodeUrl?: string | null
+    qrCodeDataUrl?: string | null
+    qrCodeCid?: string | null
+    cancelUrl: string
+    logoUrl?: string | null
+    logoCid?: string | null
 }
 
-const PRICE_ADULT = 9.00;
-const PRICE_CHILD = 4.00;
+const brand = {
+    night: '#0f172a',
+    gold: '#f59e0b',
+    muted: '#64748b',
+    surface: '#f8fafc'
+}
+
+const mapLink = 'https://maps.app.goo.gl/v2S3t2Wq83B7k6996'
+const runtimeBaseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
+const defaultLogoUrl = runtimeBaseUrl ? `${runtimeBaseUrl}/images/logo.jpg` : undefined
+
+const priceFormatter = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
 export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     firstName,
@@ -26,145 +42,209 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     childrenCount,
     babies,
     bookingId,
+    publicReference,
     totalPrice,
-    qrCodeDataUrl
+    qrCodeUrl,
+    qrCodeDataUrl,
+    qrCodeCid,
+    cancelUrl,
+    logoUrl,
+    logoCid
 }) => {
-  
-  const mapLink = "https://maps.app.goo.gl/v2S3t2Wq83B7k6996"; // Lien vers Pont-Saint Pierre
-    const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
-    const logoSrc = baseUrl ? `${baseUrl}/images/logo.jpg` : undefined
+    const referenceLabel = publicReference || bookingId
+    const qrSrc = (qrCodeCid ? `cid:${qrCodeCid}` : (qrCodeDataUrl || qrCodeUrl || ''))
+    const resolvedLogoSrc = logoCid ? `cid:${logoCid}` : (logoUrl || defaultLogoUrl)
 
-  return (
-    <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', maxWidth: '600px', margin: '0 auto', border: '1px solid #ddd', borderRadius: '8px' }}>
-      
-      {/* HEADER */}
-            <div style={{ backgroundColor: '#0f172a', padding: '20px', textAlign: 'center', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
-                {logoSrc ? (
-                    <img src={logoSrc} alt="Sweet Narcisse" width={160} height={48} style={{ display: 'block', margin: '0 auto 6px', maxWidth: '100%' }} />
-                ) : (
-                    <h1 style={{ color: '#eab308', margin: 0, fontSize: '24px' }}>Sweet Narcisse</h1>
-                )}
-                <p style={{ color: 'white', margin: '5px 0 0', fontSize: '14px' }}>Confirmation de votre réservation</p>
-            </div>
-
-      <div style={{ padding: '20px' }}>
-        <h2>Bonjour {firstName},</h2>
-        <p>Merci pour votre réservation. Votre tour en barque est confirmé !</p>
-        
-        {/* BLOC RÉSUMÉ */}
-        <div style={{ backgroundColor: '#f3f4f6', padding: '15px', borderRadius: '8px', margin: '20px 0' }}>
-          <p style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 'bold' }}>Récapitulatif :</p>
-          <p style={{ margin: 0 }}>📅 Date : <strong style={{ color: '#0f172a' }}>{date}</strong></p>
-          <p style={{ margin: 0 }}>⏰ Heure : <strong style={{ color: '#0f172a' }}>{time}</strong></p>
-          <p style={{ margin: 0 }}>👥 Total Passagers : <strong>{people}</strong></p>
-          <p style={{ margin: 0, fontSize: '12px', color: '#666' }}>Réf. Réservation : {bookingId}</p>
-        </div>
-
-                {qrCodeDataUrl && (
-                    <div style={{ backgroundColor: '#fff7ed', padding: '16px', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', border: '1px solid #fed7aa' }}>
-                        <p style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: 'bold', color: '#c2410c' }}>
-                            Présentez ce QR Code à l&apos;embarquement (Scan &amp; Go)
-                        </p>
-                        <img
-                            src={qrCodeDataUrl}
-                            alt={`QR Code réservation ${bookingId}`}
-                            width={180}
-                            height={180}
-                            style={{ display: 'block', margin: '0 auto', backgroundColor: '#fff', padding: '8px', borderRadius: '12px', boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)' }}
-                        />
-                        <p style={{ margin: '12px 0 0', fontSize: '12px', color: '#92400e', lineHeight: 1.5 }}>
-                            Si le QR Code n&apos;apparaît pas correctement, conservez ce message : l&apos;équipage pourra rechercher la réservation avec la référence ci-dessus.
-                        </p>
-                    </div>
-                )}
-
-        {/* FACTURE / DÉTAIL DES PRIX */}
-        <h3 style={{ fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '5px', margin: '30px 0 15px' }}>
-            Détail de la facture
-        </h3>
-        <table width="100%" cellPadding="5" cellSpacing="0" style={{ borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead style={{ backgroundColor: '#f1f1f1' }}>
-                <tr>
-                    <th style={{ textAlign: 'left', border: '1px solid #ddd' }}>Description</th>
-                    <th style={{ border: '1px solid #ddd' }}>Prix Unitaire</th>
-                    <th style={{ border: '1px solid #ddd' }}>Qté</th>
-                    <th style={{ textAlign: 'right', border: '1px solid #ddd' }}>Total</th>
-                </tr>
-            </thead>
+    return (
+        <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ backgroundColor: '#e2e8f0', padding: '24px 0' }}>
             <tbody>
-                {adults > 0 && (
-                    <tr>
-                        <td style={{ textAlign: 'left', border: '1px solid #ddd' }}>Adultes</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{PRICE_ADULT.toFixed(2)} €</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{adults}</td>
-                        <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>{(adults * PRICE_ADULT).toFixed(2)} €</td>
-                    </tr>
-                )}
-                {childrenCount > 0 && (
-                    <tr>
-                        <td style={{ textAlign: 'left', border: '1px solid #ddd' }}>Enfants (4-10 ans)</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{PRICE_CHILD.toFixed(2)} €</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{childrenCount}</td>
-                        <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>{(childrenCount * PRICE_CHILD).toFixed(2)} €</td>
-                    </tr>
-                )}
-                {babies > 0 && (
-                    <tr>
-                        <td style={{ textAlign: 'left', border: '1px solid #ddd' }}>Bébés (0-3 ans)</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>0,00 €</td>
-                        <td style={{ textAlign: 'center', border: '1px solid #ddd' }}>{babies}</td>
-                        <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>0,00 €</td>
-                    </tr>
-                )}
-                <tr style={{ backgroundColor: '#fffbe6' }}>
-                    <td colSpan={3} style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold' }}>TOTAL À RÉGLER :</td>
-                    <td style={{ textAlign: 'right', border: '1px solid #ddd', fontWeight: 'bold', fontSize: '16px', color: '#0f172a' }}>{totalPrice.toFixed(2)} €</td>
+                <tr>
+                    <td align="center">
+                        <table width="600" cellPadding={0} cellSpacing={0} role="presentation" style={{ backgroundColor: '#ffffff', borderRadius: 24, overflow: 'hidden', boxShadow: '0 24px 48px rgba(15,23,42,0.12)', fontFamily: 'Arial, Helvetica, sans-serif', color: brand.night }}>
+                            <tbody>
+                                <tr>
+                                    <td style={{ background: brand.night, padding: '32px 24px', textAlign: 'center' }}>
+                                        {resolvedLogoSrc ? (
+                                            <img src={resolvedLogoSrc} alt="Sweet Narcisse" width={160} height={48} style={{ display: 'block', margin: '0 auto 12px' }} />
+                                        ) : (
+                                            <span style={{ display: 'block', fontSize: 28, fontWeight: 700, color: brand.gold }}>Sweet Narcisse</span>
+                                        )}
+                                        <p style={{ margin: 0, color: '#e2e8f0', fontSize: 16, letterSpacing: 0.4 }}>Confirmation de votre balade</p>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td style={{ padding: '32px 32px 16px' }}>
+                                        <p style={{ margin: '0 0 16px', fontSize: 18 }}>Bonjour {firstName},</p>
+                                        <p style={{ margin: '0 0 24px', fontSize: 15, color: brand.muted }}>
+                                            Nous avons hâte de vous accueillir à bord. Voici un récapitulatif de votre réservation.
+                                        </p>
+
+                                        <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ backgroundColor: brand.surface, borderRadius: 20, padding: 0 }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: '24px 28px' }}>
+                                                        <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>Détails de la sortie</p>
+                                                        <p style={{ margin: '0 0 6px', fontSize: 15 }}>📅 <strong>{date}</strong></p>
+                                                        <p style={{ margin: '0 0 6px', fontSize: 15 }}>⏰ <strong>{time}</strong></p>
+                                                        <p style={{ margin: '0 0 12px', fontSize: 15 }}>👥 {people} passagers</p>
+                                                        <p style={{ margin: 0, fontSize: 13, color: brand.muted }}>
+                                                            Référence : <span style={{ fontWeight: 600 }}>{referenceLabel}</span>
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                {qrSrc && (
+                                    <tr>
+                                        <td style={{ padding: '0 32px' }}>
+                                            <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ border: '1px solid #fed7aa', backgroundColor: '#fff7ed', borderRadius: 20 }}>
+                                                <tbody>
+                                                    <tr>
+                                                        <td style={{ padding: '24px', textAlign: 'center' }}>
+                                                            <p style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#c2410c' }}>
+                                                                Présentez ce QR Code à l&apos;embarquement
+                                                            </p>
+                                                            <img
+                                                                src={qrSrc}
+                                                                alt={`QR Code réservation ${referenceLabel}`}
+                                                                width={200}
+                                                                height={200}
+                                                                style={{ display: 'block', margin: '0 auto', borderRadius: 16, backgroundColor: '#ffffff', padding: 12, border: '1px solid #fcd34d' }}
+                                                            />
+                                                            <p style={{ margin: '16px 0 0', fontSize: 13, color: '#c2410c', lineHeight: 1.5 }}>
+                                                                Si l&apos;image ne s&apos;affiche pas, conservez ce mail : l&apos;équipage pourra retrouver votre réservation grâce à la référence.
+                                                            </p>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                )}
+
+                                <tr>
+                                    <td style={{ padding: '32px 32px 0' }}>
+                                        <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ borderRadius: 18, border: '1px solid #fcd34d', background: '#fffbea' }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: '24px' }}>
+                                                        <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>Montant de votre croisière</p>
+                                                        <p style={{ margin: '0 0 16px', fontSize: 28, fontWeight: 700, color: '#92400e' }}>{priceFormatter.format(totalPrice)}</p>
+                                                        <p style={{ margin: 0, fontSize: 13, color: '#92400e', lineHeight: 1.6 }}>
+                                                            Le détail complet du tarif est disponible dans la facture PDF jointe à ce message. Conservez-la pour votre comptabilité.
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style={{ padding: '0 32px 32px' }}>
+                                        <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ borderRadius: 18, border: '1px solid #bfdbfe', background: '#eff6ff' }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: '24px 24px 12px' }}>
+                                                        <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#1d4ed8' }}>Important avant votre arrivée</p>
+                                                        <p style={{ margin: '0 0 12px', fontSize: 14, color: '#1e3a8a', lineHeight: 1.6 }}>
+                                                            Merci de vous présenter au ponton <strong>10 minutes avant l&apos;heure de départ</strong> afin de faciliter l&apos;embarquement de votre équipage.
+                                                        </p>
+                                                        <p style={{ margin: '0 0 16px', fontSize: 13, color: '#1e3a8a', lineHeight: 1.6 }}>
+                                                            Point d&apos;embarquement&nbsp;: Pont Saint-Pierre, 10 Rue de la Herse, 68000 Colmar.
+                                                        </p>
+                                                        <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid #bfdbfe' }}>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td style={{ padding: 0, textAlign: 'center', backgroundColor: '#ffffff' }}>
+                                                                        <p style={{ margin: '16px 16px 0', fontSize: 13, color: '#1e3a8a' }}>Consultez l&apos;itinéraire :
+                                                                        </p>
+                                                                        <a
+                                                                            href={mapLink}
+                                                                            style={{
+                                                                                display: 'inline-block',
+                                                                                margin: '12px auto 16px',
+                                                                                padding: '10px 22px',
+                                                                                borderRadius: 999,
+                                                                                backgroundColor: '#1d4ed8',
+                                                                                color: '#fff',
+                                                                                textDecoration: 'none',
+                                                                                fontWeight: 600,
+                                                                                fontSize: 13
+                                                                            }}
+                                                                        >
+                                                                            Ouvrir dans Google Maps
+                                                                        </a>
+                                                                        <p style={{ margin: '0 16px 16px', fontSize: 11, color: '#1e3a8a', lineHeight: 1.5 }}>
+                                                                            Si l&apos;ouverture échoue, copiez-collez ce lien dans votre navigateur&nbsp;:<br />
+                                                                            <a href={mapLink} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600 }}>{mapLink}</a>
+                                                                        </p>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style={{ padding: '32px' }}>
+                                        <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ borderRadius: 18, background: brand.night }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: '24px', textAlign: 'center' }}>
+                                                        <p style={{ margin: '0 0 12px', color: '#e2e8f0', fontSize: 16, fontWeight: 600 }}>
+                                                            Besoin de modifier ou d&apos;annuler ?
+                                                        </p>
+                                                        <a
+                                                            href={cancelUrl}
+                                                            style={{
+                                                                display: 'inline-block',
+                                                                padding: '12px 28px',
+                                                                borderRadius: 999,
+                                                                backgroundColor: brand.gold,
+                                                                color: brand.night,
+                                                                textDecoration: 'none',
+                                                                fontWeight: 700,
+                                                                fontSize: 15
+                                                            }}
+                                                        >
+                                                            Gérer ma réservation
+                                                        </a>
+                                                        <p style={{ margin: '16px 0 0', fontSize: 12, color: '#cbd5f5' }}>
+                                                            Politique : &gt;48h = 100% · 48–24h = 50% · &lt;24h/no-show = 0%. Alerte météo orange/rouge : remboursement intégral.
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style={{ padding: '0 32px 32px', textAlign: 'center', color: brand.muted, fontSize: 13, lineHeight: 1.6 }}>
+                                        <p style={{ margin: '0 0 12px' }}>Pont Saint-Pierre · 10 Rue de la Herse · 68000 Colmar</p>
+                                        <p style={{ margin: '0 0 16px' }}>+33 3 89 20 68 92 · contact@sweet-narcisse.fr</p>
+                                        <p style={{ margin: 0 }}>
+                                            <a href="https://www.instagram.com/" style={{ color: brand.night, textDecoration: 'none', fontWeight: 600 }}>Instagram</a>
+                                            <span style={{ margin: '0 8px', color: '#cbd5f5' }}>•</span>
+                                            <a href="https://www.facebook.com/" style={{ color: brand.night, textDecoration: 'none', fontWeight: 600 }}>Facebook</a>
+                                            <span style={{ margin: '0 8px', color: '#cbd5f5' }}>•</span>
+                                            <a href="https://sweet-narcisse.fr/" style={{ color: brand.night, textDecoration: 'none', fontWeight: 600 }}>Site web</a>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </td>
                 </tr>
             </tbody>
         </table>
-        
-        {/* PLAN D'ACCÈS */}
-        <h3 style={{ fontSize: '18px', borderBottom: '1px solid #eee', paddingBottom: '5px', margin: '30px 0 15px' }}>
-            Où nous trouver ?
-        </h3>
-        <p style={{ margin: '10px 0' }}>
-            L&apos;embarcadère se situe au **Pont-Saint Pierre, 10 Rue de la Herse, 68000 Colmar**.
-        </p>
-        <div style={{ textAlign: 'center' }}>
-            <a href={mapLink} style={{ 
-                display: 'inline-block', 
-                backgroundColor: '#eab308', 
-                color: '#0f172a', 
-                padding: '10px 20px', 
-                borderRadius: '5px', 
-                textDecoration: 'none', 
-                fontWeight: 'bold' 
-            }}>
-                Ouvrir la carte Google Maps 🗺️
-            </a>
-        </div>
-
-
-        <hr style={{ borderColor: '#ddd', margin: '30px 0' }} />
-                <div style={{ fontSize: '12px', color: '#666', textAlign: 'center', lineHeight: 1.5 }}>
-                    <p style={{ margin: '0 0 6px' }}>Politique d’annulation (rappel) : &gt;48h : 100% • 48–24h : 50% • &lt;24h / no‑show : 0%.</p>
-                    <p style={{ margin: '0 0 6px' }}>Météo sévère (alerte orange/rouge) : remboursement intégral.</p>
-                    <p style={{ margin: 0 }}>Merci de vous présenter 10 minutes avant le départ. Sweet Narcisse – À bientôt !</p>
-                </div>
-
-                {/* EMAIL FOOTER WITH LOGO + ADDRESS + SOCIALS */}
-                <div style={{ borderTop: '1px solid #e5e7eb', marginTop: '24px', paddingTop: '16px', textAlign: 'center' }}>
-                    {logoSrc && <img src={logoSrc} alt="Sweet Narcisse" width={120} height={36} style={{ display:'block', margin:'0 auto 8px', opacity: 0.9 }} />}
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                        Pont Saint‑Pierre, 68000 Colmar · +33 3 89 20 68 92 · contact@sweet-narcisse.fr
-                    </div>
-                    <div style={{ marginTop: '6px' }}>
-                        <a href="https://www.instagram.com/" style={{ fontSize:12, color:'#2563eb', marginRight:12 }}>Instagram</a>
-                        <a href="https://www.facebook.com/" style={{ fontSize:12, color:'#2563eb', marginRight:12 }}>Facebook</a>
-                        <a href="https://sweet-narcisse.fr/" style={{ fontSize:12, color:'#2563eb' }}>Site web</a>
-                    </div>
-                </div>
-      </div>
-    </div>
-  )
-};
+    )
+}

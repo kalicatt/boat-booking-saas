@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer'
+import type { Attachment } from 'nodemailer/lib/mailer'
 import { getEmailSender } from './emailAddresses'
 
 export function getSmtpTransport(){
@@ -20,10 +21,11 @@ type SendMailOptions = {
   text?: string
   from?: string
   replyTo?: string | string[]
+  attachments?: Attachment[]
 }
 
-export async function sendMail({ to, subject, html, text, from, replyTo }: SendMailOptions){
+export async function sendMail({ to, subject, html, text, from, replyTo, attachments }: SendMailOptions){
   const transport = getSmtpTransport()
   const sender = from || getEmailSender('notifications')
-  await transport.sendMail({ from: sender, to, subject, html, text, replyTo })
+  await transport.sendMail({ from: sender, to, subject, html, text, replyTo, attachments })
 }

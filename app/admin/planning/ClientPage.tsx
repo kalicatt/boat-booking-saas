@@ -333,18 +333,18 @@ export default function ClientPlanningPage() {
 
       const visualEnd = new Date(booking.endTime)
       const startWall = new Date(
-        visualStart.getUTCFullYear(),
-        visualStart.getUTCMonth(),
-        visualStart.getUTCDate(),
-        visualStart.getUTCHours(),
-        visualStart.getUTCMinutes()
+        visualStart.getFullYear(),
+        visualStart.getMonth(),
+        visualStart.getDate(),
+        visualStart.getHours(),
+        visualStart.getMinutes()
       )
       const endWall = new Date(
-        visualEnd.getUTCFullYear(),
-        visualEnd.getUTCMonth(),
-        visualEnd.getUTCDate(),
-        visualEnd.getUTCHours(),
-        visualEnd.getUTCMinutes()
+        visualEnd.getFullYear(),
+        visualEnd.getMonth(),
+        visualEnd.getDate(),
+        visualEnd.getHours(),
+        visualEnd.getMinutes()
       )
 
       const firstName = booking.user?.firstName ?? ''

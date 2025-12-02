@@ -1,13 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import crypto from 'crypto'
-import { sendMail } from '@/lib/mailer'
-import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
-
-function makeCancelToken(id: string){
-  const secret = process.env.NEXTAUTH_SECRET || 'changeme'
-  return crypto.createHmac('sha256', secret).update(id).digest('hex').slice(0,16)
-}
+import { cancelBookingWithToken, BookingCancellationError } from '@/lib/bookingCancellation'
 
 import type { NextRequest } from 'next/server'
 import type { Prisma } from '@prisma/client'
@@ -22,44 +15,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const { id } = await params
   try {
-    const booking = await prisma.booking.findUnique({ where: { id } , include: { user: true } })
-    if(!booking) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-
-    const expected = makeCancelToken(id)
-    if(token !== expected){
-      return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
-    }
-
-    if(booking.status === 'CANCELLED'){
-      return NextResponse.json({ success: true, status: 'CANCELLED' })
-    }
-
-    const now = new Date()
-    if(booking.startTime <= now){
-      return NextResponse.json({ error: 'Too late to cancel' }, { status: 400 })
-    }
-
-    const updated = await prisma.booking.update({ where: { id }, data: { status: 'CANCELLED' } })
-
-    // Notify customer + admin
-    const admin = EMAIL_ROLES.notifications
-    const toCustomer = booking.user?.email || admin
-    await sendMail({
-      to: toCustomer,
-      subject: `Annulation confirmée – Réservation ${booking.id}`,
-      text: `Votre réservation a bien été annulée. ID: ${booking.id}. Si ce n'était pas prévu, contactez-nous: ${EMAIL_ROLES.contact}.`,
-      from: EMAIL_FROM.reservations,
-      replyTo: EMAIL_ROLES.contact
-    })
-    await sendMail({
-      to: admin,
-      subject: `Annulation effectuée – ${booking.id}`,
-      text: `La réservation ${booking.id} a été annulée par lien. Client: ${booking.user?.email || 'inconnu'}.`,
-      from: EMAIL_FROM.notifications
-    })
-
-    return NextResponse.json({ success: true, status: updated.status })
+    const result = await cancelBookingWithToken(id, token)
+    return NextResponse.json({ success: true, status: result.booking.status, alreadyCancelled: result.alreadyCancelled })
   } catch (e: unknown) {
+    if (e instanceof BookingCancellationError) {
+      if (e.code === 'NOT_FOUND') {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      if (e.code === 'INVALID_TOKEN') {
+        return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
+      }
+      if (e.code === 'TOO_LATE') {
+        return NextResponse.json({ error: 'Too late to cancel' }, { status: 400 })
+      }
+    }
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ error: 'Cancel failed', details: String(msg) }, { status: 500 })
   }

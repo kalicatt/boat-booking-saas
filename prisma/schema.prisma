@@ -54,6 +54,7 @@ model Boat {
 model Booking {
   id          String    @id @default(uuid())
   createdAt   DateTime  @default(now())
+  publicReference String? @unique
   
   // ... (champs date, user, etc. inchangés) ...
   date        DateTime

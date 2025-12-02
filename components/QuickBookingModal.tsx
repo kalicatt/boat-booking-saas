@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 
 interface QuickBookingModalProps {
     slotStart: Date
@@ -43,6 +44,43 @@ const LANGUAGE_OPTIONS = [
 type PaymentOption = (typeof PAYMENT_OPTIONS)[number]['value']
 
 const CASH_KEYPAD_KEYS = ['7', '8', '9', '4', '5', '6', '1', '2', '3', '0', '00', '.'] as const
+
+function normalizePhoneForApi(input: string): string | undefined {
+    const trimmed = input.trim()
+    if (!trimmed) return undefined
+
+    const attempts: Array<{ value: string; country?: string }> = []
+    attempts.push({ value: trimmed })
+
+    const replaced00 = trimmed.replace(/^\s*00/, '+')
+    if (replaced00 !== trimmed) attempts.push({ value: replaced00 })
+
+    const digits = trimmed.replace(/[^0-9+]/g, '')
+    const plainDigits = trimmed.replace(/[^0-9]/g, '')
+    if (digits && digits.startsWith('+')) {
+        attempts.push({ value: digits })
+    }
+
+    if (plainDigits) {
+        attempts.push({ value: plainDigits, country: 'FR' })
+        const withoutLeadingZero = plainDigits.replace(/^0+/, '')
+        if (withoutLeadingZero) {
+            attempts.push({ value: `+${withoutLeadingZero}` })
+            attempts.push({ value: withoutLeadingZero, country: 'FR' })
+        }
+    }
+
+    for (const attempt of attempts) {
+        const parsed = attempt.country
+            ? parsePhoneNumberFromString(attempt.value, attempt.country)
+            : parsePhoneNumberFromString(attempt.value)
+        if (parsed && parsed.isValid()) {
+            return parsed.number
+        }
+    }
+
+    return undefined
+}
 
 export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess }: QuickBookingModalProps) {
     const dialogRef = useRef<HTMLDivElement | null>(null)
@@ -286,10 +324,16 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             setShowStepErrors(true)
             return
         }
-        setIsLoading(true)
         const finalFirstName = firstName.trim() || 'Client'
         const finalLastName = lastName.trim() || 'Guichet'
         const providedEmail = email.trim().toLowerCase()
+        const normalizedPhone = normalizePhoneForApi(phone)
+        if (phone.trim() && !normalizedPhone) {
+            alert("Numéro de téléphone invalide. Utilisez le format international (ex: +33...).")
+            setShowStepErrors(true)
+            return
+        }
+        setIsLoading(true)
 
         const finalMessagePieces: string[] = []
         if (message.trim()) finalMessagePieces.push(message.trim())
@@ -320,7 +364,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 firstName: finalFirstName,
                 lastName: finalLastName,
                 email: providedEmail || 'guichet@sweet-narcisse.com',
-                phone: phone.trim()
+                phone: normalizedPhone
             },
             isStaffOverride: true,
             markAsPaid

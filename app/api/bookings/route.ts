@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import path from 'path'
+import { readFile } from 'fs/promises'
 import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { Resend } from 'resend'
@@ -14,9 +16,15 @@ import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts } from '@/lib/time'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import type { Booking } from '@prisma/client'
-import { generateBookingQrCodeDataUrl } from '@/lib/qr'
+import { generateSeasonalBookingReference } from '@/lib/bookingReference'
+import { computeBookingToken } from '@/lib/bookingToken'
+import { generateBookingQrCodeDataUrl, generateBookingQrCodeBuffer } from '@/lib/qr'
+import { generateBookingInvoicePdf } from '@/lib/invoicePdf'
 
 const resend: Resend | null = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
+const LOCAL_BASE_REGEX = /^https?:\/\/(localhost|127(?:\.\d+){0,3}|0\.0\.0\.0|10\.[0-9.]+|192\.168\.[0-9.]+)/i
+const MAP_LINK = 'https://maps.app.goo.gl/v2S3t2Wq83B7k6996'
+const EUR_FORMATTER = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -215,6 +223,8 @@ export async function POST(request: Request) {
       const paxBabies = isPrivate ? 0 : babies
       const paxTotal = paxAdults + paxChildren + paxBabies
       const priceTotal = (paxAdults * PRICE_ADULT) + (paxChildren * PRICE_CHILD) + (paxBabies * PRICE_BABY)
+      const publicReference = await generateSeasonalBookingReference(tx, myStart)
+
       const booking = await tx.booking.create({
         data: {
           date: new Date(`${date}T00:00:00.000Z`),
@@ -238,7 +248,8 @@ export async function POST(request: Request) {
               }
             }
           },
-          isPaid: pendingOnly ? false : shouldMarkPaid
+          isPaid: pendingOnly ? false : shouldMarkPaid,
+          publicReference
         }
       })
 
@@ -261,14 +272,99 @@ export async function POST(request: Request) {
 
     // 7. EMAIL CONFIRMATION
     try {
-      const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')).replace(/\/$/, '')
-      const secret = process.env.NEXTAUTH_SECRET || 'changeme'
-      const token = (await import('crypto')).createHmac('sha256', secret).update(String(createdBooking.id)).digest('hex').slice(0,16)
-      const cancelUrl = `${baseUrl}/api/bookings/${createdBooking.id}?action=cancel&token=${token}`
+      const rawBase = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || 'http://localhost:3000'
+      const baseUrl = rawBase.replace(/\/$/, '')
+      const token = computeBookingToken(createdBooking.id)
+      const cancelUrl = `${baseUrl}/cancel/${createdBooking.id}/${token}`
+      const useHostedAssets = !LOCAL_BASE_REGEX.test(baseUrl)
+      let logoBuffer: Buffer | null = null
+      try {
+        const logoPath = path.join(process.cwd(), 'public', 'images', 'logo.jpg')
+        logoBuffer = await readFile(logoPath)
+      } catch (error) {
+        if (!useHostedAssets) {
+          console.warn('Logo asset unavailable for inline email usage:', error)
+        }
+      }
+      const qrAsset = useHostedAssets
+        ? {
+            type: 'url' as const,
+            url: `${baseUrl}/api/booking-qr/${createdBooking.id}/${token}`
+          }
+        : {
+            type: 'inline' as const,
+            cid: `booking-${createdBooking.id}-qr`,
+            dataUrl: await generateBookingQrCodeDataUrl(String(createdBooking.id), createdBooking.publicReference),
+            buffer: await generateBookingQrCodeBuffer(String(createdBooking.id), createdBooking.publicReference)
+          }
+      const logoAsset: { type: 'inline'; cid: string; buffer: Buffer } | { type: 'url'; url: string } | { type: 'none' } = (!useHostedAssets && logoBuffer)
+        ? { type: 'inline', cid: 'sweet-narcisse-logo', buffer: logoBuffer }
+        : baseUrl
+          ? { type: 'url', url: `${baseUrl}/images/logo.jpg` }
+          : { type: 'none' }
+      const mailAttachments: Array<{ filename: string; content: Buffer; contentType: string; cid?: string }> = []
+      const resendAttachments: Array<{ filename: string; content: string; contentType: string }> = []
+      if (qrAsset.type === 'inline') {
+        mailAttachments.push({
+          filename: `qr-${createdBooking.publicReference || createdBooking.id}.png`,
+          content: qrAsset.buffer,
+          contentType: 'image/png',
+          cid: qrAsset.cid
+        })
+      }
+      if (logoAsset.type === 'inline') {
+        mailAttachments.push({
+          filename: 'logo.jpg',
+          content: logoAsset.buffer,
+          contentType: 'image/jpeg',
+          cid: logoAsset.cid
+        })
+      }
+      let invoiceAttachment: { filename: string; buffer: Buffer } | null = null
+      try {
+        const invoiceBuffer = await generateBookingInvoicePdf({
+          invoiceNumber: createdBooking.publicReference || String(createdBooking.id),
+          issueDate: new Date(),
+          serviceDate: date,
+          serviceTime: time,
+          totalPrice: finalPrice,
+          adults,
+          children,
+          babies,
+          unitPrices: { adult: PRICE_ADULT, child: PRICE_CHILD, baby: PRICE_BABY },
+          customer: {
+            firstName: userDetails.firstName,
+            lastName: userDetails.lastName,
+            email: userEmailToUse,
+            phone: userDetails.phone || null
+          },
+          logoBuffer
+        })
+        const sanitizedLabel = (createdBooking.publicReference || String(createdBooking.id)).replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '') || String(createdBooking.id)
+        invoiceAttachment = {
+          filename: `Facture-${sanitizedLabel}.pdf`,
+          buffer: invoiceBuffer
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('Invoice PDF generation failed:', message)
+        await createLog('INVOICE_ERROR', `Échec génération facture ${createdBooking.id}: ${message}`)
+      }
+      if (invoiceAttachment) {
+        mailAttachments.push({
+          filename: invoiceAttachment.filename,
+          content: invoiceAttachment.buffer,
+          contentType: 'application/pdf'
+        })
+        resendAttachments.push({
+          filename: invoiceAttachment.filename,
+          content: invoiceAttachment.buffer.toString('base64'),
+          contentType: 'application/pdf'
+        })
+      }
       const reservationSender = EMAIL_FROM.reservations
       const billingSender = EMAIL_FROM.billing
       const replyToContact = EMAIL_ROLES.contact
-      const qrCodeDataUrl = await generateBookingQrCodeDataUrl(String(createdBooking.id))
       const emailProps = {
         firstName: userDetails.firstName || 'Client',
         date,
@@ -278,32 +374,50 @@ export async function POST(request: Request) {
         childrenCount: children,
         babies,
         bookingId: String(createdBooking.id),
+        publicReference: createdBooking.publicReference,
         totalPrice: finalPrice,
-        qrCodeDataUrl
+        qrCodeUrl: qrAsset.type === 'url' ? qrAsset.url : null,
+        qrCodeDataUrl: qrAsset.type === 'inline' ? qrAsset.dataUrl : null,
+        qrCodeCid: qrAsset.type === 'inline' ? qrAsset.cid : null,
+        cancelUrl,
+        logoUrl: logoAsset.type === 'url' ? logoAsset.url : null,
+        logoCid: logoAsset.type === 'inline' ? logoAsset.cid : null
       }
       const html = await renderBookingHtml(emailProps)
+      const textBodySegments = [
+        `Bonjour ${userDetails.firstName || 'Client'},`,
+        `Votre réservation est confirmée pour le ${date} à ${time}. Référence : ${createdBooking.publicReference || createdBooking.id}.`,
+        `Montant total : ${EUR_FORMATTER.format(finalPrice)} (facture PDF en pièce jointe).`,
+        `Merci d'arriver 10 minutes avant le départ au Pont Saint-Pierre, 10 Rue de la Herse, 68000 Colmar.`,
+        `Itinéraire Google Maps : ${MAP_LINK}`,
+        `Pour gérer ou annuler votre réservation, utilisez ce lien : ${cancelUrl}`,
+        `À très vite sur l'eau !`
+      ]
+      const textBody = textBodySegments.join('\n\n')
+      const mailAttachmentList = mailAttachments.length ? mailAttachments : undefined
+      const resendAttachmentList = resendAttachments.length ? resendAttachments : undefined
+      const requiresResendReRender = qrAsset.type === 'inline' || logoAsset.type === 'inline'
       if(process.env.RESEND_API_KEY && resend){
-        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, replyTo: replyToContact })
+        const resendProps = requiresResendReRender
+          ? { ...emailProps, qrCodeCid: null, logoCid: null }
+          : emailProps
+        const resendHtml = requiresResendReRender ? await renderBookingHtml(resendProps) : html
+        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html: resendHtml, text: textBody, replyTo: replyToContact, react: createElement(BookingTemplate, resendProps), attachments: resendAttachmentList })
       } else {
-        await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, from: reservationSender, replyTo: replyToContact })
-      }
-      // Also send a simple text with cancel link as fallback
-      const cancelText = `Pour annuler votre réservation, cliquez: ${cancelUrl}`
-      if(process.env.RESEND_API_KEY && resend){
-        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, replyTo: replyToContact })
-      } else {
-        await sendMail({ to: userEmailToUse, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, from: reservationSender, replyTo: replyToContact })
+        await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, text: textBody, from: reservationSender, replyTo: replyToContact, attachments: mailAttachmentList })
       }
       await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${createdBooking.id}`)
 
       if (invoiceEmail && invoiceEmail !== userEmailToUse) {
         const invoiceSubject = `Facture – Réservation ${date} ${time}`
         if(process.env.RESEND_API_KEY && resend){
-          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: invoiceSubject, html, replyTo: EMAIL_ROLES.billing })
-          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, replyTo: EMAIL_ROLES.billing })
+          const resendInvoiceProps = requiresResendReRender
+            ? { ...emailProps, qrCodeCid: null, logoCid: null }
+            : emailProps
+          const resendInvoiceHtml = requiresResendReRender ? await renderBookingHtml(resendInvoiceProps) : html
+          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: invoiceSubject, html: resendInvoiceHtml, text: textBody, replyTo: EMAIL_ROLES.billing, react: createElement(BookingTemplate, resendInvoiceProps), attachments: resendAttachmentList })
         } else {
-          await sendMail({ to: invoiceEmail, subject: invoiceSubject, html, from: billingSender, replyTo: EMAIL_ROLES.billing })
-            await sendMail({ to: invoiceEmail, subject: `Lien d'annulation – Réservation ${createdBooking.id}`, text: cancelText, from: billingSender, replyTo: EMAIL_ROLES.billing })
+          await sendMail({ to: invoiceEmail, subject: invoiceSubject, html, text: textBody, from: billingSender, replyTo: EMAIL_ROLES.billing, attachments: mailAttachmentList })
         }
           await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${createdBooking.id}`)
       }
@@ -356,7 +470,8 @@ export async function POST(request: Request) {
             if (otherConflict) continue
             const allocation = Math.min(ob.capacity, remainingForSlot)
             try {
-              const chainedAlt = await prisma.booking.create({
+              const chainedAltReference = await generateSeasonalBookingReference(tx, startChain)
+              const chainedAlt = await tx.booking.create({
                 data: {
                   date: new Date(`${date}T00:00:00.000Z`),
                   startTime: startChain,
@@ -373,7 +488,8 @@ export async function POST(request: Request) {
                       create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
                     }
                   },
-                  isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails))
+                  isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)),
+                  publicReference: chainedAltReference
                 }
               })
               chainCreated.push({ index: i, boatId: String(ob.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
@@ -405,7 +521,8 @@ export async function POST(request: Request) {
         try {
           // Primary boat free: allocate on primary first (up to capacity)
           const allocationPrimary = Math.min(targetBoat.capacity, remainingForSlot)
-          const chained = await prisma.booking.create({
+          const chainedReference = await generateSeasonalBookingReference(tx, startChain)
+          const chained = await tx.booking.create({
             data: {
               date: new Date(`${date}T00:00:00.000Z`),
               startTime: startChain,
@@ -422,7 +539,8 @@ export async function POST(request: Request) {
                   create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
                 }
               },
-              isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails))
+              isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)),
+              publicReference: chainedReference
             }
           })
           chainCreated.push({ index: i, boatId: String(targetBoat.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
@@ -460,7 +578,8 @@ export async function POST(request: Request) {
               if (otherConflict) continue
               const allocation = Math.min(ob.capacity, remainingForSlot)
               if (allocation <= 0) break
-              const chainedExtra = await prisma.booking.create({
+              const chainedExtraReference = await generateSeasonalBookingReference(tx, startChain)
+              const chainedExtra = await tx.booking.create({
                 data: {
                   date: new Date(`${date}T00:00:00.000Z`),
                   startTime: startChain,
@@ -477,7 +596,8 @@ export async function POST(request: Request) {
                       create: { firstName: userDetails.firstName, lastName: userDetails.lastName, email: userEmailToUse }
                     }
                   },
-                  isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails))
+                  isPaid: Boolean(inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)),
+                  publicReference: chainedExtraReference
                 }
               })
               chainCreated.push({ index: i, boatId: String(ob.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocation })
@@ -537,11 +657,19 @@ export async function POST(request: Request) {
     // 9. EMAIL
     try {
       if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@') && resend) {
-          const qrCodeDataUrl = await generateBookingQrCodeDataUrl(String(createdBooking.id))
+          const rawBase = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || 'http://localhost:3000'
+          const baseUrl = rawBase.replace(/\/$/, '')
+          const token = computeBookingToken(createdBooking.id)
+          const cancelUrl = `${baseUrl}/cancel/${createdBooking.id}/${token}`
+          const useHostedAssets = !LOCAL_BASE_REGEX.test(baseUrl)
+          const qrCodeUrl = useHostedAssets ? `${baseUrl}/api/booking-qr/${createdBooking.id}/${token}` : null
+          const qrCodeDataUrl = useHostedAssets ? null : await generateBookingQrCodeDataUrl(String(createdBooking.id), createdBooking.publicReference)
+          const textBody = `Bonjour ${userDetails.firstName || 'Client'},\n\nVotre réservation est confirmée pour le ${date} à ${time}. Référence : ${createdBooking.publicReference || createdBooking.id}.\n\nPour gérer ou annuler votre réservation, utilisez ce lien : ${cancelUrl}\n\nÀ très vite sur l'eau !`
           await resend.emails.send({
             from: 'Sweet Narcisse <onboarding@resend.dev>',
             to: [userEmailToUse],
             subject: 'Confirmation de votre tour en barque 🛶',
+            text: textBody,
             react: createElement(BookingTemplate, {
               firstName: userDetails.firstName,
               date,
@@ -552,7 +680,10 @@ export async function POST(request: Request) {
               babies,
               totalPrice: finalPrice,
               bookingId: createdBooking.id,
-              qrCodeDataUrl
+              publicReference: createdBooking.publicReference,
+              qrCodeUrl,
+              qrCodeDataUrl,
+              cancelUrl
             })
           })
       }

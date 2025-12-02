@@ -80,6 +80,7 @@ export const proxy = auth((req) => {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/login') ||
+    pathname.startsWith('/cancel') ||
     pathname.includes('.')
   ) {
     return applySecurityHeaders(NextResponse.next())
