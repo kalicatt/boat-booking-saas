@@ -368,6 +368,11 @@ export default function ReservationsAdminPage() {
 		setChainPreview(previews)
 	}
 
+	const fallbackString = (value: string | null | undefined, fallback: string) => {
+		const trimmed = (value ?? '').trim()
+		return trimmed.length > 0 ? trimmed : fallback
+	}
+
 	const handleChainCreate = async () => {
 		if (chainCreating || groupChain <= 0) return
 		const base = bookings.find((booking) => booking.id === selectedId)
@@ -381,6 +386,10 @@ export default function ReservationsAdminPage() {
 			const [hour, minute] = chainBaseTime.split(':').map((value) => parseInt(value, 10))
 			referenceDate.setHours(Number.isFinite(hour) ? hour : 9, Number.isFinite(minute) ? minute : 0, 0, 0)
 			const paymentSource = inheritPaymentForChain ? base.payments?.[0] : undefined
+			const safeFirstName = fallbackString(base.user?.firstName, 'Client')
+			const safeLastName = fallbackString(base.user?.lastName, 'Mystère')
+			const safeEmail = fallbackString(base.user?.email, 'override@sweetnarcisse.local')
+			const safePhoneValue = fallbackString(base.user?.phone ?? '', '')
 
 			const payload = {
 				date: format(referenceDate, 'yyyy-MM-dd'),
@@ -390,9 +399,10 @@ export default function ReservationsAdminPage() {
 				babies: 0,
 				language: base.language ?? 'fr',
 				userDetails: {
-					firstName: base.user?.firstName ?? '',
-					lastName: base.user?.lastName ?? '',
-					email: base.user?.email ?? ''
+					firstName: safeFirstName,
+					lastName: safeLastName,
+					email: safeEmail,
+					phone: safePhoneValue.length > 0 ? safePhoneValue : undefined
 				},
 				isStaffOverride: true,
 				groupChain,
@@ -1130,6 +1140,7 @@ export default function ReservationsAdminPage() {
 								disabled={creating}
 								onClick={async () => {
 									setCreating(true)
+									const basePhone = fallbackString(form.phone, '')
 									const basePayload = {
 										date: form.date,
 										time: form.time,
@@ -1138,9 +1149,10 @@ export default function ReservationsAdminPage() {
 										babies: form.babies,
 										language: form.language,
 										userDetails: {
-											firstName: form.firstName,
-											lastName: form.lastName,
-											email: form.email
+											firstName: fallbackString(form.firstName, 'Client'),
+											lastName: fallbackString(form.lastName, 'Mystère'),
+											email: fallbackString(form.email, 'override@sweetnarcisse.local'),
+											phone: basePhone.length > 0 ? basePhone : undefined
 										},
 										isStaffOverride: true
 									}

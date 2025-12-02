@@ -27,6 +27,34 @@ const PRICE_ADULT = 9
 const PRICE_CHILD = 4
 const PRICE_BABY = 0
 
+const PARIS_TIME_ZONE = 'Europe/Paris'
+
+const parseParisWallDate = (date: string, time: string) => {
+  const [year, month, day] = date.split('-').map((value) => parseInt(value, 10))
+  const [hour, minute] = time.split(':').map((value) => parseInt(value, 10))
+  const naiveUtcMs = Date.UTC(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0)
+  const formatter = new Intl.DateTimeFormat('en', {
+    timeZone: PARIS_TIME_ZONE,
+    timeZoneName: 'shortOffset'
+  })
+  const parts = formatter.formatToParts(new Date(naiveUtcMs))
+  const tzToken = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'UTC+00'
+  const match = tzToken.match(/([+-])(\d{1,2})(?::?(\d{2}))?/)
+  let offsetMinutes = 0
+  if (match) {
+    const sign = match[1] === '-' ? -1 : 1
+    const hours = parseInt(match[2], 10)
+    const minutesPart = match[3] ? parseInt(match[3], 10) : 0
+    offsetMinutes = sign * (hours * 60 + minutesPart)
+  }
+
+  return {
+    instant: new Date(naiveUtcMs - offsetMinutes * 60 * 1000),
+    wallHour: hour || 0,
+    wallMinute: minute || 0
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request.headers)
@@ -69,8 +97,7 @@ export async function POST(request: Request) {
 
     // 2. DATES (CONSTRUCTION UTC STRICTE)
     // On force la date en UTC pour que 10:00 reste 10:00 (pas de TZ locale)
-    const isoDateTime = `${date}T${time}:00.000Z`
-    const myStart = new Date(isoDateTime)
+    const { instant: myStart, wallHour, wallMinute } = parseParisWallDate(date, time)
     const myEnd = addMinutes(myStart, TOUR_DURATION)
     const myTotalEnd = addMinutes(myEnd, BUFFER_TIME)
 
@@ -86,9 +113,7 @@ export async function POST(request: Request) {
 
     // --- VALIDATION HORAIRES ---
     // On utilise getUTCHours() car on a forcé le Z (UTC)
-    const currentHours = myStart.getUTCHours()
-    const currentMinutes = myStart.getUTCMinutes()
-    const minutesTotal = currentHours * 60 + currentMinutes
+    const minutesTotal = wallHour * 60 + wallMinute
 
     // Plages : 10h00 (600) -> 11h45 (705) ET 13h30 (810) -> 17h45 (1065)
     const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
@@ -106,7 +131,7 @@ export async function POST(request: Request) {
     if (date === todayLocalISO) {
       const hh = pad(hhNow)
       const mm = pad(mmNow)
-      const wallNow = new Date(`${todayLocalISO}T${hh}:${mm}:00.000Z`)
+      const { instant: wallNow } = parseParisWallDate(todayLocalISO, `${hh}:${mm}`)
       const diffMs = myStart.getTime() - wallNow.getTime()
       if (diffMs <= 5 * 60 * 1000 && !isStaffOverride) {
         return NextResponse.json({ error: `Réservation trop tardive: moins de 5 minutes avant le départ.` }, { status: 400 })
