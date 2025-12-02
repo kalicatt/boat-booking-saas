@@ -31,7 +31,16 @@ async function main() {
   // Mot de passe spécifique propriétaire
   const ownerPassword = await hash('temp123', 10)
 
-  const admins = [
+  type AdminSeed = {
+    email: string
+    label: string
+    role: 'ADMIN' | 'SUPERADMIN'
+    pass: string
+    firstName?: string
+    phone?: string | null
+  }
+
+  const admins: AdminSeed[] = [
     { email: 'guichet@sweet-narcisse.fr', label: 'Guichet', role: 'ADMIN', pass: hashedPassword },
     { email: 'gestion@sweet-narcisse.fr', label: 'Gestion', role: 'ADMIN', pass: hashedPassword },
     { email: 'tract@sweet-narcisse.fr', label: 'Tract', role: 'ADMIN', pass: hashedPassword },
@@ -53,7 +62,7 @@ async function main() {
         firstName: u.firstName || 'Compte',
         lastName: u.label,
         password: u.pass,
-        role: u.role as any,
+        role: u.role,
         phone: u.phone || null
       },
       create: {
@@ -61,7 +70,7 @@ async function main() {
         password: u.pass,
         firstName: u.firstName || 'Compte',
         lastName: u.label,
-        role: u.role as any,
+        role: u.role,
         phone: u.phone || null
       }
     })
