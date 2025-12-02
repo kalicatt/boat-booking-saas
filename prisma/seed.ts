@@ -24,55 +24,50 @@ async function main() {
   }
   console.log('✅ Flotte de barques synchronisée')
 
-  // --- Comptes administratifs génériques ---
+  // --- Comptes administratifs ---
   const defaultPassword = process.env.GENERIC_ADMIN_SEED_PASSWORD ?? 'ChangeMe123!'
   const hashedPassword = await hash(defaultPassword, 10)
+  
+  // Mot de passe spécifique propriétaire
+  const ownerPassword = await hash('temp123', 10)
 
-  const genericAdmins = [
-    { email: 'guichet@sweet-narcisse.fr', label: 'Guichet' },
-    { email: 'gestion@sweet-narcisse.fr', label: 'Gestion' },
-    { email: 'tract@sweet-narcisse.fr', label: 'Tract' }
+  const admins = [
+    { email: 'guichet@sweet-narcisse.fr', label: 'Guichet', role: 'ADMIN', pass: hashedPassword },
+    { email: 'gestion@sweet-narcisse.fr', label: 'Gestion', role: 'ADMIN', pass: hashedPassword },
+    { email: 'tract@sweet-narcisse.fr', label: 'Tract', role: 'ADMIN', pass: hashedPassword },
+    { email: 'admin@sweet-narcisse.fr', label: 'Super Admin', role: 'SUPERADMIN', pass: hashedPassword },
+    {
+      email: 'servaislucas68@gmail.com',
+      label: 'Servais',
+      firstName: 'Lucas',
+      role: 'SUPERADMIN',
+      pass: ownerPassword,
+      phone: '0650693815'
+    }
   ]
 
-  for (const admin of genericAdmins) {
+  for (const u of admins) {
     await prisma.user.upsert({
-      where: { email: admin.email.toLowerCase() },
+      where: { email: u.email.toLowerCase() },
       update: {
-        firstName: 'Compte',
-        lastName: admin.label,
-        password: hashedPassword,
-        role: 'ADMIN',
-        phone: null,
-        address: null,
-        city: null,
-        postalCode: null,
-        country: null,
-        dateOfBirth: null,
-        gender: null,
-        employeeNumber: null,
-        hireDate: null,
-        department: null,
-        jobTitle: null,
-        managerId: null,
-        employmentStatus: 'PERMANENT',
-        isFullTime: true,
-        hourlyRate: null,
-        annualSalary: null,
-        emergencyContactName: null,
-        emergencyContactPhone: null,
-        notes: null
+        firstName: u.firstName || 'Compte',
+        lastName: u.label,
+        password: u.pass,
+        role: u.role as any,
+        phone: u.phone || null
       },
       create: {
-        email: admin.email.toLowerCase(),
-        password: hashedPassword,
-        firstName: 'Compte',
-        lastName: admin.label,
-        role: 'ADMIN'
+        email: u.email.toLowerCase(),
+        password: u.pass,
+        firstName: u.firstName || 'Compte',
+        lastName: u.label,
+        role: u.role as any,
+        phone: u.phone || null
       }
     })
   }
 
-  console.log('✅ Comptes admin génériques prêts (pensez à changer leur mot de passe)')
+  console.log('✅ Comptes admin & Propriétaire prêts')
 }
 
 main()
