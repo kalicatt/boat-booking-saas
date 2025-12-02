@@ -15,6 +15,7 @@ import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileT
 import { getBoatTheme } from '../_components/boatThemes'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
 import { BookingDetailsModal } from '../_components/BookingDetailsModal'
+import { parseParisWallDate } from '@/lib/time'
 import {
   STATUS_THEME,
   LANGUAGE_FLAGS,
@@ -609,15 +610,10 @@ export default function ClientPlanningPage() {
     if (duration > 5 * 60 * 1000) return
 
     const s = new Date(slotInfo.start)
-    const startTime = new Date(
-      Date.UTC(
-        s.getFullYear(),
-        s.getMonth(),
-        s.getDate(),
-        s.getHours(),
-        s.getMinutes()
-      )
-    )
+    const dateLabel = format(s, 'yyyy-MM-dd')
+    const timeLabel = format(s, 'HH:mm')
+    const { instant: startTime } = parseParisWallDate(dateLabel, timeLabel)
+    if (Number.isNaN(startTime.getTime())) return
     let fallbackBoatId = 1
     const { resourceId } = slotInfo
     if (typeof resourceId === 'number' || typeof resourceId === 'string') {
@@ -875,12 +871,18 @@ export default function ClientPlanningPage() {
       if (isNaN(hh) || isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return
 
       const d = booking.start
-      const utcStart = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), hh, mm, 0))
+      const dateLabel = format(d, 'yyyy-MM-dd')
+      const paddedTime = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+      const { instant: nextStart } = parseParisWallDate(dateLabel, paddedTime)
+      if (Number.isNaN(nextStart.getTime())) {
+        alert("Horaire invalide")
+        return
+      }
 
       const res = await fetch(`/api/bookings/${booking.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start: utcStart.toISOString() })
+        body: JSON.stringify({ start: nextStart.toISOString() })
       })
       if (!res.ok) {
         alert("Échec de la mise à jour de l'heure")
@@ -904,15 +906,10 @@ export default function ClientPlanningPage() {
       const baseValue = value ?? new Date()
       const v = baseValue instanceof Date ? baseValue : new Date(baseValue)
       if (Number.isNaN(v.getTime())) return
-      const startTime = new Date(
-        Date.UTC(
-          v.getFullYear(),
-          v.getMonth(),
-          v.getDate(),
-          v.getHours(),
-          v.getMinutes()
-        )
-      )
+      const dateLabel = format(v, 'yyyy-MM-dd')
+      const timeLabel = format(v, 'HH:mm')
+      const { instant: startTime } = parseParisWallDate(dateLabel, timeLabel)
+      if (Number.isNaN(startTime.getTime())) return
       let fallbackBoatId = 1
       if (typeof resource === 'number' || typeof resource === 'string') {
         const parsed = Number(resource)

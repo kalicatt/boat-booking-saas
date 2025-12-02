@@ -13,7 +13,7 @@ import { BookingRequestSchema } from '@/lib/validation'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
-import { getParisTodayISO, getParisNowParts } from '@/lib/time'
+import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import type { Booking } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
@@ -26,6 +26,13 @@ const LOCAL_BASE_REGEX = /^https?:\/\/(localhost|127(?:\.\d+){0,3}|0\.0\.0\.0|10
 const MAP_LINK = 'https://maps.app.goo.gl/v2S3t2Wq83B7k6996'
 const EUR_FORMATTER = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 
+const isGenericCounterEmail = (value: string | null | undefined) => {
+  if (!value) return true
+  const normalized = value.trim().toLowerCase()
+  if (!normalized) return true
+  return normalized.endsWith('@local.com') || normalized.endsWith('@sweetnarcisse.local') || normalized.startsWith('override@')
+}
+
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
 const BUFFER_TIME = 5
@@ -34,34 +41,6 @@ const INTERVAL = 10
 const PRICE_ADULT = 9
 const PRICE_CHILD = 4
 const PRICE_BABY = 0
-
-const PARIS_TIME_ZONE = 'Europe/Paris'
-
-const parseParisWallDate = (date: string, time: string) => {
-  const [year, month, day] = date.split('-').map((value) => parseInt(value, 10))
-  const [hour, minute] = time.split(':').map((value) => parseInt(value, 10))
-  const naiveUtcMs = Date.UTC(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0)
-  const formatter = new Intl.DateTimeFormat('en', {
-    timeZone: PARIS_TIME_ZONE,
-    timeZoneName: 'shortOffset'
-  })
-  const parts = formatter.formatToParts(new Date(naiveUtcMs))
-  const tzToken = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'UTC+00'
-  const match = tzToken.match(/([+-])(\d{1,2})(?::?(\d{2}))?/)
-  let offsetMinutes = 0
-  if (match) {
-    const sign = match[1] === '-' ? -1 : 1
-    const hours = parseInt(match[2], 10)
-    const minutesPart = match[3] ? parseInt(match[3], 10) : 0
-    offsetMinutes = sign * (hours * 60 + minutesPart)
-  }
-
-  return {
-    instant: new Date(naiveUtcMs - offsetMinutes * 60 * 1000),
-    wallHour: hour || 0,
-    wallMinute: minute || 0
-  }
-}
 
 export async function POST(request: Request) {
   try {
@@ -175,12 +154,18 @@ export async function POST(request: Request) {
     // 5. VERROU + CONFLITS (transaction)
 
     // 6. CLIENT UNIQUE
-    let userEmailToUse = userDetails.email;
-    if (isStaffOverride) {
-        const uniqueId = nanoid(6);
-        const safeLastName = (userDetails.lastName || 'Inconnu').replace(/\s+/g, '').toLowerCase();
-        const safeFirstName = (userDetails.firstName || 'Client').replace(/\s+/g, '').toLowerCase();
-        userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`;
+    const initialEmail = (userDetails.email || '').trim()
+    const isPlaceholderEmail = !initialEmail || initialEmail.toLowerCase() === 'override@sweetnarcisse.local'
+    let userEmailToUse = initialEmail
+    if (isStaffOverride && isPlaceholderEmail) {
+      const uniqueId = nanoid(6)
+      const safeLastName = (userDetails.lastName || 'Inconnu').replace(/\s+/g, '').toLowerCase()
+      const safeFirstName = (userDetails.firstName || 'Client').replace(/\s+/g, '').toLowerCase()
+      userEmailToUse = `guichet.${safeLastName}.${safeFirstName}.${uniqueId}@local.com`
+    }
+
+    if (!userEmailToUse) {
+      return NextResponse.json({ error: 'Adresse email manquante pour la réservation.' }, { status: 400 })
     }
 
     type TxResultOk = { ok: true; booking: Booking; finalPrice: number }
@@ -655,8 +640,8 @@ export async function POST(request: Request) {
     }
 
     // 9. EMAIL
-    try {
-      if (!pendingOnly && userEmailToUse && !userEmailToUse.endsWith('@local.com') && userEmailToUse.includes('@') && resend) {
+    if (!pendingOnly && userEmailToUse && !isGenericCounterEmail(userEmailToUse) && userEmailToUse.includes('@') && resend) {
+      try {
           const rawBase = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || 'http://localhost:3000'
           const baseUrl = rawBase.replace(/\/$/, '')
           const token = computeBookingToken(createdBooking.id)
@@ -686,8 +671,10 @@ export async function POST(request: Request) {
               cancelUrl
             })
           })
+      } catch (e: unknown) {
+        console.error("Erreur email", e instanceof Error ? e.message : String(e))
       }
-    } catch (e: unknown) { console.error("Erreur email", e instanceof Error ? e.message : String(e)) }
+    }
 
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)

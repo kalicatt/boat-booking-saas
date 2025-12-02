@@ -22,3 +22,31 @@ export function getParisNowMinutes() {
   const { hh, mm } = getParisNowParts()
   return hh * 60 + mm
 }
+
+const PARIS_TIME_ZONE = 'Europe/Paris'
+
+export function parseParisWallDate(date: string, time: string) {
+  const [year, month, day] = date.split('-').map((value) => parseInt(value, 10))
+  const [hour, minute] = time.split(':').map((value) => parseInt(value, 10))
+  const naiveUtcMs = Date.UTC(year, (month || 1) - 1, day || 1, hour || 0, minute || 0, 0, 0)
+  const formatter = new Intl.DateTimeFormat('en', {
+    timeZone: PARIS_TIME_ZONE,
+    timeZoneName: 'shortOffset'
+  })
+  const parts = formatter.formatToParts(new Date(naiveUtcMs))
+  const tzToken = parts.find((part) => part.type === 'timeZoneName')?.value ?? 'UTC+00'
+  const match = tzToken.match(/([+-])(\d{1,2})(?::?(\d{2}))?/)
+  let offsetMinutes = 0
+  if (match) {
+    const sign = match[1] === '-' ? -1 : 1
+    const hours = parseInt(match[2], 10)
+    const minutesPart = match[3] ? parseInt(match[3], 10) : 0
+    offsetMinutes = sign * (hours * 60 + minutesPart)
+  }
+
+  return {
+    instant: new Date(naiveUtcMs - offsetMinutes * 60 * 1000),
+    wallHour: hour || 0,
+    wallMinute: minute || 0
+  }
+}
