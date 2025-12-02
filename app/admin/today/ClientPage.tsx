@@ -47,6 +47,7 @@ type TodayBookingUser = {
 type TodayBookingBoat = {
   id: number | null
   name: string | null
+  capacity: number | null
 }
 
 type TodayBooking = {
@@ -60,6 +61,8 @@ type TodayBooking = {
   boat: TodayBookingBoat | null
   user: TodayBookingUser
 }
+
+const DEFAULT_BOAT_CAPACITY = 12
 
 const parseTodayBookings = (input: unknown): TodayBooking[] => {
   if (!Array.isArray(input)) {
@@ -85,7 +88,8 @@ const parseTodayBookings = (input: unknown): TodayBooking[] => {
       const boat: TodayBookingBoat | null = boatRecord
         ? {
             id: typeof boatRecord.id === 'number' ? boatRecord.id : null,
-            name: typeof boatRecord.name === 'string' ? (boatRecord.name as string) : null
+            name: typeof boatRecord.name === 'string' ? (boatRecord.name as string) : null,
+            capacity: typeof boatRecord.capacity === 'number' ? boatRecord.capacity : null
           }
         : null
 
@@ -673,118 +677,179 @@ export default function ClientPage() {
         </div>
       )
     }
+    const grouped: Array<{ wallDate: Date; items: TodayBooking[] }> = []
+    let currentKey: string | null = null
+    bookings.forEach((booking) => {
+      const wallDate = toWallClock(booking.startTime)
+      const key = wallDate.toISOString()
+      if (currentKey && key === currentKey) {
+        grouped[grouped.length - 1].items.push(booking)
+      } else {
+        grouped.push({ wallDate, items: [booking] })
+        currentKey = key
+      }
+    })
+
     return (
       <div className="flex flex-col gap-5">
-        {bookings.map((b, index) => {
+        {grouped.map((group, groupIndex) => {
+          const representative = group.items[0]
           const showDateSeparator =
             viewMode !== 'day' &&
-            (index === 0 || !isSameDay(toWallClock(b.startTime), toWallClock(bookings[index - 1].startTime)))
-          const nextBooking = index < bookings.length - 1 ? bookings[index + 1] : null
-          const connectToNext = nextBooking
-            ? isSameDay(toWallClock(b.startTime), toWallClock(nextBooking.startTime))
-            : false
-          const theme = getBoatTheme(b.boatId)
-          const isBusy = statusLoading === b.id
-          const isEmbarqued = b.checkinStatus === 'EMBARQUED'
-          const isNoShow = b.checkinStatus === 'NO_SHOW'
-          const canCall = Boolean(b.user.phone && b.user.phone.trim().length > 0)
-          const canEmail = Boolean(b.user.email && b.user.email.trim().length > 0)
+            (groupIndex === 0 || !isSameDay(group.wallDate, grouped[groupIndex - 1].wallDate))
+          const connectToNext =
+            groupIndex < grouped.length - 1 && isSameDay(group.wallDate, grouped[groupIndex + 1].wallDate)
+
+          const loadEntries: Array<{
+            key: string
+            label: string
+            total: number
+            capacity: number
+            theme: ReturnType<typeof getBoatTheme>
+          }> = []
+
+          group.items.forEach((booking) => {
+            const boatKey = booking.boatId !== null ? `boat-${booking.boatId}` : `boat-${booking.boat?.name ?? 'unknown'}`
+            let entry = loadEntries.find((item) => item.key === boatKey)
+            if (!entry) {
+              entry = {
+                key: boatKey,
+                label: booking.boat?.name ?? 'Barque ?',
+                total: 0,
+                capacity: booking.boat?.capacity ?? DEFAULT_BOAT_CAPACITY,
+                theme: getBoatTheme(booking.boatId)
+              }
+              loadEntries.push(entry)
+            }
+            entry.total += booking.numberOfPeople
+            if (!entry.capacity || entry.capacity <= 0) {
+              entry.capacity = booking.boat?.capacity ?? DEFAULT_BOAT_CAPACITY
+            }
+          })
 
           return (
-            <div key={`${b.id}-${index}`} className="relative">
+            <div key={`${representative.startTime}-${groupIndex}`} className="relative">
               {showDateSeparator && (
                 <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {formatDateLabel(b.startTime)}
+                  {formatDateLabel(representative.startTime)}
                 </div>
               )}
               <div className="relative pl-16">
-                {connectToNext && (
-                  <span aria-hidden="true" className="absolute left-6 top-16 h-20 w-px bg-slate-200" />
-                )}
+                {connectToNext && <span aria-hidden="true" className="absolute left-6 top-16 h-[90%] w-px translate-y-2 bg-slate-200" />}
                 <div
                   aria-hidden="true"
-                  className={`absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white text-[0.8rem] font-black uppercase leading-none ${theme.indicator}`}
+                  className={`absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white text-[0.8rem] font-black uppercase leading-none ${getBoatTheme(representative.boatId).indicator}`}
                 >
-                  {formatTimeLabel(b.startTime)}
+                  {formatTimeLabel(representative.startTime)}
                 </div>
-                <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-extrabold text-slate-900">{`${b.user.firstName ?? ''} ${b.user.lastName ?? ''}`.trim() || 'Client inconnu'}</div>
-                      <div className="mt-0.5 text-xs uppercase tracking-widest text-slate-400">
-                        {b.language ?? '—'}
-                      </div>
-                      <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        Départ {formatTimeLabel(b.startTime)}
-                      </div>
-                      {viewMode !== 'day' && (
-                        <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          {formatShortDateLabel(b.startTime)}
+                <div className="ml-2 flex flex-wrap gap-2 pl-4 pt-1 text-[11px] font-semibold text-slate-500">
+                  {loadEntries.map((entry) => (
+                    <span
+                      key={entry.key}
+                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${entry.theme.badge}`}
+                    >
+                      <span className="truncate text-xs font-bold">{entry.label}</span>
+                      <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-black text-slate-800">
+                        {entry.total} / {entry.capacity}
+                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">pax</span>
+                      </span>
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 flex gap-3 overflow-x-auto pb-2 pr-4 snap-x snap-mandatory">
+                  {group.items.map((b, index) => {
+                    const theme = getBoatTheme(b.boatId)
+                    const isBusy = statusLoading === b.id
+                    const isEmbarqued = b.checkinStatus === 'EMBARQUED'
+                    const isNoShow = b.checkinStatus === 'NO_SHOW'
+                    const canCall = Boolean(b.user.phone && b.user.phone.trim().length > 0)
+                    const canEmail = Boolean(b.user.email && b.user.email.trim().length > 0)
+
+                    return (
+                      <div
+                        key={`${b.id}-${index}`}
+                        className="snap-center min-w-[82vw] flex-shrink-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-lg font-extrabold text-slate-900">{`${b.user.firstName ?? ''} ${b.user.lastName ?? ''}`.trim() || 'Client inconnu'}</div>
+                            <div className="mt-0.5 text-xs uppercase tracking-widest text-slate-400">
+                              {b.language ?? '—'}
+                            </div>
+                            <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                              Départ {formatTimeLabel(b.startTime)}
+                            </div>
+                            {viewMode !== 'day' && (
+                              <div className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                {formatShortDateLabel(b.startTime)}
+                              </div>
+                            )}
+                          </div>
+                          {renderStatusBadge(b.status, b.checkinStatus)}
                         </div>
-                      )}
-                    </div>
-                    {renderStatusBadge(b.status, b.checkinStatus)}
-                  </div>
-                  <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${theme.badge}`}>
-                        {b.boat?.name ?? 'Barque ?'}
-                      </span>
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${theme.pax}`}>
-                        {b.numberOfPeople} pax
-                      </span>
-                    </div>
-                    <div className="flex flex-col gap-1 text-xs text-slate-500">
-                      <span className="font-semibold text-slate-700">📞 {b.user.phone ?? 'Non renseigné'}</span>
-                      <span>{b.user.email ?? '—'}</span>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                    {canCall && (
-                      <a
-                        href={`tel:${b.user.phone}`}
-                        className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-white shadow-sm transition active:scale-95"
-                      >
-                        <span aria-hidden="true">📞</span>
-                        Appeler
-                      </a>
-                    )}
-                    {canEmail && (
-                      <a
-                        href={`mailto:${b.user.email}`}
-                        className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-700 shadow-sm transition active:scale-95"
-                      >
-                        <span aria-hidden="true">✉</span>
-                        Email
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleQuickStatusChange(b.id, 'EMBARQUED')}
-                      disabled={isBusy || isEmbarqued}
-                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
-                        isEmbarqued
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-emerald-500 text-white active:scale-95 disabled:bg-emerald-400 disabled:opacity-90'
-                      }`}
-                    >
-                      <span aria-hidden="true">✅</span>
-                      {isBusy && !isEmbarqued ? 'Patientez…' : isEmbarqued ? 'Embarqué' : 'Check-in'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickStatusChange(b.id, 'NO_SHOW')}
-                      disabled={isBusy || isNoShow}
-                      className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
-                        isNoShow
-                          ? 'bg-rose-100 text-rose-700'
-                          : 'bg-rose-500 text-white active:scale-95 disabled:bg-rose-400 disabled:opacity-90'
-                      }`}
-                    >
-                      <span aria-hidden="true">⚠</span>
-                      {isBusy && !isNoShow ? 'Patientez…' : isNoShow ? 'No-show' : 'Absent'}
-                    </button>
-                  </div>
+                        <div className="mt-3 flex flex-col gap-2 text-sm text-slate-700">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`inline-flex rounded-full px-3 py-1 text-[11px] font-bold ${theme.badge}`}>
+                              {b.boat?.name ?? 'Barque ?'}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${theme.pax}`}>
+                              {b.numberOfPeople} pax
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1 text-xs text-slate-500">
+                            <span className="font-semibold text-slate-700">📞 {b.user.phone ?? 'Non renseigné'}</span>
+                            <span>{b.user.email ?? '—'}</span>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                          {canCall && (
+                            <a
+                              href={`tel:${b.user.phone}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-slate-900 px-3 py-1 text-white shadow-sm transition active:scale-95"
+                            >
+                              <span aria-hidden="true">📞</span>
+                              Appeler
+                            </a>
+                          )}
+                          {canEmail && (
+                            <a
+                              href={`mailto:${b.user.email}`}
+                              className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-700 shadow-sm transition active:scale-95"
+                            >
+                              <span aria-hidden="true">✉</span>
+                              Email
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleQuickStatusChange(b.id, 'EMBARQUED')}
+                            disabled={isBusy || isEmbarqued}
+                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
+                              isEmbarqued
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : 'bg-emerald-500 text-white active:scale-95 disabled:bg-emerald-400 disabled:opacity-90'
+                            }`}
+                          >
+                            <span aria-hidden="true">✅</span>
+                            {isBusy && !isEmbarqued ? 'Patientez…' : isEmbarqued ? 'Embarqué' : 'Check-in'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleQuickStatusChange(b.id, 'NO_SHOW')}
+                            disabled={isBusy || isNoShow}
+                            className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
+                              isNoShow
+                                ? 'bg-rose-100 text-rose-700'
+                                : 'bg-rose-500 text-white active:scale-95 disabled:bg-rose-400 disabled:opacity-90'
+                            }`}
+                          >
+                            <span aria-hidden="true">⚠</span>
+                            {isBusy && !isNoShow ? 'Patientez…' : isNoShow ? 'No-show' : 'Absent'}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             </div>
