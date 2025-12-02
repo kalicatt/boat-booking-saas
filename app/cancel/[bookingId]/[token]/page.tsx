@@ -192,20 +192,20 @@ export default async function CancelPage({ params, searchParams }: CancelPagePro
               <input type="hidden" name="bookingId" value={bookingId} />
               <input type="hidden" name="token" value={token} />
               <p className="text-sm text-slate-600">
-                Vous êtes sur le point d\'annuler cette réservation. Cette action libérera votre créneau.
+                {"Vous êtes sur le point d'annuler cette réservation. Cette action libérera votre créneau."}
               </p>
               <button
                 type="submit"
                 className="w-full rounded-full bg-sky-500 px-6 py-3 text-sm font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-300"
               >
-                Confirmer l\'annulation
+                {"Confirmer l'annulation"}
               </button>
             </form>
           )}
 
           {!canSubmit && (
             <div className="mt-8 text-center text-sm text-slate-600">
-              <p>Besoin d\'aide ?</p>
+              <p>{"Besoin d'aide ?"}</p>
               <p className="mt-1">
                 <Link href="mailto:contact@sweet-narcisse.fr" className="font-semibold text-sky-600 hover:text-sky-700">
                   contact@sweet-narcisse.fr

@@ -54,6 +54,19 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     const referenceLabel = publicReference || bookingId
     const qrSrc = (qrCodeCid ? `cid:${qrCodeCid}` : (qrCodeDataUrl || qrCodeUrl || ''))
     const resolvedLogoSrc = logoCid ? `cid:${logoCid}` : (logoUrl || defaultLogoUrl)
+    const ageBreakdownParts: string[] = []
+
+    if (adults > 0) {
+        ageBreakdownParts.push(`${adults} adulte${adults > 1 ? 's' : ''}`)
+    }
+    if (childrenCount > 0) {
+        ageBreakdownParts.push(`${childrenCount} enfant${childrenCount > 1 ? 's' : ''}`)
+    }
+    if (babies > 0) {
+        ageBreakdownParts.push(`${babies} bébé${babies > 1 ? 's' : ''}`)
+    }
+
+    const ageBreakdown = ageBreakdownParts.join(' · ')
 
     return (
         <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ backgroundColor: '#e2e8f0', padding: '24px 0' }}>
@@ -87,6 +100,11 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                         <p style={{ margin: '0 0 6px', fontSize: 15 }}>📅 <strong>{date}</strong></p>
                                                         <p style={{ margin: '0 0 6px', fontSize: 15 }}>⏰ <strong>{time}</strong></p>
                                                         <p style={{ margin: '0 0 12px', fontSize: 15 }}>👥 {people} passagers</p>
+                                                        {ageBreakdown && (
+                                                            <p style={{ margin: '0 0 12px', fontSize: 13, color: brand.muted }}>
+                                                                Répartition&nbsp;: {ageBreakdown}
+                                                            </p>
+                                                        )}
                                                         <p style={{ margin: 0, fontSize: 13, color: brand.muted }}>
                                                             Référence : <span style={{ fontWeight: 600 }}>{referenceLabel}</span>
                                                         </p>

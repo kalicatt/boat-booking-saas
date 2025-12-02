@@ -13,6 +13,7 @@ type BookingUser = {
 	firstName?: string | null
 	lastName?: string | null
 	email?: string | null
+	phone?: string | null
 }
 
 type BookingPayment = {
@@ -25,6 +26,7 @@ type Booking = {
 	id: string
 	startTime: string
 	numberOfPeople: number
+	publicReference?: string | null
 	adults?: number | null
 	children?: number | null
 	babies?: number | null
@@ -73,6 +75,14 @@ const PAYMENT_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
 	{ value: 'applepay', label: 'Apple Pay' },
 	{ value: 'googlepay', label: 'Google Pay' },
 	{ value: 'voucher', label: 'ANCV / CityPass' }
+]
+
+const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
+	{ value: 'fr', label: 'Français' },
+	{ value: 'en', label: 'Anglais' },
+	{ value: 'de', label: 'Allemand' },
+	{ value: 'es', label: 'Espagnol' },
+	{ value: 'it', label: 'Italien' }
 ]
 
 const CHAIN_CAPACITY = 12
@@ -205,6 +215,29 @@ export default function ReservationsAdminPage() {
 	const [contactConverting, setContactConverting] = useState(false)
 	const [chainBaseTime, setChainBaseTime] = useState('09:00')
 	const [viewMarkPaid, setViewMarkPaid] = useState<ViewMarkPaidState | null>(null)
+	const [markingPaid, setMarkingPaid] = useState(false)
+
+	const languageOptions = useMemo(() => {
+		const base = [...LANGUAGE_OPTIONS]
+		if (form.language && !base.some((option) => option.value === form.language)) {
+			base.push({ value: form.language, label: form.language.toUpperCase() })
+		}
+		return base
+	}, [form.language])
+
+	const viewStart = useMemo(() => (showView ? toWall(new Date(showView.startTime)) : null), [showView])
+	const viewDateLabel = viewStart ? format(viewStart, 'dd/MM/yyyy') : ''
+	const viewTimeLabel = viewStart ? format(viewStart, 'HH:mm') : ''
+	const viewPaymentStatus = useMemo(() => (showView ? getPaymentStatusInfo(showView) : null), [showView])
+	const viewPaymentMethodLabel = useMemo(() => (showView ? describePaymentMethod(showView) : '—'), [showView])
+	const viewPeopleLabel = useMemo(() => (showView ? formatPeopleLabel(showView) : ''), [showView])
+	const viewClientName = useMemo(() => {
+		if (!showView) return ''
+		const composed = `${showView.user?.firstName ?? 'Invité'} ${showView.user?.lastName ?? ''}`.trim()
+		return composed.length > 0 ? composed : 'Invité'
+	}, [showView])
+	const viewClientEmail = showView?.user?.email ?? '—'
+	const viewClientPhone = showView?.user?.phone ?? 'Non renseigné'
 
 	const startISO = useMemo(() => {
 		if (range === 'day') {
@@ -283,12 +316,13 @@ export default function ReservationsAdminPage() {
 			pushToast({ type: 'warning', message: 'Aucune réservation à exporter.' })
 			return
 		}
-		const headers = ['Date', 'Heure', 'Client', 'Email', 'Pax', 'Langue', 'Paiement', 'Statut Paiement']
+		const headers = ['Date', 'Heure', 'Référence', 'Client', 'Email', 'Pax', 'Langue', 'Paiement', 'Statut Paiement']
 		const rows = bookings.map((booking) => {
 			const wall = toWall(new Date(booking.startTime))
 			return [
 				format(wall, 'yyyy-MM-dd'),
 				format(wall, 'HH:mm'),
+				booking.publicReference ?? '',
 				`${booking.user?.firstName ?? ''} ${booking.user?.lastName ?? ''}`.trim(),
 				booking.user?.email ?? '',
 				String(booking.numberOfPeople ?? 0),
@@ -328,24 +362,22 @@ export default function ReservationsAdminPage() {
 		const confirmation = window.confirm('Confirmer la suppression de cette réservation ?')
 		if (!confirmation) return
 		try {
-			const response = await fetch(`/api/bookings/${booking.id}`, { method: 'DELETE' })
-			if (!response.ok) {
-				pushToast({ type: 'warning', message: 'Suppression impossible.' })
-				return
+			const response = await fetch(`/api/bookings/${booking.id}`, {
+				method: 'DELETE'
+			})
+			if (response.ok) {
+				pushToast({ type: 'success', message: 'Réservation supprimée.' })
+				mutate()
+			} else {
+				alert('Impossible de supprimer la réservation.')
 			}
-			pushToast({ type: 'success', message: 'Réservation supprimée.' })
-			mutate()
 		} catch (deleteError) {
 			console.error('Erreur suppression réservation', deleteError)
-			pushToast({ type: 'warning', message: 'Erreur réseau pendant la suppression.' })
+			alert('Erreur réseau pendant la suppression.')
 		}
 	}
 
 	const handleChainPreview = () => {
-		if (groupChain <= 0) {
-			setChainPreview([])
-			return
-		}
 		const baseBooking = bookings.find((booking) => booking.id === selectedId)
 		const baseDate = baseBooking ? new Date(baseBooking.startTime) : new Date(date)
 		const [hour, minute] = chainBaseTime.split(':').map((value) => parseInt(value, 10))
@@ -480,6 +512,7 @@ export default function ReservationsAdminPage() {
 	const closeViewModal = () => {
 		setShowView(null)
 		setViewMarkPaid(null)
+		setMarkingPaid(false)
 	}
 
 	const handleContactStatusChange = async (status: 'NEW' | 'CONTACTED' | 'CLOSED' | '') => {
@@ -586,7 +619,7 @@ export default function ReservationsAdminPage() {
 							<input
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
-								placeholder="Nom, email, ref..."
+								placeholder="Nom, email, réf..."
 								className="w-48 rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
 							/>
 						</label>
@@ -655,6 +688,7 @@ export default function ReservationsAdminPage() {
 									<thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
 										<tr>
 											<th className="w-28 px-4 py-3">Date</th>
+											<th className="w-28 px-4 py-3">Réf.</th>
 											<th className="w-20 px-4 py-3">Heure</th>
 											<th className="w-48 px-4 py-3">Client</th>
 											<th className="w-40 px-4 py-3">Détails</th>
@@ -677,6 +711,9 @@ export default function ReservationsAdminPage() {
 												>
 													<td className="px-4 py-4 align-top font-mono text-xs text-slate-500">
 														{format(toWall(new Date(booking.startTime)), 'dd/MM/yyyy')}
+													</td>
+													<td className="px-4 py-4 align-top font-mono text-xs text-slate-500">
+														{booking.publicReference ?? '—'}
 													</td>
 													<td className="px-4 py-4 align-top font-mono text-xs text-slate-500">
 														{format(toWall(new Date(booking.startTime)), 'HH:mm')}
@@ -874,42 +911,35 @@ export default function ReservationsAdminPage() {
 						className="sn-card max-h-[90vh] w-full max-w-xl overflow-y-auto"
 						onClick={(event) => event.stopPropagation()}
 					>
-						<div className="flex items-center justify-between border-b border-slate-100 pb-3">
-							<h3 className="text-sm font-semibold text-slate-800">Créer une réservation</h3>
-							<button
-								type="button"
-								onClick={closeCreateModal}
-								className="text-lg text-slate-400 transition hover:text-slate-600"
-							>
+						<div className="sn-modal-header">
+							<div>
+								<h3 className="sn-modal-title">Créer une réservation</h3>
+								<p className="sn-modal-subtitle">Planifiez un départ classique, une privatisation sur-mesure ou transformez une demande de groupe.</p>
+							</div>
+							<button type="button" onClick={closeCreateModal} className="sn-modal-close" aria-label="Fermer le modal">
 								✕
 							</button>
 						</div>
 
-						<div className="mt-3 flex flex-wrap gap-2">
+						<div className="sn-form-tabs">
 							<button
 								type="button"
 								onClick={() => setCreateTab('normal')}
-								className={`rounded border px-3 py-1 text-xs font-semibold ${
-									createTab === 'normal' ? 'border-blue-400 bg-blue-50 text-blue-600' : 'border-slate-200'
-								}`}
+								className={`sn-form-tab ${createTab === 'normal' ? 'is-active' : ''}`}
 							>
 								Normale
 							</button>
 							<button
 								type="button"
 								onClick={() => setCreateTab('private')}
-								className={`rounded border px-3 py-1 text-xs font-semibold ${
-									createTab === 'private' ? 'border-blue-400 bg-blue-50 text-blue-600' : 'border-slate-200'
-								}`}
+								className={`sn-form-tab ${createTab === 'private' ? 'is-active' : ''}`}
 							>
 								Privatisation
 							</button>
 							<button
 								type="button"
 								onClick={() => setCreateTab('group')}
-								className={`rounded border px-3 py-1 text-xs font-semibold ${
-									createTab === 'group' ? 'border-blue-400 bg-blue-50 text-blue-600' : 'border-slate-200'
-								}`}
+								className={`sn-form-tab ${createTab === 'group' ? 'is-active' : ''}`}
 							>
 								Groupe
 							</button>
@@ -919,180 +949,273 @@ export default function ReservationsAdminPage() {
 									setCreateTab('contact')
 									await handleContactStatusChange(contactStatus)
 								}}
-								className={`rounded border px-3 py-1 text-xs font-semibold ${
-									createTab === 'contact' ? 'border-blue-400 bg-blue-50 text-blue-600' : 'border-slate-200'
-								}`}
+								className={`sn-form-tab ${createTab === 'contact' ? 'is-active' : ''}`}
 							>
 								Depuis contact
 							</button>
 						</div>
 
-						<div className="mt-4 space-y-3">
-							<div className="grid grid-cols-2 gap-2">
-								<input
-									value={form.date}
-									onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Date (YYYY-MM-DD)"
-								/>
-								<input
-									value={form.time}
-									onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Heure (HH:mm)"
-								/>
-							</div>
-							<div className="grid grid-cols-3 gap-2">
-								<input
-									type="number"
-									value={form.adults}
-									onChange={(event) =>
-										setForm((current) => ({ ...current, adults: parseInt(event.target.value || '0', 10) || 0 }))
-									}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Adultes"
-								/>
-								<input
-									type="number"
-									value={form.children}
-									onChange={(event) =>
-										setForm((current) => ({
-											...current,
-											children: parseInt(event.target.value || '0', 10) || 0
-										}))
-									}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Enfants"
-								/>
-								<input
-									type="number"
-									value={form.babies}
-									onChange={(event) =>
-										setForm((current) => ({ ...current, babies: parseInt(event.target.value || '0', 10) || 0 }))
-									}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Bébés"
-								/>
-							</div>
-							<input
-								value={form.language}
-								onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
-								className="w-full rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-								placeholder="Langue (fr/en/de/...)"
-							/>
-							<div className="grid grid-cols-2 gap-2">
-								<input
-									value={form.firstName}
-									onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Prénom"
-								/>
-								<input
-									value={form.lastName}
-									onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
-									className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-									placeholder="Nom"
-								/>
-							</div>
-							<input
-								value={form.email}
-								onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
-								className="w-full rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-								placeholder="Email"
-							/>
-
-							{createTab === 'group' && (
-								<>
-									<div className="grid grid-cols-2 gap-2">
-										<input
-											value={form.company}
-											onChange={(event) => setForm((current) => ({ ...current, company: event.target.value }))}
-											className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-											placeholder="Entreprise"
-										/>
-										<input
-											value={form.phone}
-											onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
-											className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-											placeholder="Téléphone"
-										/>
+						<div className="sn-modal-body">
+							<section className="sn-form-section">
+								<div className="sn-form-section-header">
+									<span className="sn-form-section-icon" aria-hidden="true">🛥️</span>
+									<div>
+										<p className="sn-form-section-heading">Départ &amp; capacité</p>
+										<p className="sn-form-section-copy">Choisissez la date, l&apos;heure et répartissez adultes, enfants et bébés.</p>
 									</div>
-									<input
-										value={form.address}
-										onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
-										className="w-full rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-										placeholder="Adresse"
-									/>
-									<div className="grid grid-cols-3 gap-2">
+								</div>
+								<div className="sn-form-grid sn-form-grid-2">
+									<label className="sn-field">
+										<span className="sn-label">Date</span>
 										<input
 											type="date"
-											value={form.eventDate}
-											onChange={(event) => setForm((current) => ({ ...current, eventDate: event.target.value }))}
-											className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+											value={form.date}
+											onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+											className="sn-input"
 										/>
+									</label>
+									<label className="sn-field">
+										<span className="sn-label">Heure de départ</span>
 										<input
 											type="time"
-											value={form.eventTime}
-											onChange={(event) => setForm((current) => ({ ...current, eventTime: event.target.value }))}
-											className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+											value={form.time}
+											onChange={(event) => setForm((current) => ({ ...current, time: event.target.value }))}
+											className="sn-input"
 										/>
+									</label>
+								</div>
+								<div className="sn-form-grid sn-form-grid-3">
+									<label className="sn-field">
+										<span className="sn-label">Adultes</span>
 										<input
-											value={form.budget}
-											onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))}
-											className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-											placeholder="Budget"
+											type="number"
+											min={0}
+											value={form.adults}
+											onChange={(event) =>
+												setForm((current) => ({ ...current, adults: parseInt(event.target.value || '0', 10) || 0 }))
+											}
+											className="sn-input"
 										/>
+									</label>
+									<label className="sn-field">
+										<span className="sn-label">Enfants 4-10</span>
+										<input
+											type="number"
+											min={0}
+											value={form.children}
+											onChange={(event) =>
+												setForm((current) => ({
+													...current,
+													children: parseInt(event.target.value || '0', 10) || 0
+												}))
+											}
+											className="sn-input"
+										/>
+									</label>
+									<label className="sn-field">
+										<span className="sn-label">Bébés 0-3</span>
+										<input
+											type="number"
+											min={0}
+											value={form.babies}
+											onChange={(event) =>
+												setForm((current) => ({ ...current, babies: parseInt(event.target.value || '0', 10) || 0 }))
+											}
+											className="sn-input"
+										/>
+									</label>
+								</div>
+							</section>
+
+							<section className="sn-form-section">
+								<div className="sn-form-section-header">
+									<span className="sn-form-section-icon" aria-hidden="true">👤</span>
+									<div>
+										<p className="sn-form-section-heading">Client principal</p>
+										<p className="sn-form-section-copy">Les confirmations, rappels et factures seront envoyés à ce contact.</p>
 									</div>
-									<input
-										value={form.reason}
-										onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))}
-										className="w-full rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-										placeholder="Raison / type d'évènement"
-									/>
-									<textarea
-										rows={3}
-										value={form.message}
-										onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-										className="w-full rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-										placeholder="Notes supplémentaires"
-									/>
-								</>
-							)}
-
-							{createTab === 'private' && (
-								<p className="text-xs text-slate-500">
-									Privatisation : le créneau sélectionné sera fermé pour le public (capacité complète).
-								</p>
-							)}
-
-							{createTab === 'contact' && (
-								<div className="space-y-3 rounded border border-slate-100 bg-slate-50 p-3">
-									<div className="flex flex-wrap items-center gap-2">
+								</div>
+								<div className="sn-form-grid sn-form-grid-2">
+									<label className="sn-field">
+										<span className="sn-label">Prénom</span>
+										<input
+											value={form.firstName}
+											onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
+											className="sn-input"
+										/>
+									</label>
+									<label className="sn-field">
+										<span className="sn-label">Nom</span>
+										<input
+											value={form.lastName}
+											onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
+											className="sn-input"
+										/>
+									</label>
+									<label className="sn-field sm:col-span-2">
+										<span className="sn-label">Langue</span>
 										<select
-											value={contactStatus}
-											onChange={async (event) => {
-												const value = event.target.value as 'NEW' | 'CONTACTED' | 'CLOSED' | ''
-												await handleContactStatusChange(value)
-											}}
-											className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+											value={form.language}
+											onChange={(event) => setForm((current) => ({ ...current, language: event.target.value }))}
+											className="sn-input"
 										>
-											<option value="">Tous les statuts</option>
-											<option value="NEW">Nouveaux</option>
-											<option value="CONTACTED">Contactés</option>
-											<option value="CLOSED">Fermés</option>
-										</select>
-										<select
-											value={selectedContactId}
-											onChange={(event) => setSelectedContactId(event.target.value)}
-											className="w-56 rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-										>
-											<option value="">Sélectionner…</option>
-											{contacts.map((contact) => (
-												<option key={contact.id} value={contact.id}>
-													{contact.firstName ?? ''} {contact.lastName ?? ''} • {contact.email ?? ''}
+											{languageOptions.map((option) => (
+												<option key={option.value} value={option.value}>
+													{option.label}
 												</option>
 											))}
 										</select>
+										<span className="sn-hint">Langue utilisée pour les échanges et l&apos;accueil.</span>
+									</label>
+								</div>
+								<label className="sn-field">
+									<span className="sn-label">Email</span>
+									<input
+										type="email"
+										value={form.email}
+										onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
+										className="sn-input"
+									/>
+								</label>
+							</section>
+
+							{createTab === 'group' && (
+								<section className="sn-form-section sn-form-section--muted">
+									<div className="sn-form-section-header">
+										<span className="sn-form-section-icon" aria-hidden="true">👥</span>
+										<div>
+											<p className="sn-form-section-heading">Détails groupe</p>
+											<p className="sn-form-section-copy">Précisez l&apos;organisation et les informations logistiques à partager avec l&apos;équipe.</p>
+										</div>
+									</div>
+									<div className="sn-form-grid sn-form-grid-2">
+										<label className="sn-field">
+											<span className="sn-label">Organisation</span>
+											<input
+												value={form.company}
+												onChange={(event) => setForm((current) => ({ ...current, company: event.target.value }))}
+												placeholder="Nom de l&apos;organisation"
+												className="sn-input"
+											/>
+										</label>
+										<label className="sn-field">
+											<span className="sn-label">Téléphone</span>
+											<input
+												type="tel"
+												value={form.phone}
+												onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+												placeholder="Ex : +33 6 12 34 56 78"
+												className="sn-input"
+											/>
+										</label>
+									</div>
+									<label className="sn-field">
+										<span className="sn-label">Adresse</span>
+										<input
+											value={form.address}
+											onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
+											placeholder="Adresse de facturation ou lieu de prise en charge"
+											className="sn-input"
+										/>
+									</label>
+									<div className="sn-form-grid sn-form-grid-3">
+										<label className="sn-field">
+											<span className="sn-label">Date de l&apos;évènement</span>
+											<input
+												type="date"
+												value={form.eventDate}
+												onChange={(event) => setForm((current) => ({ ...current, eventDate: event.target.value }))}
+												className="sn-input"
+											/>
+										</label>
+										<label className="sn-field">
+											<span className="sn-label">Heure souhaitée</span>
+											<input
+												type="time"
+												value={form.eventTime}
+												onChange={(event) => setForm((current) => ({ ...current, eventTime: event.target.value }))}
+												className="sn-input"
+											/>
+										</label>
+										<label className="sn-field">
+											<span className="sn-label">Budget estimé</span>
+											<input
+												value={form.budget}
+												onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))}
+												placeholder="Ex : 1500 €"
+												className="sn-input"
+											/>
+										</label>
+									</div>
+									<label className="sn-field">
+										<span className="sn-label">Type d&apos;évènement</span>
+										<input
+											value={form.reason}
+											onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))}
+											placeholder="Séminaire, EVJF, anniversaire..."
+											className="sn-input"
+										/>
+									</label>
+									<label className="sn-field">
+										<span className="sn-label">Notes supplémentaires</span>
+										<textarea
+											rows={3}
+											value={form.message}
+											onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+											placeholder="Consignes logistiques, demandes spécifiques, allergies..."
+											className="sn-input sn-textarea"
+										/>
+									</label>
+								</section>
+							)}
+
+							{createTab === 'private' && (
+								<div className="sn-form-info">
+									Privatisation : le créneau sélectionné est bloqué pour un client unique et retire la capacité publique du planning.
+								</div>
+							)}
+
+							{createTab === 'contact' && (
+								<section className="sn-form-section sn-form-section--muted">
+									<div className="sn-form-section-header">
+										<span className="sn-form-section-icon" aria-hidden="true">📥</span>
+										<div>
+											<p className="sn-form-section-heading">Convertir un contact</p>
+											<p className="sn-form-section-copy">Filtrez vos demandes puis transformez-les en réservation interne.</p>
+										</div>
+									</div>
+									<div className="sn-form-grid sn-form-grid-2">
+										<label className="sn-field">
+											<span className="sn-label">Statut</span>
+											<select
+												value={contactStatus}
+												onChange={async (event) => {
+													const value = event.target.value as 'NEW' | 'CONTACTED' | 'CLOSED' | ''
+													await handleContactStatusChange(value)
+												}}
+												className="sn-input"
+											>
+												<option value="">Tous les statuts</option>
+												<option value="NEW">Nouveaux</option>
+												<option value="CONTACTED">Contactés</option>
+												<option value="CLOSED">Fermés</option>
+											</select>
+										</label>
+										<label className="sn-field">
+											<span className="sn-label">Contact</span>
+											<select
+												value={selectedContactId}
+												onChange={(event) => setSelectedContactId(event.target.value)}
+												className="sn-input"
+											>
+												<option value="">Sélectionner…</option>
+												{contacts.map((contact) => (
+													<option key={contact.id} value={contact.id}>
+														{contact.firstName ?? ''} {contact.lastName ?? ''} • {contact.email ?? ''}
+													</option>
+												))}
+											</select>
+										</label>
 									</div>
 									<button
 										type="button"
@@ -1119,20 +1242,16 @@ export default function ReservationsAdminPage() {
 												setContactConverting(false)
 											}
 										}}
-										className="rounded border border-blue-600 bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+										className="sn-btn-primary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
 									>
 										{contactConverting ? 'Conversion…' : 'Convertir'}
 									</button>
-								</div>
+								</section>
 							)}
 						</div>
 
-						<div className="mt-4 flex justify-end gap-2">
-							<button
-								type="button"
-								onClick={closeCreateModal}
-								className="rounded border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-							>
+						<div className="sn-modal-footer">
+							<button type="button" onClick={closeCreateModal} className="sn-btn-secondary">
 								Annuler
 							</button>
 							<button
@@ -1225,90 +1344,182 @@ export default function ReservationsAdminPage() {
 						className="sn-card max-h-[90vh] w-full max-w-xl overflow-y-auto"
 						onClick={(event) => event.stopPropagation()}
 					>
-						<div className="flex items-center justify-between border-b border-slate-100 pb-3">
-							<h3 className="text-sm font-semibold text-slate-800">Détails réservation</h3>
-							<button
-								type="button"
-								onClick={closeViewModal}
-								className="text-lg text-slate-400 transition hover:text-slate-600"
-							>
+						<div className="sn-modal-header">
+							<div>
+								<h3 className="sn-modal-title">Détails réservation</h3>
+								<p className="sn-modal-subtitle">Synthèse de la réservation et état du paiement.</p>
+							</div>
+							<button type="button" onClick={closeViewModal} className="sn-modal-close" aria-label="Fermer la fiche">
 								✕
 							</button>
 						</div>
-						<div className="mt-3 space-y-2 text-sm text-slate-600">
-							<p>
-								Date :{' '}
-								<span className="font-semibold text-slate-800">
-									{format(toWall(new Date(showView.startTime)), 'dd/MM/yyyy HH:mm')}
-								</span>
-							</p>
-							<p>
-								Client :{' '}
-								<span className="font-semibold text-slate-800">
-									{showView.user?.firstName} {showView.user?.lastName} ({showView.user?.email})
-								</span>
-							</p>
-							<p>{formatPeopleLabel(showView)}</p>
-							<p>Langue : {showView.language ?? '—'}</p>
-							<p>Paiement : {describePaymentMethod(showView)}</p>
-							<p>Statut : {getPaymentStatusInfo(showView).label}</p>
-							<div className="pt-3">
-								<button
-									type="button"
-									onClick={() => setViewMarkPaid({ provider: '', methodType: undefined })}
-									className="sn-btn-primary"
-								>
-									Marquer payé
-								</button>
-							</div>
-							{viewMarkPaid && (
-								<div className="rounded border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-									<p className="mb-2 font-semibold">Choisissez le moyen de paiement</p>
-									<div className="flex flex-wrap items-center gap-2">
-										<select
-											value={viewMarkPaid.provider}
-											onChange={(event) => {
-												const provider = event.target.value
-												setViewMarkPaid((current) =>
-													current
-														? {
-																provider,
-																methodType: provider === 'voucher' ? current.methodType ?? 'ANCV' : undefined
-															}
-														: current
-												)
-											}}
-											className="rounded border border-slate-200 px-3 py-2 text-xs shadow-inner focus:border-blue-500 focus:outline-none"
+
+						<div className="sn-modal-body">
+							<section className="sn-form-section">
+								<div className="sn-form-section-header">
+									<span className="sn-form-section-icon" aria-hidden="true">📅</span>
+									<div>
+										<p className="sn-form-section-heading">Départ</p>
+										<p className="sn-form-section-copy">Créneau sélectionné et composition du groupe.</p>
+									</div>
+								</div>
+								<div className="sn-form-grid sn-form-grid-2">
+									<div className="sn-field">
+										<span className="sn-label">Date</span>
+										<span className="text-base font-semibold text-slate-900">{viewDateLabel || '—'}</span>
+										{viewTimeLabel && <span className="sn-hint">Départ à {viewTimeLabel}</span>}
+									</div>
+									<div className="sn-field">
+										<span className="sn-label">Référence</span>
+										<span className="text-base font-semibold text-slate-900">{showView.publicReference ?? '—'}</span>
+										<span className="sn-hint">Affichée sur les confirmations client.</span>
+									</div>
+									<div className="sn-field">
+										<span className="sn-label">Participants</span>
+										<span className="text-base font-semibold text-slate-900">{viewPeopleLabel || '—'}</span>
+									</div>
+									<div className="sn-field">
+										<span className="sn-label">Langue</span>
+										<span className="text-base font-semibold text-slate-900">{showView.language ?? '—'}</span>
+									</div>
+								</div>
+							</section>
+
+							<section className="sn-form-section">
+								<div className="sn-form-section-header">
+									<span className="sn-form-section-icon" aria-hidden="true">👤</span>
+									<div>
+										<p className="sn-form-section-heading">Client principal</p>
+										<p className="sn-form-section-copy">Coordonnées pour prévenir ou confirmer l&apos;embarquement.</p>
+									</div>
+								</div>
+								<div className="sn-form-grid sn-form-grid-2">
+									<div className="sn-field">
+										<span className="sn-label">Client</span>
+										<span className="text-base font-semibold text-slate-900">{viewClientName}</span>
+									</div>
+									<div className="sn-field">
+										<span className="sn-label">Email</span>
+										<span className="text-base font-semibold text-slate-900">{viewClientEmail}</span>
+									</div>
+									<div className="sn-field sm:col-span-2">
+										<span className="sn-label">Téléphone</span>
+										<span className="text-base font-semibold text-slate-900">{viewClientPhone}</span>
+										<span className="sn-hint">Utilisez ce numéro pour prévenir des imprévus.</span>
+									</div>
+								</div>
+							</section>
+
+							<section className="sn-form-section">
+								<div className="sn-form-section-header">
+									<span className="sn-form-section-icon" aria-hidden="true">💳</span>
+									<div>
+										<p className="sn-form-section-heading">Paiement</p>
+										<p className="sn-form-section-copy">Statut actuel de la réservation.</p>
+									</div>
+								</div>
+								<div className="sn-form-grid sn-form-grid-2">
+									<div className="sn-field">
+										<span className="sn-label">Statut</span>
+										<span
+											className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+												viewPaymentStatus?.tone ?? 'border-slate-200 bg-slate-100 text-slate-600'
+											}`}
 										>
-											<option value="">-- moyen --</option>
-											<option value="cash">Espèces</option>
-											<option value="card">Carte</option>
-											<option value="paypal">PayPal</option>
-											<option value="applepay">Apple Pay</option>
-											<option value="googlepay">Google Pay</option>
-											<option value="voucher">ANCV / CityPass</option>
-										</select>
-										{viewMarkPaid.provider === 'voucher' && (
+											{viewPaymentStatus?.label ?? '—'}
+										</span>
+									</div>
+									<div className="sn-field">
+										<span className="sn-label">Moyen</span>
+										<span className="text-base font-semibold text-slate-900">{viewPaymentMethodLabel}</span>
+									</div>
+								</div>
+							</section>
+
+							{viewMarkPaid && (
+								<section className="sn-form-section sn-form-section--muted">
+									<div className="sn-form-section-header">
+										<span className="sn-form-section-icon" aria-hidden="true">💶</span>
+										<div>
+											<p className="sn-form-section-heading">Confirmer le paiement</p>
+											<p className="sn-form-section-copy">Enregistrez le règlement pour maintenir le suivi comptable.</p>
+										</div>
+									</div>
+									<div className="sn-form-grid sn-form-grid-2">
+										<label className="sn-field">
+											<span className="sn-label">Moyen de paiement</span>
 											<select
-												value={viewMarkPaid.methodType ?? 'ANCV'}
-												onChange={(event) =>
-													setViewMarkPaid((current) =>
-														current ? { ...current, methodType: event.target.value } : current
-													)
-												}
-												className="rounded border border-slate-200 px-3 py-2 text-xs shadow-inner focus:border-blue-500 focus:outline-none"
+												value={viewMarkPaid.provider}
+												onChange={(event) => {
+													const provider = event.target.value
+													setViewMarkPaid((current) => {
+														if (!current) {
+															return current
+														}
+														return {
+															provider,
+															methodType: provider === 'voucher' ? current.methodType ?? 'ANCV' : undefined
+														}
+													})
+												}}
+												className="sn-input"
+												disabled={markingPaid}
 											>
-												<option value="ANCV">ANCV</option>
-												<option value="CityPass">CityPass</option>
+												<option value="">Sélectionner…</option>
+												<option value="cash">Espèces</option>
+												<option value="card">Carte</option>
+												<option value="paypal">PayPal</option>
+												<option value="applepay">Apple Pay</option>
+												<option value="googlepay">Google Pay</option>
+												<option value="voucher">ANCV / CityPass</option>
 											</select>
+											<span className="sn-hint">Indiquez la source du règlement enregistré.</span>
+										</label>
+										{viewMarkPaid.provider === 'voucher' && (
+											<label className="sn-field">
+												<span className="sn-label">Détail</span>
+												<select
+													value={viewMarkPaid.methodType ?? 'ANCV'}
+													onChange={(event) => {
+														const methodType = event.target.value
+														setViewMarkPaid((current) => {
+															if (!current) {
+																return current
+															}
+															return { ...current, methodType }
+														})
+													}}
+													className="sn-input"
+													disabled={markingPaid}
+												>
+													<option value="ANCV">Chèque ANCV</option>
+													<option value="CityPass">City Pass</option>
+												</select>
+												<span className="sn-hint">Précisez le support utilisé.</span>
+											</label>
 										)}
+									</div>
+									<div className="mt-4 flex flex-wrap justify-end gap-2">
 										<button
 											type="button"
+											onClick={() => {
+												setViewMarkPaid(null)
+												setMarkingPaid(false)
+											}}
+											className="sn-btn-secondary"
+											disabled={markingPaid}
+										>
+											Annuler
+										</button>
+										<button
+											type="button"
+											disabled={markingPaid}
 											onClick={async () => {
 												if (!viewMarkPaid.provider) {
-													alert('Sélectionnez un moyen de paiement.')
+													pushToast({ type: 'warning', message: 'Sélectionnez un moyen de paiement.' })
 													return
 												}
+												setMarkingPaid(true)
 												try {
 													const payload: Record<string, unknown> = {
 														newIsPaid: true,
@@ -1328,26 +1539,39 @@ export default function ReservationsAdminPage() {
 														mutate()
 														closeViewModal()
 													} else {
-														alert('Échec de la mise à jour du paiement.')
+														pushToast({ type: 'warning', message: 'Échec de la mise à jour du paiement.' })
 													}
 												} catch (updateError) {
 													console.error('Erreur mise à jour paiement', updateError)
-													alert('Erreur réseau pendant la mise à jour du paiement.')
+													pushToast({ type: 'warning', message: 'Erreur réseau pendant la mise à jour du paiement.' })
+												} finally {
+													setMarkingPaid(false)
 												}
 											}}
-											className="rounded border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+											className="sn-btn-primary"
 										>
-											Valider
-										</button>
-										<button
-											type="button"
-											onClick={() => setViewMarkPaid(null)}
-											className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
-										>
-											Annuler
+											{markingPaid ? 'Validation…' : 'Valider'}
 										</button>
 									</div>
-								</div>
+								</section>
+							)}
+						</div>
+
+						<div className="sn-modal-footer">
+							<button type="button" onClick={closeViewModal} className="sn-btn-secondary">
+								Fermer
+							</button>
+							{!viewMarkPaid && (
+								<button
+									type="button"
+									onClick={() => {
+										setViewMarkPaid({ provider: '', methodType: undefined })
+										setMarkingPaid(false)
+									}}
+									className="sn-btn-primary"
+								>
+									Mettre à jour le paiement
+								</button>
 							)}
 						</div>
 					</div>
@@ -1363,12 +1587,18 @@ export default function ReservationsAdminPage() {
 						className="sn-card max-h-[90vh] w-full max-w-xl overflow-y-auto"
 						onClick={(event) => event.stopPropagation()}
 					>
-						<div className="flex items-center justify-between border-b border-slate-100 pb-3">
-							<h3 className="text-sm font-semibold text-slate-800">Modifier réservation</h3>
+						<div className="sn-modal-header">
+							<div>
+								<h3 className="sn-modal-title">Modifier la réservation</h3>
+								<p className="sn-modal-subtitle">
+									Mettez à jour le créneau, les effectifs ou le paiement.
+								</p>
+							</div>
 							<button
 								type="button"
 								onClick={() => setShowEdit(null)}
-								className="text-lg text-slate-400 transition hover:text-slate-600"
+								className="sn-modal-close"
+								aria-label="Fermer la modification"
 							>
 								✕
 							</button>
@@ -1409,155 +1639,242 @@ function EditForm({
 		paymentProvider: booking.payments?.[0]?.provider ?? '',
 		paymentMethodType: booking.payments?.[0]?.methodType ?? 'ANCV'
 	}))
+	const [saving, setSaving] = useState(false)
+	const languageOptions = useMemo(() => {
+		const base = [...LANGUAGE_OPTIONS]
+		if (state.language && !base.some((option) => option.value === state.language)) {
+			base.push({ value: state.language, label: state.language.toUpperCase() })
+		}
+		return base
+	}, [state.language])
+
+	const handleSave = async () => {
+		if (state.isPaid && !state.paymentProvider) {
+			alert('Sélectionnez un moyen de paiement.')
+			return
+		}
+		const confirmation = window.confirm('Confirmer la modification de cette réservation ?')
+		if (!confirmation) return
+		const payload: Record<string, unknown> = {
+			adults: state.adults,
+			children: state.children,
+			babies: state.babies,
+			language: state.language,
+			newIsPaid: state.isPaid
+		}
+		if (state.date && state.time) {
+			payload.date = state.date
+			payload.time = state.time
+		}
+		if (state.isPaid && state.paymentProvider) {
+			payload.paymentMethod = {
+				provider: state.paymentProvider,
+				methodType: state.paymentProvider === 'voucher' ? state.paymentMethodType : undefined
+			}
+		}
+		setSaving(true)
+		try {
+			const response = await fetch(`/api/bookings/${booking.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			})
+			if (response.ok) {
+				onSaved()
+			} else {
+				alert('Impossible de modifier la réservation.')
+			}
+		} catch (editError) {
+			console.error('Erreur modification réservation', editError)
+			alert('Erreur réseau pendant la modification.')
+		} finally {
+			setSaving(false)
+		}
+	}
 
 	return (
-		<div className="space-y-4 text-sm text-slate-600">
-			<div className="grid grid-cols-2 gap-2">
-				<input
-					value={state.date}
-					onChange={(event) => setState((current) => ({ ...current, date: event.target.value }))}
-					className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-				/>
-				<input
-					value={state.time}
-					onChange={(event) => setState((current) => ({ ...current, time: event.target.value }))}
-					className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-				/>
-			</div>
-			<div className="grid grid-cols-3 gap-2">
-				<input
-					type="number"
-					value={state.adults}
-					onChange={(event) =>
-						setState((current) => ({ ...current, adults: parseInt(event.target.value || '0', 10) || 0 }))
-					}
-					className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-				/>
-				<input
-					type="number"
-					value={state.children}
-					onChange={(event) =>
-						setState((current) => ({ ...current, children: parseInt(event.target.value || '0', 10) || 0 }))
-					}
-					className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-				/>
-				<input
-					type="number"
-					value={state.babies}
-					onChange={(event) =>
-						setState((current) => ({ ...current, babies: parseInt(event.target.value || '0', 10) || 0 }))
-					}
-					className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-				/>
-			</div>
-			<input
-				value={state.language}
-				onChange={(event) => setState((current) => ({ ...current, language: event.target.value }))}
-				className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-			/>
-
-			<label className="flex items-center gap-2 text-sm">
-				<input
-					type="checkbox"
-					checked={state.isPaid}
-					onChange={(event) => setState((current) => ({ ...current, isPaid: event.target.checked }))}
-				/>
-				<span className="font-semibold text-slate-700">Payé ?</span>
-			</label>
-
-			{state.isPaid && (
-				<div className="flex flex-wrap items-center gap-2">
-					<select
-						value={state.paymentProvider}
-						onChange={(event) =>
-							setState((current) => ({
-								...current,
-								paymentProvider: event.target.value,
-								paymentMethodType:
-									event.target.value === 'voucher' ? current.paymentMethodType ?? 'ANCV' : 'ANCV'
-							}))
-						}
-						className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
-					>
-						<option value="">-- moyen --</option>
-						<option value="cash">Espèces</option>
-						<option value="card">Carte</option>
-						<option value="paypal">PayPal</option>
-						<option value="applepay">Apple Pay</option>
-						<option value="googlepay">Google Pay</option>
-						<option value="voucher">ANCV / CityPass</option>
-					</select>
-					{state.paymentProvider === 'voucher' && (
+		<>
+			<div className="sn-modal-body">
+				<section className="sn-form-section">
+					<div className="sn-form-section-header">
+						<span className="sn-form-section-icon" aria-hidden="true">🛥️</span>
+						<div>
+							<p className="sn-form-section-heading">Départ &amp; capacité</p>
+							<p className="sn-form-section-copy">Ajustez le créneau et la composition du groupe.</p>
+						</div>
+					</div>
+					<div className="sn-form-grid sn-form-grid-2">
+						<label className="sn-field">
+							<span className="sn-label">Date</span>
+							<input
+								type="date"
+								value={state.date}
+								onChange={(event) => setState((current) => ({ ...current, date: event.target.value }))}
+								className="sn-input"
+							/>
+						</label>
+						<label className="sn-field">
+							<span className="sn-label">Heure</span>
+							<input
+								type="time"
+								value={state.time}
+								onChange={(event) => setState((current) => ({ ...current, time: event.target.value }))}
+								className="sn-input"
+							/>
+						</label>
+					</div>
+					<div className="sn-form-grid sn-form-grid-3">
+						<label className="sn-field">
+							<span className="sn-label">Adultes</span>
+							<input
+								type="number"
+								min={0}
+								value={state.adults}
+								onChange={(event) =>
+									setState((current) => ({
+										...current,
+										adults: parseInt(event.target.value || '0', 10) || 0
+									}))
+								}
+								className="sn-input"
+							/>
+						</label>
+						<label className="sn-field">
+							<span className="sn-label">Enfants</span>
+							<input
+								type="number"
+								min={0}
+								value={state.children}
+								onChange={(event) =>
+									setState((current) => ({
+										...current,
+										children: parseInt(event.target.value || '0', 10) || 0
+									}))
+								}
+								className="sn-input"
+							/>
+						</label>
+						<label className="sn-field">
+							<span className="sn-label">Bébés</span>
+							<input
+								type="number"
+								min={0}
+								value={state.babies}
+								onChange={(event) =>
+									setState((current) => ({
+										...current,
+										babies: parseInt(event.target.value || '0', 10) || 0
+									}))
+								}
+								className="sn-input"
+							/>
+						</label>
+					</div>
+					<label className="sn-field">
+						<span className="sn-label">Langue</span>
 						<select
-							value={state.paymentMethodType}
-							onChange={(event) =>
-								setState((current) => ({ ...current, paymentMethodType: event.target.value }))
-							}
-							className="rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+							value={state.language}
+							onChange={(event) => setState((current) => ({ ...current, language: event.target.value }))}
+							className="sn-input"
 						>
-							<option value="ANCV">ANCV</option>
-							<option value="CityPass">CityPass</option>
+							{languageOptions.map((option) => (
+								<option key={option.value} value={option.value}>
+									{option.label}
+								</option>
+							))}
 						</select>
-					)}
-				</div>
-			)}
+					</label>
+				</section>
 
-			<div className="flex justify-end gap-2 pt-4">
-				<button
-					type="button"
-					onClick={onClose}
-					className="rounded border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-				>
+				<section className="sn-form-section">
+					<div className="sn-form-section-header">
+						<span className="sn-form-section-icon" aria-hidden="true">💳</span>
+						<div>
+							<p className="sn-form-section-heading">Paiement</p>
+							<p className="sn-form-section-copy">Indiquez le statut et la source du règlement.</p>
+						</div>
+					</div>
+					<label className="sn-field">
+						<span className="sn-label">Statut</span>
+						<span className="inline-flex items-center gap-2">
+							<input
+								type="checkbox"
+								checked={state.isPaid}
+								onChange={(event) => setState((current) => ({ ...current, isPaid: event.target.checked }))}
+								className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+							/>
+							<span className="font-semibold text-slate-700">Réglé</span>
+						</span>
+						<span className="sn-hint">Cochez dès que la caisse confirme le paiement.</span>
+					</label>
+
+					{state.isPaid ? (
+						<div className="sn-form-grid sn-form-grid-2">
+							<label className="sn-field">
+								<span className="sn-label">Moyen de paiement</span>
+								<select
+									value={state.paymentProvider}
+									onChange={(event) =>
+										setState((current) => ({
+											...current,
+											paymentProvider: event.target.value,
+											paymentMethodType:
+												event.target.value === 'voucher' ? current.paymentMethodType ?? 'ANCV' : 'ANCV'
+										}))
+									}
+									className="sn-input"
+									disabled={saving}
+								>
+									<option value="">Sélectionner…</option>
+									<option value="cash">Espèces</option>
+									<option value="card">Carte</option>
+									<option value="paypal">PayPal</option>
+									<option value="applepay">Apple Pay</option>
+									<option value="googlepay">Google Pay</option>
+									<option value="voucher">ANCV / CityPass</option>
+								</select>
+								<span className="sn-hint">Renseignez le canal utilisé pour encaisser.</span>
+							</label>
+							{state.paymentProvider === 'voucher' && (
+								<label className="sn-field">
+									<span className="sn-label">Type de bon</span>
+									<select
+										value={state.paymentMethodType}
+										onChange={(event) =>
+											setState((current) => ({ ...current, paymentMethodType: event.target.value }))
+										}
+										className="sn-input"
+										disabled={saving}
+									>
+										<option value="ANCV">Chèque ANCV</option>
+										<option value="CityPass">City Pass</option>
+									</select>
+									<span className="sn-hint">Précisez le support reçu.</span>
+								</label>
+							)}
+						</div>
+					) : (
+						<div className="sn-form-info">
+							<p className="sn-form-info-title">Paiement en attente</p>
+							<p className="sn-form-info-hint">Confirmez le règlement dès réception pour clôturer la réservation.</p>
+						</div>
+					)}
+				</section>
+			</div>
+			<div className="sn-modal-footer">
+				<button type="button" onClick={onClose} className="sn-btn-secondary" disabled={saving}>
 					Annuler
 				</button>
 				<button
 					type="button"
-					onClick={async () => {
-						const payload: Record<string, unknown> = {
-							adults: state.adults,
-							children: state.children,
-							babies: state.babies,
-							language: state.language,
-							newIsPaid: state.isPaid
-						}
-						if (state.date && state.time) {
-							payload.date = state.date
-							payload.time = state.time
-						}
-						if (state.isPaid) {
-							if (!state.paymentProvider) {
-								alert('Sélectionnez un moyen de paiement.')
-								return
-							}
-							payload.paymentMethod = {
-								provider: state.paymentProvider,
-								methodType: state.paymentProvider === 'voucher' ? state.paymentMethodType : undefined
-							}
-						}
-						const confirmation = window.confirm('Confirmer la modification de cette réservation ?')
-						if (!confirmation) return
-						try {
-							const response = await fetch(`/api/bookings/${booking.id}`, {
-								method: 'PATCH',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify(payload)
-							})
-							if (response.ok) {
-								onSaved()
-							} else {
-								alert('Impossible de modifier la réservation.')
-							}
-						} catch (editError) {
-							console.error('Erreur modification réservation', editError)
-							alert('Erreur réseau pendant la modification.')
-						}
-					}}
-					className="rounded border border-blue-600 bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+					onClick={handleSave}
+					className="sn-btn-primary"
+					disabled={saving}
 				>
-					Enregistrer
+					{saving ? 'Enregistrement…' : 'Enregistrer'}
 				</button>
 			</div>
-		</div>
+		</>
 	)
 }
 

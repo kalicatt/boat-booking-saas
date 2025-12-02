@@ -2,6 +2,54 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseISO, addDays, startOfDay } from 'date-fns'
 
+const normalizeQuery = (value: string) => value.trim().toLowerCase()
+const compactQuery = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()
+const digitsOnly = (value: string) => value.replace(/\D/g, '')
+
+const matchesQuery = (booking: {
+  user: {
+    firstName: string | null
+    lastName: string | null
+    email: string | null
+    phone: string | null
+  } | null
+  publicReference: string | null
+}, rawQuery: string) => {
+  const normalized = normalizeQuery(rawQuery)
+  if (!normalized) return true
+  const compact = compactQuery(rawQuery)
+  const numeric = digitsOnly(rawQuery)
+  const reference = booking.publicReference ?? ''
+  const referenceNormalized = reference.toLowerCase()
+  const referenceCompact = compactQuery(reference)
+  const referenceDigits = digitsOnly(reference)
+
+  if (referenceNormalized.includes(normalized)) return true
+  if (compact && referenceCompact.includes(compact)) return true
+  if (numeric && referenceDigits.includes(numeric)) return true
+
+  if (!booking.user) return false
+
+  const { firstName, lastName, email, phone } = booking.user
+  const first = (firstName ?? '').toLowerCase()
+  const last = (lastName ?? '').toLowerCase()
+  const full = `${first} ${last}`.trim()
+
+  if (first.includes(normalized) || last.includes(normalized) || (full && full.includes(normalized))) {
+    return true
+  }
+
+  if ((email ?? '').toLowerCase().includes(normalized)) {
+    return true
+  }
+
+  if (numeric && digitsOnly(phone ?? '').includes(numeric)) {
+    return true
+  }
+
+  return false
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const startParam = searchParams.get('start')
@@ -16,25 +64,25 @@ export async function GET(request: Request) {
     const bookings = await prisma.booking.findMany({
       where: {
         startTime: { gte: start, lt: end },
-        status: { not: 'CANCELLED' },
-        ...(q ? { OR: [
-          { user: { firstName: { contains: q, mode: 'insensitive' } } },
-          { user: { lastName: { contains: q, mode: 'insensitive' } } }
-        ] } : {})
+        status: { not: 'CANCELLED' }
       },
       include: {
-        user: { select: { firstName: true, lastName: true } },
-        payments: { select: { id: true, provider: true, methodType: true } }
+        user: { select: { firstName: true, lastName: true, email: true, phone: true } },
+        payments: { select: { id: true, provider: true, methodType: true, status: true } }
       },
       orderBy: { startTime: 'asc' }
     })
-    const filtered = payment ? bookings.filter(b => {
+
+    const paymentFiltered = payment ? bookings.filter(b => {
       const p = b.payments?.[0]
       if (!p) return false
       if (payment === 'voucher') return p.provider === 'voucher'
       return p.provider === payment
     }) : bookings
-    return NextResponse.json(filtered)
+
+    const queryFiltered = q ? paymentFiltered.filter(booking => matchesQuery(booking, q)) : paymentFiltered
+
+    return NextResponse.json(queryFiltered)
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     console.error(msg)
