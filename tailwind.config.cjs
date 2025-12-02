@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-/** Tailwind CSS config (stable v3 compatibility for Next dev) */
+/** Tailwind CSS config tuned for Konsta UI + safe-area utilities */
 const plugin = require('tailwindcss/plugin')
 
 module.exports = {
@@ -43,6 +43,7 @@ module.exports = {
           paddingBottom: 'env(safe-area-inset-bottom)'
         }
       }
+
       addUtilities(safeAreaUtilities)
       addUtilities({
         '.ios-backdrop': {
