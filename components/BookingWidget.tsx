@@ -127,6 +127,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [clientSecret, setClientSecret] = useState<string | null>(null)
     const [stripeError, setStripeError] = useState<string | null>(null)
+    const [initializingStripe, setInitializingStripe] = useState(false)
     const [paymentSucceeded, setPaymentSucceeded] = useState<boolean>(false)
         const [paymentProvider, setPaymentProvider] = useState<null | 'stripe' | 'paypal'>(null)
     const [paypalOrderId, setPaypalOrderId] = useState<string | null>(null)
@@ -194,6 +195,41 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         setPendingBookingId(newId)
         return newId
     }, [adults, babies, buildE164, captchaToken, children, date, formData, language, pendingBookingId, selectedSlot, widgetCopy])
+
+    const initializeStripeIntent = useCallback(async () => {
+        if (initializingStripe) return
+        setStripeError(null)
+        setInitializingStripe(true)
+        try {
+            const bookingId = await ensurePendingBooking()
+            const res = await fetch('/api/payments/create-intent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bookingId })
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok || !data?.clientSecret) {
+                const fallback = widgetCopy.payment_error_generic || 'Erreur paiement'
+                throw new Error(data?.error || fallback)
+            }
+            setClientSecret(data.clientSecret)
+            setPaymentProvider('stripe')
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error)
+            const fallback = widgetCopy.payment_error_generic || 'Erreur paiement'
+            setStripeError(msg || fallback)
+        } finally {
+            setInitializingStripe(false)
+        }
+    }, [ensurePendingBooking, initializingStripe, widgetCopy])
+
+    useEffect(() => {
+        if (step !== STEPS.PAYMENT) return
+        if (clientSecret) return
+        initializeStripeIntent().catch(() => {
+            /* Errors surfaced via stripeError state */
+        })
+    }, [step, clientSecret, initializeStripeIntent])
 
   // Calculs
   const totalPeople = adults + children + babies
@@ -825,28 +861,19 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                             <div className="flex items-center justify-between mb-2">
                                 <h4 className="text-sm font-bold text-slate-700">{widgetCopy.payment_title || 'Paiement'}</h4>
-                                <button
-                                    type="button"
-                                    className="text-xs underline"
-                                    onClick={async () => {
-                                        setStripeError(null)
-                                        try {
-                                            const bookingId = await ensurePendingBooking()
-                                            const res = await fetch('/api/payments/create-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId }) })
-                                            const data = await res.json()
-                                            if (res.ok && data.clientSecret) {
-                                                setClientSecret(data.clientSecret)
-                                                setPaymentProvider('stripe')
-                                            } else {
-                                                setStripeError(data.error || (widgetCopy.payment_error_generic || 'Erreur paiement'))
-                                            }
-                                        } catch {
-                                            setStripeError(widgetCopy.payment_error_network || 'Erreur de connexion paiement')
-                                        }
-                                    }}
-                                >
-                                    {widgetCopy.btn_pay_now || 'Payer maintenant'}
-                                </button>
+                                {!clientSecret && !initializingStripe && (
+                                    <button
+                                        type="button"
+                                        className="text-xs underline"
+                                        onClick={() => {
+                                            initializeStripeIntent().catch(() => {
+                                                /* handled via stripeError */
+                                            })
+                                        }}
+                                    >
+                                        {widgetCopy.btn_pay_now || 'Payer maintenant'}
+                                    </button>
+                                )}
                             </div>
                             <div className="text-xs text-slate-500">
                                 {clientSecret ? (
@@ -860,7 +887,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                         }}
                                     />
                                 ) : (
-                                    widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement'
+                                    initializingStripe
+                                        ? (widgetCopy.payment_initializing || 'Préparation du paiement en cours…')
+                                        : (widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement')
                                 )}
                                 {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
                             </div>
