@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyBookingToken } from '@/lib/bookingToken'
 import { generateBookingQrCodeBuffer } from '@/lib/qr'
 
 export async function GET(
-  _request: Request,
-  { params }: { params: { bookingId: string; token: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ bookingId: string; token: string }> }
 ) {
-  const { bookingId, token } = params
+  const { bookingId, token } = await params
 
   if (!verifyBookingToken(bookingId, token)) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 403 })
@@ -23,8 +23,12 @@ export async function GET(
   }
 
   const pngBuffer = await generateBookingQrCodeBuffer(booking.id, booking.publicReference)
+  const pngArrayBuffer = pngBuffer.buffer.slice(
+    pngBuffer.byteOffset,
+    pngBuffer.byteOffset + pngBuffer.byteLength
+  ) as ArrayBuffer
 
-  return new NextResponse(pngBuffer, {
+  return new NextResponse(pngArrayBuffer, {
     status: 200,
     headers: {
       'Content-Type': 'image/png',

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
+import type { CountryCode } from 'libphonenumber-js'
 
 interface QuickBookingModalProps {
     slotStart: Date
@@ -49,7 +50,7 @@ function normalizePhoneForApi(input: string): string | undefined {
     const trimmed = input.trim()
     if (!trimmed) return undefined
 
-    const attempts: Array<{ value: string; country?: string }> = []
+    const attempts: Array<{ value: string; country?: CountryCode }> = []
     attempts.push({ value: trimmed })
 
     const replaced00 = trimmed.replace(/^\s*00/, '+')

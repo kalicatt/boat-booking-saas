@@ -455,8 +455,8 @@ export async function POST(request: Request) {
             if (otherConflict) continue
             const allocation = Math.min(ob.capacity, remainingForSlot)
             try {
-              const chainedAltReference = await generateSeasonalBookingReference(tx, startChain)
-              const chainedAlt = await tx.booking.create({
+              const chainedAltReference = await generateSeasonalBookingReference(prisma, startChain)
+              const chainedAlt = await prisma.booking.create({
                 data: {
                   date: new Date(`${date}T00:00:00.000Z`),
                   startTime: startChain,
@@ -506,8 +506,8 @@ export async function POST(request: Request) {
         try {
           // Primary boat free: allocate on primary first (up to capacity)
           const allocationPrimary = Math.min(targetBoat.capacity, remainingForSlot)
-          const chainedReference = await generateSeasonalBookingReference(tx, startChain)
-          const chained = await tx.booking.create({
+          const chainedReference = await generateSeasonalBookingReference(prisma, startChain)
+          const chained = await prisma.booking.create({
             data: {
               date: new Date(`${date}T00:00:00.000Z`),
               startTime: startChain,
@@ -563,8 +563,8 @@ export async function POST(request: Request) {
               if (otherConflict) continue
               const allocation = Math.min(ob.capacity, remainingForSlot)
               if (allocation <= 0) break
-              const chainedExtraReference = await generateSeasonalBookingReference(tx, startChain)
-              const chainedExtra = await tx.booking.create({
+              const chainedExtraReference = await generateSeasonalBookingReference(prisma, startChain)
+              const chainedExtra = await prisma.booking.create({
                 data: {
                   date: new Date(`${date}T00:00:00.000Z`),
                   startTime: startChain,

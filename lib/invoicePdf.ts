@@ -68,7 +68,12 @@ export async function generateBookingInvoicePdf(payload: BookingInvoicePayload):
   doc.text('+33 3 89 20 68 92')
 
   doc.moveDown(1.5)
-  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16).text(`Facture #${payload.invoiceNumber}`, { align: 'left' })
+  doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(16).text(
+    `Facture #${payload.invoiceNumber}`,
+    undefined,
+    undefined,
+    { align: 'left' }
+  )
   doc.fillColor('#1e293b').fontSize(11).text(`Émise le ${invoiceDateLabel}`)
   doc.text(`Sortie du ${rideDate} à ${payload.serviceTime}`)
 
