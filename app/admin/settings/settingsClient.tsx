@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Preferences } from '@capacitor/preferences'
-import { Haptics, ImpactStyle } from '@capacitor/haptics'
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
 
 import { AdminPageShell } from '../_components/AdminPageShell'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
@@ -110,12 +110,12 @@ export default function SettingsClient() {
       }
       setTestState('success')
       setTestMessage('Connexion OK. Vous pouvez appliquer cette URL.')
-      await Haptics.notification({ type: 'success' })
+      await Haptics.notification({ type: NotificationType.Success })
     } catch (error) {
       console.error('test url failed', error)
       setTestState('error')
       setTestMessage('Serveur injoignable. Verifiez le reseau et le port.')
-      await Haptics.notification({ type: 'error' })
+      await Haptics.notification({ type: NotificationType.Error })
     }
   }
 
