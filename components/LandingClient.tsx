@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from 'react'
 import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import MobileQuickActions from '@/components/MobileQuickActions'
+import { business } from '@/lib/business'
 
 const LANGUAGE_OPTIONS = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -75,6 +77,7 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
   const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
+  const contactPhone = business.phone
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -500,6 +503,15 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
           <span>{liveDict.footer?.rights ?? 'All rights reserved.'}</span>
         </div>
       </footer>
+      <MobileQuickActions
+        bookHref="#reservation"
+        bookLabel={liveDict.hero?.cta || liveDict.nav?.book || 'Réserver'}
+        subtitle={liveDict.booking?.subtitle || liveDict.hero?.subtitle || 'Balade intimiste à Colmar'}
+        phoneNumber={contactPhone}
+        phoneLabel={liveDict.nav?.contact || 'Nous contacter'}
+        headline={liveDict.hero?.title || 'Sweet Narcisse'}
+        menuVisible={menuOpen || menuClosing}
+      />
     </div>
   )
 }

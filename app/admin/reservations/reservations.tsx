@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import useSWR from 'swr'
 import { format } from 'date-fns'
 
 import { AdminPageShell } from '../_components/AdminPageShell'
+import { readCache, writeCache } from '@/lib/mobileCache'
 
 type FilterRange = 'day' | 'month' | 'year'
 
@@ -175,12 +176,12 @@ const getPaymentStatusInfo = (booking: Booking) => {
 	const payment = booking.payments?.[0]
 	const normalized = payment?.status?.toUpperCase()
 	if (normalized === 'PAID' || normalized === 'CAPTURED' || normalized === 'SUCCEEDED' || booking.isPaid) {
-		return { label: 'Payé', tone: 'border-emerald-200 bg-emerald-50 text-emerald-700' }
+		return { label: 'Payé', tone: 'sn-pill sn-pill--emerald' }
 	}
 	if (!normalized) {
-		return { label: 'En attente', tone: 'border-amber-200 bg-amber-50 text-amber-700' }
+		return { label: 'En attente', tone: 'sn-pill sn-pill--amber' }
 	}
-	return { label: payment?.status ?? '—', tone: 'border-slate-200 bg-slate-100 text-slate-600' }
+	return { label: payment?.status ?? '—', tone: 'sn-pill sn-pill--slate' }
 }
 
 const formatPeopleLabel = (booking: Booking) => {
@@ -216,6 +217,26 @@ export default function ReservationsAdminPage() {
 	const [chainBaseTime, setChainBaseTime] = useState('09:00')
 	const [viewMarkPaid, setViewMarkPaid] = useState<ViewMarkPaidState | null>(null)
 	const [markingPaid, setMarkingPaid] = useState(false)
+	const [refreshing, setRefreshing] = useState(false)
+
+	useEffect(() => {
+		if (typeof window === 'undefined') {
+			return undefined
+		}
+		const handleOnline = () => setIsOffline(false)
+		const handleOffline = () => setIsOffline(true)
+		window.addEventListener('online', handleOnline)
+		window.addEventListener('offline', handleOffline)
+		return () => {
+			window.removeEventListener('online', handleOnline)
+			window.removeEventListener('offline', handleOffline)
+		}
+	}, [])
+	const [cachedBookings, setCachedBookings] = useState<Booking[] | null>(null)
+	const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null)
+	const [isOffline, setIsOffline] = useState(() =>
+		typeof navigator !== 'undefined' ? !navigator.onLine : false
+	)
 
 	const languageOptions = useMemo(() => {
 		const base = [...LANGUAGE_OPTIONS]
@@ -279,8 +300,48 @@ export default function ReservationsAdminPage() {
 		params.set('payment', paymentFilter)
 	}
 
-	const { data, error, isLoading, mutate } = useSWR<Booking[]>(`/api/admin/reservations?${params.toString()}`, fetcher)
-	const bookings = useMemo(() => data ?? [], [data])
+	const cacheKey = `/api/admin/reservations?${params.toString()}`
+	const { data, error, isLoading, mutate } = useSWR<Booking[]>(cacheKey, fetcher, {
+		refreshInterval: 60_000,
+		revalidateOnFocus: true,
+		revalidateOnReconnect: true
+	})
+
+	useEffect(() => {
+		let active = true
+		readCache<Booking[]>(cacheKey).then((stored) => {
+			if (!active || !stored) return
+			setCachedBookings(stored.payload)
+			setCacheTimestamp(stored.timestamp)
+		})
+		return () => {
+			active = false
+		}
+	}, [cacheKey])
+
+	useEffect(() => {
+		if (!data) {
+			return
+		}
+		setCachedBookings(data)
+		setCacheTimestamp(Date.now())
+		void writeCache(cacheKey, data)
+		if (typeof window !== 'undefined') {
+			window.dispatchEvent(new CustomEvent('sn-sync', { detail: { source: 'reservations' } }))
+		}
+	}, [data, cacheKey])
+
+	const bookings = useMemo(() => data ?? cachedBookings ?? [], [data, cachedBookings])
+	const usingCachedData = !data && Boolean(cachedBookings?.length)
+	const cacheTimeLabel = useMemo(() => {
+		if (!cacheTimestamp) return ''
+		try {
+			return format(new Date(cacheTimestamp), 'HH:mm')
+		} catch (timeError) {
+			console.warn('Format heure cache impossible', timeError)
+			return ''
+		}
+	}, [cacheTimestamp])
 
 	const stats = useMemo(() => {
 		const total = bookings.length
@@ -309,6 +370,20 @@ export default function ReservationsAdminPage() {
 
 	const removeToast = (id: number) => {
 		setToasts((previous) => previous.filter((toast) => toast.id !== id))
+	}
+
+	const handleForceRefresh = async () => {
+		if (refreshing) return
+		setRefreshing(true)
+		try {
+			await mutate()
+			pushToast({ type: 'success', message: 'Synchronisation lancée.' })
+		} catch (syncError) {
+			console.error('Erreur rafraîchissement réservations', syncError)
+			pushToast({ type: 'warning', message: 'Impossible de relancer le chargement.' })
+		} finally {
+			setRefreshing(false)
+		}
 	}
 
 	const handleExportCsv = () => {
@@ -542,11 +617,55 @@ export default function ReservationsAdminPage() {
 							<p className="text-sm text-slate-700">{rangeLabel}</p>
 						</div>
 						<div className="flex flex-wrap gap-3">
-							<StatCard label="Total" value={stats.total} tone="bg-slate-900 text-white" />
-							<StatCard label="Payées" value={stats.paid} tone="bg-emerald-100 text-emerald-700" />
-							<StatCard label="En attente" value={stats.pending} tone="bg-amber-100 text-amber-700" />
-							<StatCard label="À venir" value={stats.upcoming} tone="bg-blue-100 text-blue-700" />
+							<StatCard label="Total" value={stats.total} tone="bg-white text-slate-900 border border-slate-200" />
+							<StatCard label="Payées" value={stats.paid} tone="bg-emerald-50 text-emerald-700 border border-emerald-200" />
+							<StatCard label="En attente" value={stats.pending} tone="bg-amber-50 text-amber-700 border border-amber-200" />
+							<StatCard label="À venir" value={stats.upcoming} tone="bg-sky-50 text-sky-700 border border-sky-200" />
 						</div>
+					</div>
+					{(isOffline || cacheTimeLabel || usingCachedData || (!!error && !data)) && (
+						<div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide">
+							{isOffline ? (
+								<span className="sn-pill sn-pill--amber">
+									<span className="sn-pill__dot animate-pulse" aria-hidden="true" />
+									Mode hors ligne
+								</span>
+							) : null}
+							{!isOffline && cacheTimeLabel ? (
+								<span className="sn-pill sn-pill--emerald">
+									<span className="sn-pill__dot" aria-hidden="true" />
+									Synchro {cacheTimeLabel}
+								</span>
+							) : null}
+							{usingCachedData ? (
+								<span className="sn-pill sn-pill--slate">
+									<span className="sn-pill__dot" aria-hidden="true" />
+									Cache local
+								</span>
+							) : null}
+							{error && !data ? (
+								<span className="sn-pill sn-pill--rose">
+									<span className="sn-pill__dot" aria-hidden="true" />
+									Réseau indisponible
+								</span>
+							) : null}
+						</div>
+					)}
+					<div className="mt-4 flex flex-wrap gap-2">
+						<Link href="/admin/today" className="sn-quick-action">
+							Scanner billets
+						</Link>
+						<button
+							type="button"
+							onClick={handleForceRefresh}
+							disabled={refreshing}
+							className="sn-quick-action sn-quick-action--primary"
+						>
+							{refreshing ? 'Synchronisation…' : 'Relancer la synchro'}
+						</button>
+						<Link href="/admin/settings" className="sn-quick-action">
+							Santé serveur
+						</Link>
 					</div>
 					<ul className="mt-4 space-y-1 text-xs text-slate-500">
 						<li>• Sélectionnez une ligne pour préparer une chaîne ou ouvrir les actions rapides.</li>
@@ -730,16 +849,16 @@ export default function ReservationsAdminPage() {
 													<td className="px-4 py-4 align-top">
 														<p className="text-xs text-slate-600">{formatPeopleLabel(booking)}</p>
 														{booking.language && (
-															<span className="mt-1 inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-																{booking.language}
+															<span className="mt-1 sn-pill sn-pill--ghost">
+																<span className="sn-pill__dot" aria-hidden="true" />
+																{booking.language.toUpperCase()}
 															</span>
 														)}
 													</td>
 													<td className="px-4 py-4 align-top">
 														<p className="text-xs text-slate-600">{describePaymentMethod(booking)}</p>
-														<span
-															className={`mt-2 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${paymentStatus.tone}`}
-														>
+														<span className={`mt-2 ${paymentStatus.tone}`}>
+															<span className="sn-pill__dot" aria-hidden="true" />
 															{paymentStatus.label}
 														</span>
 													</td>
@@ -1380,7 +1499,14 @@ export default function ReservationsAdminPage() {
 									</div>
 									<div className="sn-field">
 										<span className="sn-label">Langue</span>
-										<span className="text-base font-semibold text-slate-900">{showView.language ?? '—'}</span>
+										{showView.language ? (
+											<span className="sn-pill sn-pill--ghost">
+												<span className="sn-pill__dot" aria-hidden="true" />
+												{showView.language.toUpperCase()}
+											</span>
+										) : (
+											<span className="text-base font-semibold text-slate-900">—</span>
+										)}
 									</div>
 								</div>
 							</section>
@@ -1421,11 +1547,8 @@ export default function ReservationsAdminPage() {
 								<div className="sn-form-grid sn-form-grid-2">
 									<div className="sn-field">
 										<span className="sn-label">Statut</span>
-										<span
-											className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-												viewPaymentStatus?.tone ?? 'border-slate-200 bg-slate-100 text-slate-600'
-											}`}
-										>
+										<span className={viewPaymentStatus?.tone ?? 'sn-pill sn-pill--slate'}>
+											<span className="sn-pill__dot" aria-hidden="true" />
 											{viewPaymentStatus?.label ?? '—'}
 										</span>
 									</div>
@@ -1880,9 +2003,9 @@ function EditForm({
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone: string }) {
 	return (
-		<div className={`flex flex-col rounded-xl px-3 py-2 text-xs font-semibold ${tone}`}>
-			<span className="uppercase tracking-wide">{label}</span>
-			<span className="text-lg">{value}</span>
+		<div className={`sn-stat-card ${tone}`}>
+			<span className="sn-stat-card__label">{label}</span>
+			<span className="sn-stat-card__value">{value}</span>
 		</div>
 	)
 }

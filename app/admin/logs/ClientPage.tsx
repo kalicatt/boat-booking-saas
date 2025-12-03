@@ -52,15 +52,15 @@ const extractActionGroup = (action: string | null | undefined) => {
 const toneForAction = (action: string) => {
   const upper = action.toUpperCase()
   if (upper.includes('DELETE') || upper.includes('CANCEL') || upper.includes('REMOVE')) {
-    return 'border border-rose-200 bg-rose-50 text-rose-700'
+    return 'sn-pill sn-pill--rose'
   }
   if (upper.includes('CREATE') || upper.includes('ADD') || upper.includes('NEW') || upper.includes('BOOK')) {
-    return 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+    return 'sn-pill sn-pill--emerald'
   }
   if (upper.includes('UPDATE') || upper.includes('EDIT') || upper.includes('PATCH')) {
-    return 'border border-amber-200 bg-amber-50 text-amber-700'
+    return 'sn-pill sn-pill--amber'
   }
-  return 'border border-blue-200 bg-blue-50 text-blue-700'
+  return 'sn-pill sn-pill--sky'
 }
 
 const parseDetails = (raw: string | null): DetailShape => {
@@ -461,13 +461,15 @@ export default function ClientLogsPage() {
                           <td className="px-4 py-4 align-top">
                             <div className="font-semibold text-slate-800">{fullName || '—'}</div>
                             {log.user?.role && (
-                              <span className="mt-1 inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              <span className="mt-1 sn-pill sn-pill--ghost">
+                                <span className="sn-pill__dot" aria-hidden="true" />
                                 {log.user.role}
                               </span>
                             )}
                           </td>
                           <td className="px-4 py-4 align-top">
-                            <span className={`inline-flex max-w-full items-center justify-center rounded-full px-3 py-1 text-xs font-semibold ${actionTone}`}>
+                            <span className={`${actionTone} max-w-full`}>
+                              <span className="sn-pill__dot" aria-hidden="true" />
                               {log.action}
                             </span>
                             <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-400">

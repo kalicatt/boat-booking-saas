@@ -53,7 +53,7 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
     backgroundSoft: '#1d4ed8',
     border: '#93c5fd',
     text: '#f8fafc',
-    badge: 'bg-blue-100 text-blue-700'
+    badge: 'sn-pill sn-pill--blue'
   },
   EMBARQUED: {
     label: 'Embarquée',
@@ -61,7 +61,7 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
     backgroundSoft: '#047857',
     border: '#6ee7b7',
     text: '#ecfdf5',
-    badge: 'bg-emerald-100 text-emerald-700'
+    badge: 'sn-pill sn-pill--emerald'
   },
   NO_SHOW: {
     label: 'No-show',
@@ -69,7 +69,7 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
     backgroundSoft: '#ea580c',
     border: '#fcd34d',
     text: '#fff7ed',
-    badge: 'bg-amber-100 text-amber-700'
+    badge: 'sn-pill sn-pill--amber'
   },
   PENDING: {
     label: 'En attente',
@@ -77,7 +77,7 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
     backgroundSoft: '#475569',
     border: '#cbd5f5',
     text: '#f8fafc',
-    badge: 'bg-slate-200 text-slate-700'
+    badge: 'sn-pill sn-pill--slate'
   },
   CANCELLED: {
     label: 'Annulée',
@@ -85,7 +85,7 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
     backgroundSoft: '#b91c1c',
     border: '#fecaca',
     text: '#fef2f2',
-    badge: 'bg-rose-100 text-rose-700'
+    badge: 'sn-pill sn-pill--rose'
   },
   DEFAULT: {
     label: 'Autre',
@@ -93,14 +93,14 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
     backgroundSoft: '#1e293b',
     border: '#cbd5f5',
     text: '#e2e8f0',
-    badge: 'bg-slate-200 text-slate-700'
+    badge: 'sn-pill sn-pill--slate'
   }
 }
 
 export const BOOKING_STATUS_THEME: Record<'PENDING' | 'CONFIRMED' | 'CANCELLED', { label: string; className: string }> = {
-  PENDING: { label: 'En attente', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-  CONFIRMED: { label: 'Confirmée', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  CANCELLED: { label: 'Annulée', className: 'border-rose-200 bg-rose-50 text-rose-700' }
+  PENDING: { label: 'En attente', className: 'sn-pill sn-pill--amber' },
+  CONFIRMED: { label: 'Confirmée', className: 'sn-pill sn-pill--emerald' },
+  CANCELLED: { label: 'Annulée', className: 'sn-pill sn-pill--rose' }
 }
 
 export const LANGUAGE_FLAGS: Record<string, string> = {

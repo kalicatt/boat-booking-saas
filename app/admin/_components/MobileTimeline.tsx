@@ -86,7 +86,9 @@ export function MobileTimeline<T>({
               )}
               <div
                 aria-hidden="true"
-                className={`absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 bg-white text-[0.8rem] font-black uppercase leading-none ${group.indicatorClass ?? 'border-slate-300 text-slate-600 shadow-[0_0_0_3px_rgba(148,163,184,0.25)]'}`}
+                className={`absolute left-0 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 text-[0.8rem] font-black uppercase leading-none ${
+                  group.indicatorClass ?? 'border-slate-600 bg-slate-950 text-slate-100 shadow-[0_0_0_3px_rgba(2,6,23,0.55)]'
+                }`}
               >
                 {slotLabel}
               </div>
@@ -99,9 +101,9 @@ export function MobileTimeline<T>({
                       className={`inline-flex items-center gap-2 rounded-full px-3 py-1 ${entry.badgeClass}`}
                     >
                       <span className="truncate text-xs font-bold">{entry.label}</span>
-                      <span className="inline-flex items-center rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-black text-slate-800">
+                      <span className="inline-flex items-center rounded-full border border-white/15 bg-slate-950/80 px-2 py-0.5 text-[11px] font-black text-white">
                         {entry.total} / {entry.capacity}
-                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        <span className="ml-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
                           pax
                         </span>
                       </span>

@@ -1,9 +1,8 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
 const TABS = [
@@ -11,6 +10,7 @@ const TABS = [
   { href: '/admin/planning', label: 'Planning', icon: 'schedule' },
   { href: '/admin/reservations', label: 'Réservations', icon: 'book' },
   { href: '/admin/stats', label: 'Stats', icon: 'chart' },
+  { href: '/admin/settings', label: 'Réglages', icon: 'settings' },
 ]
 
 const iconMap: Record<string, string> = {
@@ -18,11 +18,35 @@ const iconMap: Record<string, string> = {
   schedule: '🗓️',
   book: '🧾',
   chart: '📊',
+  settings: '⚙️',
 }
 
 export default function MobileAdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const [networkOnline, setNetworkOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
+  const [lastSync, setLastSync] = useState(() => new Date())
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleOnline = () => setNetworkOnline(true)
+    const handleOffline = () => setNetworkOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const handleSync = () => setLastSync(new Date())
+    window.addEventListener('sn-sync', handleSync)
+    return () => {
+      window.removeEventListener('sn-sync', handleSync)
+    }
+  }, [])
 
   useEffect(() => {
     if (pathname?.startsWith('/admin/planning')) {
@@ -36,28 +60,50 @@ export default function MobileAdminLayout({ children }: { children: ReactNode })
   }
 
   const navigationTabs = TABS.filter((tab) => tab.href !== '/admin/planning')
+  const lastSyncLabel = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(lastSync)
+
+  const handleManualSync = () => {
+    setLastSync(new Date())
+    router.refresh()
+  }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-white">
-      <header className="safe-area-inset-t bg-slate-950/95 backdrop-blur supports-[backdrop-filter]:bg-slate-950/80">
-        <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/admin" className="flex items-center gap-3">
-            <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={120} height={32} className="h-8 w-auto rounded-md" priority />
+    <div className="flex min-h-screen flex-col bg-slate-100 text-slate-900">
+      <header className="safe-area-inset-t bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        <div className="flex items-center justify-between px-4 py-2">
+          <Link href="/admin" className="flex items-center gap-2">
             <div className="flex flex-col">
-              <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">Tableau de bord</span>
-              <span className="text-lg font-serif font-bold">Sweet Narcisse</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.35em] text-slate-400">Tableau de bord</span>
+              <span className="text-base font-serif font-bold tracking-wide">Sweet Narcisse</span>
             </div>
           </Link>
+          <div className="flex items-center gap-2">
+            <span className={`sn-native-chip text-[10px] ${networkOnline ? 'is-positive' : 'is-warning'}`}>
+              {networkOnline ? 'Connecté' : 'Hors ligne'}
+            </span>
+            <span className="sn-native-chip text-[10px]">Sync {lastSyncLabel}</span>
+          </div>
         </div>
       </header>
 
       <main className="flex-1 bg-slate-100 text-slate-900">
-        <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-4 px-4 pb-safe pt-4">
-          {children}
+        <div className="mx-auto flex h-full w-full max-w-4xl flex-col gap-3 px-4 pb-safe pt-3">
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={handleManualSync}
+              className="rounded-full border border-slate-300 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.3em] text-slate-600 transition hover:border-slate-500 hover:text-slate-800"
+            >
+              ↻ Sync
+            </button>
+          </div>
+          <div className="sn-native-shell">
+            {children}
+          </div>
         </div>
       </main>
 
-      <nav className="safe-area-inset-b sticky bottom-0 border-t border-slate-200 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85">
+      <nav className="safe-area-inset-b sticky bottom-0 border-t border-slate-200 bg-white/95 text-slate-500 backdrop-blur supports-[backdrop-filter]:bg-white/85">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-2 py-2">
           {navigationTabs.map((tab) => {
             const active = isActive(tab.href)
@@ -73,6 +119,7 @@ export default function MobileAdminLayout({ children }: { children: ReactNode })
                   {iconMap[tab.icon] ?? '•'}
                 </span>
                 <span>{tab.label}</span>
+                <span className={`sn-native-tab-indicator ${active ? 'is-active' : ''}`} aria-hidden="true" />
               </Link>
             )
           })}

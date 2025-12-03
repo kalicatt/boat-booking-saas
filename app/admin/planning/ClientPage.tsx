@@ -1208,12 +1208,13 @@ export default function ClientPlanningPage() {
                     const summaryLabel = `${booking.adults || 0}A · ${booking.children || 0}E · ${booking.babies || 0}B`
                     const statusLabel =
                       status === 'NO_SHOW' ? 'No-show' : status === 'EMBARQUED' ? 'Embarqué' : 'Confirmé'
-                    const statusBadgeClass =
-                      status === 'NO_SHOW'
-                        ? 'bg-amber-100 text-amber-700'
-                        : status === 'EMBARQUED'
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-blue-100 text-blue-700'
+                    const toneMap: Record<'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW', string> = {
+                      CONFIRMED: 'sn-pill sn-pill--blue',
+                      EMBARQUED: 'sn-pill sn-pill--emerald',
+                      NO_SHOW: 'sn-pill sn-pill--amber'
+                    }
+                    const statusKey = status === 'NO_SHOW' ? 'NO_SHOW' : status === 'EMBARQUED' ? 'EMBARQUED' : 'CONFIRMED'
+                    const statusBadgeClass = toneMap[statusKey]
                     return (
                       <div key={booking.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
@@ -1225,9 +1226,8 @@ export default function ClientPlanningPage() {
                             </p>
                             <p className="mt-1 text-[11px] text-slate-500">{summaryLabel}</p>
                           </div>
-                          <span
-                            className={`rounded-full px-2 py-1 text-[10px] font-bold ${statusBadgeClass}`}
-                          >
+                          <span className={statusBadgeClass}>
+                            <span className="sn-pill__dot" aria-hidden="true" />
                             {statusLabel}
                           </span>
                         </div>
@@ -1256,36 +1256,39 @@ export default function ClientPlanningPage() {
                             type="button"
                             onClick={() => applyStatusChange(booking, 'CONFIRMED')}
                             disabled={statusUpdating[booking.id]}
-                            className={`rounded-full px-3 py-1 border transition ${
+                            className={`${
                               status === 'CONFIRMED'
-                                ? 'border-blue-500 bg-blue-50 text-blue-700'
-                                : 'border-slate-200 text-slate-500 hover:border-blue-400 hover:text-blue-600'
+                                ? `${toneMap.CONFIRMED} shadow-[0_8px_18px_rgba(2,6,23,0.45)]`
+                                : 'sn-pill sn-pill--outline text-slate-400 hover:text-slate-200'
                             } ${statusUpdating[booking.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
+                            <span className="sn-pill__dot" aria-hidden="true" />
                             Confirmé
                           </button>
                           <button
                             type="button"
                             onClick={() => applyStatusChange(booking, 'EMBARQUED')}
                             disabled={statusUpdating[booking.id]}
-                            className={`rounded-full px-3 py-1 border transition ${
+                            className={`${
                               status === 'EMBARQUED'
-                                ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
-                                : 'border-slate-200 text-slate-500 hover:border-emerald-400 hover:text-emerald-600'
+                                ? `${toneMap.EMBARQUED} shadow-[0_8px_18px_rgba(2,6,23,0.45)]`
+                                : 'sn-pill sn-pill--outline text-slate-400 hover:text-slate-200'
                             } ${statusUpdating[booking.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
+                            <span className="sn-pill__dot" aria-hidden="true" />
                             Embarqué
                           </button>
                           <button
                             type="button"
                             onClick={() => applyStatusChange(booking, 'NO_SHOW')}
                             disabled={statusUpdating[booking.id]}
-                            className={`rounded-full px-3 py-1 border transition ${
+                            className={`${
                               status === 'NO_SHOW'
-                                ? 'border-amber-500 bg-amber-50 text-amber-700'
-                                : 'border-slate-200 text-slate-500 hover:border-amber-400 hover:text-amber-600'
+                                ? `${toneMap.NO_SHOW} shadow-[0_8px_18px_rgba(2,6,23,0.45)]`
+                                : 'sn-pill sn-pill--outline text-slate-400 hover:text-slate-200'
                             } ${statusUpdating[booking.id] ? 'opacity-60 cursor-not-allowed' : ''}`}
                           >
+                            <span className="sn-pill__dot" aria-hidden="true" />
                             No-show
                           </button>
                         </div>

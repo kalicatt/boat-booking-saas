@@ -140,14 +140,24 @@ export function BookingDetailsModal({
                   </span>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide">
-                  <span className="rounded-full bg-white/15 px-3 py-1">Check-in : {statusTheme.label}</span>
-                  <span className="rounded-full bg-white/15 px-3 py-1">Réservation : {bookingState.label}</span>
-                  <span className="rounded-full bg-white/15 px-3 py-1">{languageLabel}</span>
+                  <span className={statusTheme.badge}>
+                    <span className="sn-pill__dot" aria-hidden="true" />
+                    Check-in : {statusTheme.label}
+                  </span>
+                  <span className={bookingState.className}>
+                    <span className="sn-pill__dot" aria-hidden="true" />
+                    Réservation : {bookingState.label}
+                  </span>
+                  <span className="sn-pill sn-pill--ghost">
+                    <span className="sn-pill__dot" aria-hidden="true" />
+                    {languageLabel}
+                  </span>
                 </div>
               </div>
               <div className="ml-auto flex items-start gap-3">
                 {groupTotal > 1 && (
-                  <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/90">
+                  <span className="sn-pill sn-pill--ghost text-white">
+                    <span className="sn-pill__dot" aria-hidden="true" />
                     Réservation {groupIndex + 1}/{groupTotal}
                   </span>
                 )}
@@ -169,7 +179,8 @@ export function BookingDetailsModal({
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <span>Client</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                    <span className="sn-pill sn-pill--ghost">
+                      <span className="sn-pill__dot" aria-hidden="true" />
                       {booking.user.role || 'Client'}
                     </span>
                   </header>
@@ -207,7 +218,10 @@ export function BookingDetailsModal({
                 <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                   <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <span>Départ</span>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">{languageLabel}</span>
+                    <span className="sn-pill sn-pill--ghost">
+                      <span className="sn-pill__dot" aria-hidden="true" />
+                      {languageLabel}
+                    </span>
                   </header>
                   <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
                     <div>
@@ -277,9 +291,10 @@ export function BookingDetailsModal({
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Statut d&apos;embarquement</p>
                       <p className="text-sm text-slate-500">Ajustez l&apos;état pour synchroniser le planning.</p>
                     </div>
-                    <span className={`rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold ${statusTheme.badge}`}>
-                      {statusTheme.label}
-                    </span>
+                      <span className={statusTheme.badge}>
+                        <span className="sn-pill__dot" aria-hidden="true" />
+                        {statusTheme.label}
+                      </span>
                   </header>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {statusOptions.map((option) => {
@@ -293,13 +308,14 @@ export function BookingDetailsModal({
                             if (checkinStatus !== option) void onStatusUpdate(booking.id, option)
                           }}
                           disabled={isActive}
-                          className={`rounded-full border px-3 py-1 text-sm font-semibold transition ${
-                            isActive
-                              ? `${optionTheme.badge} border-transparent shadow-sm`
-                              : 'border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-800'
-                          } ${isActive ? 'cursor-default opacity-90' : ''}`}
+                            className={`${
+                              isActive
+                                ? `${optionTheme.badge} shadow-[0_8px_18px_rgba(2,6,23,0.45)]`
+                                : 'sn-pill sn-pill--outline text-slate-400 hover:text-slate-200'
+                            } transition ${isActive ? 'cursor-default opacity-90' : ''}`}
                         >
-                          {optionTheme.label}
+                            <span className="sn-pill__dot" aria-hidden="true" />
+                            {optionTheme.label}
                         </button>
                       )
                     })}
@@ -312,13 +328,8 @@ export function BookingDetailsModal({
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Paiement</p>
                       <p className="text-sm text-slate-500">Total dû : {totalPriceLabel}</p>
                     </div>
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-semibold ${
-                        booking.isPaid
-                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                          : 'border-amber-200 bg-amber-50 text-amber-700'
-                      }`}
-                    >
+                    <span className={`sn-pill ${booking.isPaid ? 'sn-pill--emerald' : 'sn-pill--amber'}`}>
+                      <span className="sn-pill__dot" aria-hidden="true" />
                       {booking.isPaid ? 'Réglé' : 'À encaisser'}
                     </span>
                   </header>
@@ -338,7 +349,10 @@ export function BookingDetailsModal({
                               {(payment.amount / 100).toFixed(2)} {payment.currency} ·{' '}
                               {format(new Date(payment.createdAt), 'dd/MM HH:mm')}
                             </span>
-                            <span className="text-xs uppercase tracking-wide text-slate-400">{payment.status}</span>
+                            <span className="sn-pill sn-pill--outline">
+                              <span className="sn-pill__dot" aria-hidden="true" />
+                              {payment.status}
+                            </span>
                           </li>
                         ))}
                       </ul>

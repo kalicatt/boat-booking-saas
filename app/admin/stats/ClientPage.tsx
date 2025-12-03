@@ -19,6 +19,7 @@ import {
   startOfYear
 } from 'date-fns'
 import { AdminPageShell } from '../_components/AdminPageShell'
+import { readCache, writeCache } from '@/lib/mobileCache'
 
 type TimeRange = 'day' | 'month' | 'year' | 'custom'
 
@@ -173,10 +174,31 @@ export default function ClientStatsPage() {
   const [data, setData] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null)
+  const [lastSource, setLastSource] = useState<'network' | 'cache' | null>(null)
+  const [backgroundSyncing, setBackgroundSyncing] = useState(false)
+  const [isOffline, setIsOffline] = useState(() =>
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  )
   const cacheRef = useRef<Record<string, StatsResponse>>({})
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+    const handleOnline = () => setIsOffline(false)
+    const handleOffline = () => setIsOffline(true)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
+    setBackgroundSyncing(false)
 
     const result = computeRange(range, customRange)
 
@@ -189,6 +211,7 @@ export default function ClientStatsPage() {
     }
 
     const { apiRange, cacheKey } = result
+    const storageKey = `stats:${cacheKey}`
     const cached = cacheRef.current[cacheKey]
 
     if (cached) {
@@ -200,6 +223,22 @@ export default function ClientStatsPage() {
     }
 
     setError(null)
+    let fallbackUsed = false
+
+    const stored = await readCache<StatsResponse>(storageKey)
+    if (stored) {
+      fallbackUsed = true
+      cacheRef.current[cacheKey] = stored.payload
+      setData(stored.payload)
+      setAppliedRange(apiRange)
+      setCacheTimestamp(stored.timestamp)
+      setLastSource('cache')
+      setLoading(false)
+      if (isOffline) {
+        return
+      }
+      setBackgroundSyncing(true)
+    }
 
     try {
       const res = await fetch(`/api/admin/stats?start=${apiRange.start}&end=${apiRange.end}`, {
@@ -214,17 +253,36 @@ export default function ClientStatsPage() {
       cacheRef.current[cacheKey] = json
       setData(json)
       setAppliedRange(apiRange)
+      setCacheTimestamp(Date.now())
+      setLastSource('network')
+      void writeCache(storageKey, json)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sn-sync', { detail: { source: 'stats' } }))
+      }
     } catch (err) {
       console.error('Erreur chargement stats', err)
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      setData(null)
+      if (!fallbackUsed) {
+        setError(err instanceof Error ? err.message : 'Erreur inconnue')
+        setData(null)
+      } else {
+        setError('Mode hors ligne · donnees locales affichees')
+      }
     } finally {
-      setLoading(false)
+      setBackgroundSyncing(false)
+      if (!fallbackUsed) {
+        setLoading(false)
+      }
     }
-  }, [range, customRange])
+  }, [range, customRange, isOffline])
 
   useEffect(() => {
     fetchStats()
+    const interval = window.setInterval(() => {
+      void fetchStats()
+    }, 90_000)
+    return () => {
+      window.clearInterval(interval)
+    }
   }, [fetchStats])
 
   const handleRangeChange = (key: TimeRange) => {
@@ -304,6 +362,16 @@ export default function ClientStatsPage() {
   const statusData = useMemo(() => toBarData(data?.statusDist ?? {}), [data])
   const dailySeries = useMemo(() => data?.seriesDaily ?? [], [data])
   const hourlySeries = useMemo(() => data?.byHour ?? [], [data])
+  const cacheTimeLabel = useMemo(() => {
+    if (!cacheTimestamp) return ''
+    try {
+      return format(new Date(cacheTimestamp), 'HH:mm')
+    } catch (timeError) {
+      console.warn('Formatage horodatage cache impossible', timeError)
+      return ''
+    }
+  }, [cacheTimestamp])
+  const usingCachedData = lastSource === 'cache'
 
   const isCustomRangeInvalid = useMemo(() => {
     if (range !== 'custom') return false
@@ -364,6 +432,34 @@ export default function ClientStatsPage() {
               </button>
             ))}
           </div>
+          {(isOffline || cacheTimeLabel || usingCachedData || backgroundSyncing) && (
+          <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+            {isOffline ? (
+            <span className="sn-pill sn-pill--amber">
+              <span className="sn-pill__dot" aria-hidden="true" />
+              Mode hors ligne
+            </span>
+            ) : null}
+            {!isOffline && cacheTimeLabel ? (
+            <span className="sn-pill sn-pill--emerald">
+              <span className="sn-pill__dot" aria-hidden="true" />
+              Synchro {cacheTimeLabel}
+            </span>
+            ) : null}
+            {usingCachedData ? (
+            <span className="sn-pill sn-pill--slate">
+              <span className="sn-pill__dot" aria-hidden="true" />
+              Cache local
+            </span>
+            ) : null}
+            {backgroundSyncing ? (
+            <span className="sn-pill sn-pill--sky">
+              <span className="sn-pill__dot" aria-hidden="true" />
+              Mise a jour en cours
+            </span>
+            ) : null}
+          </div>
+          )}
         </div>
 
         {range === 'custom' && (

@@ -331,6 +331,9 @@ export default function ClientPage() {
         detailsMap.set(detail.id, detail)
       })
       bookingDetailsRef.current = detailsMap
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sn-sync', { detail: { source: 'today' } }))
+      }
 
       if (rawList.length > 0) {
         setResources((prev) => {
@@ -778,39 +781,39 @@ export default function ClientPage() {
   const renderStatusBadge = (status: string | null, checkinStatus: string | null) => {
     if (checkinStatus === 'EMBARQUED') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-xs font-bold text-emerald-700">
-          <span aria-hidden="true">✅</span>
+        <span className="sn-pill sn-pill--emerald">
+          <span className="sn-pill__dot" aria-hidden="true" />
           Embarqué
         </span>
       )
     }
     if (checkinStatus === 'NO_SHOW') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-xs font-bold text-rose-700">
-          <span aria-hidden="true">⚠</span>
+        <span className="sn-pill sn-pill--rose">
+          <span className="sn-pill__dot" aria-hidden="true" />
           No-show
         </span>
       )
     }
     if (status === 'CONFIRMED') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-bold text-green-700">
-          <span aria-hidden="true">✔</span>
+        <span className="sn-pill sn-pill--blue">
+          <span className="sn-pill__dot" aria-hidden="true" />
           Confirmé
         </span>
       )
     }
     if (status === 'CANCELLED') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs font-bold text-red-600">
-          <span aria-hidden="true">✖</span>
+        <span className="sn-pill sn-pill--rose">
+          <span className="sn-pill__dot" aria-hidden="true" />
           Annulé
         </span>
       )
     }
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-600">
-        <span aria-hidden="true">•</span>
+      <span className="sn-pill sn-pill--outline">
+        <span className="sn-pill__dot" aria-hidden="true" />
         {status ?? 'En attente'}
       </span>
     )
@@ -1423,14 +1426,8 @@ export default function ClientPage() {
         </div>
 
         <div className={`${statsGridClass} ${isNative ? '' : 'mb-8 print:mb-4'}`}>
-          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Réservations</div>
-            <div className={`${isNative ? 'text-xl' : 'text-2xl'} font-bold text-slate-900`}>{stats.count}</div>
-          </div>
-          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Passagers Total</div>
-            <div className={`${isNative ? 'text-xl' : 'text-2xl'} font-bold text-slate-900`}>{stats.totalPeople}</div>
-          </div>
+          <TodayStatCard label="Réservations" value={stats.count} />
+          <TodayStatCard label="Passagers total" value={stats.totalPeople} />
         </div>
 
         {isNative && actionFeedback && (
@@ -1515,6 +1512,15 @@ export default function ClientPage() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+function TodayStatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="sn-stat-card border border-slate-200 bg-white text-slate-900 shadow-sm">
+      <span className="sn-stat-card__label text-slate-500">{label}</span>
+      <span className="sn-stat-card__value">{value}</span>
     </div>
   )
 }

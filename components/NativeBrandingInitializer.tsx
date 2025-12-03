@@ -4,8 +4,10 @@ import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { SplashScreen } from '@capacitor/splash-screen'
 import { StatusBar, Style as StatusBarStyle } from '@capacitor/status-bar'
+import { Preferences } from '@capacitor/preferences'
 
-const BRAND_COLOR = '#0f172a'
+const BRAND_COLOR = '#f8fafc'
+const CUSTOM_SERVER_KEY = 'sn_custom_server_url'
 
 export default function NativeBrandingInitializer() {
   useEffect(() => {
@@ -25,14 +27,19 @@ export default function NativeBrandingInitializer() {
       return
     }
 
-    const applyBranding = async () => {
+    const applyStatusBar = async () => {
       try {
         await StatusBar.setOverlaysWebView({ overlay: false })
         await StatusBar.setBackgroundColor({ color: BRAND_COLOR })
-        await StatusBar.setStyle({ style: StatusBarStyle.Light })
+        await StatusBar.setStyle({ style: StatusBarStyle.Dark })
       } catch (error) {
         console.warn('[native-branding] failed to update status bar', error)
       }
+    }
+
+    const applyBranding = async () => {
+      await enforceCustomServerUrl()
+      await applyStatusBar()
 
       try {
         await SplashScreen.hide({ fadeOutDuration: 200 })
@@ -45,4 +52,19 @@ export default function NativeBrandingInitializer() {
   }, [])
 
   return null
+}
+
+async function enforceCustomServerUrl() {
+  try {
+    const { value } = await Preferences.get({ key: CUSTOM_SERVER_KEY })
+    if (!value || typeof window === 'undefined') {
+      return
+    }
+    const parsed = new URL(value)
+    if (parsed.origin !== window.location.origin) {
+      window.location.href = parsed.origin
+    }
+  } catch (error) {
+    console.warn('[native-branding] failed to enforce custom server url', error)
+  }
 }
