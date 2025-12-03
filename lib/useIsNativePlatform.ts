@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Capacitor } from '@capacitor/core'
 
 const getNativeStatus = () => {
@@ -28,5 +28,44 @@ const getNativeStatus = () => {
 }
 
 export function useIsNativePlatform(): boolean {
-  return useMemo(() => getNativeStatus(), [])
+  const initialIsMobile = useMemo(() => {
+    if (getNativeStatus()) {
+      return true
+    }
+    if (typeof navigator !== 'undefined' && /Mobi|Android.+Mobile/i.test(navigator.userAgent || '')) {
+      return true
+    }
+    if (typeof window !== 'undefined' && window.innerWidth <= 640) {
+      return true
+    }
+    return false
+  }, [])
+
+  const [isMobile, setIsMobile] = useState<boolean>(initialIsMobile)
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (getNativeStatus()) {
+        setIsMobile(true)
+        return
+      }
+      if (typeof navigator !== 'undefined' && /Mobi|Android.+Mobile/i.test(navigator.userAgent || '')) {
+        setIsMobile(true)
+        return
+      }
+      if (window.innerWidth <= 640) {
+        setIsMobile(true)
+      } else {
+        setIsMobile(false)
+      }
+    }
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  return isMobile
 }

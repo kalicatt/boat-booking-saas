@@ -15,9 +15,15 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
 * **Nouvelle Route :** `app/api/payments/terminal/token/route.ts`
 * **Logique :** Générer un secret éphémère pour connecter le lecteur (téléphone) à Stripe.
 
-### 3. Mise à jour Modèle de Données
+### 3. Sessions de paiement “remote”
+* **Nouvelle Route :** `app/api/payments/terminal/session/route.ts`
+* **Concept :** La tablette crée une session `pending` (bookingId, montant, méthode `card_remote`).
+* **Stockage :** Table `PaymentSession` (status, provider, metadata, expiresAt) + diffusion via WebSocket/Server-Sent Events aux mobiles connectés.
+* **Transitions :** `pending -> claimed -> processing -> succeeded/failed/expired`.
+
+### 4. Mise à jour Modèle de Données
 * **Fichier :** `app/api/bookings/route.ts`
-* **Modification :** Étendre la logique d'enregistrement pour accepter des métadonnées riches dans `rawPayload` (numéro de chèque, référence voucher, etc.).
+* **Modification :** Étendre la logique d'enregistrement pour accepter des métadonnées riches dans `rawPayload` (numéro de chèque, référence voucher, etc.) et référencer `paymentSessionId` lorsqu'un paiement est déclenché depuis la tablette.
 
 ---
 
@@ -31,8 +37,14 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
   * **Android :** Permissions localisations dans `AndroidManifest.xml`.
 
 ### 2. Workflow "Tap to Pay"
-* **Composant :** `app/admin/_components/PaymentTerminal.tsx`
-* **Logique :** Initialiser SDK -> Découvrir lecteur (`localMobile`) -> Collecter -> Confirmer.
+* **Composants :**
+    * Tablette : `PaymentLauncher.tsx` (crée/monitor la session).
+    * Téléphone : `PaymentTerminal.tsx` (Capacitor).
+* **Logique Téléphone :**
+    1. S'abonner aux sessions `pending` via WebSocket.
+    2. Sur “Claim”, récupérer `connection_token` puis démarrer Stripe Terminal (`discover.localMobile -> collectPaymentMethod -> process`).
+    3. Publier l'état (`processing/succeeded/failed`) sur l'API pour mettre à jour la tablette en temps réel.
+* **Fallback link :** Si aucun mobile ne répond, la session peut générer un Payment Link Stripe + QR code partagé par SMS/email depuis la tablette.
 
 ---
 
@@ -40,8 +52,9 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
 **Objectif :** Une caisse tout-en-un fluide pour le staff.
 
 ### 1. Module "💳 Carte (Sans Contact)"
-* **Action :** Déclenche le flux Stripe Terminal sur le téléphone.
-* **Tech :** Appelle le plugin natif Capacitor.
+* **Action Tablette :** Crée la session, choisit le montant, affiche l'état “En attente d'un téléphone”.
+* **Handoff :** Quand un mobile staff “claim” la session, la tablette passe en mode suivi (spinner + timer + options annuler/réessayer).
+* **Etat final :** Affiche le reçu lorsqu'un `succeeded` revient, propose fallback QR/Payment Link si `expired` ou `failed` multiples.
 
 ### 2. Module "💵 Espèces"
 * **Action :** Affiche le montant dû.

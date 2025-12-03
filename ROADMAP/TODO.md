@@ -7,7 +7,7 @@
 - [x] **Safe Areas:** Ajouter `tailwindcss-safe-area` et `viewport-fit=cover`.
 - [x] **Layout:** Créer `MobileAdminLayout.tsx` avec TabBar (Aujourd'hui, Planning, Réservations).
 - [x] **Logic:** Implémenter le switch automatique Desktop/Mobile dans `app/admin/layout.tsx`.
-- [ ] **Views:** Adapter la vue "Aujourd'hui" (Liste de cartes) et "Planning" (Agenda vertical).
+- [x] **Views:** Adapter la vue "Aujourd'hui" (Liste de cartes) et "Planning" (Agenda vertical).
 
 ### POS & Payments (Stripe Terminal) [ROADMAP_POS]
 - [ ] **Backend:** Configurer Stripe Terminal (Location ID) et créer la route `/api/payments/terminal/token`.
