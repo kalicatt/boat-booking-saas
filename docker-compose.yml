@@ -1,6 +1,6 @@
 version: '3.9'
 services:
-  # --- BASE DE DONNÉES (Ajoutée pour corriger l'erreur "undefined service") ---
+  # --- BASE DE DONNÉES (Indispensable pour que 'app' puisse s'y connecter) ---
   db:
     container_name: sweetnarcisse-db
     image: postgres:16-alpine
@@ -53,7 +53,6 @@ services:
       RECAPTCHA_SECRET_KEY: ${RECAPTCHA_SECRET_KEY}
       VAT_RATE: ${VAT_RATE}
       ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL}
-      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       
     depends_on:
       db:
@@ -64,6 +63,7 @@ services:
       - default
       - sweetnarcisse-net
 
+  # --- SERVEUR WEB ---
   nginx:
     image: nginx:alpine
     depends_on:
@@ -87,6 +87,7 @@ services:
     networks:
       - default
 
+  # --- MONITORING ---
   prometheus:
     image: prom/prometheus:latest
     restart: unless-stopped
@@ -143,4 +144,4 @@ volumes:
 
 networks:
   sweetnarcisse-net:
-    name: sweetnarcisse-net
+    external: true
