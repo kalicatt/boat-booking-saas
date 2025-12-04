@@ -71,8 +71,8 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
 ### 4. Module "✍️ Chèque"
 * **Action :** Formulaire de traçabilité.
 * **Champs :**
-    * **Numéro :** Obligatoire (ex: 800412).
-    * **Banque :** Optionnel (ex: Crédit Mutuel).
+   **Quantité :** Stepper (- 1 +).
+
 * **Backend :** Stocke ces infos dans le JSON du paiement.
 
 ### 5. Fallback "QR Code"
