@@ -40,6 +40,9 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+    implementation "com.stripe:stripeterminal-core:4.7.6"
+    implementation "com.stripe:stripeterminal-taptopay:4.7.6"
+    implementation "com.squareup.okhttp3:okhttp:4.12.0"
 }
 
 apply from: 'capacitor.build.gradle'

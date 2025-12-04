@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
+    "dev:https": "cross-env NEXT_DEV_HOSTNAME=sweet.local next dev --turbo --hostname sweet.local --port 3000 --experimental-https --experimental-https-key certs/dev-key.pem --experimental-https-cert certs/dev-cert.pem",
     "dev:webpack": "cross-env TURBOPACK=0 next dev",
     "build": "next build",
     "build:mobile": "next build",

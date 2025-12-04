@@ -1,0 +1,99 @@
+import { NextResponse } from 'next/server'
+import { auth } from '@/auth'
+import { prisma } from '@/lib/prisma'
+import { attachIntentToSession, claimNextSession, failSession } from '@/lib/payments/paymentSessions'
+import { createTapToPayIntent } from '@/lib/payments/stripeTerminal'
+
+export const runtime = 'nodejs'
+
+const DEVICE_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
+
+export async function GET(request: Request) {
+  const session = await auth()
+  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
+  if (!DEVICE_ROLES.includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  const url = new URL(request.url)
+  const deviceId = url.searchParams.get('deviceId')
+  if (!deviceId) {
+    return NextResponse.json({ error: 'deviceId is required' }, { status: 400 })
+  }
+
+  try {
+    const claimed = await claimNextSession(deviceId)
+    if (!claimed) {
+      return new Response(null, { status: 204 })
+    }
+
+    if (!claimed.bookingId) {
+      await failSession(claimed.id, 'Missing bookingId for session')
+      return NextResponse.json({ error: 'Invalid payment session' }, { status: 400 })
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: claimed.bookingId },
+      select: {
+        id: true,
+        publicReference: true,
+        startTime: true,
+        endTime: true,
+        user: { select: { firstName: true, lastName: true } }
+      }
+    })
+
+    try {
+      const metadata = {
+        bookingId: claimed.bookingId,
+        paymentSessionId: claimed.id,
+        bookingReference: booking?.publicReference ?? null
+      }
+
+      const paymentIntent = await createTapToPayIntent({
+        amount: claimed.amount,
+        currency: claimed.currency,
+        description: booking?.publicReference || 'Reservation Sweet Narcisse',
+        metadata
+      })
+
+      if (!paymentIntent.client_secret) {
+        throw new Error('Stripe did not return a client secret')
+      }
+
+      await attachIntentToSession({ sessionId: claimed.id, intentId: paymentIntent.id, clientSecret: paymentIntent.client_secret })
+
+      await prisma.payment.create({
+        data: {
+          provider: 'stripe_terminal',
+          methodType: claimed.methodType || 'card_present',
+          bookingId: claimed.bookingId,
+          intentId: paymentIntent.id,
+          amount: claimed.amount,
+          currency: claimed.currency,
+          status: 'requires_action',
+          rawPayload: metadata,
+          paymentSessionId: claimed.id
+        }
+      })
+
+      return NextResponse.json({
+        session: {
+          ...claimed,
+          booking,
+          intentId: paymentIntent.id,
+          clientSecret: paymentIntent.client_secret
+        }
+      })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to create Stripe intent'
+      await failSession(claimed.id, message)
+      console.error('[terminal/session/next] stripe', message)
+      return NextResponse.json({ error: 'Stripe intent error', details: message }, { status: 502 })
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('[terminal/session/next]', message)
+    return NextResponse.json({ error: 'Unable to claim session', details: message }, { status: 500 })
+  }
+}

@@ -21,6 +21,22 @@ npm run dev
 ```
 Open `http://localhost:3000`.
 
+### HTTPS Dev over LAN
+Stripe (and most wallet SDKs) require a secure origin when you access the app from another device (e.g., `https://192.168.1.80:3000`). Use the provided helper to create trusted certificates:
+
+1. Install [`mkcert`](https://github.com/FiloSottile/mkcert) (e.g., `choco install mkcert` on Windows) and run trust setup once: `mkcert -install`.
+2. Generate certs that cover both `sweet.local` and your LAN IP:
+	```powershell
+	pwsh scripts/setup-dev-https.ps1 -Hostname sweet.local -LanAddress 192.168.1.80
+	```
+	This writes `certs/dev-cert.pem` and `certs/dev-key.pem` (ignored by git).
+3. Add a hosts entry pointing `sweet.local` to `192.168.1.80` on every device you plan to test.
+4. Start the secure dev server:
+	```bash
+	npm run dev:https
+	```
+5. Open `https://sweet.local:3000` (or the LAN IP) from mobile/desktop—Stripe’s Payment Element will now load.
+
 ## Testing
 - Unit tests (Vitest):
 ```bash

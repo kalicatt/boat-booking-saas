@@ -96,7 +96,8 @@ export async function POST(request: Request) {
     const paymentMethodValue = typeof paymentMethod === 'string'
       ? paymentMethod
       : paymentMethodDetails?.provider
-    const shouldMarkPaid = Boolean(markAsPaid && paymentMethodValue)
+    const instantCaptureMethods = new Set(['cash', 'paypal', 'applepay', 'googlepay', 'ANCV', 'CityPass'])
+    const shouldMarkPaid = Boolean(markAsPaid && paymentMethodValue && instantCaptureMethods.has(paymentMethodValue))
 
     // --- VALIDATION HORAIRES ---
     // On utilise getUTCHours() car on a forcé le Z (UTC)
@@ -621,8 +622,6 @@ export async function POST(request: Request) {
         const method = paymentMethodValue
         if (method === 'cash') {
           await prisma.payment.create({ data: { provider: 'cash', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
-        } else if (method === 'card') {
-          await prisma.payment.create({ data: { provider: 'card', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'paypal') {
           await prisma.payment.create({ data: { provider: 'paypal', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
         } else if (method === 'applepay') {

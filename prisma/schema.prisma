@@ -81,6 +81,7 @@ model Booking {
   boatId      Int
 
   payments    Payment[]
+  paymentSessions PaymentSession[]
 }
 
 model BlockedInterval {
@@ -172,12 +173,45 @@ model Payment {
   status       String   // created | requires_action | succeeded | failed | cancelled | refunded
   methodType   String?
   rawPayload   Json?
+  paymentSessionId String?
+  paymentSession PaymentSession? @relation("PaymentSessionPayments", fields: [paymentSessionId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   @@index([bookingId])
   @@index([intentId])
   @@index([orderId])
+  @@unique([paymentSessionId])
+}
+
+model PaymentSession {
+  id                String                @id @default(cuid())
+  bookingId         String?
+  booking           Booking?              @relation(fields: [bookingId], references: [id])
+  provider          String                @default("stripe_terminal")
+  methodType        String?               // card | wallet | voucher
+  status            PaymentSessionStatus  @default(PENDING)
+  amount            Int                   // cents
+  currency          String                @default("EUR")
+  expiresAt         DateTime
+  targetDeviceId    String?
+  claimedByDeviceId String?
+  claimedAt         DateTime?
+  processingAt      DateTime?
+  completedAt       DateTime?
+  intentId          String?
+  intentClientSecret String?
+  metadata          Json?
+  lastError         String?
+  createdById       String?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  payments          Payment[]             @relation("PaymentSessionPayments")
+
+  @@index([bookingId])
+  @@index([status, expiresAt])
+  @@index([targetDeviceId, status])
 }
 
 // Immutable accounting ledger: append-only events for audit
@@ -267,4 +301,14 @@ enum ContactStatus {
   NEW
   CONTACTED
   CLOSED
+}
+
+enum PaymentSessionStatus {
+  PENDING
+  CLAIMED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
 }

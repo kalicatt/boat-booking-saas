@@ -2,17 +2,32 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const developmentServerUrl = process.env.CAP_FALLBACK_SERVER_URL ?? 'http://192.168.1.55:3000'
 const productionServerUrl = process.env.CAP_PROD_SERVER_URL ?? 'https://sweet-narcisse.fr'
-const trustedHostnames = ['sweet-narcisse.fr', 'www.sweet-narcisse.fr']
+const baseHostnames = ['sweet-narcisse.fr', 'www.sweet-narcisse.fr']
 
 const serverUrl =
   process.env.CAP_SERVER_URL ??
   (process.env.CAP_USE_DEV === 'true' ? developmentServerUrl : productionServerUrl)
 
+const resolvedAllowNavigation = (() => {
+  if (!serverUrl) {
+    return baseHostnames;
+  }
+  try {
+    const hostname = new URL(serverUrl).hostname;
+    if (hostname && !baseHostnames.includes(hostname)) {
+      return [...baseHostnames, hostname];
+    }
+  } catch (error) {
+    // Ignore malformed server URLs and fall back to defaults.
+  }
+  return baseHostnames;
+})();
+
 const serverConfig = serverUrl
   ? {
       url: serverUrl,
       cleartext: serverUrl.startsWith('http://'),
-      allowNavigation: trustedHostnames,
+      allowNavigation: resolvedAllowNavigation,
       appendUserAgent: ' SweetNarcisseApp'
     }
   : undefined;

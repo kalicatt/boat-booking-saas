@@ -2718,4 +2718,4985 @@ Utilisez Apps on Devices pour exécuter votre application de point de vente (PDV
 
 Stripe gère tous les paiements et la conformité avec le SDK Android Stripe Terminal.
 
-En savoir plus sur [Apps on Devices](https://docs.stripe.com/terminal/features/apps-on-devices/overview.md). Vous pouvez également consulter l’[application test](https://github.com/stripe-samples/terminal-apps-on-devices) pour découvrir les bonnes pratiques d’intégration, comment collecter et confirmer un paiement et plus encore.
+En savoir plus sur [Apps on Devices](https://docs.stripe.com/terminal/features/apps-on-devices/overview.md). Vous pouvez également consulter l’[application test](https://github.com/stripe-samples/
+terminal-apps-on-devices) pour découvrir les bonnes pratiques d’intégration, comment collecter et confirmer un paiement et plus encore.
+
+
+
+
+
+# Encaissement des paiements par carte
+
+Préparez votre application et votre back-end pour l'encaissement des paiements par carte à l'aide de Stripe Terminal.
+
+# Piloté par serveur
+
+> This is a Piloté par serveur for when terminal-sdk-platform is server-driven. View the full page at https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven.
+
+Pour les lecteurs BBPOS WisePOS&nbsp;E et Stripe Reader&nbsp;S700, nous recommandons une intégration côté serveur, car elle utilise l’API Stripe au lieu d’un SDK Terminal pour collecter les paiements.
+
+Vous découvrez l’API Payment Intents&nbsp;? Voici quelques ressources utiles&nbsp;:
+
+- [L’API Payment Intents](https://docs.stripe.com/payments/payment-intents.md)
+- [L’objet PaymentIntent](https://docs.stripe.com/api/payment_intents.md)
+- [Autres scénarios de paiement](https://docs.stripe.com/payments/more-payment-scenarios.md)
+
+La définition d’un tunnel de paiement dans votre application est nécessaire pour encaisser des paiements avec Stripe Terminal. Utilisez le SDK Stripe Terminal pour créer et mettre à jour un [PaymentIntent](https://docs.stripe.com/api.md#payment_intents), un objet représentant une session de paiement individuelle.
+
+Bien que les concepts fondamentaux d’une intégration pilotée par serveur soient similaires à ceux des intégrations basées sur des SDK, les étapes à suivre sont légèrement différentes&nbsp;:
+
+1. [Créez un PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#create-payment). Vous pouvez décider de capturer vos paiements [automatiquement](https://docs.stripe.com/api/payment_intents/create.md#create_payment_intent-capture_method) ou [manuellement](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+1. [Traitez le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#process-payment). L’autorisation sur la carte bancaire du client a lieu lorsque le lecteur traite le paiement.
+1. (facultatif) [Capturez le PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#capture-payment)
+
+> Cette forme d’intégration ne prendre en charge les [paiements par carte](https://docs.stripe.com/terminal/features/operate-offline/collect-card-payments.md) hors ligne.
+
+## Créer un PaymentIntent
+
+- [Créer un PaymentIntent](https://docs.stripe.com/api/payment_intents/create.md)
+
+La première étape de l’encaissement d’un paiement consiste à démarrer le tunnel de paiement. Lorsque le client commence son paiement, votre back-end doit créer un objet [PaymentIntent](https://docs.stripe.com/api/payment_intents.md) qui représente une nouvelle session de paiement sur Stripe. Avec l’intégration pilotée par serveur, le PaymentIntent doit être créé côté serveur.
+
+Dans un environnement de test, vous pouvez utiliser des [montants tests](https://docs.stripe.com/terminal/references/testing.md#physical-test-cards) pour simuler différents scénarios d’erreurs. En mode production, le montant du PaymentIntent s’affiche sur le lecteur pour le paiement.
+
+Pour les paiements Terminal, le paramètre `payment_method_types` doit inclure l’option `card_present`.
+
+Pour accepter les Payments Interac au Canada, vous devez également inclure `interac_present` dans `payment_method_types`. En savoir plus sur les [considérations régionales pour le Canada](https://docs.stripe.com/terminal/payments/regional.md?integration-country=CA#create-a-paymentintent).
+
+Pour accepter les moyens de paiement autres que les cartes dans les pays pris en charge, vous devez également spécifier vos types préférés dans `payment_method_types`. En savoir plus sur les [autres moyens de paiement](https://docs.stripe.com/terminal/payments/additional-payment-methods.md).
+
+Vous pouvez contrôler le tunnel de paiement de la manière suivante&nbsp;:
+
+- Pour contrôler totalement le tunnel de paiement des transactions `card_present`, définissez le paramètre `capture_method` sur `manual`. Cela vous permet d’ajouter une étape de rapprochement avant la finalisation du paiement.
+- Pour capturer et autoriser simultanément des paiements, définissez le paramètre `capture_method` sur `automatic`.
+
+> Ne recréez pas un PaymentIntent en cas de refus de carte. Réutilisez plutôt le même PaymentIntent pour [éviter les doubles paiements](https://docs.stripe.com/terminal/payments/collect-card-payment.md#avoiding-double-charges).
+
+```curl
+curl https://api.stripe.com/v1/payment_intents \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d currency=eur \
+  -d "payment_method_types[]"=card_present \
+  -d capture_method=manual \
+  -d amount=1000
+```
+
+```cli
+stripe payment_intents create  \
+  --currency=eur \
+  -d "payment_method_types[0]"=card_present \
+  --capture-method=manual \
+  --amount=1000
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.create({
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+  amount: 1000,
+})
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.create({
+  "currency": "eur",
+  "payment_method_types": ["card_present"],
+  "capture_method": "manual",
+  "amount": 1000,
+})
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->create([
+  'currency' => 'eur',
+  'payment_method_types' => ['card_present'],
+  'capture_method' => 'manual',
+  'amount' => 1000,
+]);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentCreateParams params =
+  PaymentIntentCreateParams.builder()
+    .setCurrency("eur")
+    .addPaymentMethodType("card_present")
+    .setCaptureMethod(PaymentIntentCreateParams.CaptureMethod.MANUAL)
+    .setAmount(1000L)
+    .build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent = client.v1().paymentIntents().create(params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.create({
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+  amount: 1000,
+});
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentCreateParams{
+  Currency: stripe.String(stripe.CurrencyEUR),
+  PaymentMethodTypes: []*string{stripe.String("card_present")},
+  CaptureMethod: stripe.String(stripe.PaymentIntentCaptureMethodManual),
+  Amount: stripe.Int64(1000),
+}
+result, err := sc.V1PaymentIntents.Create(context.TODO(), params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new PaymentIntentCreateOptions
+{
+    Currency = "eur",
+    PaymentMethodTypes = new List<string> { "card_present" },
+    CaptureMethod = "manual",
+    Amount = 1000,
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Create(options);
+```
+
+## Traiter le paiement
+
+Vous pouvez choisir de traiter un paiement immédiatement avec la carte présentée par votre client ou de vérifier d’abord les informations de carte. Nous vous recommandons le traitement immédiat pour la plupart des cas d’usage, car il s’agit d’une intégration plus simple avec moins d’appels à l’API et d’événements de webhook. Toutefois, si vous souhaitez insérer votre propre logique métier avant l’autorisation de la carte, vous pouvez utiliser le flux de collecte et de confirmation en deux étapes.
+
+#### Traitement immédiat
+
+- [Traitement d’un PaymentIntent](https://docs.stripe.com/api/terminal/readers/process_payment_intent.md)
+
+Une fois l’objet PaymentIntent créé, vous devez traiter le paiement. Le lecteur invite le client à insérer ou présenter la carte, puis autorise le paiement.
+
+Pour encaisser un paiement, envoyez une requête à Stripe en indiquant l’ID du PaymentIntent que vous avez créé et le lecteur à utiliser pour cette transaction.
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/process_payment_intent \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx
+```
+
+```cli
+stripe terminal readers process_payment_intent tmr_xxx \
+  --payment-intent=pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.process_payment_intent(
+  'tmr_xxx',
+  {payment_intent: 'pi_xxx'},
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.process_payment_intent(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx"},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->processPaymentIntent(
+  'tmr_xxx',
+  ['payment_intent' => 'pi_xxx']
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderProcessPaymentIntentParams params =
+  ReaderProcessPaymentIntentParams.builder().setPaymentIntent("pi_xxx").build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().processPaymentIntent("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.processPaymentIntent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderProcessPaymentIntentParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+}
+result, err := sc.V1TerminalReaders.ProcessPaymentIntent(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderProcessPaymentIntentOptions
+{
+    PaymentIntent = "pi_xxx",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.ProcessPaymentIntent("tmr_xxx", options);
+```
+
+Le traitement du paiement est asynchrone. Lors du paiement, le titulaire de la carte peut mettre quelques instants à sortir sa carte de son portefeuille ou prendre le temps de poser une question à l’opérateur. Lorsque vous traitez un paiement, Stripe répond immédiatement à la requête par un code d’état HTTP `200` pour confirmer que le lecteur a bien reçu l’action. Dans la plupart des cas, la requête renvoie un [lecteur](https://docs.stripe.com/api/terminal/readers.md) à l’état `in_progress`. Cependant, comme le traitement a lieu de manière asynchrone, l’état de l’action peut déjà refléter l’état final (`succeeded` ou `failed`) si le paiement est effectué rapidement.
+
+Simultanément, l’écran du lecteur invite le client à insérer sa carte. Pour [vérifier l’état du lecteur](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#verify-reader), écoutez le webhook `terminal.reader.action_succeeded` ou interrogez l’état de l’objet Reader et PaymentIntent pour recevoir l’état du paiement.
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe terminal readers retrieve tmr_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.retrieve('tmr_xxx')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.retrieve("tmr_xxx")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->retrieve('tmr_xxx', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderRetrieveParams params = ReaderRetrieveParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().retrieve("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.retrieve('tmr_xxx');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderRetrieveParams{}
+result, err := sc.V1TerminalReaders.Retrieve(context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.Get("tmr_xxx");
+```
+
+```json
+{
+  "id": "tmr_xxx",
+  "object": "terminal.reader",
+  ...
+  "status": "online",
+  "action": {
+    "type": "process_payment_intent",
+    "process_payment_intent": {
+      "payment_intent": "pi_xxx"
+    },
+    "status": "in_progress",
+    "failure_code": null,
+    "failure_message": null
+  }
+}
+```
+
+#### Collecter, inspecter et confirmer
+
+Une fois l’objet PaymentIntent créé, vous devez traiter le paiement. Le lecteur invite le client à insérer ou présenter la carte, puis crée un PaymentMethod.
+
+### Collecter un PaymentMethod
+
+- [Collecter un moyen de paiement](https://docs.stripe.com/api/terminal/readers/collect_payment_method.md)
+
+Pour encaisser un paiement, envoyez une requête à Stripe en indiquant l’ID du PaymentIntent que vous avez créé et le lecteur à utiliser pour cette transaction.
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/collect_payment_method \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx
+```
+
+```cli
+stripe terminal readers collect_payment_method tmr_xxx \
+  --payment-intent=pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.collect_payment_method(
+  'tmr_xxx',
+  {payment_intent: 'pi_xxx'},
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.collect_payment_method(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx"},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->collectPaymentMethod(
+  'tmr_xxx',
+  ['payment_intent' => 'pi_xxx']
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderCollectPaymentMethodParams params =
+  ReaderCollectPaymentMethodParams.builder().setPaymentIntent("pi_xxx").build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().collectPaymentMethod("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.collectPaymentMethod(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderCollectPaymentMethodParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+}
+result, err := sc.V1TerminalReaders.CollectPaymentMethod(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderCollectPaymentMethodOptions
+{
+    PaymentIntent = "pi_xxx",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.CollectPaymentMethod("tmr_xxx", options);
+```
+
+> Une fois le moyen de paiement encaissé, vous devez autoriser le paiement ou annuler le recouvrement dans les 30&nbsp;secondes.
+
+L’encaissement du paiement est asynchrone. Lors du paiement, il peut s’écouler quelques secondes, le temps que le titulaire de la carte sorte celle-ci de son portefeuille ou pose une question à l’opérateur. Lorsque vous commencez à collecter un moyen de paiement, Stripe répond immédiatement à cette requête par un code d’état HTTP `200` et renvoie un lecteur avec une action à l’état `in_progress`. Simultanément, l’écran du lecteur passe à une interface utilisateur qui invite le client à insérer sa carte.
+
+Une fois que le lecteur a collecté les données de la carte, le PaymentMethod se joint au PaymentIntent côté serveur et le stocke sur l’objet Reader en tant que `action.collect_payment_method.payment_method`. Pour [vérifier l’état du lecteur](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#verify-reader), écoutez le webhook `terminal.reader.action_updated` ou interrogez l’état des actions du lecteur pour inspecter le PaymentMethod.
+
+À ce stade, vous pouvez accéder à des attributs tels que la marque de la carte, le financement et d’autres données utiles du PaymentMethod.
+
+Stripe tente de détecter si un portefeuille mobile est utilisé dans une transaction, comme indiqué dans l’attribut `wallet.type`. Cependant, l’attribut n’est pas renseigné si la banque émettrice de la carte ne prend pas en charge l’identification d’un portefeuille mobile par le lecteur, de sorte qu’une détection précise n’est pas garantie. Après autorisation à l’étape [confirmation](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven&process=inspect#confirm-the-paymentintent), Stripe reçoit des réseaux des informations actualisées afin de mettre à jour `wallet.type` de manière fiable.
+
+### Confirmer le PaymentIntent
+
+- [Confirmer un PaymentIntent](https://docs.stripe.com/api/terminal/readers/confirm_payment_intent.md)
+
+Une fois le PaymentMethod collecté, vous pouvez autoriser le paiement.
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/confirm_payment_intent \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx
+```
+
+```cli
+stripe terminal readers confirm_payment_intent tmr_xxx \
+  --payment-intent=pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.confirm_payment_intent(
+  'tmr_xxx',
+  {payment_intent: 'pi_xxx'},
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.confirm_payment_intent(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx"},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->confirmPaymentIntent(
+  'tmr_xxx',
+  ['payment_intent' => 'pi_xxx']
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderConfirmPaymentIntentParams params =
+  ReaderConfirmPaymentIntentParams.builder().setPaymentIntent("pi_xxx").build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().confirmPaymentIntent("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.confirmPaymentIntent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderConfirmPaymentIntentParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+}
+result, err := sc.V1TerminalReaders.ConfirmPaymentIntent(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderConfirmPaymentIntentOptions
+{
+    PaymentIntent = "pi_xxx",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.ConfirmPaymentIntent("tmr_xxx", options);
+```
+
+La confirmation du PaymentIntent est asynchrone. Vous pouvez écouter le webhook `terminal.reader.action_succeeded` ou interroger l’état des objets Reader et PaymentIntent pour recevoir l’état du paiement.
+
+Si vous utilisez un lecteur de simulation, utilisez l’endpoint [present_payment_method](https://docs.stripe.com/terminal/references/testing.md#simulated-card-presentment) pour simuler la présentation ou l’insertion d’une carte bancaire dans le lecteur. Utilisez des [cartes de test](https://docs.stripe.com/terminal/references/testing.md#standard-test-cards) pour simuler différents scénarios de réussite ou d’échec.
+
+## Capturer le paiement
+
+Si vous avez réglé `capture_method` sur `manual` lors de la création du PaymentIntent à l’[étape&nbsp;1](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment), le SDK renvoie à votre application un PaymentIntent autorisé, mais non capturé. En savoir plus sur la différence entre [autorisation et capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md). Lorsque votre application reçoit un PaymentIntent confirmé, veillez à ce qu’elle demande à votre back-end de capturer le PaymentIntent. Pour cela, créez dans votre back-end un endpoint qui accepte un ID de PaymentIntent et envoie une demande de capture à l’API Stripe.
+
+```curl
+curl -X POST https://api.stripe.com/v1/payment_intents/pi_xxx/capture \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe payment_intents capture pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.capture('pi_xxx')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.capture("pi_xxx")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->capture('pi_xxx', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentCaptureParams params = PaymentIntentCaptureParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent = client.v1().paymentIntents().capture("pi_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.capture('pi_xxx');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentCaptureParams{}
+result, err := sc.V1PaymentIntents.Capture(context.TODO(), "pi_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Capture("pi_xxx");
+```
+
+Si l’appel de capture réussit, l’état du PaymentIntent passe à `succeeded`.
+
+> Vous devez capturer les `PaymentIntents` manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+## Vérifier l’état du lecteur
+
+Pour vérifier que le lecteur a terminé une action, votre application doit examiner l’état du lecteur avant d’initier une nouvelle action de lecteur. Dans la plupart des cas, vous constaterez que le paiement est approuvé et votre opérateur verra s’afficher l’expérience utilisateur permettant de finaliser la transaction, le cas échéant. Dans d’autres cas, vous pourrez avoir à [gérer des erreurs](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=api#handle-errors), notamment des refus de paiement.
+
+Utilisez l’une des méthodes suivantes pour vérifier l’état du lecteur&nbsp;:
+
+- [Écouter des webhooks](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#webhooks)
+- [Interroger l’API&nbsp;Stripe](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#stripe-api)
+- [Utiliser le PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#payment-intent)
+- [Utiliser l’objet&nbsp;Reader](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#reader-object)
+
+#### Écouter les webhooks (Recommandé)
+
+Pour une plus grande résilience, votre application doit de préférence écouter des [webhooks](https://docs.stripe.com/webhooks.md) de Stripe afin de recevoir en temps réel des notifications sur l’état du lecteur. Stripe envoie trois webhooks pour informer votre application de l’état d’action d’un lecteur&nbsp;:
+
+| État                                    | Description                                                                                                                                                              |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `terminal.reader.action_succeeded`      | Envoyé lorsqu’une action du lecteur aboutit, par exemple lorsqu’un paiement est autorisé avec succès.                                                                    |
+| `terminal.reader.action_failed`         | Envoyé lorsqu’une action du lecteur échoue, par exemple lorsqu’une carte est refusée en raison de fonds insuffisants.                                                    |
+| `terminal.reader.action_updated` (Bêta) | Envoyé lorsqu’une action du lecteur est mise à jour, par exemple lorsqu’un moyen de paiement est collecté (déclenché uniquement pour l’action `collect_payment_method`). |
+
+Pour écouter ces webhooks, créez un endpoint de [webhook](https://docs.stripe.com/webhooks.md). Il est préférable de configurer un endpoint dédié uniquement à ce type d’événements prioritaires, qui sont essentiels à la réussite du paiement.
+
+```curl
+curl https://api.stripe.com/v1/webhook_endpoints \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d "enabled_events[]"="terminal.reader.action_succeeded" \
+  -d "enabled_events[]"="terminal.reader.action_failed" \
+  --data-urlencode url="https://example.com/my/webhook/endpoint"
+```
+
+```cli
+stripe webhook_endpoints create  \
+  -d "enabled_events[0]"="terminal.reader.action_succeeded" \
+  -d "enabled_events[1]"="terminal.reader.action_failed" \
+  --url="https://example.com/my/webhook/endpoint"
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+webhook_endpoint = client.v1.webhook_endpoints.create({
+  enabled_events: ['terminal.reader.action_succeeded', 'terminal.reader.action_failed'],
+  url: 'https://example.com/my/webhook/endpoint',
+})
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+webhook_endpoint = client.v1.webhook_endpoints.create({
+  "enabled_events": ["terminal.reader.action_succeeded", "terminal.reader.action_failed"],
+  "url": "https://example.com/my/webhook/endpoint",
+})
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$webhookEndpoint = $stripe->webhookEndpoints->create([
+  'enabled_events' => [
+    'terminal.reader.action_succeeded',
+    'terminal.reader.action_failed',
+  ],
+  'url' => 'https://example.com/my/webhook/endpoint',
+]);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+WebhookEndpointCreateParams params =
+  WebhookEndpointCreateParams.builder()
+    .addEnabledEvent(
+      WebhookEndpointCreateParams.EnabledEvent.TERMINAL__READER__ACTION_SUCCEEDED
+    )
+    .addEnabledEvent(
+      WebhookEndpointCreateParams.EnabledEvent.TERMINAL__READER__ACTION_FAILED
+    )
+    .setUrl("https://example.com/my/webhook/endpoint")
+    .build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+WebhookEndpoint webhookEndpoint = client.v1().webhookEndpoints().create(params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const webhookEndpoint = await stripe.webhookEndpoints.create({
+  enabled_events: ['terminal.reader.action_succeeded', 'terminal.reader.action_failed'],
+  url: 'https://example.com/my/webhook/endpoint',
+});
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.WebhookEndpointCreateParams{
+  EnabledEvents: []*string{
+    stripe.String("terminal.reader.action_succeeded"),
+    stripe.String("terminal.reader.action_failed"),
+  },
+  URL: stripe.String("https://example.com/my/webhook/endpoint"),
+}
+result, err := sc.V1WebhookEndpoints.Create(context.TODO(), params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new WebhookEndpointCreateOptions
+{
+    EnabledEvents = new List<string>
+    {
+        "terminal.reader.action_succeeded",
+        "terminal.reader.action_failed",
+    },
+    Url = "https://example.com/my/webhook/endpoint",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.WebhookEndpoints;
+WebhookEndpoint webhookEndpoint = service.Create(options);
+```
+
+#### Interroger l’API Stripe
+
+En cas de problème de réception du webhook, vous pouvez interroger l’API Stripe en ajoutant à votre interface de point de vente un bouton `check status`, que l’opérateur pourra utiliser si nécessaire.
+
+#### Utiliser le PaymentIntent
+
+Vous pouvez récupérer le PaymentIntent que vous avez transmis au lecteur pour traitement. Lorsque vous créez un PaymentIntent, son état initial est `requires_payment_method`. Il passe ensuite à `requires_confirmation` une fois le moyen de paiement collecté, puis à `requires_capture` une fois le paiement correctement traité.
+
+```curl
+curl https://api.stripe.com/v1/payment_intents/{{PAYMENTINTENT_ID}} \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe payment_intents retrieve {{PAYMENTINTENT_ID}}
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.retrieve('{{PAYMENTINTENT_ID}}')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.retrieve("{{PAYMENTINTENT_ID}}")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->retrieve('{{PAYMENTINTENT_ID}}', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentRetrieveParams params = PaymentIntentRetrieveParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent =
+  client.v1().paymentIntents().retrieve("{{PAYMENTINTENT_ID}}", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.retrieve('{{PAYMENTINTENT_ID}}');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentRetrieveParams{}
+result, err := sc.V1PaymentIntents.Retrieve(
+  context.TODO(), "{{PAYMENTINTENT_ID}}", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Get("{{PAYMENTINTENT_ID}}");
+```
+
+#### Utiliser l’objet Reader
+
+Vous pouvez utiliser l’objet [Reader](https://docs.stripe.com/api/terminal/readers/object.md), qui contient un attribut [action](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action) indiquant la dernière action reçue par le lecteur, ainsi que son statut. Votre application peut [récupérer un objet Reader](https://docs.stripe.com/api/terminal/readers/retrieve.md) pour savoir si l’[état](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-status) du lecteur a changé.
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe terminal readers retrieve tmr_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.retrieve('tmr_xxx')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.retrieve("tmr_xxx")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->retrieve('tmr_xxx', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderRetrieveParams params = ReaderRetrieveParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().retrieve("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.retrieve('tmr_xxx');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderRetrieveParams{}
+result, err := sc.V1TerminalReaders.Retrieve(context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.Get("tmr_xxx");
+```
+
+L’objet Reader est également renvoyé en réponse à l’étape de traitement du paiement. Lors du traitement d’un paiement, le type d’`action` est `process_payment_intent`.
+
+Le paramètre `action.status` passe à `succeeded` lorsque le paiement réussit. Dans ce cas, vous pouvez finaliser la transaction. Les autres valeurs possibles du paramètre `action.status` sont `failed` et `in_progress`.
+
+## Gérer les erreurs
+
+Votre application doit pouvoir gérer les erreurs courantes suivantes&nbsp;:
+
+- [Éviter les doublons de paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#avoiding-double-charges)
+- [Échecs de paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#payment-failures)
+- [Expiration du délai de paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#payment-timeout)
+- [Annulation de paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#payment-cancellation)
+- [Lecteur occupé](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#reader-busy)
+- [Expiration du délai imparti au lecteur](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#reader-timeout)
+- [Lecteur hors ligne](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#reader-offline)
+- [Webhooks manquants](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#missing-webhooks)
+- [Webhooks en retard](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#delayed-webhooks)
+
+### Éviter les doublons de paiement
+
+L’objet PaymentIntent active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul PaymentIntent pour représenter une transaction.
+
+Réutilisez le même PaymentIntent même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez le PaymentIntent, vous devez appeler [process_payment_intent](https://docs.stripe.com/api/terminal/readers/process_payment_intent.md) pour mettre à jour les informations de paiement sur le lecteur.
+
+Pour pouvoir être traité par Stripe, un PaymentIntent doit être à l’état `requires_payment_method`. Un PaymentIntent autorisé, capturé ou annulé ne pourra pas être traité par un lecteur et génèrera une erreur `intent_invalid_state`&nbsp;:
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/process_payment_intent \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx
+```
+
+```cli
+stripe terminal readers process_payment_intent tmr_xxx \
+  --payment-intent=pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.process_payment_intent(
+  'tmr_xxx',
+  {payment_intent: 'pi_xxx'},
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.process_payment_intent(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx"},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->processPaymentIntent(
+  'tmr_xxx',
+  ['payment_intent' => 'pi_xxx']
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderProcessPaymentIntentParams params =
+  ReaderProcessPaymentIntentParams.builder().setPaymentIntent("pi_xxx").build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().processPaymentIntent("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.processPaymentIntent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderProcessPaymentIntentParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+}
+result, err := sc.V1TerminalReaders.ProcessPaymentIntent(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderProcessPaymentIntentOptions
+{
+    PaymentIntent = "pi_xxx",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.ProcessPaymentIntent("tmr_xxx", options);
+```
+
+```json
+{
+  "error": {
+    "code": "intent_invalid_state",
+    "doc_url": "https://docs.stripe.com/error-codes#intent-invalid-state",
+    "message": "Payment intent must be in the requires_payment_method state to be processed by a reader.",
+    "type": "invalid_request_error"
+  }
+}
+```
+
+### Échecs de paiement
+
+Le motif d’échec le plus courant est l’échec d’autorisation de paiement (par exemple lorsque la banque du client refuse le paiement en raison de fonds insuffisants).
+
+Lorsqu’une autorisation de paiement échoue, Stripe envoie un webhook `terminal.reader.action_failed`. Consultez les attributs [action.failure_code](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-failure_code) et [action.failure_message](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-failure_message) pour connaître le motif du refus de paiement&nbsp;:
+
+```json
+{
+  "id": "tmr_xxx",
+  "object": "terminal.reader","action": {
+    "failure_code": "card_declined",
+    "failure_message": "Your card has insufficient funds.",
+    "process_payment_intent": {
+      "payment_intent": "pi_xxx"
+    },
+    "status": "failed",
+    "type": "process_payment_intent"
+  },
+  ...
+}
+```
+
+En cas de carte refusée, demandez au client de fournir un autre moyen de paiement. Utilisez le même PaymentIntent dans une autre requête à l’endpoint de [process_payment_intent](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-process_payment_intent). Si vous créez un nouveau PaymentIntent, vous devez [annuler](https://docs.stripe.com/api/payment_intents/cancel.md) le PaymentIntent en échec pour éviter un paiement en double.
+
+Pour les erreurs de lecture de carte (par exemple les erreurs de lecture de la puce), le lecteur invite automatiquement le client à réessayer, sans notification à votre application. En cas d’échecs répétés, vous pouvez inviter le client à utiliser un autre moyen de paiement en envoyant une autre requête [process_payment_intent](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-process_payment_intent).
+
+### Délai de paiement expiré
+
+Un lecteur dont la connexion Internet n’est pas fiable peut échouer à traiter un paiement lorsque l’autorisation de la carte prend plus longtemps que le délai autorisé par le réseau. Le lecteur affiche alors un écran de traitement pendant quelques secondes, suivi d’un écran d’échec, et vous recevez un webhook `terminal.reader.action_failed` avec le code d’échec (`failure_code`) `connection_error`&nbsp;:
+
+```json
+{
+  "id": "tmr_xxx",
+  "object": "terminal.reader","action": {
+    "failure_code": "connection_error",
+    "failure_message": "Could not connect to Stripe.",
+    "process_payment_intent": {
+      "payment_intent": "pi_xxx"
+    },
+    "status": "failed",
+    "type": "process_payment_intent"
+  },
+  ...
+}
+```
+
+Il est possible que la demande de confirmation de paiement ait été traitée par les systèmes back-end de Stripe, mais que le lecteur se soit déconnecté avant d’avoir reçu la réponse de Stripe. Lorsque vous recevez un webhook avec ce code d’échec, récupérez l’attribut `status` du PaymentIntent pour vérifier si le paiement a été autorisé.
+
+Assurez-vous que votre réseau répond à nos [exigences en matière de réseau](https://docs.stripe.com/terminal/network-requirements.md) afin de limiter les délais d’attente.
+
+### Annulation de paiement
+
+#### Annulation programmatique
+
+Vous pourriez avoir besoin d’annuler un paiement en cours, par exemple si un client ajoute des articles à son achat alors que votre intégration a déjà initié l’encaissement du paiement au niveau du lecteur. Dans ce cas, utilisez l’endpoint [cancel_action](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-cancel_action) pour réinitialiser le lecteur&nbsp;:
+
+```curl
+curl -X POST https://api.stripe.com/v1/terminal/readers/tmr_xxx/cancel_action \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe terminal readers cancel_action tmr_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.cancel_action('tmr_xxx')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.cancel_action("tmr_xxx")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->cancelAction('tmr_xxx', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderCancelActionParams params = ReaderCancelActionParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().cancelAction("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.cancelAction('tmr_xxx');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderCancelActionParams{}
+result, err := sc.V1TerminalReaders.CancelAction(context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.CancelAction("tmr_xxx");
+```
+
+> Vous ne pouvez pas annuler une action de lecteur lorsqu’un paiement est en cours d’autorisation. Si le client a déjà présenté sa carte sur le lecteur pour procéder au paiement, vous devez attendre que le traitement du paiement soit terminé. Les autorisations s’effectuent habituellement en quelques secondes. Si vous appelez [cancel_action](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-cancel_action) pendant une autorisation, cela générera une erreur de type `terminal_reader_busy`.
+
+#### Annulation initiée par le client
+
+Les utilisateurs peuvent définir la valeur de `enable_customer_cancellation` sur ces endpoints&nbsp;:
+
+- [process_payment_intent](https://docs.stripe.com/api/terminal/readers/process_payment_intent.md)
+- [process_setup_intent](https://docs.stripe.com/api/terminal/readers/process_setup_intent.md)
+- [collect_payment_method](https://docs.stripe.com/api/terminal/readers/collect_payment_method.md)
+- [refund_payment](https://docs.stripe.com/api/terminal/readers/refund_payment.md)
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/process_payment_intent \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx \
+  -d "process_config[enable_customer_cancellation]"=true
+```
+
+```cli
+stripe terminal readers process_payment_intent tmr_xxx \
+  --payment-intent=pi_xxx \
+  -d "process_config[enable_customer_cancellation]"=true
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.process_payment_intent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+    process_config: {enable_customer_cancellation: true},
+  },
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.process_payment_intent(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx", "process_config": {"enable_customer_cancellation": True}},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->processPaymentIntent(
+  'tmr_xxx',
+  [
+    'payment_intent' => 'pi_xxx',
+    'process_config' => ['enable_customer_cancellation' => true],
+  ]
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderProcessPaymentIntentParams params =
+  ReaderProcessPaymentIntentParams.builder()
+    .setPaymentIntent("pi_xxx")
+    .setProcessConfig(ReaderProcessPaymentIntentParams.ProcessConfig.builder().build())
+    .putExtraParam("process_config[enable_customer_cancellation]", true)
+    .build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().processPaymentIntent("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.processPaymentIntent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+    process_config: {
+      enable_customer_cancellation: true,
+    },
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderProcessPaymentIntentParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+  ProcessConfig: &stripe.TerminalReaderProcessPaymentIntentProcessConfigParams{},
+}
+params.AddExtra("process_config[enable_customer_cancellation]", true)
+result, err := sc.V1TerminalReaders.ProcessPaymentIntent(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderProcessPaymentIntentOptions
+{
+    PaymentIntent = "pi_xxx",
+    ProcessConfig = new Stripe.Terminal.ReaderProcessConfigOptions(),
+};
+options.AddExtraParam("process_config[enable_customer_cancellation]", true);
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.ProcessPaymentIntent("tmr_xxx", options);
+```
+
+Lorsque cette valeur est définie sur «&nbsp;true&nbsp;», les utilisateurs de lecteurs intelligents voient apparaître un bouton d’annulation.
+![Écran de contrôle des paiements avec bouton d'annulation du client](https://b.stripecdn.com/docs-statics-srv/assets/customer-cancellation-light-mode.c9ff8361795a2bf4d9e307eee8669775.png)
+
+Encaissement des paiements avec possibilité d’annulation
+
+Appuyer sur le bouton d’annulation annule la transaction active. Stripe envoie un webhook `terminal.reader.action_failed` avec un failure_code de `customer_canceled`.
+
+```json
+{
+  "action": {
+    "failure_code": "customer_canceled",
+    "failure_message": "This action could not be completed due to an error on the card reader.",
+    "process_payment_intent": {
+      "payment_intent": "pi_xxx",
+      "process_config": {
+        "enable_customer_cancellation": true
+      }
+    },
+    "status": "failed",
+    "type": "process_payment_intent"
+  }
+}
+```
+
+### Lecteur occupé
+
+Un lecteur ne peut traiter qu’un seul paiement à la fois. Pendant le traitement d’un paiement, la tentative d’un nouveau paiement échoue avec une erreur `terminal_reader_busy`&nbsp;:
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/process_payment_intent \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx
+```
+
+```cli
+stripe terminal readers process_payment_intent tmr_xxx \
+  --payment-intent=pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.process_payment_intent(
+  'tmr_xxx',
+  {payment_intent: 'pi_xxx'},
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.process_payment_intent(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx"},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->processPaymentIntent(
+  'tmr_xxx',
+  ['payment_intent' => 'pi_xxx']
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderProcessPaymentIntentParams params =
+  ReaderProcessPaymentIntentParams.builder().setPaymentIntent("pi_xxx").build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().processPaymentIntent("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.processPaymentIntent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderProcessPaymentIntentParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+}
+result, err := sc.V1TerminalReaders.ProcessPaymentIntent(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderProcessPaymentIntentOptions
+{
+    PaymentIntent = "pi_xxx",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.ProcessPaymentIntent("tmr_xxx", options);
+```
+
+```json
+{
+  "error": {
+    "code": "terminal_reader_busy",
+    "doc_url": "https://docs.stripe.com/error-codes#terminal-reader-timeout",
+    "message": "Reader is currently busy processing another request. Please reference the integration guide at https://stripe.com/docs/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven#handle-errors for details on how to handle this error.",
+    "type": "invalid_request_error"
+  }
+}
+```
+
+Les paiements qui n’ont pas commencé à être traités peuvent être remplacés par un nouveau paiement.
+
+Un lecteur rejette également une demande d’API s’il est occupé à effectuer des mises à jour, à modifier des paramètres ou si une carte de la transaction précédente est insérée.
+
+### Expiration du délai imparti au lecteur
+
+Il peut parfois arriver qu’un lecteur ne puisse pas répondre à temps à une requête API en raison d’un problème temporaire de réseau. Dans ce cas, vous recevez un code d’erreur `terminal_reader_timeout`&nbsp;:
+
+```curl
+curl https://api.stripe.com/v1/terminal/readers/tmr_xxx/process_payment_intent \
+  -u "<<YOUR_SECRET_KEY>>:" \
+  -d payment_intent=pi_xxx
+```
+
+```cli
+stripe terminal readers process_payment_intent tmr_xxx \
+  --payment-intent=pi_xxx
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+reader = client.v1.terminal.readers.process_payment_intent(
+  'tmr_xxx',
+  {payment_intent: 'pi_xxx'},
+)
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+reader = client.v1.terminal.readers.process_payment_intent(
+  "tmr_xxx",
+  {"payment_intent": "pi_xxx"},
+)
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$reader = $stripe->terminal->readers->processPaymentIntent(
+  'tmr_xxx',
+  ['payment_intent' => 'pi_xxx']
+);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+ReaderProcessPaymentIntentParams params =
+  ReaderProcessPaymentIntentParams.builder().setPaymentIntent("pi_xxx").build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+Reader reader = client.v1().terminal().readers().processPaymentIntent("tmr_xxx", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const reader = await stripe.terminal.readers.processPaymentIntent(
+  'tmr_xxx',
+  {
+    payment_intent: 'pi_xxx',
+  }
+);
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.TerminalReaderProcessPaymentIntentParams{
+  PaymentIntent: stripe.String("pi_xxx"),
+}
+result, err := sc.V1TerminalReaders.ProcessPaymentIntent(
+  context.TODO(), "tmr_xxx", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var options = new Stripe.Terminal.ReaderProcessPaymentIntentOptions
+{
+    PaymentIntent = "pi_xxx",
+};
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.Terminal.Readers;
+Stripe.Terminal.Reader reader = service.ProcessPaymentIntent("tmr_xxx", options);
+```
+
+```json
+{
+  "error": {
+    "code": "terminal_reader_timeout",
+    "doc_url": "https://docs.stripe.com/error-codes#terminal-reader-timeout",
+    "message": "There was a timeout when sending this command to the reader. Please reference the integration guide at https://stripe.com/docs/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven#handle-errors for details on how to handle this error.",
+    "type": "invalid_request_error"
+  }
+}
+```
+
+Dans ce cas, nous vous recommandons de réessayer la requête à l’API. Assurez-vous que votre réseau répond à nos [exigences en matière de réseau](https://docs.stripe.com/terminal/network-requirements.md) afin de limiter les délais d’attente.
+
+Il peut parfois arriver que le code d’erreur `terminal_reader_timeout`soit envoyé à tort. Dans ce scénario, vous recevez une erreur `terminal_reader_timeout` de l’API comme décrit ci-dessus, alors que le lecteur a bien reçu la commande. Ce type de faux négatif survient lorsque Stripe envoie un message au lecteur, mais ne reçoit pas d’accusé de réception du lecteur en raison de défaillances temporaires du réseau.
+
+### Lecteur hors ligne
+
+Si la connexion Internet d’un emplacement est perdue, la communication entre le lecteur et Stripe peut être interrompue. Dans ce cas, le lecteur ne peut pas répondre aux événements lancés par votre application de point de vente et votre infrastructure back-end.
+
+Un lecteur qui ne répond pas régulièrement aux requêtes de l’API est très probablement hors tension (câble d’alimentation débranché ou batterie déchargée) ou non connecté à Internet.
+
+Un lecteur est considéré comme hors ligne si Stripe n’a reçu aucun signal de ce lecteur au cours des 2&nbsp;dernières minutes. Toute tentative d’appel de méthodes API sur un lecteur hors ligne génère un code d’erreur `terminal_reader_offline`&nbsp;:
+
+```json
+{
+  "error": {
+    "code": "terminal_reader_offline",
+    "doc_url": "https://docs.stripe.com/error-codes#terminal-reader-offline",
+    "message": "Reader is currently offline, please ensure the reader is powered on and connected to the internet before retrying your request. Reference the integration guide at https://stripe.com/docs/terminal/payments/collect-card-payment?terminal-sdk-platform=server-driven#handle-errors for details on how to handle this error.",
+    "type": "invalid_request_error"
+  }
+}
+```
+
+Reportez-vous à nos [exigences en matière de réseau](https://docs.stripe.com/terminal/network-requirements.md) pour vous assurer qu’un lecteur est correctement connecté à Internet.
+
+### Webhooks manquants
+
+Lorsqu’un lecteur se déconnecte en cours de paiement, il ne peut pas mettre à jour son état d’action dans l’API. Dans ce scénario, le lecteur affiche un écran d’erreur après présentation de la carte, mais l’objet Reader de l’API n’est pas mis à jour et ne reflète dont pas cet échec. Vous ne recevez pas non plus les webhooks d’action du lecteur. Dans ce cas, un lecteur peut présenter l’état d’action `in_progress`. Le personnel de caisse doit alors intervenir en appelant l’endpoint [cancel_action](https://docs.stripe.com/api/terminal/readers/object.md#terminal_reader_object-action-cancel_action) pour réinitialiser l’état du lecteur.
+
+### Webhooks en retard
+
+En cas de panne généralisée de Stripe, il peut occasionnellement arriver que les webhooks d’action des lecteurs soient en retard. Dans ce cas, vous pouvez interroger l’état des objets Reader ou PaymentIntent pour connaître leur dernier état.
+
+## Événements de webhook
+
+| Webhook                            | Description                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `terminal.reader.action_succeeded` | Envoyé à la réussite d’une action asynchrone. Concerne les actions nécessitant la présentation d’une carte, par exemple `process_payment_intent`, `confirm_payment_intent`, `process_setup_intent` et `refund_payment`.                                                                                                                                                                                                                          |
+| `terminal.reader.action_failed`    | Envoyé lors de l’échec d’une action asynchrone. Concerne les actions nécessitant une présentation de la carte, comme `process_payment_intent`, `process_setup_intent` ou `refund_payment`. Aucun webhook n’est envoyé pour les actions `set_reader_display` et `cancel_action`. Votre intégration doit [gérer ces erreurs](https://docs.stripe.com/terminal/payments/collect-card-payment.md?terminal-sdk-platform=server-driven#handle-errors). |
+| `terminal.reader.action_updated`   | Envoyé à la mise à jour d’une action asynchrone. Concerne les action telles que `collect_payment_method`.                                                                                                                                                                                                                                                                                                                                        |
+
+
+# JavaScript
+
+> This is a JavaScript for when terminal-sdk-platform is js. View the full page at https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=js.
+
+> Pour les lecteurs intelligents, tels que le lecteur [BBPOS WisePOS&nbsp;E](https://docs.stripe.com/terminal/payments/setup-reader/bbpos-wisepos-e.md) ou [Stripe Reader&nbsp;S700](https://docs.stripe.com/terminal/readers/stripe-reader-s700.md), nous vous recommandons d’utiliser l’[intégration pilotée par serveur](https://docs.stripe.com/terminal/payments/setup-integration.md?terminal-sdk-platform=server-driven) plutôt que le SDK JavaScript. L’intégration pilotée par serveur utilise l’API Stripe au lieu de s’appuyer sur les communications réseau locales pour collecter les paiements. Consultez notre [comparatif des plateformes](https://docs.stripe.com/terminal/payments/setup-reader.md#sdk) pour choisir la plateforme la mieux adaptée à vos besoins.
+
+Vous découvrez l’API Payment Intents&nbsp;? Voici quelques ressources utiles&nbsp;:
+
+- [L’API Payment Intents](https://docs.stripe.com/payments/payment-intents.md)
+- [L’objet PaymentIntent](https://docs.stripe.com/api/payment_intents.md)
+- [Autres scénarios de paiement](https://docs.stripe.com/payments/more-payment-scenarios.md)
+
+La définition d’un tunnel de paiement dans votre application est nécessaire pour encaisser des paiements avec Stripe Terminal. Utilisez le SDK Stripe Terminal pour créer et mettre à jour un [PaymentIntent](https://docs.stripe.com/api.md#payment_intents), un objet représentant une session de paiement individuelle.
+
+Conçue pour résister aux défaillances, l’intégration Terminal divise le processus de paiement en plusieurs étapes, dont chacune peut être répétée en toute sécurité&nbsp;:
+
+1. [Créer un PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment)
+1. [Collecter un moyen de paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#collect-payment). Vous pouvez décider de capturer vos paiements [automatiquement](https://docs.stripe.com/api/payment_intents/create.md#create_payment_intent-capture_method) ou [manuellement](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+1. [Traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#confirm-payment). L’autorisation sur la carte du client a lieu lorsque le SDK traite le paiement.
+1. (Facultatif) [Capturer le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#capture-payment)
+
+> Cette forme d’intégration ne prendre en charge les [paiements par carte](https://docs.stripe.com/terminal/features/operate-offline/collect-card-payments.md) hors ligne.
+
+## Créer un PaymentIntent [Côté serveur]
+
+La première étape dans l’encaissement d’un paiement consiste à démarrer le tunnel de paiement. Lorsque le client commence à payer, votre application doit créer un objet `PaymentIntent`. Celui-ci représente une nouvelle session de paiement sur Stripe.
+
+Utilisez des [montants test](https://docs.stripe.com/terminal/references/testing.md#physical-test-cards) pour essayer d’obtenir des résultats différents. Un montant se terminant par `00` correspond à un paiement approuvé.
+
+> Ne recréez pas un PaymentIntent si une carte est refusée. Réutilisez plutôt le même PaymentIntent pour [éviter les doubles paiements](https://docs.stripe.com/terminal/payments/collect-card-payment.md#avoiding-double-charges).
+
+L’exemple suivant montre comment créer un `PaymentIntent` sur votre serveur&nbsp;:
+
+#### curl
+
+```bash
+curl https://api.stripe.com/v1/payment_intents \
+  -u <<YOUR_SECRET_KEY>>: \
+  -d "amount"=1000 \
+  -d "currency"="eur" \
+  -d "payment_method_types[]"="card_present" \
+  -d "capture_method"="manual"
+```
+
+#### Ruby
+
+```ruby
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+intent = Stripe::PaymentIntent.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+})
+```
+
+#### Python
+
+```python
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+stripe.PaymentIntent.create(
+  amount=1000,
+  currency='eur',
+  payment_method_types=['card_present'],
+  capture_method='manual',
+)
+```
+
+#### PHP
+
+```php
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+\Stripe\Stripe::setApiKey('<<YOUR_SECRET_KEY>>');
+
+\Stripe\PaymentIntent::create([
+  'amount' => 1000,
+  'currency' => 'eur',
+  'payment_method_types' => ['card_present'],
+  'capture_method' => 'manual',
+]);
+```
+
+#### Java
+
+```java
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.apiKey = "<<YOUR_SECRET_KEY>>";
+
+PaymentIntentCreateParams params =
+  PaymentIntentCreateParams.builder()
+    .addPaymentMethodType("card_present")
+    .setAmount(1000L)
+    .setCurrency("eur")
+    .setCaptureMethod(PaymentIntentCreateParams.CaptureMethod.MANUAL)
+    .build();
+
+PaymentIntent.create(params);
+```
+
+#### Node.js
+
+```javascript
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const intent = await stripe.paymentIntents.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+});
+```
+
+#### Go
+
+```go
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+stripe.Key = "<<YOUR_SECRET_KEY>>"
+
+params := &stripe.PaymentIntentParams{
+  Amount: stripe.Int64(1000),
+  Currency: stripe.String(string(stripe.currencyEUR)),
+  PaymentMethodTypes: stripe.StringSlice([]string{
+    "card_present",
+  }),
+  CaptureMethod: stripe.String("manual"),
+}
+
+paymentintent.New(params)
+```
+
+#### .NET
+
+```csharp
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeConfiguration.ApiKey = "<<YOUR_SECRET_KEY>>";
+
+var service = new PaymentIntentService();
+var options = new PaymentIntentCreateOptions
+{
+    Amount = 1000,
+    Currency = "eur",
+    PaymentMethodTypes = new List<string> { "card_present" },
+    CaptureMethod = "manual",
+};
+
+service.Create(options, requestOptions);
+```
+
+Pour les paiements Terminal, le paramètre `payment_method_types` doit inclure l’option `card_present`.
+
+Vous pouvez contrôler le tunnel de paiement de la manière suivante&nbsp;:
+
+- Pour contrôler totalement le tunnel de paiement pour les paiements `card_present`, définissez le paramètre `capture_method` sur `manual`. Cela vous permet d’ajouter une étape de rapprochement avant la réalisation du paiement.
+- Pour capturer et autoriser simultanément des paiements, définissez le paramètre `capture_method` sur `automatic`.
+
+Pour accepter les paiements Interac au Canada, vous devez également inclure un paramètre `interac_present` dans `payment_method_types`. Pour en savoir plus, consultez notre [documentation sur le Canada](https://docs.stripe.com/terminal/payments/regional.md?integration-country=CA).
+
+Le `PaymentIntent` contient une [clé secrète du client](https://docs.stripe.com/api/payment_intents/object.md#payment_intent_object-client_secret), une clé unique propre à chaque `PaymentIntent`. Pour utiliser la clé secrète du client, vous devez l’obtenir du `PaymentIntent` sur votre serveur et la [transmettre côté client](https://docs.stripe.com/payments/payment-intents.md#passing-to-client).
+
+#### Ruby
+
+```ruby
+post '/create_payment_intent' do
+  intent = # ... Create or retrieve the PaymentIntent
+  {client_secret: intent.client_secret}.to_json
+end
+```
+
+#### Python
+
+```python
+from flask import jsonify
+
+@app.route('/create_payment_intent', methods=['POST'])
+def secret():
+  intent = # ... Create or retrieve the PaymentIntent
+  return jsonify(client_secret=intent.client_secret)
+```
+
+#### PHP
+
+```php
+<?php
+    $intent = # ... Create or retrieve the PaymentIntent
+    echo json_encode(array('client_secret' => $intent->client_secret));
+?>
+```
+
+#### Java
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+import com.stripe.model.PaymentIntent;
+
+import com.google.gson.Gson;
+import static spark.Spark.post;
+
+public class StripeJavaQuickStart {
+    public static void main(String[] args) {
+      Gson gson = new Gson();
+
+      get("/create_payment_intent", (request, response) -> {
+        PaymentIntent intent = // ... Fetch or create the PaymentIntent
+
+        Map<String, String> map = new HashMap();
+        map.put("client_secret", intent.getClientSecret());
+
+        return map;
+      }, gson::toJson);
+    }
+}
+```
+
+#### Node.js
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.post('/create_payment_intent', async (req, res) => {
+  const intent = // ... Fetch or create the PaymentIntent
+  res.json({client_secret: intent.client_secret});
+});
+
+app.listen(3000, () => {
+  console.log('Running on port 3000');
+});
+```
+
+#### Go
+
+```go
+package main
+
+import (
+  "encoding/json"
+  "net/http"
+)
+
+type PaymentData struct {
+  ClientSecret string `json:"client_secret"`
+}
+
+func main() {
+  http.HandleFunc("/create_payment_intent", func(w http.ResponseWriter, r *http.Request) {
+    intent := // ... Fetch or create the PaymentIntent
+    data := PaymentData{
+      ClientSecret: intent.ClientSecret,
+    }
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(data)
+  })
+
+  http.ListenAndServe(":3000", nil)
+}
+```
+
+#### .NET
+
+```csharp
+using System;
+using Microsoft.AspNetCore.Mvc;
+
+namespace StripeExampleApi.Controllers
+{
+    [Route("create_payment_intent")]
+    [ApiController]
+    public class StripeApiController : Controller
+    {
+        [HttpPost]
+        public ActionResult Post()
+        {
+            var intent = // ... Fetch or create the PaymentIntent
+            return Json(new {client_secret = intent.ClientSecret});
+        }
+    }
+}
+```
+
+Utilisez la clé secrète du client comme paramètre lorsque vous appelez [collectPaymentMethod](https://docs.stripe.com/terminal/references/api/js-sdk.md#collect-payment-method).
+
+Le paramètre `client_secret` est tout ce dont vous avez besoin dans votre application côté client pour procéder à l’encaissement du moyen de paiement.
+
+## Recueillir un moyen de paiement [Côté client]
+
+- [collectPaymentMethod (JavaScript)](https://docs.stripe.com/terminal/references/api/js-sdk.md#collect-payment-method)
+
+Une fois que vous avez créé un `PaymentIntent`, il vous faut ensuite recueillir un moyen de paiement avec le SDK.
+
+Pour collecter un moyen de paiement, votre application doit être connectée à un lecteur. Le lecteur connecté attend qu’une carte soit présentée après l’appel de votre application `collectPaymentMethod`.
+
+```javascript
+async () => {
+  // clientSecret is the client_secret from the PaymentIntent you created in Step 1.
+  const result = await terminal.collectPaymentMethod(clientSecret);
+  if (result.error) {
+    // Placeholder for handling result.error
+  } else {
+    // Placeholder for processing result.paymentIntent
+  }
+}
+```
+
+Cette méthode recueille les données chiffrées du moyen de paiement à l’aide du lecteur de carte connecté, et les associe au `PaymentIntent` local.
+
+### Examen facultatif des informations du moyen de paiement
+
+- [collectPaymentMethod config_override (JavaScript)](https://docs.stripe.com/terminal/references/api/js-sdk.md#collect-payment-method)
+
+Vous pouvez également examiner les informations de moyen de paiement de la carte présentée et effectuer votre propre logique métier avant l’autorisation, ce qui peut être utile pour les cas d’usage avancés.
+
+Use the `update_payment_intent` parameter to attach a `PaymentMethod` to the server-side `PaymentIntent`. This data is returned in the `collectPaymentMethod` response.  
+
+```javascript
+async () => {
+  // clientSecret is the client_secret from the PaymentIntent you created in Step 1.
+  const result = await terminal.collectPaymentMethod(clientSecret, {
+    config_override: {
+      update_payment_intent: true
+    }
+  });
+  if (result.error) {
+    // Placeholder for handling result.error
+  } else {
+    const pm = result.paymentIntent.payment_method
+    const card = pm?.card_present ?? pm?.interac_present
+
+    // Placeholder for business logic on card before processing result.paymentIntent
+  }
+}
+```
+
+> Cette méthode associe les données chiffrées collectées du moyen de paiement avec une mise à jour de l’objet `PaymentIntent`. Elle ne nécessite pas d’autorisation tant que vous n’avez pas [traité le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#confirm-payment).
+> 
+> Ce cas d’usage avancé n’est pas pris en charge sur le P400 de Verifone.
+> 
+> Une fois le moyen de paiement encaissé, vous devez autoriser le paiement ou annuler le recouvrement dans les 30&nbsp;secondes.
+> 
+> Si le SDK [fonctionne hors ligne](https://docs.stripe.com/terminal/features/operate-offline/collect-card-payments.md), le champ `paymentMethod` n’est pas présent dans l’objet `PaymentIntent`.
+
+À ce stade, vous pouvez accéder à des attributs tels que la marque de la carte, le financement et d’autres données utiles.
+
+> Stripe tente de détecter si un portefeuille mobile est utilisé dans une transaction, comme indiqué dans l’attribut `wallet.type`. Cependant, l’attribut n’est pas renseigné si la banque émettrice de la carte ne prend pas en charge l’identification par lecteur d’un portefeuille mobile, une détection précise n’est donc pas garantie. Après l’autorisation à l’étape de [confirmation](https://docs.stripe.com/terminal/payments/collect-card-payment.md#confirm-payment), Stripe reçoit des réseaux des informations actualisées afin de mettre à jour `wallet.type` de manière fiable.
+
+### Annuler la collecte
+
+#### Annulation programmatique
+
+Vous pouvez annuler la collecte d’un moyen de paiement en appelant [cancelCollectPaymentMethod](https://docs.stripe.com/terminal/references/api/js-sdk.md#cancel-collect-payment-method) dans le SDK JavaScript.
+
+#### Annulation initiée par le client
+
+- [enable_customer_cancellation (JavaScript)](https://docs.stripe.com/terminal/references/api/js-sdk.md#collect-payment-method)
+
+Lorsque vous définissez `enable_customer_cancellation` sur la valeur «&nbsp;true&nbsp;» pour une transaction, les utilisateurs de lecteurs intelligents voient apparaître un bouton d’annulation.
+
+Appuyer sur le bouton d’annulation annule la transaction active.
+
+```javascript
+terminal.collectPaymentMethod(
+  clientSecret,
+  {
+    config_override: {enable_customer_cancellation: true
+    }
+  }
+)
+```
+
+### Gérer les événements
+
+> Le SDK JavaScript ne prend en charge que les lecteurs Verifone&nbsp;P400, BBPOS WisePOS E et Stripe Reader&nbsp;S700, qui ont un affichage intégré. Votre application n’a pas besoin d’afficher aux utilisateurs les événements du moyen de paiement traité, car le lecteur les affiche. Pour effacer le moyen de paiement d’une transaction, le caissier peut appuyer sur la touche rouge **X**.
+
+## Confirmer le paiement [Côté client]
+
+- [processPayment (JavaScript)](https://docs.stripe.com/terminal/references/api/js-sdk.md#process-payment)
+
+Après avoir collecté un moyen de paiement auprès du client, vous devez traiter le paiement avec le SDK. Au moment de procéder au paiement, appelez `processPayment` avec le `PaymentIntent` mis à jour lors de l’[étape&nbsp;2](https://docs.stripe.com/terminal/payments/collect-card-payment.md#collect-payment).
+
+- En cas de capture manuelle, si l’appel `processPayment` réussit, l’état de `PaymentIntent` passe à `requires_capture`.
+- En cas de capture automatique d’un paiement, le `PaymentIntent` passe à l’état `succeeded`.
+
+> Confirmez toujours les PaymentIntents à l’aide du SDK Terminal côté client. La confirmation côté serveur contourne les interactions critiques, telles que les invites de code PIN, et peut entraîner l’échec des transactions.
+
+```javascript
+async () => {
+  const result = await terminal.processPayment(paymentIntent);
+  if (result.error) {
+    // Placeholder for handling result.error
+  } else if (result.paymentIntent) {
+    // Placeholder for notifying your backend to capture result.paymentIntent.id
+  }
+}
+```
+
+> Vous devez capturer un PaymentIntent manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+### Gérer les échecs
+
+- [Codes d’erreur (JavaScript)](https://docs.stripe.com/terminal/references/api/js-sdk.md#error-codes)
+
+Lorsque le traitement d’un paiement échoue, le SDK renvoie une erreur qui inclut la `PaymentIntent` mise à jour. Votre application doit inspecter la `PaymentIntent` pour décider comment traiter l’erreur.
+
+| État du PaymentIntent     | Signification                                                               | Résolution                                                                                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requires_payment_method` | Moyen de paiement refusé                                                    | Essayez de collecter un autre moyen de paiement en appelant à nouveau `collectPaymentMethod` avec la même `PaymentIntent`.                                        |
+| `requires_confirmation`   | Problème de connectivité temporaire                                         | Réexécutez le `processPayment`avec la même `PaymentIntent` pour relancer la requête.                                                                              |
+| `PaymentIntent` est `nil` | La requête envoyée à Stripe a expiré, l’état de `PaymentIntent` est inconnu | Réessayez de traiter la `PaymentIntent` initiale. N’en créez pas une nouvelle, car cela pourrait entraîner plusieurs autorisations pour le titulaire de la carte. |
+
+Si vous rencontrez plusieurs expirations du délai paiement à la suite, il se peut qu’il y ait un problème de connectivité. Assurez-vous que votre application est connectée à Internet.
+
+### Éviter les doublons de paiement
+
+L’objet `PaymentIntent` active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul `PaymentIntent` pour représenter une transaction.
+
+Réutilisez le même `PaymentIntent` même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez la `PaymentIntent`, vous devez appeler `collectPaymentMethod` pour mettre à jour les informations de paiement sur le lecteur.
+
+Une `PaymentIntent` doit être à l’état `requires_payment_method` pour que Stripe puisse la traiter. Une `PaymentIntent` autorisée, capturée ou annulée ne peut pas être traitée par un lecteur.
+
+## Capturer le paiement [Côté serveur]
+
+Si vous avez défini `capture_method` sur `manual` lors de la création du `PaymentIntent` à l’[étape&nbsp;1](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment), le SDK renvoie à votre application un `PaymentIntent` autorisé, mais non capturé. En savoir plus sur la différence entre [autorisation et capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+
+Assurez-vous que votre application demande à votre back-end de capturer le paiement lorsqu’elle reçoit du SDK un `PaymentIntent` confirmé. Créez dans votre back-end un endpoint qui accepte un ID de `PaymentIntent` et envoie à l’API Stripe une demande de capture correspondante&nbsp;:
+
+```curl
+curl -X POST https://api.stripe.com/v1/payment_intents/{{PAYMENT_INTENT_ID}}/capture \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe payment_intents capture {{PAYMENT_INTENT_ID}}
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.capture('{{PAYMENT_INTENT_ID}}')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.capture("{{PAYMENT_INTENT_ID}}")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->capture('{{PAYMENT_INTENT_ID}}', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentCaptureParams params = PaymentIntentCaptureParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent =
+  client.v1().paymentIntents().capture("{{PAYMENT_INTENT_ID}}", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.capture('{{PAYMENT_INTENT_ID}}');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentCaptureParams{}
+result, err := sc.V1PaymentIntents.Capture(
+  context.TODO(), "{{PAYMENT_INTENT_ID}}", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Capture("{{PAYMENT_INTENT_ID}}");
+```
+
+Si l’appel de `capture` réussit, l’état du `PaymentIntent` passe à `succeeded`.
+
+> Pour débiter les comptes connectés des frais de plateforme appropriés, inspectez chaque `PaymentIntent` et modifiez les frais de plateforme, si nécessaire, avant de capturer le paiement manuellement.
+
+### Rapprocher les paiements
+
+Pour vérifier l’activité de paiement de votre entreprise, vous pouvez rapprocher les PaymentIntents avec votre système de commande interne sur votre serveur à la fin de chaque journée.
+
+Un `PaymentIntent` conservant l’état `requires_capture` peut signifier deux choses&nbsp;:
+
+**Autorisation inutile sur le relevé de carte bancaire de votre client**
+
+- Cause&nbsp;: l’utilisateur abandonne le tunnel de paiement de votre application au milieu d’une transaction
+- Solution&nbsp;: si le `PaymentIntent` non capturé n’est associé à aucune commande terminée sur votre serveur, vous pouvez l’[annuler](https://docs.stripe.com/api/payment_intents/cancel.md). Vous ne pouvez pas utiliser un `PaymentIntent` annulé pour effectuer des paiements.
+
+**Encaissement de fonds incomplet auprès d’un client**
+
+- Cause&nbsp;: échec de la requête de votre application signalant à votre back-end de capturer le paiement
+- Solution&nbsp;: si le `PaymentIntent` non capturé est associé à une commande terminée sur votre serveur, et aucun autre paiement n’a été encaissé pour la commande (par exemple, un paiement en espèces), vous pouvez le [capturer](https://docs.stripe.com/api/payment_intents/capture.md).
+
+### Encaisser les pourboires (États-Unis uniquement)
+
+Aux États-Unis, les utilisateurs admissibles peuvent [encaisser des pourboires lors de la capture des paiements](https://docs.stripe.com/terminal/features/collecting-tips/on-receipt.md).
+
+
+# iOS
+
+> This is a iOS for when terminal-sdk-platform is ios. View the full page at https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=ios.
+
+Vous découvrez l’API Payment Intents&nbsp;? Voici quelques ressources utiles&nbsp;:
+
+- [L’API Payment Intents](https://docs.stripe.com/payments/payment-intents.md)
+- [L’objet PaymentIntent](https://docs.stripe.com/api/payment_intents.md)
+- [Autres scénarios de paiement](https://docs.stripe.com/payments/more-payment-scenarios.md)
+
+La définition d’un tunnel de paiement dans votre application est nécessaire pour encaisser des paiements avec Stripe Terminal. Utilisez le SDK Stripe Terminal pour créer et mettre à jour un [PaymentIntent](https://docs.stripe.com/api.md#payment_intents), un objet représentant une session de paiement individuelle.
+
+Conçue pour résister aux défaillances, l’intégration Terminal divise le processus de paiement en plusieurs étapes, dont chacune peut être répétée en toute sécurité&nbsp;:
+
+1. [Créer un PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment)
+1. [Traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment). L’autorisation sur la carte du client a lieu lorsque le SDK traite le paiement.
+1. (Facultatif) [Capturer le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#capture-payment)
+
+## Créer un PaymentIntent [Côté client] [Côté serveur]
+
+La première étape dans l’encaissement d’un paiement consiste à démarrer le tunnel de paiement. Lorsque le client commence à payer, votre application doit créer un objet `PaymentIntent`. Celui-ci représente une nouvelle session de paiement sur Stripe.
+
+- [createPaymentIntent (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPTerminal.html#/c:objc\(cs\)SCPTerminal\(im\)createPaymentIntent:completion:)
+
+Vous pouvez créer un `PaymentIntent` côté client ou côté serveur.
+
+Utilisez des [montants test](https://docs.stripe.com/terminal/references/testing.md#physical-test-cards) pour essayer d’obtenir des résultats différents. Un montant se terminant par `00` correspond à un paiement approuvé.
+
+> Ne recréez pas un PaymentIntent en cas de refus de carte. Réutilisez plutôt le même PaymentIntent pour [éviter les doubles paiements](https://docs.stripe.com/terminal/payments/collect-card-payment.md#avoiding-double-charges).
+
+### Côté client
+
+Créez un `PaymentIntent` pour votre client&nbsp;:
+
+> Si votre application est connectée au Verifone&nbsp;P400, vous ne pouvez pas créer de PaymentIntent à partir du SDK&nbsp;iOS. Vous devez [créer le PaymentIntent côté serveur](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-server-side), puis récupérer le PaymentIntent dans votre application à l’aide de la méthode `Terminal.retrievePaymentIntent` du SDK.
+
+#### Swift
+
+```swift
+import UIKit
+import StripeTerminal
+
+class PaymentViewController: UIViewController {
+
+    // ...
+
+    // Action for a "Checkout" button
+    func checkoutAction() throws {
+        let params = try PaymentIntentParametersBuilder(amount: 1000, currency: "eur").build()
+        Terminal.shared.createPaymentIntent(params) { createResult, createError in
+            if let error = createError {
+                print("createPaymentIntent failed: \(error)")
+            } else if let paymentIntent = createResult {
+                print("createPaymentIntent succeeded")
+                // ...
+            }
+
+        }
+    }
+
+    // ...
+}
+```
+
+#### Objective-C
+
+```objc
+#import "APPPaymentViewController.h"
+#import <StripeTerminal/StripeTerminal.h>
+
+// ...
+
+@implementation APPPaymentViewController
+
+// Action for a "Checkout" button
+- (void)checkoutAction {
+    SCPPaymentIntentParameters *params = [[SCPPaymentIntentParameters alloc] initWithAmount:1000
+                                                                                   currency:@"eur"];
+    [[SCPTerminal shared] createPaymentIntent:params completion:^(SCPPaymentIntent *createResult, NSError *createError) {
+        if (createError) {
+            NSLog(@"createPaymentIntent failed: %@", createError);
+        } else {
+            NSLog(@"createPaymentIntent succeeded");
+            // ...
+        }
+    }];
+}
+
+// ...
+
+@end
+```
+
+### Côté serveur
+
+Vous pouvez créer le `PaymentIntent` sur votre serveur si les informations requises pour lancer un paiement ne sont pas facilement accessibles dans votre application.
+
+L’exemple suivant montre comment créer un `PaymentIntent` sur votre serveur&nbsp;:
+
+#### curl
+
+```bash
+curl https://api.stripe.com/v1/payment_intents \
+  -u <<YOUR_SECRET_KEY>>: \
+  -d "amount"=1000 \
+  -d "currency"="eur" \
+  -d "payment_method_types[]"="card_present" \
+  -d "capture_method"="manual"
+```
+
+#### Ruby
+
+```ruby
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+intent = Stripe::PaymentIntent.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+})
+```
+
+#### Python
+
+```python
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+stripe.PaymentIntent.create(
+  amount=1000,
+  currency='eur',
+  payment_method_types=['card_present'],
+  capture_method='manual',
+)
+```
+
+#### PHP
+
+```php
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+\Stripe\Stripe::setApiKey('<<YOUR_SECRET_KEY>>');
+
+\Stripe\PaymentIntent::create([
+  'amount' => 1000,
+  'currency' => 'eur',
+  'payment_method_types' => ['card_present'],
+  'capture_method' => 'manual',
+]);
+```
+
+#### Java
+
+```java
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.apiKey = "<<YOUR_SECRET_KEY>>";
+
+PaymentIntentCreateParams params =
+  PaymentIntentCreateParams.builder()
+    .addPaymentMethodType("card_present")
+    .setAmount(1000L)
+    .setCurrency("eur")
+    .setCaptureMethod(PaymentIntentCreateParams.CaptureMethod.MANUAL)
+    .build();
+
+PaymentIntent.create(params);
+```
+
+#### Node.js
+
+```javascript
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const intent = await stripe.paymentIntents.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+});
+```
+
+#### Go
+
+```go
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+stripe.Key = "<<YOUR_SECRET_KEY>>"
+
+params := &stripe.PaymentIntentParams{
+  Amount: stripe.Int64(1000),
+  Currency: stripe.String(string(stripe.currencyEUR)),
+  PaymentMethodTypes: stripe.StringSlice([]string{
+    "card_present",
+  }),
+  CaptureMethod: stripe.String("manual"),
+}
+
+paymentintent.New(params)
+```
+
+#### .NET
+
+```csharp
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeConfiguration.ApiKey = "<<YOUR_SECRET_KEY>>";
+
+var service = new PaymentIntentService();
+var options = new PaymentIntentCreateOptions
+{
+    Amount = 1000,
+    Currency = "eur",
+    PaymentMethodTypes = new List<string> { "card_present" },
+    CaptureMethod = "manual",
+};
+
+service.Create(options, requestOptions);
+```
+
+Pour les paiements Terminal, le paramètre `payment_method_types` doit inclure l’option `card_present`.
+
+Vous pouvez contrôler le tunnel de paiement de la manière suivante&nbsp;:
+
+- Pour contrôler totalement le tunnel de paiement pour les paiements `card_present`, définissez le paramètre `capture_method` sur `manual`. Cela vous permet d’ajouter une étape de rapprochement avant la réalisation du paiement.
+- Pour capturer et autoriser simultanément des paiements, définissez le paramètre `capture_method` sur `automatic`.
+
+Pour accepter des paiements en Australie, vous devez définir lle paramètre `capture_method` sur `automatic` ou sur `manual_preferred`. Pour en savoir plus, consultez notre [documentation sur l’Australie](https://docs.stripe.com/terminal/payments/regional.md?integration-country=AU). Pour accepter les paiements Interac au Canada, vous devez également inclure `interac_present` dans `payment_method_types`. Pour en savoir plus, consultez notre [documentation sur le Canada](https://docs.stripe.com/terminal/payments/regional.md?integration-country=CA).
+
+Le `PaymentIntent` contient une [clé secrète du client](https://docs.stripe.com/api/payment_intents/object.md#payment_intent_object-client_secret), une clé unique propre à chaque `PaymentIntent`. Pour utiliser la clé secrète du client, vous devez l’obtenir du `PaymentIntent` sur votre serveur et la [transmettre côté client](https://docs.stripe.com/payments/payment-intents.md#passing-to-client).
+
+#### Ruby
+
+```ruby
+post '/create_payment_intent' do
+  intent = # ... Create or retrieve the PaymentIntent
+  {client_secret: intent.client_secret}.to_json
+end
+```
+
+#### Python
+
+```python
+from flask import jsonify
+
+@app.route('/create_payment_intent', methods=['POST'])
+def secret():
+  intent = # ... Create or retrieve the PaymentIntent
+  return jsonify(client_secret=intent.client_secret)
+```
+
+#### PHP
+
+```php
+<?php
+    $intent = # ... Create or retrieve the PaymentIntent
+    echo json_encode(array('client_secret' => $intent->client_secret));
+?>
+```
+
+#### Java
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+import com.stripe.model.PaymentIntent;
+
+import com.google.gson.Gson;
+import static spark.Spark.post;
+
+public class StripeJavaQuickStart {
+    public static void main(String[] args) {
+      Gson gson = new Gson();
+
+      get("/create_payment_intent", (request, response) -> {
+        PaymentIntent intent = // ... Fetch or create the PaymentIntent
+
+        Map<String, String> map = new HashMap();
+        map.put("client_secret", intent.getClientSecret());
+
+        return map;
+      }, gson::toJson);
+    }
+}
+```
+
+#### Node.js
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.post('/create_payment_intent', async (req, res) => {
+  const intent = // ... Fetch or create the PaymentIntent
+  res.json({client_secret: intent.client_secret});
+});
+
+app.listen(3000, () => {
+  console.log('Running on port 3000');
+});
+```
+
+#### Go
+
+```go
+package main
+
+import (
+  "encoding/json"
+  "net/http"
+)
+
+type PaymentData struct {
+  ClientSecret string `json:"client_secret"`
+}
+
+func main() {
+  http.HandleFunc("/create_payment_intent", func(w http.ResponseWriter, r *http.Request) {
+    intent := // ... Fetch or create the PaymentIntent
+    data := PaymentData{
+      ClientSecret: intent.ClientSecret,
+    }
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(data)
+  })
+
+  http.ListenAndServe(":3000", nil)
+}
+```
+
+#### .NET
+
+```csharp
+using System;
+using Microsoft.AspNetCore.Mvc;
+
+namespace StripeExampleApi.Controllers
+{
+    [Route("create_payment_intent")]
+    [ApiController]
+    public class StripeApiController : Controller
+    {
+        [HttpPost]
+        public ActionResult Post()
+        {
+            var intent = // ... Fetch or create the PaymentIntent
+            return Json(new {client_secret = intent.ClientSecret});
+        }
+    }
+}
+```
+
+- [retrievePaymentIntent (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPTerminal.html#/c:objc\(cs\)SCPTerminal\(im\)retrievePaymentIntent:completion:)
+
+Pour récupérer un `PaymentIntent`, utilisez la clé secrète du client pour appeler `retrievePaymentIntent`.
+
+Après avoir récupéré la `PaymentIntent`, utilisez-la pour appeler `processPaymentIntent`.
+
+#### Swift
+
+```swift
+func checkoutButtonAction() {
+    // ... Fetch the client secret from your backend
+    Terminal.shared.retrievePaymentIntent(clientSecret: clientSecret) { retrieveResult, retrieveError in
+        if let error = retrieveError {
+            print("retrievePaymentIntent failed: \(error)")
+        }
+        else if let paymentIntent = retrieveResult {
+            print("retrievePaymentIntent succeeded: \(paymentIntent)")
+            // ...
+        }
+    }
+}
+```
+
+#### Objective-C
+
+```objc
+// Action for a "Checkout" button
+- (void)checkoutAction {
+    // ... Fetch the client secret from your backend
+    [[SCPTerminal shared] retrievePaymentIntent:clientSecret completion:^(SCPPaymentIntent *retrieveResult, NSError *retrieveError) {
+        if (retrieveError) {
+            NSLog(@"retrievePaymentIntent failed: %@", retrieveError);
+        }
+        else {
+            NSLog(@"retrievePaymentIntent succeeded");
+            // ...
+        }
+    }];
+}
+```
+
+## Traiter le paiement [Côté client]
+
+Vous pouvez traiter immédiatement un paiement avec la carte présentée par un client, ou bien vérifier les informations de carte avant de procéder au traitement du paiement. Dans la plupart des cas, nous recommandons un traitement immédiat, car l’intégration est plus simple et nécessite moins d’appels à l’API. Cependant, si vous souhaitez insérer votre propre logique métier avant d’autoriser la carte, utilisez le flux en deux étapes&nbsp;:collecter et confirmer.
+
+#### Traitement immédiat
+
+Après avoir créé une PaymentIntent, l’étape suivante consiste à traiter le paiement. Le lecteur invite le client à insérer ou à taper sa carte, puis tente d’autoriser le paiement.
+
+- [processPaymentIntent (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPTerminal.html#/c:objc\(cs\)SCPTerminal\(im\)processPaymentIntent:delegate:completion:)
+
+Lors du traitement d’un paiement, le titulaire de la carte peut mettre quelques secondes à sortir sa carte de son wallet ou poser une question à l’opérateur lors du paiement.
+
+#### Swift
+
+```swift
+
+
+// Action for a "Checkout" button
+func checkoutAction() throws {
+  let params = try PaymentIntentParametersBuilder(amount: 1000, currency: "eur").build()
+  Terminal.shared.createPaymentIntent(params) { createResult, createError in
+      if let error = createError {
+          print("createPaymentIntent failed: \(error)")
+      } else if let paymentIntent = createResult {
+          print("createPaymentIntent succeeded")
+          self.processCancelable = Terminal.shared.processPaymentIntent(paymentIntent, collectConfig: nil, confirmConfig: nil) { processResult, processError in
+              if let error = processError {
+                  print("processPaymentIntent failed: \(error)")
+              } else if let processedPaymentIntent = processResult {
+                  print("processPaymentIntent succeeded")
+                  // Notify your backend to capture the PaymentIntent
+                  if let stripeId = processedPaymentIntent.stripeId {
+                      APIClient.shared.capturePaymentIntent(stripeId) { captureError in
+                          if let error = captureError {
+                              print("capturePaymentIntent failed: \(error)")
+                          } else {
+                              print("capturePaymentIntent succeeded")
+                          }
+                      }
+                  } else {
+                      print("Payment processed offline");
+                  }
+              }
+          }
+      }
+  }
+}
+```
+
+#### Objective-C
+
+```objc
+
+
+// Action for a "Checkout" button
+- (void)checkoutAction {
+    NSError *paramError = nil;
+    SCPPaymentIntentParameters *params = [[[SCPPaymentIntentParametersBuilder alloc] initWithAmount:1000
+                                                                                           currency:@"eur"];
+                                          build:&paramError];
+    if (paramError) {
+        NSLog(@"Error building PaymentIntent parameters");
+        return;
+    }
+
+    [[SCPTerminal shared] createPaymentIntent:params completion:^(SCPPaymentIntent *createResult, NSError *createError) {
+        if (createError) {
+            NSLog(@"createPaymentIntent failed: %@", createError);
+        } else {
+            NSLog(@"createPaymentIntent succeeded");
+            self.processCancelable = [[SCPTerminal shared] processPaymentIntent:createResult collectConfig:nil confirmConfig:nil completion:^(SCPPaymentIntent *processResult, NSError *processError) {
+                if (processError) {
+                    NSLog(@"processPaymentIntent failed: %@", processError);
+                }
+                else {
+                    NSLog(@"processPaymentIntent succeeded");
+                    if (processResult.stripeId != nil) {
+                        // Notify your backend to capture the PaymentIntent
+                        [[APPAPIClient shared] capturePaymentIntent:processResult.stripeId completion:^(NSError *captureError) {
+                            if (captureError) {
+                                NSLog(@"capturePaymentIntent failed: %@", captureError);
+                            }
+                            else {
+                                NSLog(@"capturePaymentIntent succeeded");
+                            }
+                        }];
+                    } else {
+                        NSLog(@"Payment collected offline");
+                    }
+                }
+            }];
+        }
+    }];
+}
+```
+
+### Annuler la collecte
+
+#### Annulation programmatique
+
+- [Cancelable (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPCancelable.html)
+
+Vous pouvez annuler le traitement d’une PaymentIntent à l’aide de l’objet `Cancelable` renvoyé par le SDK iOS.
+
+#### Annulation initiée par le client
+
+- [setCustomerCancellation (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPCollectPaymentIntentConfigurationBuilder.html#/c:objc\(cs\)SCPCollectPaymentIntentConfigurationBuilder\(im\)setCustomerCancellation)
+- [CustomerCancellation (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Enums/SCPCustomerCancellation.html)
+
+Par défaut, les lecteurs intelligents affichent aux clients un bouton d’annulation. Vous pouvez le désactiver en définissant `customerCancellation` sur `.disableIfAvailable`.
+
+Appuyer sur le bouton d’annulation annule la transaction active.
+
+#### Swift
+
+```swift
+let collectConfig = try CollectPaymentIntentConfigurationBuilder()
+    .setCustomerCancellation(.disableIfAvailable) // turn OFF the cancel button, ON by default
+    .build()
+Terminal.shared.collectPaymentMethod(paymentIntent: paymentIntent, collectConfig: collectConfig) {
+    intentWithPaymentMethod, attachError in
+}
+```
+
+#### Objective-C
+
+```objc
+NSError *error = nil;SCPCollectPaymentIntentConfiguration *collectConfig = [[[SCPCollectPaymentIntentConfigurationBuilder new] 
+    setCustomerCancellation:SCPCustomerCancellationDisableIfAvailable] // turn OFF the cancel button, ON by default
+    build:&error];
+if (error) {
+    NSLog(@"Error building collect configuration");
+    return;
+}
+[[SCPTerminal shared] collectPaymentMethod:paymentIntent collectConfig:collectConfig completion:^(SCPPaymentIntent *intentWithPaymentMethod, NSError *error) {
+}];
+```
+
+### Gérer les événements
+
+- [ReaderDisplayDelegate (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Protocols/SCPReaderDisplayDelegate.html)
+
+Lorsque vous collectez un moyen de paiement à l’aide d’un lecteur tel que le [Stripe&nbsp;M2](https://docs.stripe.com/terminal/readers/stripe-m2.md)sans écran intégré, votre application doit être en mesure d’afficher les événements du processus de collecte du moyen de paiement aux utilisateurs. Ces événements aident les utilisateurs à encaisser les paiements (par exemple, réessayer une carte, essayer une autre carte ou utiliser une autre méthode de lecture).
+
+Au début d’une transaction, le SDK adresse une valeur `ReaderInputOptions`` au gestionnaire d'affichage du lecteur de votre application, précisant les types de saisie acceptables (par exemple,`Swipe`,`Insert`, ou`Tap`). Dans l’interface de paiement de l’application, invitez l’utilisateur à effectuer son paiement par carte selon l’une de ces options.
+
+Au cours de la transaction, le SDK peut recourir à l’application pour afficher d’autres messages à l’attention de l’utilisateur (`Réessayer la carte`, par exemple) en transmettant une valeur `ReaderDisplayMessage` au gestionnaire d’affichage du lecteur de votre application. Vérifiez que l’interface de paiement relaie bien ces messages à l’utilisateur.
+
+#### Swift
+
+```swift
+ // MARK: MobileReaderDelegate - only needed for Bluetooth readers, this is the delegate set during connectReader
+
+ func reader(_ reader: Reader, didRequestReaderInput inputOptions: ReaderInputOptions = []) {
+     readerMessageLabel.text = Terminal.stringFromReaderInputOptions(inputOptions)
+ }
+
+ func reader(_ reader: Reader, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage) {
+     readerMessageLabel.text = Terminal.stringFromReaderDisplayMessage(displayMessage)
+ }
+```
+
+#### Objective&nbsp;C
+
+```objc
+#pragma mark - SCPMobileReaderDelegate - only needed for mobile readers, this is the delegate set during connectReader
+
+- (void)reader:(SCPReader *)reader didRequestReaderInput:(SCPReaderInputOptions)inputOptions {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderInputOptions:inputOptions];
+}
+
+- (void)reader:(SCPReader *)reader didRequestReaderDisplayMessage:(SCPReaderDisplayMessage)displayMessage {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderDisplayMessage:displayMessage];
+}
+```
+
+### Encaisser des paiements avec Tap to Pay sur iPhone
+
+Lorsque votre application est prête à encaisser un paiement, le SDK Stripe iOS prend le relais pour gérer le processus d’encaissement. Après avoir appelé la méthode de [traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment), votre application continue de fonctionner, mais l’iPhone affiche un message en plein écran à l’intention du titulaire de la carte, lui demandant de présenter sa carte ou son wallet mobile NFC. Si une erreur survient lors de la lecture de la carte, un message invitant à réessayer s’affiche. Une présentation réussie renvoie une indication de réussite, puis le contrôle revient à votre application.
+![Tap to Pay sur iPhone](https://b.stripecdn.com/docs-statics-srv/assets/tap-on-mobile-ios-payment-collection.50a552f2d75b8a3b92a439810cd9361d.png)
+
+Encaissement des paiements
+
+- En cas de capture manuelle des paiements, un appel `processPayment` réussi génère une `PaymentIntent`à l’état `requires_capture`.
+- En cas de capture automatique d’un paiement, le `PaymentIntent` passe à l’état `succeeded`.
+
+> Vous devez capturer un PaymentIntent manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+### Gérer les échecs
+
+- [ConfirmPaymentIntentError (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPConfirmPaymentIntentError.html#/c:objc\(cs\)SCPConfirmPaymentIntentError\(py\)paymentIntent)
+
+Lorsque le traitement d’un paiement échoue, le SDK renvoie une erreur comprenant la `PaymentIntent` mise à jour. Votre application doit examiner la `PaymentIntent` pour décider de la manière de résoudre l’erreur.
+
+| État de la PaymentIntent  | Signification                                                               | Résolution                                                                                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requires_payment_method` | Moyen de paiement refusé                                                    | Essayez de recueillir un moyen de paiement différent en appelant à nouveau `processPaymentIntent` avec la même `PaymentIntent`.                                   |
+| `requires_confirmation`   | Problème de connectivité temporaire                                         | Appelez à nouveau `processPaymentIntent` avec la même `PaymentIntent` pour retenter la requête.                                                                   |
+| `PaymentIntent` est `nil` | La requête envoyée à Stripe a expiré, l’état de `PaymentIntent` est inconnu | Réessayez de traiter la `PaymentIntent` initiale. N’en créez pas une nouvelle, car cela pourrait entraîner plusieurs autorisations pour le titulaire de la carte. |
+
+Si vous rencontrez plusieurs expirations du délai paiement à la suite, il se peut qu’il y ait un problème de connectivité. Assurez-vous que votre application est connectée à Internet.
+
+### Évitez les doubles facturations
+
+L’objet `PaymentIntent` active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul `PaymentIntent` pour représenter une transaction.
+
+Réutilisez le même `PaymentIntent` même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez la `PaymentIntent`, vous devez appeler `processPaymentIntent` pour mettre à jour les informations de paiement sur le lecteur.
+
+Pour pouvoir être traitée par Stripe, une `PaymentIntent` doit être à l’état `requires_payment_method`. Une `PaymentIntent` autorisée, capturée ou annulée ne pourra pas être traitée par le lecteur.
+
+#### Collecter, inspecter et confirmer
+
+Une fois l’objet PaymentIntent créé, vous devez traiter le paiement. Le lecteur invite le client à insérer ou à présenter la carte, puis crée une PaymentMethod.
+
+## Collecter un PaymentMethod
+
+- [collectPaymentMethod (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPTerminal.html#/c:objc\(cs\)SCPTerminal\(im\)collectPaymentMethod:delegate:completion:)
+
+Une fois que vous avez créé un `PaymentIntent`, il vous faut ensuite recueillir un moyen de paiement avec le SDK.
+
+Pour collecter un moyen de paiement, votre application doit être connectée à un lecteur. Le lecteur connecté attendra qu’une carte soit présentée après l’appel de votre application à l’objet `collectPaymentMethod`.
+
+#### Swift
+
+```swift
+
+
+import UIKit
+import StripeTerminal
+
+class PaymentViewController: UIViewController, ReaderDisplayDelegate {
+
+
+    // Label for displaying messages from the card reader
+    let readerMessageLabel = UILabel(frame: .zero)
+    var collectCancelable: Cancelable? = nil
+
+    // ...
+
+    // Action for a "Checkout" button
+    func checkoutAction() throws {
+        let params = try PaymentIntentParametersBuilder(amount: 1000, currency: "eur").build()
+        Terminal.shared.createPaymentIntent(params) { createResult, createError in
+            if let error = createError {
+                print("createPaymentIntent failed: \(error)")
+            }
+            else if let paymentIntent = createResult {
+                print("createPaymentIntent succeeded")
+                self.collectCancelable = Terminal.shared.collectPaymentMethod(paymentIntent) { collectResult, collectError in
+                    if let error = collectError {
+                        print("collectPaymentMethod failed: \(error)")
+                    }
+                    else if let paymentIntent = collectResult {
+                        print("collectPaymentMethod succeeded")
+                        // ... Confirm the payment
+                    }
+                }
+            }
+
+        }
+    }
+ }
+
+ // MARK: MobileReaderDelegate - only needed for mobile readers, this is the delegate set during connectReader
+
+ func reader(_ reader: Reader, didRequestReaderInput inputOptions: ReaderInputOptions = []) {
+     readerMessageLabel.text = Terminal.stringFromReaderInputOptions(inputOptions)
+ }
+
+ func reader(_ reader: Reader, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage) {
+     readerMessageLabel.text = Terminal.stringFromReaderDisplayMessage(displayMessage)
+ }
+ // MARK: ReaderDisplayDelegate
+
+ func terminal(_ terminal: Terminal, didRequestReaderInput inputOptions: ReaderInputOptions = []) {
+     readerMessageLabel.text = Terminal.stringFromReaderInputOptions(inputOptions)
+ }
+
+ func terminal(_ terminal: Terminal, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage) {
+     readerMessageLabel.text = Terminal.stringFromReaderDisplayMessage(displayMessage)
+ }
+```
+
+#### Objective-C
+
+```objc
+
+
+#import "APPPaymentViewController.h"
+#import <StripeTerminal/StripeTerminal.h>
+
+@interface APPPaymentViewController () <SCPReaderDisplayDelegate>
+
+// Label for displaying messages from the card reader
+@property (nonatomic, nullable, strong) UILabel *readerMessageLabel;
+@property (nonatomic, nullable, strong) SCPCancelable *collectCancelable;
+
+@end
+
+@implementation APPPaymentViewController
+
+// ...
+
+// Action for a "Checkout" button
+- (void)checkoutAction {
+    NSError *paramError = nil;
+    SCPPaymentIntentParameters *params = [[[SCPPaymentIntentParametersBuilder alloc] initWithAmount:1000
+                                                                                           currency:@"eur"];
+                                          build:&paramError];
+    if (paramError) {
+        NSLog(@"Error building PaymentIntent parameters");
+        return;
+    }
+
+    [[SCPTerminal shared] createPaymentIntent:params completion:^(SCPPaymentIntent *createResult, NSError *createError) {
+        if (createError) {
+            NSLog(@"createPaymentIntent failed: %@", createError);
+        } else {
+            NSLog(@"createPaymentIntent succeeded");
+            self.collectCancelable = [[SCPTerminal shared] collectPaymentMethod:createResult completion:^(SCPPaymentIntent *collectResult, NSError *collectError) {
+                if (collectError) {
+                    NSLog(@"collectPaymentMethod failed: %@", collectError);
+                }
+                else {
+                    NSLog(@"collectPaymentMethod succeeded");
+                    // ... Confirm the payment
+                }
+            }];
+        }
+    }];
+}
+
+#pragma mark - SCPMobileReaderDelegate - only needed for mobile readers, this is the delegate set during connectReader
+
+- (void)reader:(SCPReader *)reader didRequestReaderInput:(SCPReaderInputOptions)inputOptions {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderInputOptions:inputOptions];
+}
+
+- (void)reader:(SCPReader *)reader didRequestReaderDisplayMessage:(SCPReaderDisplayMessage)displayMessage {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderDisplayMessage:displayMessage];
+}
+#pragma mark - SCPReaderDisplayDelegate
+
+- (void)terminal:(SCPTerminal *)terminal didRequestReaderInput:(SCPReaderInputOptions)inputOptions {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderInputOptions:inputOptions];
+}
+
+- (void)terminal:(SCPTerminal *)terminal didRequestReaderDisplayMessage:(SCPReaderDisplayMessage)displayMessage {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderDisplayMessage:displayMessage];
+}
+```
+
+Cette méthode recueille les données chiffrées du moyen de paiement à l’aide du lecteur de carte connecté, et les associe au `PaymentIntent` local.
+
+### Examen facultatif des informations du moyen de paiement
+
+- [CollectPaymentIntentConfiguration (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPCollectPaymentIntentConfiguration.html)
+- [CardPresentDetails (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPCardPresentDetails.html)
+
+Vous pouvez également examiner les informations de moyen de paiement de la carte présentée et effectuer votre propre logique métier avant l’autorisation, ce qui peut être utile pour les cas d’usage avancés.
+
+Use the `setUpdatePaymentIntent` setter in `CollectPaymentIntentConfigurationBuilder` to attach a `PaymentMethod` to the server-side `PaymentIntent`. This data is returned in the `collectPaymentMethod` response.  
+
+#### Swift
+
+```swift
+
+
+class PaymentViewController: UIViewController, ReaderDisplayDelegate {
+    // ...
+
+    // Action for a "Checkout" button
+    func checkoutAction() throws {
+        let params = try PaymentIntentParametersBuilder(amount: 1000, currency: "eur").build()
+        Terminal.shared.createPaymentIntent(params) { createResult, createError in
+            if let error = createError {
+                print("createPaymentIntent failed: \(error)")
+            }
+            else if let paymentIntent = createResult {
+                print("createPaymentIntent succeeded")
+                let collectConfig = try CollectPaymentIntentConfigurationBuilder().setUpdatePaymentIntent(true).build()
+                self.collectCancelable = Terminal.shared.collectPaymentMethod(paymentIntent: paymentIntent, collectConfig: collectConfig) {
+                  collectResult, collectError in
+                    if let error = collectError {
+                        print("collectPaymentMethod failed: \(error)")
+                    }
+                    else if let paymentIntent = collectResult {
+                        print("collectPaymentMethod succeeded")
+                        if let paymentMethod = paymentIntent.paymentMethod,
+                            let card = paymentMethod.cardPresent ?? paymentMethod.interacPresent {
+
+                            // ... Perform business logic on card
+                        }
+
+                        // ... Confirm the payment
+                    }
+                }
+            }
+
+        }
+    }
+ }
+```
+
+#### Objective-C
+
+```objc
+
+
+@implementation APPPaymentViewController
+// ...
+
+// Action for a "Checkout" button
+- (void)checkoutAction {
+    NSError *paramError = nil;
+    SCPPaymentIntentParameters *params = [[[SCPPaymentIntentParametersBuilder alloc] initWithAmount:1000
+                                                                                           currency:@"eur"];
+                                          build:&paramError];
+    if (paramError) {
+        NSLog(@"Error building PaymentIntent parameters");
+        return;
+    }
+
+    [[SCPTerminal shared] createPaymentIntent:params completion:^(SCPPaymentIntent *createResult, NSError *createError) {
+        if (createError) {
+            NSLog(@"createPaymentIntent failed: %@", createError);
+        } else {
+            NSLog(@"createPaymentIntent succeeded");
+            SCPCollectPaymentIntentConfiguration *collectConfig = [[[SCPCollectPaymentIntentConfigurationBuilder new] setUpdatePaymentIntent:YES] build:&paramError];
+            if (paramError) {
+                NSLog(@"Error building collect config");
+                return;
+            }
+            self.collectCancelable = [[SCPTerminal shared] collectPaymentMethod:createResult collectConfig:collectConfig
+              completion:^(SCPPaymentIntent *collectResult, NSError *collectError) {
+                if (collectError) {
+                    NSLog(@"collectPaymentMethod failed: %@", collectError);
+                }
+                else {
+                    NSLog(@"collectPaymentMethod succeeded");
+                    SCPCardPresentDetails *card = collectResult.paymentMethod.type == SCPPaymentMethodTypeCardPresent ?
+                        collectResult.paymentMethod.cardPresent : collectResult.paymentMethod.interacPresent
+
+                    // ... Perform business logic on card
+
+                    // ... Confirm the payment
+                }
+            }];
+        }
+    }];
+}
+```
+
+> Cette méthode permet d’associer les données chiffrées collectées concernant le moyen de paiement grâce à une modification de l’objet `PaymentIntent`. Elle ne nécessite aucune autorisation tant que vous n’avez pas confirmé le paiement.
+> 
+> Ce cas d’usage avancé n’est pas pris en charge sur le P400 de Verifone.
+> 
+> Après avoir sélectionné le moyen de paiement, vous devez autoriser ou annuler le paiement dans les 30&nbsp;secondes.
+> 
+> Si le SDK [fonctionne hors ligne](https://docs.stripe.com/terminal/features/operate-offline/collect-card-payments.md), le champ `paymentMethod` n’est pas présent dans l’objet `PaymentIntent`.
+
+À ce stade, vous pouvez accéder à des attributs tels que la marque de la carte, le financement et d’autres données utiles.
+
+> Stripe tente de détecter si un wallet mobile est utilisé dans une transaction, comme indiqué dans l’attribut `wallet.type`. Cependant, l’attribut n’est pas renseigné si la banque émettrice de la carte ne prend pas en charge l’identification par lecteur d’un wallet mobile. La détection précise n’est donc pas garantie. Après l’autorisation à l’étape de [traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment), Stripe reçoit des informations à jour provenant des réseaux et met à jour le `wallet.type`.
+
+### Annuler la collecte
+
+#### Annulation programmatique
+
+- [Cancelable (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPCancelable.html)
+
+Vous pouvez annuler la collecte d’un moyen de paiement à l’aide de l’objet `Cancelable` renvoyé par le SDK iOS.
+
+#### Annulation initiée par le client
+
+- [setCustomerCancellation (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPCollectPaymentIntentConfigurationBuilder.html#/c:objc\(cs\)SCPCollectPaymentIntentConfigurationBuilder\(im\)setCustomerCancellation)
+- [CustomerCancellation (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Enums/SCPCustomerCancellation.html)
+
+Par défaut, les lecteurs intelligents affichent aux clients un bouton d’annulation. Vous pouvez le désactiver en définissant `customerCancellation` sur `.disableIfAvailable`.
+
+Appuyer sur le bouton d’annulation annule la transaction active.
+
+#### Swift
+
+```swift
+let collectConfig = try CollectPaymentIntentConfigurationBuilder()
+    .setCustomerCancellation(.disableIfAvailable) // turn OFF the cancel button, ON by default
+    .build()
+Terminal.shared.collectPaymentMethod(paymentIntent: paymentIntent, collectConfig: collectConfig) {
+    intentWithPaymentMethod, attachError in
+}
+```
+
+#### Objective-C
+
+```objc
+NSError *error = nil;SCPCollectPaymentIntentConfiguration *collectConfig = [[[SCPCollectPaymentIntentConfigurationBuilder new] 
+    setCustomerCancellation:SCPCustomerCancellationDisableIfAvailable] // turn OFF the cancel button, ON by default
+    build:&error];
+if (error) {
+    NSLog(@"Error building collect configuration");
+    return;
+}
+[[SCPTerminal shared] collectPaymentMethod:paymentIntent collectConfig:collectConfig completion:^(SCPPaymentIntent *intentWithPaymentMethod, NSError *error) {
+}];
+```
+
+### Gérer les événements
+
+- [ReaderDisplayDelegate (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Protocols/SCPReaderDisplayDelegate.html)
+
+Lorsque vous collectez un moyen de paiement à l’aide d’un lecteur tel que le [Stripe&nbsp;M2](https://docs.stripe.com/terminal/readers/stripe-m2.md)sans écran intégré, votre application doit être en mesure d’afficher les événements du processus de collecte du moyen de paiement aux utilisateurs. Ces événements aident les utilisateurs à encaisser les paiements (par exemple, réessayer une carte, essayer une autre carte ou utiliser une autre méthode de lecture).
+
+Au début d’une transaction, le SDK adresse une valeur `ReaderInputOptions`` au gestionnaire d'affichage du lecteur de votre application, précisant les types de saisie acceptables (par exemple,`Swipe`,`Insert`, ou`Tap`). Dans l’interface de paiement de l’application, invitez l’utilisateur à effectuer son paiement par carte selon l’une de ces options.
+
+Au cours de la transaction, le SDK peut recourir à l’application pour afficher d’autres messages à l’attention de l’utilisateur (`Réessayer la carte`, par exemple) en transmettant une valeur `ReaderDisplayMessage` au gestionnaire d’affichage du lecteur de votre application. Vérifiez que l’interface de paiement relaie bien ces messages à l’utilisateur.
+
+#### Swift
+
+```swift
+ // MARK: MobileReaderDelegate - only needed for Bluetooth readers, this is the delegate set during connectReader
+
+ func reader(_ reader: Reader, didRequestReaderInput inputOptions: ReaderInputOptions = []) {
+     readerMessageLabel.text = Terminal.stringFromReaderInputOptions(inputOptions)
+ }
+
+ func reader(_ reader: Reader, didRequestReaderDisplayMessage displayMessage: ReaderDisplayMessage) {
+     readerMessageLabel.text = Terminal.stringFromReaderDisplayMessage(displayMessage)
+ }
+```
+
+#### Objective&nbsp;C
+
+```objc
+#pragma mark - SCPMobileReaderDelegate - only needed for mobile readers, this is the delegate set during connectReader
+
+- (void)reader:(SCPReader *)reader didRequestReaderInput:(SCPReaderInputOptions)inputOptions {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderInputOptions:inputOptions];
+}
+
+- (void)reader:(SCPReader *)reader didRequestReaderDisplayMessage:(SCPReaderDisplayMessage)displayMessage {
+    self.readerMessageLabel.text = [SCPTerminal stringFromReaderDisplayMessage:displayMessage];
+}
+```
+
+### Encaisser des paiements avec Tap to Pay sur iPhone
+
+Lorsque votre application est prête à encaisser un paiement, le SDK Stripe iOS prend le relais pour gérer le processus d’encaissement. Après avoir appelé la méthode de [traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment), votre application continue de fonctionner, mais l’iPhone affiche un message en plein écran à l’intention du titulaire de la carte, lui demandant de présenter sa carte ou son wallet mobile NFC. Si une erreur survient lors de la lecture de la carte, un message invitant à réessayer s’affiche. Une présentation réussie renvoie une indication de réussite, puis le contrôle revient à votre application.
+![Tap to Pay sur iPhone](https://b.stripecdn.com/docs-statics-srv/assets/tap-on-mobile-ios-payment-collection.50a552f2d75b8a3b92a439810cd9361d.png)
+
+Encaissement des paiements
+
+### Encaisser des paiements avec Tap to Pay sur iPhone
+
+Lorsque votre application est prête à encaisser un paiement, le SDK Stripe iOS prend le relais pour gérer le processus d’encaissement. Après avoir appelé la méthode de [traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment), votre application continue de fonctionner, mais l’iPhone affiche un message en plein écran à l’intention du titulaire de la carte, lui demandant de présenter sa carte ou son wallet mobile NFC. Si une erreur survient lors de la lecture de la carte, un message invitant à réessayer s’affiche. Une présentation réussie renvoie une indication de réussite, puis le contrôle revient à votre application.
+![Tap to Pay sur iPhone](https://b.stripecdn.com/docs-statics-srv/assets/tap-on-mobile-ios-payment-collection.50a552f2d75b8a3b92a439810cd9361d.png)
+
+Encaissement des paiements
+
+## Confirmer la PaymentIntent
+
+- [confirmPaymentIntent (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPTerminal.html#/c:objc\(cs\)SCPTerminal\(im\)confirmPaymentIntent:completion:)
+
+Après avoir collecté un moyen de paiement auprès du client, vous devez traiter le paiement avec le SDK. Au moment de procéder au paiement, appelez `confirmPaymentIntent` avec la `PaymentIntent` mise à jour lors de l’[étape précédente](https://docs.stripe.com/terminal/payments/collect-card-payment.md#collect-inspect-payment-method).
+
+- En cas de capture manuelle des paiements, un appel `confirmPayment` réussi génère une `PaymentIntent` à l’état `requires_capture`.
+- En cas de capture automatique d’un paiement, le `PaymentIntent` passe à l’état `succeeded`.
+
+> Confirmez toujours les PaymentIntents à l’aide du SDK Terminal côté client. La confirmation côté serveur permet de contourner les interactions critiques, telles que les invites de code PIN, et peut entraîner des échecs de transaction.
+
+#### Swift
+
+```swift
+
+
+// Action for a "Checkout" button
+func checkoutAction() throws {
+  let params = try PaymentIntentParametersBuilder(amount: 1000, currency: "eur").build()
+  Terminal.shared.createPaymentIntent(params) { createResult, createError in
+      if let error = createError {
+          print("createPaymentIntent failed: \(error)")
+      } else if let paymentIntent = createResult {
+          print("createPaymentIntent succeeded")
+          self.collectCancelable = Terminal.shared.collectPaymentMethod(paymentIntent) { collectResult, collectError in
+              if let error = collectError {
+                  print("collectPaymentMethod failed: \(error)")
+              } else if let collectPaymentMethodPaymentIntent = collectResult {
+                  print("collectPaymentMethod succeeded")
+                  // ... Confirm the payment
+                  self.confirmCancelable = Terminal.shared.confirmPaymentIntent(collectPaymentMethodPaymentIntent) { confirmResult, confirmError in
+                      if let error = confirmError {
+                          print("confirmPaymentIntent failed: \(error)")
+                      } else if let confirmedPaymentIntent = confirmResult {
+                          print("confirmPaymentIntent succeeded")
+                          // Notify your backend to capture the PaymentIntent
+                          if let stripeId = confirmedPaymentIntent.stripeId {
+                              APIClient.shared.capturePaymentIntent(stripeId) { captureError in
+                                  if let error = captureError {
+                                      print("capture failed: \(error)")
+                                  } else {
+                                      print("capture succeeded")
+                                  }
+                              }
+                          } else {
+                              print("Payment collected offline");
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+```
+
+#### Objective-C
+
+```objc
+
+
+// Action for a "Checkout" button
+- (void)checkoutAction {
+    NSError *paramError = nil;
+    SCPPaymentIntentParameters *params = [[[SCPPaymentIntentParametersBuilder alloc] initWithAmount:1000
+                                                                                           currency:@"eur"];
+                                          build:&paramError];
+    if (paramError) {
+        NSLog(@"Error building PaymentIntent parameters");
+        return;
+    }
+
+    [[SCPTerminal shared] createPaymentIntent:params completion:^(SCPPaymentIntent *createResult, NSError *createError) {
+        if (createError) {
+            NSLog(@"createPaymentIntent failed: %@", createError);
+        }
+        else {
+            NSLog(@"createPaymentIntent succeeded");
+            self.collectCancelable = [[SCPTerminal shared] collectPaymentMethod:createResult completion:^(SCPPaymentIntent *collectResult, NSError *collectError) {
+                if (collectError) {
+                    NSLog(@"collectPaymentMethod failed: %@", collectError);
+                }
+                else {
+                    NSLog(@"collectPaymentMethod succeeded");
+                    self.confirmCancelable = [[SCPTerminal shared] confirmPaymentIntent:collectResult completion:^(SCPPaymentIntent *confirmResult, SCPConfirmPaymentIntentError *confirmError) {
+                        if (confirmError) {
+                            NSLog(@"confirmPaymentIntent failed: %@", confirmError);
+                        }
+                        else {
+                            NSLog(@"confirmPaymentIntent succeeded");
+                            if (confirmResult.stripeId != nil) {
+                                // Notify your backend to capture the PaymentIntent
+                                [[APPAPIClient shared] capturePaymentIntent:confirmResult.stripeId completion:^(NSError *captureError) {
+                                    if (captureError) {
+                                        NSLog(@"capture failed: %@", captureError);
+                                    }
+                                    else {
+                                        NSLog(@"capture succeeded");
+                                    }
+                                }];
+                            } else {
+                                NSLog(@"Payment collected offline");
+                            }
+                        }
+                    }];
+                }
+            }];
+        }
+    }];
+}
+```
+
+> Vous devez capturer un PaymentIntent manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+### Gérer les échecs
+
+- [ConfirmPaymentIntentError (iOS)](https://stripe.dev/stripe-terminal-ios/docs/Classes/SCPConfirmPaymentIntentError.html#/c:objc\(cs\)SCPConfirmPaymentIntentError\(py\)paymentIntent)
+
+Lorsque le traitement d’un paiement échoue, le SDK renvoie une erreur comprenant la `PaymentIntent` mise à jour. Votre application doit examiner la `PaymentIntent` pour décider de la manière de résoudre l’erreur.
+
+| État du PaymentIntent     | Signification                                                               | Résolution                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requires_payment_method` | Moyen de paiement refusé                                                    | Essayez de collecter un autre moyen de paiement en appelant à nouveau `collectPaymentMethod` avec la même `PaymentIntent`.                                              |
+| `requires_confirmation`   | Problème de connectivité temporaire                                         | Rappelez `confirmPaymentIntent` avec la même `PaymentIntent` pour retenter la requête.                                                                                  |
+| `PaymentIntent` est `nil` | La requête envoyée à Stripe a expiré, l’état de `PaymentIntent` est inconnu | Réessayez de confirmer la `PaymentIntent` initiale. N’en créez pas une nouvelle, car cela pourrait entraîner des autorisations multiples pour le titulaire de la carte. |
+
+Si vous rencontrez plusieurs expirations du délai paiement à la suite, il se peut qu’il y ait un problème de connectivité. Assurez-vous que votre application est connectée à Internet.
+
+### Évitez les doubles facturations
+
+L’objet `PaymentIntent` active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul `PaymentIntent` pour représenter une transaction.
+
+Réutilisez le même `PaymentIntent` même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez la `PaymentIntent`, vous devez appeler l’objet `collectPaymentMethod` pour mettre à jour les informations de paiement sur le lecteur.
+
+Pour pouvoir être confirmée par Stripe, une `PaymentIntent` doit être à l’état `requires_payment_method`. Un lecteur ne pourra pas confirmer une `PaymentIntent` autorisée, capturée ou annulée.
+
+## Capturer le paiement [Côté serveur]
+
+Si vous avez défini `capture_method` sur `manual` lors de la création du `PaymentIntent` à l’[étape&nbsp;1](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment), le SDK renvoie à votre application un `PaymentIntent` autorisé, mais non capturé. En savoir plus sur la différence entre [autorisation et capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+
+Assurez-vous que votre application demande à votre back-end de capturer le paiement lorsqu’elle reçoit du SDK un `PaymentIntent` confirmé. Créez dans votre back-end un endpoint qui accepte un ID de `PaymentIntent` et envoie à l’API Stripe une demande de capture correspondante&nbsp;:
+
+```curl
+curl -X POST https://api.stripe.com/v1/payment_intents/{{PAYMENT_INTENT_ID}}/capture \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe payment_intents capture {{PAYMENT_INTENT_ID}}
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.capture('{{PAYMENT_INTENT_ID}}')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.capture("{{PAYMENT_INTENT_ID}}")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->capture('{{PAYMENT_INTENT_ID}}', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentCaptureParams params = PaymentIntentCaptureParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent =
+  client.v1().paymentIntents().capture("{{PAYMENT_INTENT_ID}}", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.capture('{{PAYMENT_INTENT_ID}}');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentCaptureParams{}
+result, err := sc.V1PaymentIntents.Capture(
+  context.TODO(), "{{PAYMENT_INTENT_ID}}", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Capture("{{PAYMENT_INTENT_ID}}");
+```
+
+Si l’appel de `capture` réussit, l’état du `PaymentIntent` passe à `succeeded`.
+
+> Pour débiter les comptes connectés des frais de plateforme appropriés, inspectez chaque `PaymentIntent` et modifiez les frais de plateforme, si nécessaire, avant de capturer le paiement manuellement.
+
+### Rapprocher les paiements
+
+Pour vérifier l’activité de paiement de votre entreprise, vous pouvez rapprocher les PaymentIntents avec votre système de commande interne sur votre serveur à la fin de chaque journée.
+
+Un `PaymentIntent` conservant l’état `requires_capture` peut signifier deux choses&nbsp;:
+
+**Autorisation inutile sur le relevé de carte bancaire de votre client**
+
+- Cause&nbsp;: l’utilisateur abandonne le tunnel de paiement de votre application au milieu d’une transaction
+- Solution&nbsp;: si le `PaymentIntent` non capturé n’est associé à aucune commande terminée sur votre serveur, vous pouvez l’[annuler](https://docs.stripe.com/api/payment_intents/cancel.md). Vous ne pouvez pas utiliser un `PaymentIntent` annulé pour effectuer des paiements.
+
+**Encaissement de fonds incomplet auprès d’un client**
+
+- Cause&nbsp;: échec de la requête de votre application signalant à votre back-end de capturer le paiement
+- Solution&nbsp;: si le `PaymentIntent` non capturé est associé à une commande terminée sur votre serveur, et aucun autre paiement n’a été encaissé pour la commande (par exemple, un paiement en espèces), vous pouvez le [capturer](https://docs.stripe.com/api/payment_intents/capture.md).
+
+### Encaisser les pourboires (États-Unis uniquement)
+
+Aux États-Unis, les utilisateurs admissibles peuvent [encaisser des pourboires lors de la capture des paiements](https://docs.stripe.com/terminal/features/collecting-tips/on-receipt.md).
+
+
+# Android
+
+> This is a Android for when terminal-sdk-platform is android. View the full page at https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=android.
+
+Vous découvrez l’API Payment Intents&nbsp;? Voici quelques ressources utiles&nbsp;:
+
+- [L’API Payment Intents](https://docs.stripe.com/payments/payment-intents.md)
+- [L’objet PaymentIntent](https://docs.stripe.com/api/payment_intents.md)
+- [Autres scénarios de paiement](https://docs.stripe.com/payments/more-payment-scenarios.md)
+
+La définition d’un tunnel de paiement dans votre application est nécessaire pour encaisser des paiements avec Stripe Terminal. Utilisez le SDK Stripe Terminal pour créer et mettre à jour un [PaymentIntent](https://docs.stripe.com/api.md#payment_intents), un objet représentant une session de paiement individuelle.
+
+Conçue pour résister aux défaillances, l’intégration Terminal divise le processus de paiement en plusieurs étapes, dont chacune peut être répétée en toute sécurité&nbsp;:
+
+1. [Créer un PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment)
+1. [Traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment). L’autorisation sur la carte du client a lieu lorsque le SDK traite le paiement.
+1. (Facultatif) [Capturer le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#capture-payment)
+
+## Créer un PaymentIntent [Côté client] [Côté serveur]
+
+La première étape dans l’encaissement d’un paiement consiste à démarrer le tunnel de paiement. Lorsque le client commence à payer, votre application doit créer un objet `PaymentIntent`. Celui-ci représente une nouvelle session de paiement sur Stripe.
+
+- [createPaymentIntent (Android)](https://stripe.dev/stripe-terminal-android/core/com.stripe.stripeterminal/-terminal/create-payment-intent.html)
+
+Vous pouvez créer un `PaymentIntent` côté client ou côté serveur.
+
+Utilisez des [montants test](https://docs.stripe.com/terminal/references/testing.md#physical-test-cards) pour essayer d’obtenir des résultats différents. Un montant se terminant par `00` correspond à un paiement approuvé.
+
+> Ne recréez pas un PaymentIntent en cas de refus de carte. Réutilisez plutôt le même PaymentIntent pour [éviter les doubles paiements](https://docs.stripe.com/terminal/payments/collect-card-payment.md#avoiding-double-charges).
+
+### Côté client
+
+Créez un `PaymentIntent` pour votre client&nbsp;:
+
+> Si votre application est connectée au Verifone&nbsp;P400, vous ne pouvez pas créer de PaymentIntent à partir du SDK&nbsp;Android. Vous devez [créer le PaymentIntent côté serveur](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-server-side), puis récupérer le PaymentIntent dans votre application à l’aide de la méthode `Terminal.retrievePaymentIntent` du SDK.
+
+#### Kotlin
+
+```kotlin
+val params = PaymentIntentParameters.Builder()
+    .setAmount(1000)
+    .setCurrency("eur")
+    .build()
+Terminal.getInstance().createPaymentIntent(
+    params,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    }
+)
+```
+
+#### Java
+
+```java
+PaymentIntentParameters params = new PaymentIntentParameters.Builder()
+    .setAmount(1000L)
+    .setCurrency("eur")
+    .build();
+
+Terminal.getInstance().createPaymentIntent(
+    params,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    }
+);
+```
+
+### Côté serveur
+
+Vous pouvez créer le `PaymentIntent` sur votre serveur si les informations requises pour lancer un paiement ne sont pas facilement accessibles dans votre application.
+
+L’exemple suivant montre comment créer un `PaymentIntent` sur votre serveur&nbsp;:
+
+#### curl
+
+```bash
+curl https://api.stripe.com/v1/payment_intents \
+  -u <<YOUR_SECRET_KEY>>: \
+  -d "amount"=1000 \
+  -d "currency"="eur" \
+  -d "payment_method_types[]"="card_present" \
+  -d "capture_method"="manual"
+```
+
+#### Ruby
+
+```ruby
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+intent = Stripe::PaymentIntent.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+})
+```
+
+#### Python
+
+```python
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+stripe.PaymentIntent.create(
+  amount=1000,
+  currency='eur',
+  payment_method_types=['card_present'],
+  capture_method='manual',
+)
+```
+
+#### PHP
+
+```php
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+\Stripe\Stripe::setApiKey('<<YOUR_SECRET_KEY>>');
+
+\Stripe\PaymentIntent::create([
+  'amount' => 1000,
+  'currency' => 'eur',
+  'payment_method_types' => ['card_present'],
+  'capture_method' => 'manual',
+]);
+```
+
+#### Java
+
+```java
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.apiKey = "<<YOUR_SECRET_KEY>>";
+
+PaymentIntentCreateParams params =
+  PaymentIntentCreateParams.builder()
+    .addPaymentMethodType("card_present")
+    .setAmount(1000L)
+    .setCurrency("eur")
+    .setCaptureMethod(PaymentIntentCreateParams.CaptureMethod.MANUAL)
+    .build();
+
+PaymentIntent.create(params);
+```
+
+#### Node.js
+
+```javascript
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const intent = await stripe.paymentIntents.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+});
+```
+
+#### Go
+
+```go
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+stripe.Key = "<<YOUR_SECRET_KEY>>"
+
+params := &stripe.PaymentIntentParams{
+  Amount: stripe.Int64(1000),
+  Currency: stripe.String(string(stripe.currencyEUR)),
+  PaymentMethodTypes: stripe.StringSlice([]string{
+    "card_present",
+  }),
+  CaptureMethod: stripe.String("manual"),
+}
+
+paymentintent.New(params)
+```
+
+#### .NET
+
+```csharp
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeConfiguration.ApiKey = "<<YOUR_SECRET_KEY>>";
+
+var service = new PaymentIntentService();
+var options = new PaymentIntentCreateOptions
+{
+    Amount = 1000,
+    Currency = "eur",
+    PaymentMethodTypes = new List<string> { "card_present" },
+    CaptureMethod = "manual",
+};
+
+service.Create(options, requestOptions);
+```
+
+Pour les paiements Terminal, le paramètre `payment_method_types` doit inclure l’option `card_present`.
+
+Vous pouvez contrôler le tunnel de paiement de la manière suivante&nbsp;:
+
+- Pour contrôler totalement le tunnel de paiement pour les paiements `card_present`, définissez le paramètre `capture_method` sur `manual`. Cela vous permet d’ajouter une étape de rapprochement avant la réalisation du paiement.
+- Pour capturer et autoriser simultanément des paiements, définissez le paramètre `capture_method` sur `automatic`.
+
+Pour accepter des paiements en Australie, vous devez définir lle paramètre `capture_method` sur `automatic` ou sur `manual_preferred`. Pour en savoir plus, consultez notre [documentation sur l’Australie](https://docs.stripe.com/terminal/payments/regional.md?integration-country=AU). Pour accepter les paiements Interac au Canada, vous devez également inclure `interac_present` dans `payment_method_types`. Pour en savoir plus, consultez notre [documentation sur le Canada](https://docs.stripe.com/terminal/payments/regional.md?integration-country=CA).
+
+Le `PaymentIntent` contient une [clé secrète du client](https://docs.stripe.com/api/payment_intents/object.md#payment_intent_object-client_secret), une clé unique propre à chaque `PaymentIntent`. Pour utiliser la clé secrète du client, vous devez l’obtenir du `PaymentIntent` sur votre serveur et la [transmettre côté client](https://docs.stripe.com/payments/payment-intents.md#passing-to-client).
+
+#### Ruby
+
+```ruby
+post '/create_payment_intent' do
+  intent = # ... Create or retrieve the PaymentIntent
+  {client_secret: intent.client_secret}.to_json
+end
+```
+
+#### Python
+
+```python
+from flask import jsonify
+
+@app.route('/create_payment_intent', methods=['POST'])
+def secret():
+  intent = # ... Create or retrieve the PaymentIntent
+  return jsonify(client_secret=intent.client_secret)
+```
+
+#### PHP
+
+```php
+<?php
+    $intent = # ... Create or retrieve the PaymentIntent
+    echo json_encode(array('client_secret' => $intent->client_secret));
+?>
+```
+
+#### Java
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+import com.stripe.model.PaymentIntent;
+
+import com.google.gson.Gson;
+import static spark.Spark.post;
+
+public class StripeJavaQuickStart {
+    public static void main(String[] args) {
+      Gson gson = new Gson();
+
+      get("/create_payment_intent", (request, response) -> {
+        PaymentIntent intent = // ... Fetch or create the PaymentIntent
+
+        Map<String, String> map = new HashMap();
+        map.put("client_secret", intent.getClientSecret());
+
+        return map;
+      }, gson::toJson);
+    }
+}
+```
+
+#### Node.js
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.post('/create_payment_intent', async (req, res) => {
+  const intent = // ... Fetch or create the PaymentIntent
+  res.json({client_secret: intent.client_secret});
+});
+
+app.listen(3000, () => {
+  console.log('Running on port 3000');
+});
+```
+
+#### Go
+
+```go
+package main
+
+import (
+  "encoding/json"
+  "net/http"
+)
+
+type PaymentData struct {
+  ClientSecret string `json:"client_secret"`
+}
+
+func main() {
+  http.HandleFunc("/create_payment_intent", func(w http.ResponseWriter, r *http.Request) {
+    intent := // ... Fetch or create the PaymentIntent
+    data := PaymentData{
+      ClientSecret: intent.ClientSecret,
+    }
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(data)
+  })
+
+  http.ListenAndServe(":3000", nil)
+}
+```
+
+#### .NET
+
+```csharp
+using System;
+using Microsoft.AspNetCore.Mvc;
+
+namespace StripeExampleApi.Controllers
+{
+    [Route("create_payment_intent")]
+    [ApiController]
+    public class StripeApiController : Controller
+    {
+        [HttpPost]
+        public ActionResult Post()
+        {
+            var intent = // ... Fetch or create the PaymentIntent
+            return Json(new {client_secret = intent.ClientSecret});
+        }
+    }
+}
+```
+
+- [retrievePaymentIntent (Android)](https://stripe.dev/stripe-terminal-android/core/com.stripe.stripeterminal/-terminal/retrieve-payment-intent.html)
+
+Pour récupérer un `PaymentIntent`, utilisez la clé secrète du client pour appeler `retrievePaymentIntent`.
+
+Après avoir récupéré la `PaymentIntent`, utilisez-la pour appeler `processPaymentIntent`.
+
+#### Kotlin
+
+```kotlin
+Terminal.getInstance().retrievePaymentIntent(
+    clientSecret,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    }
+)
+```
+
+#### Java
+
+```java
+Terminal.getInstance().retrievePaymentIntent(
+    clientSecret,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    }
+);
+```
+
+## Traiter le paiement [Côté client]
+
+Vous pouvez traiter immédiatement un paiement avec la carte présentée par un client, ou bien vérifier les informations de carte avant de procéder au traitement du paiement. Dans la plupart des cas, nous recommandons un traitement immédiat, car l’intégration est plus simple et nécessite moins d’appels à l’API. Cependant, si vous souhaitez insérer votre propre logique métier avant d’autoriser la carte, utilisez le flux en deux étapes&nbsp;:collecter et confirmer.
+
+#### Traitement immédiat
+
+Après avoir créé une PaymentIntent, l’étape suivante consiste à traiter le paiement. Le lecteur invite le client à insérer ou à taper sa carte, puis tente d’autoriser le paiement.
+
+- [processPaymentIntent (Android)](https://stripe.dev/stripe-terminal-android/core/com.stripe.stripeterminal/-terminal/process-payment-intent.html)
+
+Lors du traitement d’un paiement, le titulaire de la carte peut mettre quelques secondes à sortir sa carte de son wallet ou poser une question à l’opérateur lors du paiement.
+
+#### Kotlin
+
+```kotlin
+val cancelable = Terminal.getInstance().processPaymentIntent(
+    paymentIntent = paymentIntent,
+    collectConfig = CollectPaymentIntentConfiguration.Builder().build(),
+    confirmConfig = ConfirmPaymentIntentConfiguration.Builder().build(),
+    callback = object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            println("processPaymentIntent succeeded")
+            // Notify your backend to capture the PaymentIntent
+            if (paymentIntent.id != null) {
+                ApiClient.capturePaymentIntent(paymentIntent.id) { error ->
+                    if (error != null) {
+                        println("capturePaymentIntent failed: $error")
+                    } else {
+                        println("capturePaymentIntent succeeded")
+                    }
+                }
+            } else {
+                println("Payment collected offline")
+            }
+        }
+
+        override fun onFailure(e: TerminalException) {
+            println("processPaymentIntent failed: $e")
+        }
+    }
+)
+```
+
+#### Java
+
+```java
+Cancelable cancelable = Terminal.getInstance().processPaymentIntent(
+    paymentIntent,
+    new CollectPaymentIntentConfiguration.Builder().build(),
+    new ConfirmPaymentIntentConfiguration.Builder().build(),
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            System.out.println("processPaymentIntent succeeded");
+            // Notify your backend to capture the PaymentIntent
+            if (paymentIntent.getId() != null) {
+                ApiClient.capturePaymentIntent(paymentIntent.getId(), (error) -> {
+                    if (error != null) {
+                        System.out.println("capturePaymentIntent failed: " + error);
+                    } else {
+                        System.out.println("capturePaymentIntent succeeded");
+                    }
+                });
+            } else {
+                System.out.println("Payment collected offline");
+            }
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            System.out.println("processPaymentIntent failed: " + exception);
+        }
+    }
+);
+```
+
+### Annuler la collecte
+
+#### Annulation programmatique
+
+- [Cancelable (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.callable/-cancelable/index.html)
+
+Vous pouvez annuler le traitement d’une PaymentIntent à l’aide de l’objet `Cancelable` renvoyé par le SDK Android.
+
+#### Annulation initiée par le client
+
+- [setCustomerCancellation (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-collect-payment-intent-configuration/-builder/set-customer-cancellation.html)
+- [Annulation de la part du client (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-customer-cancellation/index.html)
+
+Par défaut, les lecteurs intelligents affichent aux clients un bouton d’annulation. Vous pouvez le désactiver en définissant `customerCancellation` sur `DISABLE_IF_AVAILABLE`.
+
+Appuyer sur le bouton d’annulation annule la transaction active.
+
+#### Kotlin
+
+```kotlin
+Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    },CollectPaymentIntentConfiguration.Builder()
+        .setCustomerCancellation(CustomerCancellation.DISABLE_IF_AVAILABLE) // turn OFF the cancel button, ON by default
+        .build(),
+)
+```
+
+#### Java
+
+```java
+Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    },new CollectPaymentIntentConfiguration.Builder()
+        .setCustomerCancellation(CustomerCancellation.DISABLE_IF_AVAILABLE) // turn OFF the cancel button, ON by default
+        .build()
+);
+```
+
+### Gérer les événements
+
+- [MobileReaderListener (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.callable/-mobile-reader-listener/index.html)
+
+Lorsque vous collectez un moyen de paiement à l’aide d’un lecteur tel que le [Stripe&nbsp;M2](https://docs.stripe.com/terminal/readers/stripe-m2.md)sans écran intégré, votre application doit être en mesure d’afficher les événements du processus de collecte du moyen de paiement aux utilisateurs. Ces événements aident les utilisateurs à encaisser les paiements (par exemple, réessayer une carte, essayer une autre carte ou utiliser une autre méthode de lecture).
+
+Au début d’une transaction, le SDK adresse une valeur `ReaderInputOptions`` au gestionnaire d'affichage du lecteur de votre application, précisant les types de saisie acceptables (par exemple,`Swipe`,`Insert`, ou`Tap`). Dans l’interface de paiement de l’application, invitez l’utilisateur à effectuer son paiement par carte selon l’une de ces options.
+
+Au cours de la transaction, le SDK peut recourir à l’application pour afficher d’autres messages à l’attention de l’utilisateur (`Réessayer la carte`, par exemple) en transmettant une valeur `ReaderDisplayMessage` au gestionnaire d’affichage du lecteur de votre application. Vérifiez que l’interface de paiement relaie bien ces messages à l’utilisateur.
+
+#### Kotlin
+
+```kotlin
+class ReaderActivity : AppCompatActivity(), MobileReaderListener {
+    // ...
+
+    override fun onRequestReaderInput(options: ReaderInputOptions) {
+        Toast.makeText(activity, options.toString(), Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onRequestReaderDisplayMessage(message: ReaderDisplayMessage) {
+        Toast.makeText(activity, message.toString(), Toast.LENGTH_SHORT).show()
+    }
+
+    // ...
+}
+```
+
+#### Java
+
+```java
+public class ReaderActivity extends AppCompatActivity implements MobileReaderListener {
+    // ...
+
+    @Override
+    public void onRequestReaderInput(ReaderInputOptions options) {
+        // Placeholder for updating your app's checkout UI
+        Toast.makeText(getActivity(), options.toString(), Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onRequestReaderDisplayMessage(ReaderDisplayMessage message) {
+        Toast.makeText(getActivity(), message.toString(), Toast.LENGTH_SHORT).show();
+    }
+
+    // ...
+}
+```
+
+### Encaisser des paiements avec Tap to Pay sur Android
+
+When your application is ready to collect a payment, the Stripe Android SDK takes over the display to handle the collection process. After calling the [process payment](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment) method, your application remains running. The Android device displays a full-screen prompt to the cardholder, instructing them to present their card or NFC-based mobile wallet. If there’s an error reading the card, a prompt for retry displays. A successful presentation returns a success indication, and then control returns to your application.
+![Tap to Pay sur Android](https://b.stripecdn.com/docs-statics-srv/assets/tap-to-pay-on-android-payment-collection.1297981f07df468768e4c8286b99281b.jpeg)
+
+Encaissement des paiements
+
+- En cas de capture manuelle des paiements, un appel `processPayment` réussi génère une `PaymentIntent`à l’état `requires_capture`.
+- En cas de capture automatique d’un paiement, le `PaymentIntent` passe à l’état `succeeded`.
+
+> Vous devez capturer un PaymentIntent manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+### Gérer les échecs
+
+- [TerminalException (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-terminal-exception/index.html)
+
+Lorsque le traitement d’un paiement échoue, le SDK renvoie une erreur comprenant la `PaymentIntent` mise à jour. Votre application doit examiner la `PaymentIntent` pour décider de la manière de résoudre l’erreur.
+
+| État de la PaymentIntent  | Signification                                                               | Résolution                                                                                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requires_payment_method` | Moyen de paiement refusé                                                    | Essayez de recueillir un moyen de paiement différent en appelant à nouveau `processPaymentIntent` avec la même `PaymentIntent`.                                   |
+| `requires_confirmation`   | Problème de connectivité temporaire                                         | Appelez à nouveau `processPaymentIntent` avec la même `PaymentIntent` pour retenter la requête.                                                                   |
+| `PaymentIntent` est `nil` | La requête envoyée à Stripe a expiré, l’état de `PaymentIntent` est inconnu | Réessayez de traiter la `PaymentIntent` initiale. N’en créez pas une nouvelle, car cela pourrait entraîner plusieurs autorisations pour le titulaire de la carte. |
+
+Si vous rencontrez plusieurs expirations du délai paiement à la suite, il se peut qu’il y ait un problème de connectivité. Assurez-vous que votre application est connectée à Internet.
+
+### Évitez les doubles facturations
+
+L’objet `PaymentIntent` active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul `PaymentIntent` pour représenter une transaction.
+
+Réutilisez le même `PaymentIntent` même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez la `PaymentIntent`, vous devez appeler `processPaymentIntent` pour mettre à jour les informations de paiement sur le lecteur.
+
+Pour pouvoir être traitée par Stripe, une `PaymentIntent` doit être à l’état `requires_payment_method`. Une `PaymentIntent` autorisée, capturée ou annulée ne pourra pas être traitée par le lecteur.
+
+#### Collecter, inspecter et confirmer
+
+Une fois l’objet PaymentIntent créé, vous devez traiter le paiement. Le lecteur invite le client à insérer ou à présenter la carte, puis crée une PaymentMethod.
+
+## Collecter un PaymentMethod
+
+- [collectPaymentMethod (Android)](https://stripe.dev/stripe-terminal-android/core/com.stripe.stripeterminal/-terminal/collect-payment-method.html)
+
+Une fois que vous avez créé un `PaymentIntent`, il vous faut ensuite recueillir un moyen de paiement avec le SDK.
+
+Pour collecter un moyen de paiement, votre application doit être connectée à un lecteur. Le lecteur connecté attendra qu’une carte soit présentée après l’appel de votre application à l’objet `collectPaymentMethod`.
+
+#### Kotlin
+
+```kotlin
+val cancelable = Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    }
+)
+```
+
+#### Java
+
+```java
+Cancelable cancelable = Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    }
+);
+```
+
+Cette méthode recueille les données chiffrées du moyen de paiement à l’aide du lecteur de carte connecté, et les associe au `PaymentIntent` local.
+
+### Examen facultatif des informations du moyen de paiement
+
+- [CollectPaymentIntentConfiguration (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-collect-payment-intent-configuration/index.html)
+- [CardPresentDetails (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-card-present-details/index.html)
+
+Vous pouvez également examiner les informations de moyen de paiement de la carte présentée et effectuer votre propre logique métier avant l’autorisation, ce qui peut être utile pour les cas d’usage avancés.
+
+  Use the `updatePaymentIntent` parameter in `CollectPaymentIntentConfiguration` to attach a `PaymentMethod` to the server-side `PaymentIntent`. This data is returned in the `collectPaymentMethod` response. 
+
+#### Kotlin
+
+```kotlin
+val collectConfig = CollectPaymentIntentConfiguration.Builder()
+    .updatePaymentIntent(true)
+    .build()
+
+val cancelable = Terminal.getInstance().collectPaymentMethod(paymentIntent,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            val pm = paymentIntent.paymentMethod
+            val card = pm?.cardPresentDetails ?: pm?.interacPresentDetails
+
+            // Placeholder for business logic on card before confirming paymentIntent
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    }
+)
+```
+
+#### Java
+
+```java
+CollectPaymentIntentConfiguration collectConfig = new CollectPaymentIntentConfiguration.Builder()
+    .updatePaymentIntent(true)
+    .build();
+
+Cancelable cancelable = Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            PaymentMethod pm = paymentIntent.getPaymentMethod();
+
+            // Placeholder for business logic on card before confirming paymentIntent
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    },
+    collectConfig
+);
+```
+
+> Cette méthode permet d’associer les données chiffrées collectées concernant le moyen de paiement grâce à une modification de l’objet `PaymentIntent`. Elle ne nécessite aucune autorisation tant que vous n’avez pas confirmé le paiement.
+> 
+> Ce cas d’usage avancé n’est pas pris en charge sur le P400 de Verifone.
+> 
+> Après avoir sélectionné le moyen de paiement, vous devez autoriser ou annuler le paiement dans les 30&nbsp;secondes.
+> 
+> Si le SDK [fonctionne hors ligne](https://docs.stripe.com/terminal/features/operate-offline/collect-card-payments.md), le champ `paymentMethod` n’est pas présent dans l’objet `PaymentIntent`.
+
+À ce stade, vous pouvez accéder à des attributs tels que la marque de la carte, le financement et d’autres données utiles.
+
+> Stripe tente de détecter si un wallet mobile est utilisé dans une transaction, comme indiqué dans l’attribut `wallet.type`. Cependant, l’attribut n’est pas renseigné si la banque émettrice de la carte ne prend pas en charge l’identification par lecteur d’un wallet mobile. La détection précise n’est donc pas garantie. Après l’autorisation à l’étape de [traitement du paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment), Stripe reçoit des informations à jour provenant des réseaux et met à jour le `wallet.type`.
+
+### Annuler la collecte
+
+#### Annulation programmatique
+
+- [Cancelable (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.callable/-cancelable/index.html)
+
+Vous pouvez annuler la collecte d’un moyen de paiement à l’aide de l’objet `Cancelable` renvoyé par le SDK Android.
+
+#### Annulation initiée par le client
+
+- [setCustomerCancellation (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-collect-payment-intent-configuration/-builder/set-customer-cancellation.html)
+- [Annulation de la part du client (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-customer-cancellation/index.html)
+
+Par défaut, les lecteurs intelligents affichent aux clients un bouton d’annulation. Vous pouvez le désactiver en définissant `customerCancellation` sur `DISABLE_IF_AVAILABLE`.
+
+Appuyer sur le bouton d’annulation annule la transaction active.
+
+#### Kotlin
+
+```kotlin
+Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    },CollectPaymentIntentConfiguration.Builder()
+        .setCustomerCancellation(CustomerCancellation.DISABLE_IF_AVAILABLE) // turn OFF the cancel button, ON by default
+        .build(),
+)
+```
+
+#### Java
+
+```java
+Terminal.getInstance().collectPaymentMethod(
+    paymentIntent,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    },new CollectPaymentIntentConfiguration.Builder()
+        .setCustomerCancellation(CustomerCancellation.DISABLE_IF_AVAILABLE) // turn OFF the cancel button, ON by default
+        .build()
+);
+```
+
+### Gérer les événements
+
+- [MobileReaderListener (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.callable/-mobile-reader-listener/index.html)
+
+Lorsque vous collectez un moyen de paiement à l’aide d’un lecteur tel que le [Stripe&nbsp;M2](https://docs.stripe.com/terminal/readers/stripe-m2.md)sans écran intégré, votre application doit être en mesure d’afficher les événements du processus de collecte du moyen de paiement aux utilisateurs. Ces événements aident les utilisateurs à encaisser les paiements (par exemple, réessayer une carte, essayer une autre carte ou utiliser une autre méthode de lecture).
+
+Au début d’une transaction, le SDK adresse une valeur `ReaderInputOptions`` au gestionnaire d'affichage du lecteur de votre application, précisant les types de saisie acceptables (par exemple,`Swipe`,`Insert`, ou`Tap`). Dans l’interface de paiement de l’application, invitez l’utilisateur à effectuer son paiement par carte selon l’une de ces options.
+
+Au cours de la transaction, le SDK peut recourir à l’application pour afficher d’autres messages à l’attention de l’utilisateur (`Réessayer la carte`, par exemple) en transmettant une valeur `ReaderDisplayMessage` au gestionnaire d’affichage du lecteur de votre application. Vérifiez que l’interface de paiement relaie bien ces messages à l’utilisateur.
+
+#### Kotlin
+
+```kotlin
+class ReaderActivity : AppCompatActivity(), MobileReaderListener {
+    // ...
+
+    override fun onRequestReaderInput(options: ReaderInputOptions) {
+        Toast.makeText(activity, options.toString(), Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onRequestReaderDisplayMessage(message: ReaderDisplayMessage) {
+        Toast.makeText(activity, message.toString(), Toast.LENGTH_SHORT).show()
+    }
+
+    // ...
+}
+```
+
+#### Java
+
+```java
+public class ReaderActivity extends AppCompatActivity implements MobileReaderListener {
+    // ...
+
+    @Override
+    public void onRequestReaderInput(ReaderInputOptions options) {
+        // Placeholder for updating your app's checkout UI
+        Toast.makeText(getActivity(), options.toString(), Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void onRequestReaderDisplayMessage(ReaderDisplayMessage message) {
+        Toast.makeText(getActivity(), message.toString(), Toast.LENGTH_SHORT).show();
+    }
+
+    // ...
+}
+```
+
+### Encaisser des paiements avec Tap to Pay sur Android
+
+When your application is ready to collect a payment, the Stripe Android SDK takes over the display to handle the collection process. After calling the [process payment](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment) method, your application remains running. The Android device displays a full-screen prompt to the cardholder, instructing them to present their card or NFC-based mobile wallet. If there’s an error reading the card, a prompt for retry displays. A successful presentation returns a success indication, and then control returns to your application.
+![Tap to Pay sur Android](https://b.stripecdn.com/docs-statics-srv/assets/tap-to-pay-on-android-payment-collection.1297981f07df468768e4c8286b99281b.jpeg)
+
+Encaissement des paiements
+
+### Encaisser des paiements avec Tap to Pay sur Android
+
+When your application is ready to collect a payment, the Stripe Android SDK takes over the display to handle the collection process. After calling the [process payment](https://docs.stripe.com/terminal/payments/collect-card-payment.md#process-payment) method, your application remains running. The Android device displays a full-screen prompt to the cardholder, instructing them to present their card or NFC-based mobile wallet. If there’s an error reading the card, a prompt for retry displays. A successful presentation returns a success indication, and then control returns to your application.
+![Tap to Pay sur Android](https://b.stripecdn.com/docs-statics-srv/assets/tap-to-pay-on-android-payment-collection.1297981f07df468768e4c8286b99281b.jpeg)
+
+Encaissement des paiements
+
+## Confirmer la PaymentIntent
+
+- [confirmPaymentIntent (Android)](https://stripe.dev/stripe-terminal-android/core/com.stripe.stripeterminal/-terminal/confirm-payment-intent.html)
+
+Après avoir collecté un moyen de paiement auprès du client, vous devez traiter le paiement avec le SDK. Au moment de procéder au paiement, appelez `confirmPaymentIntent` avec la `PaymentIntent` mise à jour lors de l’[étape précédente](https://docs.stripe.com/terminal/payments/collect-card-payment.md#collect-inspect-payment-method).
+
+- En cas de capture manuelle des paiements, un appel `confirmPayment` réussi génère une `PaymentIntent` à l’état `requires_capture`.
+- En cas de capture automatique d’un paiement, le `PaymentIntent` passe à l’état `succeeded`.
+
+> Confirmez toujours les PaymentIntents à l’aide du SDK Terminal côté client. La confirmation côté serveur permet de contourner les interactions critiques, telles que les invites de code PIN, et peut entraîner des échecs de transaction.
+
+#### Kotlin
+
+```kotlin
+val cancelable = Terminal.getInstance().confirmPaymentIntent(
+    paymentIntent,
+    object : PaymentIntentCallback {
+        override fun onSuccess(paymentIntent: PaymentIntent) {
+            // Placeholder handling successful operation
+        }
+
+        override fun onFailure(e: TerminalException) {
+            // Placeholder for handling exception
+        }
+    }
+)
+```
+
+#### Java
+
+```java
+Cancelable cancelable = Terminal.getInstance().confirmPaymentIntent(
+    paymentIntent,
+    new PaymentIntentCallback() {
+        @Override
+        public void onSuccess(@NotNull PaymentIntent paymentIntent) {
+            // Placeholder for handling successful operation
+        }
+
+        @Override
+        public void onFailure(@NotNull TerminalException exception) {
+            // Placeholder for handling exception
+        }
+    }
+);
+```
+
+> Vous devez capturer un PaymentIntent manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+### Gérer les échecs
+
+- [TerminalException (Android)](https://stripe.dev/stripe-terminal-android/external/com.stripe.stripeterminal.external.models/-terminal-exception/index.html)
+
+Lorsque le traitement d’un paiement échoue, le SDK renvoie une erreur comprenant la `PaymentIntent` mise à jour. Votre application doit examiner la `PaymentIntent` pour décider de la manière de résoudre l’erreur.
+
+| État du PaymentIntent     | Signification                                                               | Résolution                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requires_payment_method` | Moyen de paiement refusé                                                    | Essayez de collecter un autre moyen de paiement en appelant à nouveau `collectPaymentMethod` avec la même `PaymentIntent`.                                              |
+| `requires_confirmation`   | Problème de connectivité temporaire                                         | Rappelez `confirmPaymentIntent` avec la même `PaymentIntent` pour retenter la requête.                                                                                  |
+| `PaymentIntent` est `nil` | La requête envoyée à Stripe a expiré, l’état de `PaymentIntent` est inconnu | Réessayez de confirmer la `PaymentIntent` initiale. N’en créez pas une nouvelle, car cela pourrait entraîner des autorisations multiples pour le titulaire de la carte. |
+
+Si vous rencontrez plusieurs expirations du délai paiement à la suite, il se peut qu’il y ait un problème de connectivité. Assurez-vous que votre application est connectée à Internet.
+
+### Évitez les doubles facturations
+
+L’objet `PaymentIntent` active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul `PaymentIntent` pour représenter une transaction.
+
+Réutilisez le même `PaymentIntent` même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez la `PaymentIntent`, vous devez appeler l’objet `collectPaymentMethod` pour mettre à jour les informations de paiement sur le lecteur.
+
+Pour pouvoir être confirmée par Stripe, une `PaymentIntent` doit être à l’état `requires_payment_method`. Un lecteur ne pourra pas confirmer une `PaymentIntent` autorisée, capturée ou annulée.
+
+## Capturer le paiement [Côté serveur]
+
+Si vous avez défini `capture_method` sur `manual` lors de la création du `PaymentIntent` à l’[étape&nbsp;1](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment), le SDK renvoie à votre application un `PaymentIntent` autorisé, mais non capturé. En savoir plus sur la différence entre [autorisation et capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+
+Assurez-vous que votre application demande à votre back-end de capturer le paiement lorsqu’elle reçoit du SDK un `PaymentIntent` confirmé. Créez dans votre back-end un endpoint qui accepte un ID de `PaymentIntent` et envoie à l’API Stripe une demande de capture correspondante&nbsp;:
+
+```curl
+curl -X POST https://api.stripe.com/v1/payment_intents/{{PAYMENT_INTENT_ID}}/capture \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe payment_intents capture {{PAYMENT_INTENT_ID}}
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.capture('{{PAYMENT_INTENT_ID}}')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.capture("{{PAYMENT_INTENT_ID}}")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->capture('{{PAYMENT_INTENT_ID}}', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentCaptureParams params = PaymentIntentCaptureParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent =
+  client.v1().paymentIntents().capture("{{PAYMENT_INTENT_ID}}", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.capture('{{PAYMENT_INTENT_ID}}');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentCaptureParams{}
+result, err := sc.V1PaymentIntents.Capture(
+  context.TODO(), "{{PAYMENT_INTENT_ID}}", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Capture("{{PAYMENT_INTENT_ID}}");
+```
+
+Si l’appel de `capture` réussit, l’état du `PaymentIntent` passe à `succeeded`.
+
+> Pour débiter les comptes connectés des frais de plateforme appropriés, inspectez chaque `PaymentIntent` et modifiez les frais de plateforme, si nécessaire, avant de capturer le paiement manuellement.
+
+### Rapprocher les paiements
+
+Pour vérifier l’activité de paiement de votre entreprise, vous pouvez rapprocher les PaymentIntents avec votre système de commande interne sur votre serveur à la fin de chaque journée.
+
+Un `PaymentIntent` conservant l’état `requires_capture` peut signifier deux choses&nbsp;:
+
+**Autorisation inutile sur le relevé de carte bancaire de votre client**
+
+- Cause&nbsp;: l’utilisateur abandonne le tunnel de paiement de votre application au milieu d’une transaction
+- Solution&nbsp;: si le `PaymentIntent` non capturé n’est associé à aucune commande terminée sur votre serveur, vous pouvez l’[annuler](https://docs.stripe.com/api/payment_intents/cancel.md). Vous ne pouvez pas utiliser un `PaymentIntent` annulé pour effectuer des paiements.
+
+**Encaissement de fonds incomplet auprès d’un client**
+
+- Cause&nbsp;: échec de la requête de votre application signalant à votre back-end de capturer le paiement
+- Solution&nbsp;: si le `PaymentIntent` non capturé est associé à une commande terminée sur votre serveur, et aucun autre paiement n’a été encaissé pour la commande (par exemple, un paiement en espèces), vous pouvez le [capturer](https://docs.stripe.com/api/payment_intents/capture.md).
+
+### Encaisser les pourboires (États-Unis uniquement)
+
+Aux États-Unis, les utilisateurs admissibles peuvent [encaisser des pourboires lors de la capture des paiements](https://docs.stripe.com/terminal/features/collecting-tips/on-receipt.md).
+
+
+# React Native
+
+> This is a React Native for when terminal-sdk-platform is react-native. View the full page at https://docs.stripe.com/terminal/payments/collect-card-payment?terminal-sdk-platform=react-native.
+
+Vous découvrez l’API Payment Intents&nbsp;? Voici quelques ressources utiles&nbsp;:
+
+- [L’API Payment Intents](https://docs.stripe.com/payments/payment-intents.md)
+- [L’objet PaymentIntent](https://docs.stripe.com/api/payment_intents.md)
+- [Autres scénarios de paiement](https://docs.stripe.com/payments/more-payment-scenarios.md)
+
+La définition d’un tunnel de paiement dans votre application est nécessaire pour encaisser des paiements avec Stripe Terminal. Utilisez le SDK Stripe Terminal pour créer et mettre à jour un [PaymentIntent](https://docs.stripe.com/api.md#payment_intents), un objet représentant une session de paiement individuelle.
+
+Conçue pour résister aux défaillances, l’intégration Terminal divise le processus de paiement en plusieurs étapes, dont chacune peut être répétée en toute sécurité&nbsp;:
+
+1. [Créer un PaymentIntent](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment)
+1. [Collecter un moyen de paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#collect-payment). Vous pouvez décider de capturer vos paiements [automatiquement](https://docs.stripe.com/api/payment_intents/create.md#create_payment_intent-capture_method) ou [manuellement](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+1. [Confirmer le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#confirm-payment). Autorisation sur la carte bancaire du client a lieu lorsque le SDK confirme le paiement.
+1. (Facultatif) [Capturer le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#capture-payment)
+
+## Créer un PaymentIntent [Côté client] [Côté serveur]
+
+La première étape dans l’encaissement d’un paiement consiste à démarrer le tunnel de paiement. Lorsque le client commence à payer, votre application doit créer un objet `PaymentIntent`. Celui-ci représente une nouvelle session de paiement sur Stripe.
+
+- [createPaymentIntent (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/interfaces/StripeTerminalSdkType.html#createPaymentIntent)
+
+Vous pouvez créer un `PaymentIntent` côté client ou côté serveur.
+
+Utilisez des [montants test](https://docs.stripe.com/terminal/references/testing.md#physical-test-cards) pour essayer d’obtenir des résultats différents. Un montant se terminant par `00` correspond à un paiement approuvé.
+
+> Ne recréez pas un PaymentIntent en cas de refus de carte. Réutilisez plutôt le même PaymentIntent pour [éviter les doubles paiements](https://docs.stripe.com/terminal/payments/collect-card-payment.md#avoiding-double-charges).
+
+### Côté client
+
+Créez un `PaymentIntent` pour votre client&nbsp;:
+
+> Si votre application est connectée au Verifone&nbsp;P400, vous ne pouvez pas créer de PaymentIntent à partir du SDK&nbsp;React&nbsp;Native. Vous devez [créer le PaymentIntent côté serveur](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-server-side), puis récupérer le PaymentIntent dans votre application à l’aide de la méthode `retrievePaymentIntent` du SDK.
+
+```js
+const {error, paymentIntent} = await createPaymentIntent({
+  amount: 1000,
+  currency: "eur",
+});
+```
+
+### Côté serveur
+
+Vous pouvez créer le `PaymentIntent` sur votre serveur si les informations requises pour lancer un paiement ne sont pas facilement accessibles dans votre application.
+
+L’exemple suivant montre comment créer un `PaymentIntent` sur votre serveur&nbsp;:
+
+#### curl
+
+```bash
+curl https://api.stripe.com/v1/payment_intents \
+  -u <<YOUR_SECRET_KEY>>: \
+  -d "amount"=1000 \
+  -d "currency"="eur" \
+  -d "payment_method_types[]"="card_present" \
+  -d "capture_method"="manual"
+```
+
+#### Ruby
+
+```ruby
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+intent = Stripe::PaymentIntent.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+})
+```
+
+#### Python
+
+```python
+
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+stripe.api_key = '<<YOUR_SECRET_KEY>>'
+
+stripe.PaymentIntent.create(
+  amount=1000,
+  currency='eur',
+  payment_method_types=['card_present'],
+  capture_method='manual',
+)
+```
+
+#### PHP
+
+```php
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+\Stripe\Stripe::setApiKey('<<YOUR_SECRET_KEY>>');
+
+\Stripe\PaymentIntent::create([
+  'amount' => 1000,
+  'currency' => 'eur',
+  'payment_method_types' => ['card_present'],
+  'capture_method' => 'manual',
+]);
+```
+
+#### Java
+
+```java
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+Stripe.apiKey = "<<YOUR_SECRET_KEY>>";
+
+PaymentIntentCreateParams params =
+  PaymentIntentCreateParams.builder()
+    .addPaymentMethodType("card_present")
+    .setAmount(1000L)
+    .setCurrency("eur")
+    .setCaptureMethod(PaymentIntentCreateParams.CaptureMethod.MANUAL)
+    .build();
+
+PaymentIntent.create(params);
+```
+
+#### Node.js
+
+```javascript
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const intent = await stripe.paymentIntents.create({
+  amount: 1000,
+  currency: 'eur',
+  payment_method_types: ['card_present'],
+  capture_method: 'manual',
+});
+```
+
+#### Go
+
+```go
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+stripe.Key = "<<YOUR_SECRET_KEY>>"
+
+params := &stripe.PaymentIntentParams{
+  Amount: stripe.Int64(1000),
+  Currency: stripe.String(string(stripe.currencyEUR)),
+  PaymentMethodTypes: stripe.StringSlice([]string{
+    "card_present",
+  }),
+  CaptureMethod: stripe.String("manual"),
+}
+
+paymentintent.New(params)
+```
+
+#### .NET
+
+```csharp
+
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeConfiguration.ApiKey = "<<YOUR_SECRET_KEY>>";
+
+var service = new PaymentIntentService();
+var options = new PaymentIntentCreateOptions
+{
+    Amount = 1000,
+    Currency = "eur",
+    PaymentMethodTypes = new List<string> { "card_present" },
+    CaptureMethod = "manual",
+};
+
+service.Create(options, requestOptions);
+```
+
+Pour les paiements Terminal, le paramètre `payment_method_types` doit inclure l’option `card_present`.
+
+Vous pouvez contrôler le tunnel de paiement de la manière suivante&nbsp;:
+
+- Pour contrôler totalement le tunnel de paiement pour les paiements `card_present`, définissez le paramètre `capture_method` sur `manual`. Cela vous permet d’ajouter une étape de rapprochement avant la réalisation du paiement.
+- Pour capturer et autoriser simultanément des paiements, définissez le paramètre `capture_method` sur `automatic`.
+
+Pour accepter des paiements en Australie, vous devez définir lle paramètre `capture_method` sur `automatic` ou sur `manual_preferred`. Pour en savoir plus, consultez notre [documentation sur l’Australie](https://docs.stripe.com/terminal/payments/regional.md?integration-country=AU). Pour accepter les paiements Interac au Canada, vous devez également inclure `interac_present` dans `payment_method_types`. Pour en savoir plus, consultez notre [documentation sur le Canada](https://docs.stripe.com/terminal/payments/regional.md?integration-country=CA).
+
+Le `PaymentIntent` contient une [clé secrète du client](https://docs.stripe.com/api/payment_intents/object.md#payment_intent_object-client_secret), une clé unique propre à chaque `PaymentIntent`. Pour utiliser la clé secrète du client, vous devez l’obtenir du `PaymentIntent` sur votre serveur et la [transmettre côté client](https://docs.stripe.com/payments/payment-intents.md#passing-to-client).
+
+#### Ruby
+
+```ruby
+post '/create_payment_intent' do
+  intent = # ... Create or retrieve the PaymentIntent
+  {client_secret: intent.client_secret}.to_json
+end
+```
+
+#### Python
+
+```python
+from flask import jsonify
+
+@app.route('/create_payment_intent', methods=['POST'])
+def secret():
+  intent = # ... Create or retrieve the PaymentIntent
+  return jsonify(client_secret=intent.client_secret)
+```
+
+#### PHP
+
+```php
+<?php
+    $intent = # ... Create or retrieve the PaymentIntent
+    echo json_encode(array('client_secret' => $intent->client_secret));
+?>
+```
+
+#### Java
+
+```java
+import java.util.HashMap;
+import java.util.Map;
+
+import com.stripe.model.PaymentIntent;
+
+import com.google.gson.Gson;
+import static spark.Spark.post;
+
+public class StripeJavaQuickStart {
+    public static void main(String[] args) {
+      Gson gson = new Gson();
+
+      get("/create_payment_intent", (request, response) -> {
+        PaymentIntent intent = // ... Fetch or create the PaymentIntent
+
+        Map<String, String> map = new HashMap();
+        map.put("client_secret", intent.getClientSecret());
+
+        return map;
+      }, gson::toJson);
+    }
+}
+```
+
+#### Node.js
+
+```javascript
+const express = require('express');
+const app = express();
+
+app.post('/create_payment_intent', async (req, res) => {
+  const intent = // ... Fetch or create the PaymentIntent
+  res.json({client_secret: intent.client_secret});
+});
+
+app.listen(3000, () => {
+  console.log('Running on port 3000');
+});
+```
+
+#### Go
+
+```go
+package main
+
+import (
+  "encoding/json"
+  "net/http"
+)
+
+type PaymentData struct {
+  ClientSecret string `json:"client_secret"`
+}
+
+func main() {
+  http.HandleFunc("/create_payment_intent", func(w http.ResponseWriter, r *http.Request) {
+    intent := // ... Fetch or create the PaymentIntent
+    data := PaymentData{
+      ClientSecret: intent.ClientSecret,
+    }
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(data)
+  })
+
+  http.ListenAndServe(":3000", nil)
+}
+```
+
+#### .NET
+
+```csharp
+using System;
+using Microsoft.AspNetCore.Mvc;
+
+namespace StripeExampleApi.Controllers
+{
+    [Route("create_payment_intent")]
+    [ApiController]
+    public class StripeApiController : Controller
+    {
+        [HttpPost]
+        public ActionResult Post()
+        {
+            var intent = // ... Fetch or create the PaymentIntent
+            return Json(new {client_secret = intent.ClientSecret});
+        }
+    }
+}
+```
+
+- [retrievePaymentIntent (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/interfaces/StripeTerminalSdkType.html#retrievePaymentIntent)
+
+Pour récupérer un `PaymentIntent`, utilisez la clé secrète du client pour appeler `retrievePaymentIntent`.
+
+Après avoir récupéré le `PaymentIntent`, utilisez-le pour appeler `collectPaymentMethod`.
+
+```js
+const { paymentIntent, error } = await retrievePaymentIntent(clientSecret);
+
+if (error) {
+  // Placeholder for handling exception
+  return;
+}
+
+// Placeholder for collecting payment method
+```
+
+## Recueillir un moyen de paiement [Côté client]
+
+- [collectPaymentMethod (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/interfaces/StripeTerminalSdkType.html#collectPaymentMethod)
+
+Une fois que vous avez créé un `PaymentIntent`, il vous faut ensuite recueillir un moyen de paiement avec le SDK.
+
+Pour collecter un moyen de paiement, votre application doit être connectée à un lecteur. Le lecteur connecté attend qu’une carte soit présentée après l’appel de votre application `collectPaymentMethod`.
+
+```js
+const { paymentIntent, error } = await collectPaymentMethod({ paymentIntent: paymentIntent });
+
+if (error) {
+  // Placeholder for handling exception
+}
+
+// Placeholder for processing PaymentIntent
+```
+
+Cette méthode recueille les données chiffrées du moyen de paiement à l’aide du lecteur de carte connecté, et les associe au `PaymentIntent` local.
+
+### Examen facultatif des informations du moyen de paiement
+
+- [CollectPaymentMethodParams (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/types/CollectPaymentMethodParams.html)
+- [CardPresentDetails (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/types/CardPresentDetails.html)
+
+Vous pouvez également examiner les informations de moyen de paiement de la carte présentée et effectuer votre propre logique métier avant l’autorisation, ce qui peut être utile pour les cas d’usage avancés.
+
+ Use the `updatePaymentIntent` parameter to attach a `PaymentMethod` to the server-side `PaymentIntent`. This data is returned in the `collectPaymentMethod` response. 
+
+```js
+const { paymentIntent, error } = await collectPaymentMethod({
+  paymentIntent: paymentIntent,
+  updatePaymentIntent: true,
+});
+
+if (error) {
+  // Placeholder for handling exception
+}
+
+// Placeholder for processing PaymentIntent
+```
+
+> Cette méthode associe les données chiffrées collectées du moyen de paiement avec une mise à jour de l’objet `PaymentIntent`. Elle ne nécessite pas d’autorisation tant que vous n’avez pas [confirmé le paiement](https://docs.stripe.com/terminal/payments/collect-card-payment.md#confirm-payment).
+> 
+> Ce cas d’usage avancé n’est pas pris en charge sur le P400 de Verifone.
+> 
+> Une fois le moyen de paiement encaissé, vous devez autoriser le paiement ou annuler le recouvrement dans les 30&nbsp;secondes.
+> 
+> Si le SDK [fonctionne hors ligne](https://docs.stripe.com/terminal/features/operate-offline/collect-card-payments.md), le champ `paymentMethod` n’est pas présent dans l’objet `PaymentIntent`.
+
+À ce stade, vous pouvez accéder à des attributs tels que la marque de la carte, le financement et d’autres données utiles.
+
+> Stripe tente de détecter si un portefeuille mobile est utilisé dans une transaction, comme indiqué dans l’attribut `wallet.type`. Cependant, l’attribut n’est pas renseigné si la banque émettrice de la carte ne prend pas en charge l’identification par lecteur d’un portefeuille mobile, une détection précise n’est donc pas garantie. Après l’autorisation à l’étape de [confirmation](https://docs.stripe.com/terminal/payments/collect-card-payment.md#confirm-payment), Stripe reçoit des réseaux des informations actualisées afin de mettre à jour `wallet.type` de manière fiable.
+
+### Annuler la collecte
+
+#### Annulation programmatique
+
+- [cancelCollectPaymentMethod (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/interfaces/StripeTerminalSdkType.html#cancelCollectPaymentMethod)
+
+Vous pouvez annuler le débit du moyen de paiement en appelant [cancelCollectPaymentMethod](https://stripe.dev/stripe-terminal-react-native/api-reference/interfaces/StripeTerminalSdkType.html#cancelCollectPaymentMethod) dans le SDK React Native.
+
+#### Annulation initiée par le client
+
+- [enableCustomerCancellation (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/index.html#CollectPaymentMethodParams)
+
+Lorsque vous définissez `enableCustomerCancellation` sur la valeur «&nbsp;true&nbsp;» pour une transaction, les utilisateurs de lecteurs intelligents voient apparaître un bouton d’annulation.
+
+Appuyer sur le bouton d’annulation annule la transaction active.
+
+```js
+const { paymentIntent, error } = await collectPaymentMethod({
+  paymentIntent: paymentIntent,enableCustomerCancellation: true
+});
+
+if (error) {
+  // Placeholder for handling exception
+}
+
+// Placeholder for processing PaymentIntent
+```
+
+### Gérer les événements
+
+- [Rappels utilisateur (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/index.html#UserCallbacks)
+
+Lorsque vous collectez un moyen de paiement à l’aide d’un lecteur tel que le [Stripe&nbsp;M2](https://docs.stripe.com/terminal/readers/stripe-m2.md)sans écran intégré, votre application doit être en mesure d’afficher les événements du processus de collecte du moyen de paiement aux utilisateurs. Ces événements aident les utilisateurs à encaisser les paiements (par exemple, réessayer une carte, essayer une autre carte ou utiliser une autre méthode de lecture).
+
+Au début d’une transaction, le SDK adresse une valeur `ReaderInputOptions`` au gestionnaire d'affichage du lecteur de votre application, précisant les types de saisie acceptables (par exemple,`Swipe`,`Insert`, ou`Tap`). Dans l’interface de paiement de l’application, invitez l’utilisateur à effectuer son paiement par carte selon l’une de ces options.
+
+Au cours de la transaction, le SDK peut recourir à l’application pour afficher d’autres messages à l’attention de l’utilisateur (`Réessayer la carte`, par exemple) en transmettant une valeur `ReaderDisplayMessage` au gestionnaire d’affichage du lecteur de votre application. Vérifiez que l’interface de paiement relaie bien ces messages à l’utilisateur.
+
+```js
+useStripeTerminal({
+  onDidRequestReaderInput: (options) => {
+    // Placeholder for updating your app's checkout UI
+    Alert.alert(options.join('/'));
+  },
+  onDidRequestReaderDisplayMessage: (message) => {
+    Alert.alert(message);
+  },
+});
+```
+
+## Confirmer le paiement [Côté client]
+
+- [confirmPaymentIntent (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/interfaces/StripeTerminalSdkType.html#confirmPaymentIntent)
+
+Après avoir collecté un moyen de paiement auprès du client, vous devez traiter le paiement avec le SDK. Au moment de procéder au paiement, appelez `confirmPaymentIntent` avec la `PaymentIntent` misa à jour lors de [l’étape&nbsp;2](https://docs.stripe.com/terminal/payments/collect-card-payment.md#collect-payment).
+
+- En cas de capture manuelle des paiements, un appel `confirmPayment` réussi génère une `PaymentIntent` à l’état `requires_capture`.
+- En cas de capture automatique d’un paiement, le `PaymentIntent` passe à l’état `succeeded`.
+
+> Confirmez toujours les PaymentIntents à l’aide du SDK Terminal côté client. La confirmation côté serveur contourne les interactions critiques, telles que les invites de code PIN, et peut entraîner l’échec des transactions.
+
+```js
+const { paymentIntent, error } = await confirmPaymentIntent({ paymentIntent: paymentIntent });
+
+if (error) {
+  // Placeholder for handling exception
+  return;
+}
+
+// Placeholder for notifying your backend to capture paymentIntent.id
+```
+
+> Vous devez capturer un PaymentIntent manuellement sous deux jours, faute de quoi l’autorisation expire et les fonds sont restitués au client.
+
+### Gérer les échecs
+
+- [StripeError (React Native)](https://stripe.dev/stripe-terminal-react-native/api-reference/index.html#StripeError)
+
+Lorsque la confirmation d’un paiement échoue, le SDK renvoie une erreur qui inclut la `PaymentIntent` mise à jour. Votre application doit inspecter la `PaymentIntent` pour décider comment traiter l’erreur.
+
+| État du PaymentIntent     | Signification                                                               | Résolution                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requires_payment_method` | Moyen de paiement refusé                                                    | Essayez de collecter un autre moyen de paiement en appelant à nouveau `collectPaymentMethod` avec la même `PaymentIntent`.                                              |
+| `requires_confirmation`   | Problème de connectivité temporaire                                         | Rappelez `confirmPaymentIntent` avec la même `PaymentIntent` pour retenter la requête.                                                                                  |
+| `PaymentIntent` est `nil` | La requête envoyée à Stripe a expiré, l’état de `PaymentIntent` est inconnu | Réessayez de confirmer la `PaymentIntent` initiale. N’en créez pas une nouvelle, car cela pourrait entraîner des autorisations multiples pour le titulaire de la carte. |
+
+Si vous rencontrez plusieurs expirations du délai paiement à la suite, il se peut qu’il y ait un problème de connectivité. Assurez-vous que votre application est connectée à Internet.
+
+### Éviter les doublons de paiement
+
+L’objet `PaymentIntent` active les mouvements de fonds sur Stripe&nbsp;: utilisez un seul `PaymentIntent` pour représenter une transaction.
+
+Réutilisez le même `PaymentIntent` même après le refus d’une carte (par exemple, pour fonds insuffisants), afin que votre client puisse réessayer avec une autre carte.
+
+Si vous modifiez la `PaymentIntent`, vous devez appeler `collectPaymentMethod` pour mettre à jour les informations de paiement sur le lecteur.
+
+Une `PaymentIntent` doit être à l’état `requires_payment_method` pour que Stripe puisse la confirmer. Une `PaymentIntent` autorisée, capturée ou annulée ne peut pas être confirmée par un lecteur.
+
+## Capturer le paiement [Côté serveur]
+
+Si vous avez défini `capture_method` sur `manual` lors de la création du `PaymentIntent` à l’[étape&nbsp;1](https://docs.stripe.com/terminal/payments/collect-card-payment.md#create-payment), le SDK renvoie à votre application un `PaymentIntent` autorisé, mais non capturé. En savoir plus sur la différence entre [autorisation et capture](https://docs.stripe.com/payments/place-a-hold-on-a-payment-method.md).
+
+Assurez-vous que votre application demande à votre back-end de capturer le paiement lorsqu’elle reçoit du SDK un `PaymentIntent` confirmé. Créez dans votre back-end un endpoint qui accepte un ID de `PaymentIntent` et envoie à l’API Stripe une demande de capture correspondante&nbsp;:
+
+```curl
+curl -X POST https://api.stripe.com/v1/payment_intents/{{PAYMENT_INTENT_ID}}/capture \
+  -u "<<YOUR_SECRET_KEY>>:"
+```
+
+```cli
+stripe payment_intents capture {{PAYMENT_INTENT_ID}}
+```
+
+```ruby
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = Stripe::StripeClient.new("<<YOUR_SECRET_KEY>>")
+
+payment_intent = client.v1.payment_intents.capture('{{PAYMENT_INTENT_ID}}')
+```
+
+```python
+# Set your secret key. Remember to switch to your live secret key in production.
+# See your keys here: https://dashboard.stripe.com/apikeys
+client = StripeClient("<<YOUR_SECRET_KEY>>")
+
+# For SDK versions 12.4.0 or lower, remove '.v1' from the following line.
+payment_intent = client.v1.payment_intents.capture("{{PAYMENT_INTENT_ID}}")
+```
+
+```php
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+$stripe = new \Stripe\StripeClient('<<YOUR_SECRET_KEY>>');
+
+$paymentIntent = $stripe->paymentIntents->capture('{{PAYMENT_INTENT_ID}}', []);
+```
+
+```java
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+StripeClient client = new StripeClient("<<YOUR_SECRET_KEY>>");
+
+PaymentIntentCaptureParams params = PaymentIntentCaptureParams.builder().build();
+
+// For SDK versions 29.4.0 or lower, remove '.v1()' from the following line.
+PaymentIntent paymentIntent =
+  client.v1().paymentIntents().capture("{{PAYMENT_INTENT_ID}}", params);
+```
+
+```node
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+const stripe = require('stripe')('<<YOUR_SECRET_KEY>>');
+
+const paymentIntent = await stripe.paymentIntents.capture('{{PAYMENT_INTENT_ID}}');
+```
+
+```go
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+sc := stripe.NewClient("<<YOUR_SECRET_KEY>>")
+params := &stripe.PaymentIntentCaptureParams{}
+result, err := sc.V1PaymentIntents.Capture(
+  context.TODO(), "{{PAYMENT_INTENT_ID}}", params)
+```
+
+```dotnet
+// Set your secret key. Remember to switch to your live secret key in production.
+// See your keys here: https://dashboard.stripe.com/apikeys
+var client = new StripeClient("<<YOUR_SECRET_KEY>>");
+var service = client.V1.PaymentIntents;
+PaymentIntent paymentIntent = service.Capture("{{PAYMENT_INTENT_ID}}");
+```
+
+Si l’appel de `capture` réussit, l’état du `PaymentIntent` passe à `succeeded`.
+
+> Pour débiter les comptes connectés des frais de plateforme appropriés, inspectez chaque `PaymentIntent` et modifiez les frais de plateforme, si nécessaire, avant de capturer le paiement manuellement.
+
+### Rapprocher les paiements
+
+Pour vérifier l’activité de paiement de votre entreprise, vous pouvez rapprocher les PaymentIntents avec votre système de commande interne sur votre serveur à la fin de chaque journée.
+
+Un `PaymentIntent` conservant l’état `requires_capture` peut signifier deux choses&nbsp;:
+
+**Autorisation inutile sur le relevé de carte bancaire de votre client**
+
+- Cause&nbsp;: l’utilisateur abandonne le tunnel de paiement de votre application au milieu d’une transaction
+- Solution&nbsp;: si le `PaymentIntent` non capturé n’est associé à aucune commande terminée sur votre serveur, vous pouvez l’[annuler](https://docs.stripe.com/api/payment_intents/cancel.md). Vous ne pouvez pas utiliser un `PaymentIntent` annulé pour effectuer des paiements.
+
+**Encaissement de fonds incomplet auprès d’un client**
+
+- Cause&nbsp;: échec de la requête de votre application signalant à votre back-end de capturer le paiement
+- Solution&nbsp;: si le `PaymentIntent` non capturé est associé à une commande terminée sur votre serveur, et aucun autre paiement n’a été encaissé pour la commande (par exemple, un paiement en espèces), vous pouvez le [capturer](https://docs.stripe.com/api/payment_intents/capture.md).
+
+### Encaisser les pourboires (États-Unis uniquement)
+
+Aux États-Unis, les utilisateurs admissibles peuvent [encaisser des pourboires lors de la capture des paiements](https://docs.stripe.com/terminal/features/collecting-tips/on-receipt.md).

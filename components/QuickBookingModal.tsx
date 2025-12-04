@@ -319,6 +319,20 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setShowStepErrors(false)
     }
 
+    const triggerTapToPaySession = async (bookingId: string) => {
+        const response = await fetch('/api/payments/terminal/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bookingId })
+        })
+        const payload = await response.json().catch(() => ({}))
+        if (!response.ok) {
+            const message = typeof payload?.error === 'string' ? payload.error : 'Création Tap to Pay impossible'
+            throw new Error(message)
+        }
+        return payload
+    }
+
     const handleConfirm = async () => {
         if (isLoading) return
         if (!canProceedStep(LAST_STEP_INDEX)) {
@@ -352,6 +366,8 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         }
         const finalMessage = finalMessagePieces.join('\n')
 
+        const shouldTriggerTapToPay = markAsPaid && paymentMethod === 'card'
+
         const bookingData: Record<string, unknown> = {
             date: dateLocal,
             time,
@@ -368,7 +384,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 phone: normalizedPhone
             },
             isStaffOverride: true,
-            markAsPaid
+            markAsPaid: shouldTriggerTapToPay ? false : markAsPaid
         }
 
         if (!Number.isNaN(numericBoatId)) {
@@ -390,11 +406,27 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 body: JSON.stringify(bookingData)
             })
 
+            const payload = await res.json().catch(() => ({}))
+
             if (res.ok) {
+                if (shouldTriggerTapToPay) {
+                    const bookingId = payload?.bookingId || payload?.booking?.id
+                    if (bookingId) {
+                        try {
+                            await triggerTapToPaySession(String(bookingId))
+                            alert('Réservation créée. Le Tap to Pay est prêt sur le téléphone.')
+                        } catch (error) {
+                            console.error('Tap to Pay session failed', error)
+                            alert('Réservation créée mais impossible de lancer Tap to Pay. Merci de finaliser l’encaissement manuellement.')
+                        }
+                    } else {
+                        alert('Réservation créée, mais identifiant manquant pour lancer Tap to Pay.')
+                    }
+                }
                 onSuccess()
             } else {
-                const err = await res.json()
-                alert(`Erreur: ${err.error}`)
+                const message = typeof payload?.error === 'string' ? payload.error : 'Erreur inconnue'
+                alert(`Erreur: ${message}`)
             }
         } catch {
             alert('Erreur de connexion.')
