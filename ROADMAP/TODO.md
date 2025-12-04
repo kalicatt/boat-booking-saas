@@ -10,16 +10,18 @@
 - [x] **Views:** Adapter la vue "Aujourd'hui" (Liste de cartes) et "Planning" (Agenda vertical).
 
 ### POS & Payments (Stripe Terminal) [ROADMAP_POS]
-- [ ] **Backend:** Configurer Stripe Terminal (Location ID) et créer la route `/api/payments/terminal/token`.
-- [ ] **Data:** Mettre à jour `app/api/bookings/route.ts` pour supporter les métadonnées de paiement (chèques, vouchers).
-- [ ] **App:** Intégrer le plugin Capacitor Stripe Terminal pour le "Tap to Pay".
-- [ ] **Modules:** Créer les interfaces d'encaissement (Carte, Espèces avec calcul rendu, Vouchers, Chèques).
-- [ ] **Accounting:** Mettre à jour `ledger/route.ts` et la page de clôture journalière (`Z-Report`).
+- [x] **Backend:** Configurer Stripe Terminal (Location ID) et créer la route `/api/payments/terminal/token`.
+- [x] **Data:** Mettre à jour `app/api/bookings/route.ts` pour supporter les métadonnées de paiement (chèques, vouchers).
+- [x] **App:** Intégrer le plugin Capacitor Stripe Terminal pour le "Tap to Pay".
+- [x] **Modules:** Créer les interfaces d'encaissement (Carte, Espèces avec calcul rendu, Vouchers, Chèques).
+- [x] **Accounting:** Mettre à jour `ledger/route.ts` et la page de clôture journalière (`Z-Report`). *(Z-Report et assistant de clôture opérationnels; ledger à consolider après déploiement Stripe.)*
 
 ---
 
 ## 🛠️ Medium Priority: Fleet & Safety
 **Objectif :** Digitaliser le carnet de santé des bateaux et sécuriser la navigation.
+
+> **Focus actuel :** Démarrage du module Fleet (page admin dédiée + workflows batterie/incidents).
 
 ### Fleet Management [ROADMAP_MAINTENANCE]
 - [ ] **DB:** Migration Prisma `add_fleet_management` (Champs batterie, MaintenanceLog).
