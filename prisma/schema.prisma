@@ -41,6 +41,7 @@ model User {
   workShifts WorkShift[]
   log Log[] 
   createdBlocks BlockedInterval[] @relation("UserCreatedBlocks")
+  createdSessions PaymentSession[] @relation("PaymentSessionCreatedBy")
 }
 
 model Boat {
@@ -48,7 +49,24 @@ model Boat {
   name        String    // Ex: "Barque 1"
   capacity    Int       @default(12)
   status      BoatStatus @default(ACTIVE)
+  batteryCycleDays  Int       @default(4)
+  lastChargeDate    DateTime  @default(now())
+  totalTrips        Int       @default(0)
+  tripsSinceService Int       @default(0)
+  hoursSinceService Float     @default(0.0)
   bookings    Booking[]
+  maintenanceLogs   MaintenanceLog[]
+}
+
+model MaintenanceLog {
+  id          String   @id @default(cuid())
+  boatId      Int
+  boat        Boat     @relation(fields: [boatId], references: [id])
+  type        MaintenanceType
+  description String?
+  performedBy String?
+  cost        Float?
+  createdAt   DateTime @default(now())
 }
 
 model Booking {
@@ -135,6 +153,13 @@ enum BoatStatus {
   MAINTENANCE
 }
 
+enum MaintenanceType {
+  CHARGE
+  INSPECTION
+  REPAIR
+  CLEANING
+}
+
 enum BookingStatus {
   PENDING
   CONFIRMED
@@ -204,13 +229,15 @@ model PaymentSession {
   metadata          Json?
   lastError         String?
   createdById       String?
+  createdBy         User?               @relation("PaymentSessionCreatedBy", fields: [createdById], references: [id])
   createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  updatedAt         DateTime              @default(now()) @updatedAt
 
   payments          Payment[]             @relation("PaymentSessionPayments")
 
   @@index([bookingId])
   @@index([status, expiresAt])
+  @@index([targetDeviceId])
   @@index([targetDeviceId, status])
 }
 

@@ -135,8 +135,22 @@ Ajout : Appel API vers une route de reporting.
 
 PowerShell
 
-Write-Host "6. Vérification des Batteries & Maintenance..."
-Invoke-RestMethod -Uri "http://localhost:3000/api/admin/fleet/check-status" -Method POST
+Write-Host "5. Vérification des Batteries & Maintenance..."
+$endpoint = $env:FLEET_STATUS_ENDPOINT
+if (-not $endpoint -or $endpoint -eq '') { $endpoint = "http://localhost:3000/api/admin/fleet/check-status" }
+$headers = @{}
+if ($env:FLEET_MAINTENANCE_KEY -and $env:FLEET_MAINTENANCE_KEY -ne '') {
+  $headers["x-maintenance-key"] = $env:FLEET_MAINTENANCE_KEY
+}
+if ($headers.Count -gt 0) {
+  Invoke-RestMethod -Uri $endpoint -Method POST -Headers $headers
+} else {
+  Invoke-RestMethod -Uri $endpoint -Method POST
+}
+
+Variables :
+- `FLEET_STATUS_ENDPOINT` (optionnel) : URL à joindre depuis le script (ex: URL publique derrière nginx).
+- `FLEET_MAINTENANCE_KEY` : jeton partagé envoyé dans l'en-tête `x-maintenance-key` si vous ne voulez pas ouvrir la route à toutes les sessions admin.
 2. Route API de Notification
 Fichier : app/api/admin/fleet/check-status/route.ts
 
@@ -148,7 +162,7 @@ Filtrer celles dont le cycle de charge est dépassé ou imminent.
 
 Filtrer celles dont le seuil de révision (ex: 500 sorties) est atteint.
 
-Action : Envoyer un Email "Rapport Technique" à l'admin (ou au responsable technique).
+Action : Envoyer un Email "Rapport Technique" à l'admin (ou au responsable technique) et exposer un JSON pour `daily-maintenance.ps1`.
 
 Sujet : "🛠️ Maintenance : 3 Barques à charger + 1 Révision".
 

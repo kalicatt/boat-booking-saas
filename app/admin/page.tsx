@@ -151,6 +151,21 @@ export default async function AdminDashboard() {
             </p>
           </Link>
 
+          {/* 3bis. FLOTTE & MAINTENANCE */}
+          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
+            <Link href="/admin/fleet" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-emerald-300 transition-all cursor-pointer hover:-translate-y-0.5">
+              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
+                🚤
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-emerald-600">
+                Flotte & Maintenance
+              </h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Renommer les barques, suivre batterie/alertes et mettre en maintenance instantanément.
+              </p>
+            </Link>
+          )}
+
           {/* 4. HEURES & PAIE */}
           <Link href="/admin/hours" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-orange-300 transition-all cursor-pointer hover:-translate-y-0.5">
             <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">

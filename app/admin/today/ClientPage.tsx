@@ -71,6 +71,14 @@ type TodayBooking = {
   user: TodayBookingUser
 }
 
+type FleetBoatAlert = {
+  batteryAlert: 'OK' | 'WARNING' | 'CRITICAL'
+  status: string
+  daysSinceCharge: number
+  batteryCycleDays: number
+  mechanicalAlert: boolean
+}
+
 interface BoatResource {
   id: number
   title: string
@@ -252,6 +260,7 @@ export default function ClientPage() {
     setDetailsPaymentSelectorOpen(false)
     setDetailsMarkPaid(null)
   }, [])
+  const [fleetAlerts, setFleetAlerts] = useState<Record<number, FleetBoatAlert>>({})
   const selectedBookingRef = useRef<BookingDetails | null>(null)
   const detailsGroupRef = useRef<BookingDetails[]>([])
   const detailsGroupIndexRef = useRef(0)
@@ -263,6 +272,7 @@ export default function ClientPage() {
   const cancelledByUserRef = useRef(false)
   const [actionFeedback, setActionFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
+  const [completionLoading, setCompletionLoading] = useState<string | null>(null)
   const actionFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const dateRange = useMemo(() => {
@@ -458,6 +468,55 @@ export default function ClientPage() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error)
       console.error('Erreur chargement barques', message)
+    }
+  }, [])
+
+  const fetchFleetAlerts = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/fleet')
+      if (!response.ok) return
+      const payload: unknown = await response.json()
+      if (!payload || typeof payload !== 'object') return
+      const boats = Array.isArray((payload as { boats?: unknown }).boats)
+        ? ((payload as { boats?: unknown }).boats as unknown[])
+        : null
+      if (!boats) return
+
+      const normalizeNumber = (value: unknown) => {
+        if (typeof value === 'number') return Number.isFinite(value) ? value : NaN
+        if (typeof value === 'string' && value.trim().length) {
+          const parsed = Number(value)
+          return Number.isFinite(parsed) ? parsed : NaN
+        }
+        return NaN
+      }
+
+      const alerts = boats.reduce<Record<number, FleetBoatAlert>>((accumulator, raw) => {
+        if (!raw || typeof raw !== 'object') return accumulator
+        const boat = raw as Record<string, unknown>
+        const idValue = boat.id
+        const numericId = normalizeNumber(idValue)
+        if (!Number.isFinite(numericId)) return accumulator
+        const daysSinceCharge = normalizeNumber(boat.daysSinceCharge)
+        const batteryCycleDays = normalizeNumber(boat.batteryCycleDays)
+        const batteryAlert =
+          boat.batteryAlert === 'WARNING' || boat.batteryAlert === 'CRITICAL' ? boat.batteryAlert : 'OK'
+        const status = typeof boat.status === 'string' ? boat.status : 'ACTIVE'
+        const mechanicalAlert = Boolean(boat.mechanicalAlert)
+        accumulator[numericId] = {
+          batteryAlert,
+          status,
+          daysSinceCharge: Number.isFinite(daysSinceCharge) ? daysSinceCharge : 0,
+          batteryCycleDays: Number.isFinite(batteryCycleDays) ? batteryCycleDays : 0,
+          mechanicalAlert
+        }
+        return accumulator
+      }, {})
+
+      setFleetAlerts(alerts)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('Erreur chargement fleet', message)
     }
   }, [])
 
@@ -739,6 +798,10 @@ export default function ClientPage() {
   }, [fetchBoatResources])
 
   useEffect(() => {
+    void fetchFleetAlerts()
+  }, [fetchFleetAlerts])
+
+  useEffect(() => {
     fetchBookings()
   }, [fetchBookings])
 
@@ -819,6 +882,27 @@ export default function ClientPage() {
     )
   }
 
+  const getBoatAlertDescriptors = (alert?: FleetBoatAlert | null) => {
+    if (!alert) return []
+    const descriptors: Array<{ key: string; label: string; tone: 'rose' | 'amber' }> = []
+    if (alert.status === 'MAINTENANCE') {
+      descriptors.push({ key: 'status', label: 'Maintenance', tone: 'rose' })
+    }
+    if (alert.batteryAlert === 'CRITICAL') {
+      descriptors.push({ key: 'battery-critical', label: 'Batterie critique', tone: 'rose' })
+    } else if (alert.batteryAlert === 'WARNING') {
+      descriptors.push({
+        key: 'battery-warning',
+        label: `Batterie J+${alert.daysSinceCharge}/${alert.batteryCycleDays || '??'}`,
+        tone: 'amber'
+      })
+    }
+    if (alert.mechanicalAlert) {
+      descriptors.push({ key: 'mechanical', label: 'Révision requise', tone: 'amber' })
+    }
+    return descriptors
+  }
+
   const handleQuickStatusChange = useCallback(
     async (bookingId: string, nextStatus: 'EMBARQUED' | 'NO_SHOW') => {
       setStatusLoading(bookingId)
@@ -853,6 +937,42 @@ export default function ClientPage() {
       }
     },
     [fetchBookings, isNative, showActionFeedback]
+  )
+
+  const handleCompleteBooking = useCallback(
+    async (bookingId: string) => {
+      if (!bookingId) return
+      setCompletionLoading(bookingId)
+      try {
+        const response = await fetch(`/api/bookings/${bookingId}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(payload?.error ?? 'Finalisation impossible.')
+        }
+
+        await fetchBookings()
+        await fetchFleetAlerts()
+        setSelectedBooking((previous) => {
+          if (!previous || previous.id !== bookingId) return previous
+          return { ...previous, status: 'COMPLETED' }
+        })
+        setDetailsGroup((previous) =>
+          previous.map((detail) => (detail.id === bookingId ? { ...detail, status: 'COMPLETED' } : detail))
+        )
+        showActionFeedback('success', 'Sortie complétée. Compteurs mis à jour.')
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Finalisation impossible.'
+        console.error(message)
+        showActionFeedback('error', message)
+      } finally {
+        setCompletionLoading(null)
+      }
+    },
+    [fetchBookings, fetchFleetAlerts, showActionFeedback]
   )
 
   const openBookingDetails = useCallback(
@@ -1089,6 +1209,8 @@ export default function ClientPage() {
               const theme = getBoatTheme(b.boatId)
               const resource = b.boatId !== null ? resources.find((boat) => boat.id === b.boatId) : undefined
               const boatLabel = resource?.title ?? b.boat?.name ?? '—'
+              const boatAlert = b.boatId !== null ? fleetAlerts[b.boatId] : undefined
+              const boatAlertBadges = getBoatAlertDescriptors(boatAlert)
               const groupItems = bookings.filter((candidate) =>
                 toWallClock(candidate.startTime).getTime() === toWallClock(b.startTime).getTime()
               )
@@ -1128,6 +1250,19 @@ export default function ClientPage() {
                     <span className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${theme.badge}`}>
                       {boatLabel}
                     </span>
+                    {boatAlertBadges.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1 text-[11px] font-semibold">
+                        {boatAlertBadges.map((badge) => (
+                          <span
+                            key={`${b.id}-${badge.key}`}
+                            className={`sn-pill ${badge.tone === 'rose' ? 'sn-pill--rose' : 'sn-pill--amber'}`}
+                          >
+                            <span className="sn-pill__dot" aria-hidden="true" />
+                            {badge.label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td className="p-4 align-top">
                     <div className="font-medium">{`${b.user.firstName ?? ''} ${b.user.lastName ?? ''}`.trim() || '—'}</div>
@@ -1243,10 +1378,13 @@ export default function ClientPage() {
           const isBusy = statusLoading === booking.id
           const isEmbarqued = booking.checkinStatus === 'EMBARQUED'
           const isNoShow = booking.checkinStatus === 'NO_SHOW'
+          const completionBusy = completionLoading === booking.id
           const canCall = Boolean(booking.user.phone && booking.user.phone.trim().length > 0)
           const canEmail = Boolean(booking.user.email && booking.user.email.trim().length > 0)
           const resource = booking.boatId !== null ? resources.find((boat) => boat.id === booking.boatId) : undefined
           const boatLabel = resource?.title ?? booking.boat?.name ?? 'Barque ?'
+          const boatAlert = booking.boatId !== null ? fleetAlerts[booking.boatId] : undefined
+          const boatAlertBadges = getBoatAlertDescriptors(boatAlert)
 
           return (
             <div
@@ -1287,6 +1425,19 @@ export default function ClientPage() {
                     {booking.numberOfPeople} pax
                   </span>
                 </div>
+                {boatAlertBadges.length > 0 && (
+                  <div className="flex flex-wrap gap-1 text-[11px] font-semibold">
+                    {boatAlertBadges.map((badge) => (
+                      <span
+                        key={`${booking.id}-${badge.key}`}
+                        className={`sn-pill ${badge.tone === 'rose' ? 'sn-pill--rose' : 'sn-pill--amber'}`}
+                      >
+                        <span className="sn-pill__dot" aria-hidden="true" />
+                        {badge.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div className="flex flex-col gap-1 text-xs text-slate-500">
                   <span className="font-semibold text-slate-700">📞 {booking.user.phone ?? 'Non renseigné'}</span>
                   <span>{booking.user.email ?? '—'}</span>
@@ -1344,6 +1495,22 @@ export default function ClientPage() {
                 >
                   <span aria-hidden="true">⚠</span>
                   {isBusy && !isNoShow ? 'Patientez…' : isNoShow ? 'No-show' : 'Absent'}
+                </button>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    void handleCompleteBooking(booking.id)
+                  }}
+                  disabled={completionBusy}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-1 shadow-sm transition ${
+                    completionBusy
+                      ? 'bg-slate-400 text-white'
+                      : 'bg-slate-900 text-white active:scale-95'
+                  }`}
+                >
+                  <span aria-hidden="true">🛶</span>
+                  {completionBusy ? 'Finalisation…' : 'Terminer'}
                 </button>
               </div>
             </div>
@@ -1448,6 +1615,11 @@ export default function ClientPage() {
             resources={resources}
             detailsMarkPaid={detailsMarkPaid}
             setDetailsMarkPaid={setDetailsMarkPaid}
+            boatAlert={
+              typeof selectedBooking.resourceId === 'number'
+                ? fleetAlerts[selectedBooking.resourceId] ?? null
+                : null
+            }
             onClose={closeDetailsModal}
             onNavigate={navigateDetailsBooking}
             hasPrev={detailsGroupIndex > 0}
@@ -1460,6 +1632,8 @@ export default function ClientPage() {
             onStatusUpdate={handleModalStatusUpdate}
             onEditTime={handleEditTime}
             onDelete={handleDelete}
+            onComplete={handleCompleteBooking}
+            completionLoadingId={completionLoading}
           />
         )}
 

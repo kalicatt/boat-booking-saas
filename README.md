@@ -112,6 +112,15 @@ git push origin v1.0.4
 - Stripe API version literal: repository pins a tested version for type safety.
 - Turbopack build complaints: ensure Next 16 route handler signatures match `NextRequest` and promise-based params.
 
+## Maintenance & Fleet Automation
+- Run `pwsh .\daily-maintenance.ps1` on your server (or schedule via Task Scheduler/systemd). Step 5 now calls `/api/admin/fleet/check-status` to list batteries to charge, mechanical thresholds, and boats already in maintenance.
+- The endpoint accepts either an authenticated admin session or a shared secret so headless scripts can call it without a browser session.
+
+Environment variables:
+- `MAINTENANCE_FLEET_SECRET`: secret stored on the app/server side; when set, `/api/admin/fleet/check-status` requires the matching header.
+- `FLEET_STATUS_ENDPOINT`: optional override used by the PowerShell script (defaults to `http://localhost:3000/api/admin/fleet/check-status`). Use it if the script runs from another host or behind nginx.
+- `FLEET_MAINTENANCE_KEY`: value injected in the script’s `x-maintenance-key` header—set it to the same string as `MAINTENANCE_FLEET_SECRET` for mutual trust.
+
 ## Docs
 - `DEPLOYMENT.md`: VPS setup, registry vs tar, reverse proxy, TLS.
 - `RELEASE.md`: Release workflow, pre-commit hook to block `*.tar`.

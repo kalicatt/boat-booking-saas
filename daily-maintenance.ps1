@@ -66,3 +66,29 @@ Set-Content -Path $featuredPath -Value $json -Encoding UTF8
 Write-Host "Fichier $featuredPath généré." -ForegroundColor Green
 
 Write-Host "--- FIN ÉTAPE AVIS ---" -ForegroundColor Cyan
+
+# 5. Vérification Fleet & Safety
+Write-Host "5. Vérification des batteries & maintenance..."
+$fleetEndpoint = $env:FLEET_STATUS_ENDPOINT
+if (-not $fleetEndpoint -or $fleetEndpoint -eq '') {
+    $fleetEndpoint = "http://localhost:3000/api/admin/fleet/check-status"
+}
+$fleetHeaders = @{}
+if ($env:FLEET_MAINTENANCE_KEY -and $env:FLEET_MAINTENANCE_KEY -ne '') {
+    $fleetHeaders["x-maintenance-key"] = $env:FLEET_MAINTENANCE_KEY
+}
+try {
+    if ($fleetHeaders.Count -gt 0) {
+        $fleetReport = Invoke-RestMethod -Uri $fleetEndpoint -Method Post -Headers $fleetHeaders
+    } else {
+        $fleetReport = Invoke-RestMethod -Uri $fleetEndpoint -Method Post
+    }
+    $critical = $fleetReport.totals.critical
+    $warning = $fleetReport.totals.warning
+    $mechanical = $fleetReport.totals.mechanical
+    Write-Host "Fleet: $critical critiques, $warning à charger, $mechanical révisions" -ForegroundColor Yellow
+    if ($critical -gt 0) { Write-Warning "Des batteries critiques nécessitent une charge immédiate." }
+    if ($mechanical -gt 0) { Write-Warning "Des barques dépassent le seuil mécanique." }
+} catch {
+    Write-Warning "Impossible de récupérer l'état Fleet ($($_.Exception.Message))."
+}

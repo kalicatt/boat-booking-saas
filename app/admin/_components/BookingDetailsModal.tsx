@@ -11,11 +11,20 @@ import {
   type PaymentMarkState
 } from './bookingTypes'
 
+type FleetAlertSummary = {
+  batteryAlert: 'OK' | 'WARNING' | 'CRITICAL'
+  status: string
+  daysSinceCharge: number
+  batteryCycleDays: number
+  mechanicalAlert: boolean
+}
+
 interface BookingDetailsModalProps {
   booking: BookingDetails
   resources: Array<{ id: number; title: string; capacity: number }>
   detailsMarkPaid: PaymentMarkState
   setDetailsMarkPaid: Dispatch<SetStateAction<PaymentMarkState>>
+  boatAlert?: FleetAlertSummary | null
   onClose: () => void
   onNavigate: (direction: 'prev' | 'next') => void
   hasPrev: boolean
@@ -28,6 +37,8 @@ interface BookingDetailsModalProps {
   onStatusUpdate: (id: string, newCheckinStatus?: BoardingStatus, newIsPaid?: boolean) => Promise<void>
   onEditTime: (booking: BookingDetails) => void
   onDelete: (id: string, title: string) => void
+  onComplete: (id: string) => Promise<void>
+  completionLoadingId: string | null
 }
 
 export function BookingDetailsModal({
@@ -35,6 +46,7 @@ export function BookingDetailsModal({
   resources,
   detailsMarkPaid,
   setDetailsMarkPaid,
+  boatAlert,
   onClose,
   onNavigate,
   hasPrev,
@@ -46,7 +58,9 @@ export function BookingDetailsModal({
   onPaymentSelectorClose,
   onStatusUpdate,
   onEditTime,
-  onDelete
+  onDelete,
+  onComplete,
+  completionLoadingId
 }: BookingDetailsModalProps) {
   const displayedClientName = `${booking.user.firstName} ${booking.user.lastName}`
   const checkinStatus = (booking.checkinStatus || 'CONFIRMED') as BoardingStatus
@@ -70,6 +84,7 @@ export function BookingDetailsModal({
   const hasCashValue = detailsMarkPaid?.provider === 'cash' && normalizedCashInput !== null
   const cashDifference = hasCashValue && normalizedCashInput !== null ? normalizedCashInput - dueAmount : null
   const positiveCashDifference = cashDifference ?? 0
+  const completionBusy = completionLoadingId === booking.id
 
   const sanitizeCashInput = (raw: string) => {
     if (!raw) return ''
@@ -96,6 +111,18 @@ export function BookingDetailsModal({
     { label: 'Enfants', value: booking.children || 0 },
     { label: 'Bébés', value: booking.babies || 0 }
   ]
+  const fleetWarnings: string[] = []
+  if (boatAlert?.status === 'MAINTENANCE') {
+    fleetWarnings.push('Barque en maintenance officielle — double vérification requise.')
+  }
+  if (boatAlert?.batteryAlert === 'CRITICAL') {
+    fleetWarnings.push('Batterie critique, recharger avant tout départ.')
+  } else if (boatAlert?.batteryAlert === 'WARNING') {
+    fleetWarnings.push(`Batterie à surveiller (J+${boatAlert.daysSinceCharge}/${boatAlert.batteryCycleDays || '??'})`)
+  }
+  if (boatAlert?.mechanicalAlert) {
+    fleetWarnings.push('Seuil mécanique atteint — prévoir une révision.')
+  }
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 p-4">
@@ -273,6 +300,54 @@ export function BookingDetailsModal({
                     </div>
                   </div>
                 </section>
+
+                {boatAlert ? (
+                  <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <header className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <span>Santé de la barque</span>
+                      <span
+                        className={`sn-pill ${
+                          boatAlert.status === 'MAINTENANCE' ? 'sn-pill--rose' : 'sn-pill--emerald'
+                        }`}
+                      >
+                        <span className="sn-pill__dot" aria-hidden="true" />
+                        {boatAlert.status}
+                      </span>
+                    </header>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-slate-600">
+                      <div>
+                        <p className="text-base font-semibold text-slate-900">
+                          J+{boatAlert.daysSinceCharge} / J+{boatAlert.batteryCycleDays || '??'}
+                        </p>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">Cycle batterie</p>
+                      </div>
+                      <div>
+                        <p
+                          className={`text-base font-semibold ${
+                            boatAlert.batteryAlert === 'CRITICAL'
+                              ? 'text-rose-600'
+                              : boatAlert.batteryAlert === 'WARNING'
+                                ? 'text-amber-600'
+                                : 'text-slate-900'
+                          }`}
+                        >
+                          {boatAlert.batteryAlert}
+                        </p>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-400">Niveau batterie</p>
+                      </div>
+                    </div>
+                    {fleetWarnings.length > 0 && (
+                      <ul className="mt-3 space-y-1 text-xs font-semibold text-rose-600">
+                        {fleetWarnings.map((warning) => (
+                          <li key={warning} className="flex items-start gap-1">
+                            <span aria-hidden="true">⚠</span>
+                            <span>{warning}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                ) : null}
 
                 {message && (
                   <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800 shadow-sm">
@@ -531,6 +606,22 @@ export function BookingDetailsModal({
                       className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
                     >
                       Modifier l&apos;heure
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('Terminer la balade et incrémenter les compteurs ?')) {
+                          void onComplete(booking.id)
+                        }
+                      }}
+                      disabled={completionBusy}
+                      className={`rounded-full px-4 py-2 text-sm font-semibold text-white shadow transition ${
+                        completionBusy
+                          ? 'bg-slate-400'
+                          : 'bg-slate-900 hover:bg-slate-800'
+                      }`}
+                    >
+                      {completionBusy ? 'Finalisation…' : 'Terminer la sortie'}
                     </button>
                     <button
                       type="button"
