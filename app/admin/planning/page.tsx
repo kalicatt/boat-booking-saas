@@ -29,5 +29,7 @@ export default async function PlanningPage() {
     redirect('/admin')
   }
 
-  return <ClientPlanningPage />
+  const canOverrideLockedDays = role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
+
+  return <ClientPlanningPage canOverrideLockedDays={canOverrideLockedDays} />
 }

@@ -117,6 +117,24 @@ interface BoatDailyStat {
 const BOAT_BENCH_COUNT = 4
 const BOAT_SEATS_PER_BENCH = 3
 const BOAT_COLOR_PALETTE = ['#0ea5e9', '#f97316', '#22c55e', '#a855f7', '#ef4444', '#14b8a6', '#6366f1', '#fb7185']
+const OPEN_TIME_MINUTES = 10 * 60
+const SLOT_INTERVAL_MINUTES = 10
+
+const buildWallUtcDate = (dateLabel: string, timeLabel: string) => {
+  const [yearStr, monthStr, dayStr] = dateLabel.split('-')
+  const [hourStr, minuteStr] = timeLabel.split(':')
+  const year = Number.parseInt(yearStr ?? '', 10)
+  const monthRaw = Number.parseInt(monthStr ?? '', 10)
+  const day = Number.parseInt(dayStr ?? '', 10)
+  const hour = Number.parseInt(hourStr ?? '', 10)
+  const minute = Number.parseInt(minuteStr ?? '', 10)
+  const safeYear = Number.isFinite(year) ? year : 1970
+  const safeMonth = Number.isFinite(monthRaw) ? Math.max(0, monthRaw - 1) : 0
+  const safeDay = Number.isFinite(day) ? Math.max(1, day) : 1
+  const safeHour = Number.isFinite(hour) ? hour : 0
+  const safeMinute = Number.isFinite(minute) ? minute : 0
+  return new Date(Date.UTC(safeYear, safeMonth, safeDay, safeHour, safeMinute, 0, 0))
+}
 
 const buildOccupantsForBooking = (booking: BookingDetails): SeatOccupant[] => {
   const occupants: SeatOccupant[] = []
@@ -229,7 +247,7 @@ const jsonFetcher = async <T,>(url: string): Promise<T> => {
   return response.json() as Promise<T>
 }
 
-export default function ClientPlanningPage() {
+export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverrideLockedDays: boolean }) {
   const [resources, setResources] = useState<BoatResource[]>([])
   const [loadingBoats, setLoadingBoats] = useState(true)
   const [preset, setPreset] = useState<PlanningPreset>('standard')
@@ -308,15 +326,19 @@ export default function ClientPlanningPage() {
     revalidateOnFocus: true,
     keepPreviousData: true
   })
-  const { data: closures } = useSWR<ClosureSummary[]>('/api/admin/closures', jsonFetcher)
+  const { data: closures } = useSWR<ClosureSummary[]>(
+    canOverrideLockedDays ? null : '/api/admin/closures',
+    jsonFetcher
+  )
 
   const isLockedDate = useCallback((target: Date) => {
+    if (canOverrideLockedDays) return false
     if (!Array.isArray(closures)) return false
     const targetDay = format(target, 'yyyy-MM-dd')
     return closures.some((closure) =>
       closure.locked && format(new Date(closure.day), 'yyyy-MM-dd') === targetDay
     )
-  }, [closures])
+  }, [closures, canOverrideLockedDays])
 
   const events = useMemo<BookingDetails[]>(() => {
     if (!Array.isArray(rawBookings)) return []
@@ -431,6 +453,31 @@ export default function ClientPlanningPage() {
     })
   }, [dayBookings])
 
+  const getRotationBoatId = useCallback((wallHour: number, wallMinute: number) => {
+    if (!resources.length) return null
+    const minutesTotal = wallHour * 60 + wallMinute
+    const slotsElapsedRaw = (minutesTotal - OPEN_TIME_MINUTES) / SLOT_INTERVAL_MINUTES
+    if (!Number.isFinite(slotsElapsedRaw)) return resources[0]?.id ?? null
+    const slotsElapsed = Math.floor(slotsElapsedRaw)
+    const index = ((slotsElapsed % resources.length) + resources.length) % resources.length
+    return resources[index]?.id ?? null
+  }, [resources])
+
+  const resolveBoatIdForSlot = useCallback((wallHour: number, wallMinute: number, resourceHint?: CalendarResource) => {
+    if (typeof resourceHint === 'number' && Number.isFinite(resourceHint)) {
+      return resourceHint
+    }
+    if (typeof resourceHint === 'string') {
+      const parsed = Number(resourceHint)
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) return parsed
+    }
+    if (resourceHint && typeof resourceHint === 'object' && 'id' in resourceHint) {
+      const parsed = Number(resourceHint.id)
+      if (!Number.isNaN(parsed) && Number.isFinite(parsed)) return parsed
+    }
+    return getRotationBoatId(wallHour, wallMinute) ?? resources[0]?.id ?? 1
+  }, [getRotationBoatId, resources])
+
   const boatDailyStats = useMemo<BoatDailyStat[]>(() => {
     if (!resources.length) return []
 
@@ -541,6 +588,7 @@ export default function ClientPlanningPage() {
           }
         })
         .filter((boat): boat is BoatResource => boat !== null)
+        .sort((a, b) => a.id - b.id)
       setResources(normalized)
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -612,17 +660,11 @@ export default function ClientPlanningPage() {
     const s = new Date(slotInfo.start)
     const dateLabel = format(s, 'yyyy-MM-dd')
     const timeLabel = format(s, 'HH:mm')
-    const { instant: startTime } = parseParisWallDate(dateLabel, timeLabel)
+    const { instant: startTime, wallHour, wallMinute } = parseParisWallDate(dateLabel, timeLabel)
     if (Number.isNaN(startTime.getTime())) return
-    let fallbackBoatId = 1
+    const modalSlotStart = buildWallUtcDate(dateLabel, timeLabel)
     const { resourceId } = slotInfo
-    if (typeof resourceId === 'number' || typeof resourceId === 'string') {
-      const parsed = Number(resourceId)
-      fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
-    } else if (resourceId && typeof resourceId === 'object' && 'id' in resourceId) {
-      const parsed = Number(resourceId.id)
-      fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
-    }
+    const rotationBoatId = resolveBoatIdForSlot(wallHour, wallMinute, resourceId)
 
     const matchingDepartures = events
       .filter((event) => isSameMinute(event.start, startTime))
@@ -635,10 +677,10 @@ export default function ClientPlanningPage() {
     const targetDeparture = matchingDepartures[0]
 
     const boatId = targetDeparture
-      ? Number(targetDeparture.resourceId) || fallbackBoatId
-      : fallbackBoatId
+      ? Number(targetDeparture.resourceId) || rotationBoatId
+      : rotationBoatId
 
-    setSelectedSlotDetails({ start: startTime, boatId })
+    setSelectedSlotDetails({ start: modalSlotStart, boatId })
     setShowQuickBookModal(true)
   }
 
@@ -908,16 +950,10 @@ export default function ClientPlanningPage() {
       if (Number.isNaN(v.getTime())) return
       const dateLabel = format(v, 'yyyy-MM-dd')
       const timeLabel = format(v, 'HH:mm')
-      const { instant: startTime } = parseParisWallDate(dateLabel, timeLabel)
+      const { instant: startTime, wallHour, wallMinute } = parseParisWallDate(dateLabel, timeLabel)
       if (Number.isNaN(startTime.getTime())) return
-      let fallbackBoatId = 1
-      if (typeof resource === 'number' || typeof resource === 'string') {
-        const parsed = Number(resource)
-        fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
-      } else if (resource && typeof resource === 'object' && 'id' in resource) {
-        const parsed = Number(resource.id)
-        fallbackBoatId = Number.isNaN(parsed) ? 1 : parsed || 1
-      }
+      const modalSlotStart = buildWallUtcDate(dateLabel, timeLabel)
+      const fallbackBoatId = resolveBoatIdForSlot(wallHour, wallMinute, resource)
 
       const matchingDepartures = events
         .filter((event) => isSameMinute(event.start, startTime))
@@ -933,7 +969,7 @@ export default function ClientPlanningPage() {
         ? Number(targetDeparture.resourceId) || fallbackBoatId
         : fallbackBoatId
 
-      setSelectedSlotDetails({ start: startTime, boatId: inferredBoatId })
+      setSelectedSlotDetails({ start: modalSlotStart, boatId: inferredBoatId })
       setShowQuickBookModal(true)
     }
 
@@ -1427,6 +1463,7 @@ export default function ClientPlanningPage() {
           resources={resources}
           onClose={() => setShowQuickBookModal(false)}
           onSuccess={handleQuickBookingSuccess}
+          canOverrideLockedDays={canOverrideLockedDays}
         />
       )}
 
@@ -1709,6 +1746,12 @@ export default function ClientPlanningPage() {
       }
       footerNote="Mises à jour automatiques toutes les 10 secondes."
     >
+      {canOverrideLockedDays && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Mode override compta actif : les journées clôturées restent modifiables. Pensez à réexporter les journaux si vous corrigez une journée archivée.
+        </div>
+      )}
+
       {boatDailyStats.length > 0 && (
         <div className="mb-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

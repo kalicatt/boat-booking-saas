@@ -57,8 +57,7 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
 * **Etat final :** Affiche le reçu lorsqu'un `succeeded` revient, propose fallback QR/Payment Link si `expired` ou `failed` multiples.
 
 ### 2. Module "💵 Espèces"
-* **Action :** Affiche le montant dû.
-* **Calculateur :** Champ "Montant Reçu" -> Affiche "A rendre : X €".
+* **Statut :** Couvert par le flux actuel de création de réservation, aucun développement spécifique requis dans l'interface POS.
 
 ### 3. Module "🏨 Voucher / Hôtel"
 * **Action :** Ouvre un formulaire dédié partenaires.
@@ -71,12 +70,11 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
 ### 4. Module "✍️ Chèque"
 * **Action :** Formulaire de traçabilité.
 * **Champs :**
-   **Quantité :** Stepper (- 1 +).
+    * **Numéro :** Champ obligatoire.
+    * **Banque :** Optionnel.
+    * **Quantité :** Stepper (- 1 +).
 
 * **Backend :** Stocke ces infos dans le JSON du paiement.
-
-### 5. Fallback "QR Code"
-* **Action :** Affiche un QR Code de paiement Stripe Checkout (si le Tap to Pay échoue).
 
 ---
 
@@ -90,7 +88,9 @@ Ce document détaille l'intégration des paiements physiques directement dans l'
 ### 2. Page de Clôture Journalière
 * **Fichier :** `app/admin/accounting/[day]/page.tsx`/page.tsx]
 * **Assistant de Clôture :**
-    * **Cartes :** Total auto-rempli via API Stripe (pas de comptage).
+    * **Cartes :** Total auto-rempli via API Stripe (pas de comptage). 
     * **Espèces :** Champ de saisie "Fond de caisse final". Calcul de l'écart.
     * **Vouchers :** "Vérifiez que vous avez **3** bons 'Hôtel Bristol' et **1** bon 'OT'."
     * **Chèques :** "Vérifiez les **2** chèques : N°800412 (50€) et N°992100 (12€)."
+    * **Autres méthodes :** Résumé et validation pour les autres `provider` actifs (ex. PayPal web,) avec champs de confirmation dédiés.
+    

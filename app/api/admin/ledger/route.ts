@@ -5,6 +5,45 @@ import { auth } from '@/auth'
 import { log } from '@/lib/logger'
 import { sendAlert } from '@/lib/alerts'
 
+const LEDGER_PROVIDER_ALIASES: Record<string, string> = {
+  stripe_terminal: 'stripe_terminal',
+  stripe: 'stripe_terminal',
+  card: 'stripe_terminal',
+  pos: 'stripe_terminal',
+  cash: 'cash',
+  caisse: 'cash',
+  voucher: 'voucher',
+  citypass: 'voucher',
+  ancv: 'voucher',
+  check: 'check',
+  cheque: 'check',
+  chequepapier: 'check',
+  paypal: 'paypal',
+  applepay: 'applepay',
+  googlepay: 'googlepay'
+}
+
+const ALLOWED_LEDGER_PROVIDERS = new Set(
+  Object.values(LEDGER_PROVIDER_ALIASES)
+)
+
+const normalizeLedgerProvider = (value: unknown) => {
+  if (typeof value !== 'string') {
+    return null
+  }
+  const candidate = value.trim().toLowerCase()
+  if (!candidate) {
+    return null
+  }
+  if (LEDGER_PROVIDER_ALIASES[candidate]) {
+    return LEDGER_PROVIDER_ALIASES[candidate]
+  }
+  if (ALLOWED_LEDGER_PROVIDERS.has(candidate)) {
+    return candidate
+  }
+  return null
+}
+
 interface CreateLedgerPayload {
   eventType: string
   provider: string
@@ -46,7 +85,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing payload' }, { status: 400 })
     }
     const { eventType, bookingId, paymentId, provider, methodType, amount, currency, actorId, note } = body
-    if (!eventType || !provider || typeof amount !== 'number' || !Number.isFinite(amount) || !currency) {
+    const normalizedProvider = normalizeLedgerProvider(provider)
+    if (!eventType || !normalizedProvider || typeof amount !== 'number' || !Number.isFinite(amount) || !currency) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
     const entry = await prisma.paymentLedger.create({
@@ -54,7 +94,7 @@ export async function POST(req: Request) {
         eventType,
         bookingId: bookingId ?? null,
         paymentId: paymentId ?? null,
-        provider,
+        provider: normalizedProvider,
         methodType: methodType ?? null,
         amount,
         currency,

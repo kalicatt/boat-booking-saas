@@ -15,16 +15,20 @@ type ClosingBreakdownPayload = {
   expectedAmountCents?: number
   varianceCents?: number
   createdAt?: string
+  checksAmountCents?: number
+  vouchersAmountCents?: number
 }
 
 type CashAction
   = { action: 'open'; openingFloat?: number; openedById?: string }
   | { action: 'close'; sessionId: string; closingCount: number; closedById?: string; closingBreakdown?: ClosingBreakdownPayload | string | null }
   | { action: 'movement'; sessionId: string; kind: string; amount: number; note?: string | null }
+  | { action: 'recount'; sessionId: string; closingCount?: number; closingBreakdown?: ClosingBreakdownPayload | string | null }
 
 type CashOpenAction = Extract<CashAction, { action: 'open' }>
 type CashCloseAction = Extract<CashAction, { action: 'close' }>
 type CashMovementAction = Extract<CashAction, { action: 'movement' }>
+type CashRecountAction = Extract<CashAction, { action: 'recount' }>
 
 const isOpenAction = (payload: CashAction | { action?: string } | null | undefined): payload is CashOpenAction =>
   payload?.action === 'open'
@@ -34,6 +38,9 @@ const isCloseAction = (payload: CashAction | { action?: string } | null | undefi
 
 const isMovementAction = (payload: CashAction | { action?: string } | null | undefined): payload is CashMovementAction =>
   payload?.action === 'movement'
+
+const isRecountAction = (payload: CashAction | { action?: string } | null | undefined): payload is CashRecountAction =>
+  payload?.action === 'recount'
 
 const parseBreakdown = (payload: ClosingBreakdownPayload | string | null | undefined): ClosingBreakdownPayload | null => {
   if (payload === null || payload === undefined) return null
@@ -67,6 +74,8 @@ const parseBreakdown = (payload: ClosingBreakdownPayload | string | null | undef
   if (typeof source.expectedAmountCents === 'number' && Number.isFinite(source.expectedAmountCents)) normalized.expectedAmountCents = source.expectedAmountCents
   if (typeof source.varianceCents === 'number' && Number.isFinite(source.varianceCents)) normalized.varianceCents = source.varianceCents
   if (typeof source.createdAt === 'string') normalized.createdAt = source.createdAt
+  if (typeof source.checksAmountCents === 'number' && Number.isFinite(source.checksAmountCents)) normalized.checksAmountCents = source.checksAmountCents
+  if (typeof source.vouchersAmountCents === 'number' && Number.isFinite(source.vouchersAmountCents)) normalized.vouchersAmountCents = source.vouchersAmountCents
   return Object.keys(normalized).length ? normalized : null
 }
 
@@ -143,6 +152,25 @@ export async function POST(req: Request) {
       await log('error', 'Cash movement failed', { route: '/api/admin/cash' })
       await sendAlert('Cash movement failed', { error: error instanceof Error ? error.message : String(error) })
       return NextResponse.json({ error: 'Cash movement failed', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
+    }
+  }
+  if (isRecountAction(body)) {
+    const { sessionId, closingCount, closingBreakdown } = body
+    try {
+      const breakdownPayload = parseBreakdown(closingBreakdown)
+      const data: Prisma.CashSessionUpdateInput = {
+        closingBreakdown: breakdownPayload ?? Prisma.JsonNull
+      }
+      if (typeof closingCount === 'number' && Number.isFinite(closingCount)) {
+        data.closingCount = closingCount
+      }
+      const updated = await prisma.cashSession.update({ where: { id: sessionId }, data })
+      await log('info', 'Cash session recounted', { route: '/api/admin/cash' })
+      return NextResponse.json(updated)
+    } catch (error) {
+      await log('error', 'Cash recount failed', { route: '/api/admin/cash' })
+      await sendAlert('Cash recount failed', { error: error instanceof Error ? error.message : String(error) })
+      return NextResponse.json({ error: 'Cash recount failed', details: error instanceof Error ? error.message : String(error) }, { status: 500 })
     }
   }
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

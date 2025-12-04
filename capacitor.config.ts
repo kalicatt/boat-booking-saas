@@ -17,7 +17,7 @@ const resolvedAllowNavigation = (() => {
     if (hostname && !baseHostnames.includes(hostname)) {
       return [...baseHostnames, hostname];
     }
-  } catch (error) {
+  } catch {
     // Ignore malformed server URLs and fall back to defaults.
   }
   return baseHostnames;

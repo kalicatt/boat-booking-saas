@@ -1,6 +1,6 @@
 "use client"
 import useSWR from 'swr'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { business } from '@/lib/business'
 
@@ -16,6 +16,8 @@ type PaymentLedgerDto = {
   bookingId: string | null
   receiptNo: number | null
   occurredAt: string
+  note?: string | null
+  paymentId?: string | null
 }
 
 type DailyClosureDto = {
@@ -72,6 +74,26 @@ const parseClosureSnapshot = (payload: unknown): ClosureSnapshot | null => {
   }
 }
 
+const formatEuro = (value: number) => `${(value / 100).toFixed(2)} €`
+
+const parseEuroInput = (value: string) => {
+  const normalized = value.replace(/\s+/g, '').replace(',', '.').trim()
+  if (!normalized) return null
+  const parsed = Number.parseFloat(normalized)
+  if (!Number.isFinite(parsed)) return null
+  return Math.round(parsed * 100)
+}
+
+const joinWithEt = (items: string[]) => {
+  if (items.length === 0) return ''
+  if (items.length === 1) return items[0]
+  if (items.length === 2) return `${items[0]} et ${items[1]}`
+  const last = items[items.length - 1]
+  return `${items.slice(0, -1).join(', ')} et ${last}`
+}
+
+const PRIMARY_PROVIDERS = ['stripe_terminal', 'card', 'cash', 'voucher', 'check']
+
 export default function ClosureDetailPage({ params }: { params: { day: string } }){
   const dayParam = params.day // expected format yyyy-MM-dd
   const { data: closures } = useSWR('/api/admin/closures', fetcher)
@@ -79,6 +101,8 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
 
   const closuresList = toArray<DailyClosureDto>(closures)
   const ledgerEntries = toArray<PaymentLedgerDto>(ledger)
+  const [cashCountInput, setCashCountInput] = useState('')
+  const [otherConfirmations, setOtherConfirmations] = useState<Record<string, boolean>>({})
 
   const closure = useMemo(()=>{
     return closuresList.find((item)=> format(new Date(item.day), 'yyyy-MM-dd') === dayParam) || null
@@ -87,6 +111,63 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
   const entriesForDay = useMemo(()=>{
     return ledgerEntries.filter((entry)=> format(new Date(entry.occurredAt), 'yyyy-MM-dd') === dayParam)
   }, [ledgerEntries, dayParam])
+
+  const providerTotals = useMemo(() => {
+    return entriesForDay.reduce<Record<string, number>>((acc, entry) => {
+      acc[entry.provider] = (acc[entry.provider] ?? 0) + entry.amount
+      return acc
+    }, {})
+  }, [entriesForDay])
+
+  const voucherBreakdown = useMemo(() => {
+    return entriesForDay
+      .filter((entry) => entry.provider === 'voucher')
+      .reduce<Record<string, number>>((acc, entry) => {
+        const key = entry.methodType && entry.methodType.trim().length > 0 ? entry.methodType : 'Sans libellé'
+        acc[key] = (acc[key] ?? 0) + 1
+        return acc
+      }, {})
+  }, [entriesForDay])
+
+  const checkEntries = useMemo(() => entriesForDay.filter((entry) => entry.provider === 'check'), [entriesForDay])
+
+  const cardTotal = (providerTotals.stripe_terminal ?? 0) + (providerTotals.card ?? 0)
+  const cashExpected = providerTotals.cash ?? 0
+  const parsedCashCount = parseEuroInput(cashCountInput)
+  const cashDiff = parsedCashCount === null ? null : parsedCashCount - cashExpected
+  const cashDiffDisplay = cashDiff === null ? '—' : `${cashDiff > 0 ? '+' : ''}${formatEuro(cashDiff)}`
+  const cashDiffTone = cashDiff === null ? 'text-slate-500' : cashDiff === 0 ? 'text-emerald-600' : 'text-rose-600'
+
+  const voucherInstruction = (() => {
+    const parts = Object.entries(voucherBreakdown).map(([label, count]) =>
+      `${count} bon${count > 1 ? 's' : ''} "${label}"`
+    )
+    if (parts.length === 0) {
+      return 'Aucun bon enregistré pour cette journée.'
+    }
+    return `Vérifiez que vous avez ${joinWithEt(parts)}.`
+  })()
+
+  const checkInstruction = (() => {
+    if (checkEntries.length === 0) {
+      return 'Aucun chèque enregistré aujourd’hui.'
+    }
+    const descriptors = checkEntries.map((entry) => {
+      const baseLabel = entry.note && entry.note.trim().length > 0
+        ? entry.note
+        : entry.paymentId ?? entry.receiptNo?.toString() ?? entry.id.slice(0, 6)
+      return `N°${baseLabel} (${formatEuro(entry.amount)})`
+    })
+    return `Vérifiez les ${checkEntries.length} chèques : ${joinWithEt(descriptors)}.`
+  })()
+
+  const otherProviders = useMemo(
+    () =>
+      Object.entries(providerTotals)
+        .filter(([provider]) => !PRIMARY_PROVIDERS.includes(provider))
+        .map(([provider, amount]) => ({ provider, amount })),
+    [providerTotals]
+  )
 
   if (!closure) {
     return (
@@ -159,6 +240,75 @@ export default function ClosureDetailPage({ params }: { params: { day: string } 
         <div className="mt-2 text-sm">Totaux: {Object.entries(snapshot.totals).map(([key,value])=> `${key}: ${(value/100).toFixed(2)}€`).join(' • ')}</div>
         <div className="mt-1 text-sm">Vouchers: {Object.entries(snapshot.vouchers).map(([key,value])=> `${key}: ${value}`).join(' • ') || '—'}</div>
         <div className="mt-1 text-sm">TVA: Net {((snapshot.vat?.net ?? 0)/100).toFixed(2)}€ • TVA {((snapshot.vat?.vat ?? 0)/100).toFixed(2)}€ • Brut {((snapshot.vat?.gross ?? 0)/100).toFixed(2)}€</div>
+      </section>
+
+      <section className="rounded-xl border bg-white p-4 space-y-4">
+        <div>
+          <div className="font-semibold">Assistant de clôture</div>
+          <p className="text-sm text-slate-500">Vérifiez les supports physiques avant de valider la journée.</p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-lg border border-slate-100 bg-slate-50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Cartes (Stripe)</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{formatEuro(cardTotal)}</p>
+            <p className="mt-1 text-xs text-slate-500">Montant auto-importé depuis Stripe Terminal.</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-white p-4 shadow-inner">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Espèces</p>
+            <p className="mt-1 text-xs text-slate-500">Attendu : {formatEuro(cashExpected)}</p>
+            <label className="mt-3 block text-sm">
+              <span className="sn-label">Fond de caisse final</span>
+              <input
+                type="text"
+                value={cashCountInput}
+                onChange={(event) => setCashCountInput(event.target.value)}
+                placeholder="Comptage manuel"
+                className="sn-input"
+              />
+            </label>
+            <p className={`mt-2 text-sm font-semibold ${cashDiffTone}`}>Écart : {cashDiffDisplay}</p>
+          </div>
+        </div>
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-slate-100 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Vouchers</p>
+            <p className="mt-2 text-sm text-slate-700">{voucherInstruction}</p>
+          </div>
+          <div className="rounded-lg border border-slate-100 bg-white p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Chèques</p>
+            <p className="mt-2 text-sm text-slate-700">{checkInstruction}</p>
+          </div>
+          {otherProviders.length > 0 && (
+            <div className="rounded-lg border border-slate-100 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">Autres méthodes</p>
+              <p className="mt-1 text-xs text-slate-500">Validez chaque montant secondaire (PayPal, wallets…)</p>
+              <div className="mt-3 space-y-2">
+                {otherProviders.map((item) => (
+                  <label
+                    key={item.provider}
+                    className="flex items-center justify-between rounded border border-slate-200 px-3 py-2 text-sm"
+                  >
+                    <div>
+                      <p className="font-semibold text-slate-800">{item.provider}</p>
+                      <p className="text-xs text-slate-500">{formatEuro(item.amount)}</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+                      checked={Boolean(otherConfirmations[item.provider])}
+                      onChange={(event) =>
+                        setOtherConfirmations((current) => ({
+                          ...current,
+                          [item.provider]: event.target.checked
+                        }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="rounded-xl border bg-white p-4">

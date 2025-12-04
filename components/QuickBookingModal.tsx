@@ -4,12 +4,24 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import type { CountryCode } from 'libphonenumber-js'
 
+import { CheckDetailsForm, VoucherDetailsForm } from '@/components/ManualPaymentDetails'
+import {
+    buildManualPaymentPayload,
+    createCheckDetails,
+    createEmptyManualPaymentState,
+    createVoucherDetails,
+    type ManualPaymentState,
+    updateManualPaymentState,
+    validateManualPaymentState
+} from '@/lib/manualPayments'
+
 interface QuickBookingModalProps {
     slotStart: Date
     boatId: number | string
     resources: Array<{ id: number; title: string; capacity: number }>
     onClose: () => void
     onSuccess: () => void
+    canOverrideLockedDays?: boolean
 }
 
 const PRICE_ADULT = 9
@@ -30,8 +42,8 @@ const PAYMENT_OPTIONS = [
     { value: 'paypal', label: 'PayPal' },
     { value: 'applepay', label: 'Apple Pay' },
     { value: 'googlepay', label: 'Google Pay' },
-    { value: 'ANCV', label: 'ANCV' },
-    { value: 'CityPass', label: 'City Pass' }
+    { value: 'voucher', label: 'Voucher / Hôtel' },
+    { value: 'check', label: 'Chèque' }
 ] as const
 
 const LANGUAGE_OPTIONS = [
@@ -83,7 +95,7 @@ function normalizePhoneForApi(input: string): string | undefined {
     return undefined
 }
 
-export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess }: QuickBookingModalProps) {
+export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess, canOverrideLockedDays = false }: QuickBookingModalProps) {
     const dialogRef = useRef<HTMLDivElement | null>(null)
     const [isLocked, setIsLocked] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
@@ -102,6 +114,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const [babies, setBabies] = useState(0)
     const [markAsPaid, setMarkAsPaid] = useState(false)
     const [paymentMethod, setPaymentMethod] = useState<PaymentOption | ''>('')
+    const [manualPayment, setManualPayment] = useState<ManualPaymentState>(createEmptyManualPaymentState)
     const [cashReceived, setCashReceived] = useState('')
     const [isCashPadOpen, setIsCashPadOpen] = useState(false)
     const [cashTouched, setCashTouched] = useState(false)
@@ -121,6 +134,20 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         () => PAYMENT_OPTIONS.find((option) => option.value === paymentMethod)?.label ?? '',
         [paymentMethod]
     )
+    const paymentSummaryLabel = useMemo(() => {
+        if (!markAsPaid || !paymentMethod) {
+            return 'à percevoir sur place'
+        }
+        if (manualPayment.provider === 'voucher') {
+            const detail = manualPayment.methodType?.trim()
+            const base = selectedPaymentLabel || 'Voucher / Hôtel'
+            return detail ? `${base} • ${detail}` : base
+        }
+        if (manualPayment.provider === 'check') {
+            return 'Chèque'
+        }
+        return selectedPaymentLabel || 'Marqué comme payé'
+    }, [manualPayment, markAsPaid, paymentMethod, selectedPaymentLabel])
     const totalPeople = adults + children + babies
     const totalPrice = useMemo(() => adults * PRICE_ADULT + children * PRICE_CHILD, [adults, children])
     const formattedDate = useMemo(() => {
@@ -189,6 +216,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         setShowStepErrors(false)
         setMarkAsPaid(false)
         setPaymentMethod('')
+        setManualPayment(createEmptyManualPaymentState())
         setCashReceived('')
         setIsCashPadOpen(false)
         setCashTouched(false)
@@ -198,6 +226,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     useEffect(() => {
         let mounted = true
         setIsLocked(false)
+        if (canOverrideLockedDays) {
+            return () => {
+                mounted = false
+            }
+        }
         ;(async () => {
             try {
                 const res = await fetch('/api/admin/closures')
@@ -220,7 +253,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         return () => {
             mounted = false
         }
-    }, [slotStart])
+    }, [slotStart, canOverrideLockedDays])
 
     useEffect(() => {
         const handler = (event: KeyboardEvent) => {
@@ -300,6 +333,9 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             if (paymentMethod === 'cash') {
                 return !Number.isNaN(parsedCash) && parsedCash >= totalPrice
             }
+            if (paymentMethod === 'voucher' || paymentMethod === 'check') {
+                return !validateManualPaymentState(manualPayment)
+            }
             return true
         }
         return true
@@ -368,6 +404,18 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
         const shouldTriggerTapToPay = markAsPaid && paymentMethod === 'card'
 
+        let manualPaymentPayload: Record<string, unknown> | null = null
+        if (markAsPaid && paymentMethod && (paymentMethod === 'voucher' || paymentMethod === 'check')) {
+            const buildResult = buildManualPaymentPayload(manualPayment)
+            if (!buildResult.ok || !buildResult.paymentMethod) {
+                alert(buildResult.error ?? 'Sélectionnez un moyen de paiement.')
+                setShowStepErrors(true)
+                setIsLoading(false)
+                return
+            }
+            manualPaymentPayload = buildResult.paymentMethod
+        }
+
         const bookingData: Record<string, unknown> = {
             date: dateLocal,
             time,
@@ -396,7 +444,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         }
 
         if (markAsPaid && paymentMethod) {
-            bookingData.paymentMethod = paymentMethod
+            bookingData.paymentMethod = manualPaymentPayload ?? paymentMethod
         }
 
         try {
@@ -517,6 +565,12 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         if (showStepErrors) setShowStepErrors(false)
     }
 
+    const handlePaymentMethodChange = (value: PaymentOption | '') => {
+        setPaymentMethod(value)
+        setManualPayment((current) => updateManualPaymentState(value, current))
+        if (showStepErrors) setShowStepErrors(false)
+    }
+
     const progress = BOOKING_STEPS.length > 1 ? (stepIndex / LAST_STEP_INDEX) * 100 : 100
 
     const stepErrorMessage = useMemo(() => {
@@ -526,10 +580,14 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         if (stepId === 'passengers' && totalPeople === 0) return 'Ajoutez au moins un passager.'
         if (stepId === 'payment' && markAsPaid) {
             if (!paymentMethod) return 'Choisissez un moyen de paiement.'
+            if (paymentMethod === 'voucher' || paymentMethod === 'check') {
+                const manualError = validateManualPaymentState(manualPayment)
+                if (manualError) return manualError
+            }
             if (lacksCash) return 'Le montant espèces est insuffisant.'
         }
         return ''
-    }, [showStepErrors, stepIndex, time, totalPeople, markAsPaid, paymentMethod, lacksCash])
+    }, [showStepErrors, stepIndex, time, totalPeople, markAsPaid, paymentMethod, manualPayment, lacksCash])
 
     return (
         <div
@@ -768,7 +826,14 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     <input
                                         type="checkbox"
                                         checked={markAsPaid}
-                                        onChange={(event) => setMarkAsPaid(event.target.checked)}
+                                        onChange={(event) => {
+                                            const checked = event.target.checked
+                                            setMarkAsPaid(checked)
+                                            if (!checked) {
+                                                setPaymentMethod('')
+                                                setManualPayment(createEmptyManualPaymentState())
+                                            }
+                                        }}
                                         disabled={isLocked}
                                     />
                                     Marquer la réservation comme payée
@@ -778,14 +843,17 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 </p>
 
                                 {markAsPaid && (
-                                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <>
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                         <div>
                                             <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                 Mode de paiement
                                             </label>
                                             <select
                                                 value={paymentMethod}
-                                                onChange={(event) => setPaymentMethod(event.target.value as PaymentOption | '')}
+                                                    onChange={(event) =>
+                                                        handlePaymentMethodChange(event.target.value as PaymentOption | '')
+                                                    }
                                                 className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
                                             >
                                                 <option value="" disabled>
@@ -878,7 +946,33 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                                 )}
                                             </div>
                                         )}
-                                    </div>
+                                        </div>
+                                        {manualPayment.provider === 'voucher' && (
+                                            <VoucherDetailsForm
+                                                value={manualPayment.voucherDetails ?? createVoucherDetails()}
+                                                disabled={isLocked}
+                                                onChange={(details, methodType) =>
+                                                    setManualPayment((current) => ({
+                                                        ...current,
+                                                        methodType: methodType ?? current.methodType,
+                                                        voucherDetails: details
+                                                    }))
+                                                }
+                                            />
+                                        )}
+                                        {manualPayment.provider === 'check' && (
+                                            <CheckDetailsForm
+                                                value={manualPayment.checkDetails ?? createCheckDetails()}
+                                                disabled={isLocked}
+                                                onChange={(details) =>
+                                                    setManualPayment((current) => ({
+                                                        ...current,
+                                                        checkDetails: details
+                                                    }))
+                                                }
+                                            />
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -894,13 +988,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     <li>Montant estimé : {totalPrice} €</li>
                                     <li>Barque : {targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`}</li>
                                     <li>Email : {email.trim() || 'par défaut guichet'}</li>
-                                    <li>
-                                        Paiement :
-                                        {' '}
-                                        {markAsPaid && paymentMethod
-                                            ? selectedPaymentLabel || 'Marqué comme payé'
-                                            : 'à percevoir sur place'}
-                                    </li>
+                                    <li>Paiement : {paymentSummaryLabel}</li>
                                 </ul>
                             </div>
                         </div>

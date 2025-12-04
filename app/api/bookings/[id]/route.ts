@@ -238,6 +238,8 @@ export async function PATCH(
   
   const { id } = await params
   const user = session.user as ExtendedUser
+  const role = typeof session.user.role === 'string' ? session.user.role : 'GUEST'
+  const canOverrideLockedDays = role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
 
   try {
     const body = await request.json()
@@ -286,6 +288,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Réservation introuvable' }, { status: 404 })
     }
 
+    const nextStartTime = (dataToUpdate.startTime ?? existingBooking.startTime) as Date
+    const dayBeingEdited = new Date(nextStartTime)
+    dayBeingEdited.setUTCHours(0, 0, 0, 0)
+    const isSensitiveChange = Boolean(start || (date && time) || newIsPaid !== undefined)
+    if (isSensitiveChange && !canOverrideLockedDays) {
+      const closedDay = await prisma.dailyClosure.findFirst({ where: { day: dayBeingEdited, locked: true } })
+      if (closedDay) {
+        return NextResponse.json({ error: 'Période clôturée: modifications interdites' }, { status: 403 })
+      }
+    }
+
     const nextAdults = typeof adults === 'number' ? adults : existingBooking.adults ?? 0
     const nextChildren = typeof children === 'number' ? children : existingBooking.children ?? 0
     const nextBabies = typeof babies === 'number' ? babies : existingBooking.babies ?? 0
@@ -299,15 +312,6 @@ export async function PATCH(
       },
       include: { user: true }
     })
-
-    // If period is locked (daily closure exists for booking day), block time/payment edits
-    const dayStart = new Date(updatedBooking.startTime); dayStart.setUTCHours(0,0,0,0)
-    const closedDay = await prisma.dailyClosure.findFirst({ where: { day: dayStart, locked: true } })
-    if (closedDay) {
-      if (start || (date && time) || newIsPaid !== undefined) {
-        return NextResponse.json({ error: 'Période clôturée: modifications interdites' }, { status: 403 })
-      }
-    }
 
     // Ensure payment record and ledger if marking paid and method provided
     if (newIsPaid === true && paymentMethod && typeof paymentMethod === 'object') {

@@ -54,6 +54,38 @@ type ClosingBreakdownPayload = {
   expectedAmountCents?: number
   varianceCents?: number
   createdAt?: string
+  checksAmountCents?: number
+  vouchersAmountCents?: number
+}
+
+const toEuroInputString = (value: number | null | undefined) => {
+  if (typeof value !== 'number' || Number.isNaN(value)) return '0.00'
+  return (value / 100).toFixed(2)
+}
+
+const parseEuroInputToCents = (input: string) => {
+  if (!input) return 0
+  const normalized = input.replace(/\s+/g, '').replace(',', '.').trim()
+  if (!normalized) return 0
+  const parsed = Number.parseFloat(normalized)
+  if (!Number.isFinite(parsed)) return 0
+  return Math.round(parsed * 100)
+}
+
+const hydrateBreakdownState = (payload: ClosingBreakdownPayload | null): BreakdownState => {
+  const base = createEmptyBreakdown()
+  if (!payload) return base
+  BILL_DENOMINATIONS.forEach((value) => {
+    const key = String(value)
+    const qty = payload.bills?.[key]
+    base.bills[key] = typeof qty === 'number' && Number.isFinite(qty) ? qty : 0
+  })
+  COIN_DENOMINATIONS.forEach((value) => {
+    const key = String(value)
+    const qty = payload.coins?.[key]
+    base.coins[key] = typeof qty === 'number' && Number.isFinite(qty) ? qty : 0
+  })
+  return base
 }
 
 const isRecordOfNumbers = (value: unknown): value is Record<string, number> => {
@@ -138,6 +170,8 @@ const parseBreakdownPayload = (payload: unknown): ClosingBreakdownPayload | null
   if (typeof source.expectedAmountCents === 'number' && Number.isFinite(source.expectedAmountCents)) normalized.expectedAmountCents = source.expectedAmountCents
   if (typeof source.varianceCents === 'number' && Number.isFinite(source.varianceCents)) normalized.varianceCents = source.varianceCents
   if (typeof source.createdAt === 'string') normalized.createdAt = source.createdAt
+  if (typeof source.checksAmountCents === 'number' && Number.isFinite(source.checksAmountCents)) normalized.checksAmountCents = source.checksAmountCents
+  if (typeof source.vouchersAmountCents === 'number' && Number.isFinite(source.vouchersAmountCents)) normalized.vouchersAmountCents = source.vouchersAmountCents
   return Object.keys(normalized).length ? normalized : null
 }
 
@@ -182,6 +216,10 @@ export default function AccountingAdminPage() {
   const [showClosingModal, setShowClosingModal] = useState(false)
   const [closingBreakdown, setClosingBreakdown] = useState<BreakdownState>(() => createEmptyBreakdown())
   const [closingNotes, setClosingNotes] = useState('')
+  const [checksAmountInput, setChecksAmountInput] = useState('')
+  const [vouchersAmountInput, setVouchersAmountInput] = useState('')
+  const [closingMode, setClosingMode] = useState<'new' | 'edit'>('new')
+  const [closingSessionTarget, setClosingSessionTarget] = useState<CashSessionDto | null>(null)
   const [selectedSession, setSelectedSession] = useState<CashSessionDto | null>(null)
   const [isOpening, setIsOpening] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
@@ -198,16 +236,31 @@ export default function AccountingAdminPage() {
     if (!Number.isFinite(parsed)) return 0
     return Math.round(parsed * 100)
   }, [closingCountEuros])
+  const checksAmountCents = useMemo(() => parseEuroInputToCents(checksAmountInput), [checksAmountInput])
+  const vouchersAmountCents = useMemo(() => parseEuroInputToCents(vouchersAmountInput), [vouchersAmountInput])
 
   const openSession = cashSessions.find((session) => !session.closedAt)
   const lastClosedSession = cashSessions.find((session) => session.closedAt)
   const latestSession = openSession || lastClosedSession || cashSessions[0]
   const expectedForOpen = computeExpectedCents(openSession)
+  const activeClosingSession = closingMode === 'edit' ? closingSessionTarget : openSession
+  const expectedForActiveClosing = computeExpectedCents(activeClosingSession)
 
   const refreshAll = () => {
     mutateLedger()
     mutateCash()
     mutateClosures()
+  }
+
+  const closeClosingModal = () => {
+    setShowClosingModal(false)
+    setClosingMode('new')
+    setClosingSessionTarget(null)
+    setClosingBreakdown(createEmptyBreakdown())
+    setClosingNotes('')
+    setClosingCountEuros('')
+    setChecksAmountInput('')
+    setVouchersAmountInput('')
   }
 
   const handleOpenCash = async () => {
@@ -242,14 +295,50 @@ export default function AccountingAdminPage() {
       setToast({ type: 'error', message: 'Aucune session de caisse ouverte.' })
       return
     }
+    setClosingMode('new')
+    setClosingSessionTarget(null)
     setClosingBreakdown(createEmptyBreakdown())
     setClosingNotes('')
+    setClosingCountEuros('')
+    setChecksAmountInput('')
+    setVouchersAmountInput('')
+    setShowClosingModal(true)
+  }
+
+  const handleEditClosingSession = (session: CashSessionDto) => {
+    setClosingMode('edit')
+    setClosingSessionTarget(session)
+    const parsed = parseBreakdownPayload(session.closingBreakdown)
+    setClosingBreakdown(hydrateBreakdownState(parsed))
+    setClosingNotes(parsed?.notes ?? '')
+    const declared = typeof parsed?.declaredAmountCents === 'number'
+      ? parsed.declaredAmountCents
+      : typeof session.closingCount === 'number'
+        ? session.closingCount
+        : 0
+    setClosingCountEuros(toEuroInputString(declared))
+    setChecksAmountInput(
+      typeof parsed?.checksAmountCents === 'number'
+        ? toEuroInputString(parsed.checksAmountCents)
+        : ''
+    )
+    setVouchersAmountInput(
+      typeof parsed?.vouchersAmountCents === 'number'
+        ? toEuroInputString(parsed.vouchersAmountCents)
+        : ''
+    )
     setShowClosingModal(true)
   }
 
   const handleSubmitClosing = async () => {
-    if (!openSession) {
-      setToast({ type: 'error', message: 'Aucune session ouverte détectée.' })
+    const targetSession = closingMode === 'edit' ? closingSessionTarget : openSession
+    if (!targetSession) {
+      setToast({
+        type: 'error',
+        message: closingMode === 'edit'
+          ? 'Session de caisse introuvable.'
+          : 'Aucune session ouverte détectée.'
+      })
       return
     }
     const computedCents = computeBreakdownCents(closingBreakdown)
@@ -260,7 +349,7 @@ export default function AccountingAdminPage() {
 
     try {
       setIsClosing(true)
-      const expectedCents = computeExpectedCents(openSession)
+      const expectedCents = computeExpectedCents(targetSession)
       const payloadBreakdown = {
         bills: closingBreakdown.bills,
         coins: closingBreakdown.coins,
@@ -269,30 +358,54 @@ export default function AccountingAdminPage() {
         computedAmountCents: computedCents,
         expectedAmountCents: expectedCents,
         varianceCents: computedCents - expectedCents,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        checksAmountCents,
+        vouchersAmountCents
       }
 
       const response = await fetch('/api/admin/cash', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'close',
-          sessionId: openSession.id,
-          closingCount: computedCents,
-          closingBreakdown: payloadBreakdown
-        })
+        body: JSON.stringify(
+          closingMode === 'edit'
+            ? {
+                action: 'recount',
+                sessionId: targetSession.id,
+                closingCount: computedCents,
+                closingBreakdown: payloadBreakdown
+              }
+            : {
+                action: 'close',
+                sessionId: targetSession.id,
+                closingCount: computedCents,
+                closingBreakdown: payloadBreakdown
+              }
+        )
       })
 
-      if (!response.ok) throw new Error('Close cash failed')
+      if (!response.ok) {
+        throw new Error(closingMode === 'edit' ? 'Recount failed' : 'Close cash failed')
+      }
 
-      setToast({ type: 'success', message: 'Caisse clôturée avec succès.' })
-      setClosingCountEuros('')
-      setShowClosingModal(false)
+      setToast({
+        type: 'success',
+        message: closingMode === 'edit' ? 'Décomposition mise à jour.' : 'Caisse clôturée avec succès.'
+      })
+      if (closingMode === 'new') {
+        setClosingCountEuros('')
+      }
+      closeClosingModal()
       await mutateCash()
       await mutateLedger()
     } catch (error) {
       console.error(error)
-      setToast({ type: 'error', message: 'Erreur lors de la clôture de la caisse.' })
+      setToast({
+        type: 'error',
+        message:
+          closingMode === 'edit'
+            ? 'Erreur lors de la mise à jour de la décomposition.'
+            : 'Erreur lors de la clôture de la caisse.'
+      })
     } finally {
       setIsClosing(false)
     }
@@ -341,6 +454,11 @@ export default function AccountingAdminPage() {
         const count = coins[String(value)] ?? 0
         rows.push([`${value.toFixed(2)} €`, String(count), (value * count).toFixed(2) + ' €'])
       })
+
+      rows.push([])
+      rows.push(['Autres supports'])
+      rows.push(['Chèques', centsToEuro(breakdown?.checksAmountCents ?? 0)])
+      rows.push(['Vouchers / ANCV', centsToEuro(breakdown?.vouchersAmountCents ?? 0)])
 
       if (breakdown?.notes) {
         rows.push([])
@@ -521,6 +639,16 @@ export default function AccountingAdminPage() {
                               <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
                                 Écart {centsToEuro(variance)}
                               </span>
+                            )}
+                            {session.closedAt && (
+                              <button
+                                type="button"
+                                onClick={() => handleEditClosingSession(session)}
+                                disabled={isClosing && closingSessionTarget?.id === session.id}
+                                className="rounded border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                Modifier
+                              </button>
                             )}
                             {breakdown && (
                               <button
@@ -842,14 +970,23 @@ export default function AccountingAdminPage() {
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-xl font-semibold text-slate-900">Décomposer le comptage</h3>
+                <h3 className="text-xl font-semibold text-slate-900">
+                  {closingMode === 'edit' ? 'Réviser la décomposition' : 'Décomposer le comptage'}
+                </h3>
                 <p className="text-sm text-slate-500">
-                  Indiquez le nombre de billets et de pièces pour enregistrer la clôture et mesurer l&apos;écart.
+                  {closingMode === 'edit'
+                    ? 'Ajustez les billets et les pièces pour corriger une session déjà clôturée.'
+                    : 'Indiquez le nombre de billets et de pièces pour enregistrer la clôture et mesurer l’écart.'}
                 </p>
+                {closingMode === 'edit' && closingSessionTarget && (
+                  <p className="mt-2 text-xs font-semibold text-amber-600">
+                    Session du {format(new Date(closingSessionTarget.openedAt), 'dd/MM/yyyy HH:mm')}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
-                onClick={() => setShowClosingModal(false)}
+                onClick={closeClosingModal}
                 className="rounded border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-100"
               >
                 Fermer
@@ -924,6 +1061,35 @@ export default function AccountingAdminPage() {
               </div>
             </div>
 
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <div className="rounded border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Montant total des chèques
+                </label>
+                <input
+                  type="text"
+                  value={checksAmountInput}
+                  onChange={(event) => setChecksAmountInput(event.target.value)}
+                  placeholder="Ex : 135.00"
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-slate-500">Somme des chèques remis en caisse.</p>
+              </div>
+              <div className="rounded border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  Montant total vouchers / ANCV
+                </label>
+                <input
+                  type="text"
+                  value={vouchersAmountInput}
+                  onChange={(event) => setVouchersAmountInput(event.target.value)}
+                  placeholder="Ex : 80.00"
+                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                />
+                <p className="mt-1 text-xs text-slate-500">Incluez les chèques vacances, CityPass, etc.</p>
+              </div>
+            </div>
+
             <div className="mt-6 grid gap-4 rounded border border-slate-200 bg-slate-50 p-4 text-sm">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -941,15 +1107,23 @@ export default function AccountingAdminPage() {
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Attendu (mouvements)
                 </span>
-                <span className="font-semibold text-slate-800">{centsToEuro(expectedForOpen)}</span>
+                <span className="font-semibold text-slate-800">{centsToEuro(expectedForActiveClosing)}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Écart calculé
                 </span>
                 <span className="font-semibold text-slate-800">
-                  {centsToEuro(computeBreakdownCents(closingBreakdown) - expectedForOpen)}
+                  {centsToEuro(computeBreakdownCents(closingBreakdown) - expectedForActiveClosing)}
                 </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chèques</span>
+                <span className="font-semibold text-slate-800">{centsToEuro(checksAmountCents)}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vouchers / ANCV</span>
+                <span className="font-semibold text-slate-800">{centsToEuro(vouchersAmountCents)}</span>
               </div>
               <textarea
                 value={closingNotes}
@@ -971,7 +1145,7 @@ export default function AccountingAdminPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowClosingModal(false)}
+                  onClick={closeClosingModal}
                   className="rounded border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
                 >
                   Annuler
@@ -982,7 +1156,7 @@ export default function AccountingAdminPage() {
                   disabled={isClosing}
                   className="rounded bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
                 >
-                  Enregistrer la clôture
+                  {closingMode === 'edit' ? 'Enregistrer les ajustements' : 'Enregistrer la clôture'}
                 </button>
               </div>
             </div>
@@ -1040,6 +1214,18 @@ export default function AccountingAdminPage() {
                           Montant saisi initialement
                         </span>
                         <span className="font-semibold text-slate-800">{centsToEuro(breakdown.declaredAmountCents)}</span>
+                      </div>
+                    )}
+                    {typeof breakdown.checksAmountCents === 'number' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chèques</span>
+                        <span className="font-semibold text-slate-800">{centsToEuro(breakdown.checksAmountCents)}</span>
+                      </div>
+                    )}
+                    {typeof breakdown.vouchersAmountCents === 'number' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vouchers / ANCV</span>
+                        <span className="font-semibold text-slate-800">{centsToEuro(breakdown.vouchersAmountCents)}</span>
                       </div>
                     )}
                     {breakdown.notes && (

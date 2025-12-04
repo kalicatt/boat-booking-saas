@@ -7,17 +7,6 @@ import { format } from 'date-fns'
 
 import { AdminPageShell } from '../_components/AdminPageShell'
 import { readCache, writeCache } from '@/lib/mobileCache'
-import {
-	VOUCHER_PARTNERS,
-	type ManualPaymentState,
-	buildManualPaymentPayload,
-	createCheckDetails,
-	createEmptyManualPaymentState,
-	createVoucherDetails,
-	getVoucherPartnerLabel,
-	updateManualPaymentState
-} from '@/lib/manualPayments'
-import { CheckDetailsForm, VoucherDetailsForm } from '@/components/ManualPaymentDetails'
 
 type FilterRange = 'day' | 'month' | 'year'
 
@@ -32,7 +21,6 @@ type BookingPayment = {
 	provider?: string | null
 	methodType?: string | null
 	status?: string | null
-	metadata?: Record<string, unknown> | null
 }
 
 type Booking = {
@@ -62,7 +50,10 @@ type ChainPreview = {
 	people: number
 }
 
-type ViewMarkPaidState = ManualPaymentState
+type ViewMarkPaidState = {
+	provider: string
+	methodType?: string
+}
 
 type ContactOption = {
 	id: string
@@ -74,23 +65,21 @@ type ContactOption = {
 const RANGE_OPTIONS: Array<{ key: FilterRange; label: string }> = [
 	{ key: 'day', label: 'Jour' },
 	{ key: 'month', label: 'Mois' },
-	{ key: 'year', label: 'Année' }
+	{ key: 'year', label: 'Ann├®e' }
 ]
 
 const PAYMENT_FILTER_OPTIONS: Array<{ value: string; label: string }> = [
 	{ value: '', label: 'Tous paiements' },
-	{ value: 'cash', label: 'Espèces' },
+	{ value: 'cash', label: 'Esp├¿ces' },
 	{ value: 'card', label: 'Carte' },
 	{ value: 'paypal', label: 'PayPal' },
 	{ value: 'applepay', label: 'Apple Pay' },
 	{ value: 'googlepay', label: 'Google Pay' },
-	{ value: 'voucher', label: 'ANCV / CityPass' },
-	{ value: 'check', label: 'Chèque' }
+	{ value: 'voucher', label: 'ANCV / CityPass' }
 ]
 
-
 const LANGUAGE_OPTIONS: Array<{ value: string; label: string }> = [
-	{ value: 'fr', label: 'Français' },
+	{ value: 'fr', label: 'Fran├ºais' },
 	{ value: 'en', label: 'Anglais' },
 	{ value: 'de', label: 'Allemand' },
 	{ value: 'es', label: 'Espagnol' },
@@ -177,7 +166,7 @@ const isBookingPaid = (booking: Booking) => {
 const describePaymentMethod = (booking: Booking) => {
 	const payment = booking.payments?.[0]
 	if (!payment?.provider) {
-		return '—'
+		return 'ÔÇö'
 	}
 	const method = payment.methodType ? ` (${payment.methodType})` : ''
 	return `${payment.provider}${method}`
@@ -187,19 +176,19 @@ const getPaymentStatusInfo = (booking: Booking) => {
 	const payment = booking.payments?.[0]
 	const normalized = payment?.status?.toUpperCase()
 	if (normalized === 'PAID' || normalized === 'CAPTURED' || normalized === 'SUCCEEDED' || booking.isPaid) {
-		return { label: 'Payé', tone: 'sn-pill sn-pill--emerald' }
+		return { label: 'Pay├®', tone: 'sn-pill sn-pill--emerald' }
 	}
 	if (!normalized) {
 		return { label: 'En attente', tone: 'sn-pill sn-pill--amber' }
 	}
-	return { label: payment?.status ?? '—', tone: 'sn-pill sn-pill--slate' }
+	return { label: payment?.status ?? 'ÔÇö', tone: 'sn-pill sn-pill--slate' }
 }
 
 const formatPeopleLabel = (booking: Booking) => {
 	const adults = booking.adults ?? booking.numberOfPeople ?? 0
 	const children = booking.children ?? 0
 	const babies = booking.babies ?? 0
-	return `${booking.numberOfPeople} pax • A${adults} / E${children} / B${babies}`
+	return `${booking.numberOfPeople} pax ÔÇó A${adults} / E${children} / B${babies}`
 }
 
 export default function ReservationsAdminPage() {
@@ -213,8 +202,6 @@ export default function ReservationsAdminPage() {
 	const [createTab, setCreateTab] = useState<'normal' | 'private' | 'group' | 'contact'>('normal')
 	const [creating, setCreating] = useState(false)
 	const [form, setForm] = useState(createDefaultFormState)
-	const [createMarkPaid, setCreateMarkPaid] = useState(false)
-	const [createPayment, setCreatePayment] = useState<ViewMarkPaidState>(createEmptyManualPaymentState)
 	const [selectedId, setSelectedId] = useState('')
 	const [groupChain, setGroupChain] = useState(0)
 	const [chainPreview, setChainPreview] = useState<ChainPreview[]>([])
@@ -263,15 +250,15 @@ export default function ReservationsAdminPage() {
 	const viewDateLabel = viewStart ? format(viewStart, 'dd/MM/yyyy') : ''
 	const viewTimeLabel = viewStart ? format(viewStart, 'HH:mm') : ''
 	const viewPaymentStatus = useMemo(() => (showView ? getPaymentStatusInfo(showView) : null), [showView])
-	const viewPaymentMethodLabel = useMemo(() => (showView ? describePaymentMethod(showView) : '—'), [showView])
+	const viewPaymentMethodLabel = useMemo(() => (showView ? describePaymentMethod(showView) : 'ÔÇö'), [showView])
 	const viewPeopleLabel = useMemo(() => (showView ? formatPeopleLabel(showView) : ''), [showView])
 	const viewClientName = useMemo(() => {
 		if (!showView) return ''
-		const composed = `${showView.user?.firstName ?? 'Invité'} ${showView.user?.lastName ?? ''}`.trim()
-		return composed.length > 0 ? composed : 'Invité'
+		const composed = `${showView.user?.firstName ?? 'Invit├®'} ${showView.user?.lastName ?? ''}`.trim()
+		return composed.length > 0 ? composed : 'Invit├®'
 	}, [showView])
-	const viewClientEmail = showView?.user?.email ?? '—'
-	const viewClientPhone = showView?.user?.phone ?? 'Non renseigné'
+	const viewClientEmail = showView?.user?.email ?? 'ÔÇö'
+	const viewClientPhone = showView?.user?.phone ?? 'Non renseign├®'
 
 	const startISO = useMemo(() => {
 		if (range === 'day') {
@@ -390,9 +377,9 @@ export default function ReservationsAdminPage() {
 		setRefreshing(true)
 		try {
 			await mutate()
-			pushToast({ type: 'success', message: 'Synchronisation lancée.' })
+			pushToast({ type: 'success', message: 'Synchronisation lanc├®e.' })
 		} catch (syncError) {
-			console.error('Erreur rafraîchissement réservations', syncError)
+			console.error('Erreur rafra├«chissement r├®servations', syncError)
 			pushToast({ type: 'warning', message: 'Impossible de relancer le chargement.' })
 		} finally {
 			setRefreshing(false)
@@ -401,10 +388,10 @@ export default function ReservationsAdminPage() {
 
 	const handleExportCsv = () => {
 		if (!bookings.length) {
-			pushToast({ type: 'warning', message: 'Aucune réservation à exporter.' })
+			pushToast({ type: 'warning', message: 'Aucune r├®servation ├á exporter.' })
 			return
 		}
-		const headers = ['Date', 'Heure', 'Référence', 'Client', 'Email', 'Pax', 'Langue', 'Paiement', 'Statut Paiement']
+		const headers = ['Date', 'Heure', 'R├®f├®rence', 'Client', 'Email', 'Pax', 'Langue', 'Paiement', 'Statut Paiement']
 		const rows = bookings.map((booking) => {
 			const wall = toWall(new Date(booking.startTime))
 			return [
@@ -447,21 +434,21 @@ export default function ReservationsAdminPage() {
 	}
 
 	const handleDelete = async (booking: Booking) => {
-		const confirmation = window.confirm('Confirmer la suppression de cette réservation ?')
+		const confirmation = window.confirm('Confirmer la suppression de cette r├®servation ?')
 		if (!confirmation) return
 		try {
 			const response = await fetch(`/api/bookings/${booking.id}`, {
 				method: 'DELETE'
 			})
 			if (response.ok) {
-				pushToast({ type: 'success', message: 'Réservation supprimée.' })
+				pushToast({ type: 'success', message: 'R├®servation supprim├®e.' })
 				mutate()
 			} else {
-				alert('Impossible de supprimer la réservation.')
+				alert('Impossible de supprimer la r├®servation.')
 			}
 		} catch (deleteError) {
-			console.error('Erreur suppression réservation', deleteError)
-			alert('Erreur réseau pendant la suppression.')
+			console.error('Erreur suppression r├®servation', deleteError)
+			alert('Erreur r├®seau pendant la suppression.')
 		}
 	}
 
@@ -497,7 +484,7 @@ export default function ReservationsAdminPage() {
 		if (chainCreating || groupChain <= 0) return
 		const base = bookings.find((booking) => booking.id === selectedId)
 		if (!base) {
-			pushToast({ type: 'warning', message: 'Sélectionnez une réservation comme base.' })
+			pushToast({ type: 'warning', message: 'S├®lectionnez une r├®servation comme base.' })
 			return
 		}
 		setChainCreating(true)
@@ -507,7 +494,7 @@ export default function ReservationsAdminPage() {
 			referenceDate.setHours(Number.isFinite(hour) ? hour : 9, Number.isFinite(minute) ? minute : 0, 0, 0)
 			const paymentSource = inheritPaymentForChain ? base.payments?.[0] : undefined
 			const safeFirstName = fallbackString(base.user?.firstName, 'Client')
-			const safeLastName = fallbackString(base.user?.lastName, 'Mystère')
+			const safeLastName = fallbackString(base.user?.lastName, 'Myst├¿re')
 			const safeEmail = fallbackString(base.user?.email, 'override@sweetnarcisse.local')
 			const safePhoneValue = fallbackString(base.user?.phone ?? '', '')
 
@@ -542,7 +529,7 @@ export default function ReservationsAdminPage() {
 			})
 
 			if (!response.ok) {
-				pushToast({ type: 'warning', message: 'Création de chaîne impossible.' })
+				pushToast({ type: 'warning', message: 'Cr├®ation de cha├«ne impossible.' })
 				return
 			}
 
@@ -552,18 +539,18 @@ export default function ReservationsAdminPage() {
 			if (created > 0) {
 				pushToast({
 					type: 'success',
-					message: `Chaîne créée (${created} créneaux, ${overlaps} conflit${overlaps > 1 ? 's' : ''}).`
+					message: `Cha├«ne cr├®├®e (${created} cr├®neaux, ${overlaps} conflit${overlaps > 1 ? 's' : ''}).`
 				})
 			} else {
 				pushToast({
 					type: 'warning',
-					message: `Aucun créneau créé (${overlaps} conflit${overlaps > 1 ? 's' : ''}).`
+					message: `Aucun cr├®neau cr├®├® (${overlaps} conflit${overlaps > 1 ? 's' : ''}).`
 				})
 			}
 			mutate()
 		} catch (chainError) {
-			console.error('Erreur création chaîne', chainError)
-			pushToast({ type: 'warning', message: 'Erreur réseau pendant la création.' })
+			console.error('Erreur cr├®ation cha├«ne', chainError)
+			pushToast({ type: 'warning', message: 'Erreur r├®seau pendant la cr├®ation.' })
 		} finally {
 			setChainCreating(false)
 		}
@@ -575,14 +562,14 @@ export default function ReservationsAdminPage() {
 				href="/admin"
 				className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 transition hover:border-blue-400 hover:text-blue-600"
 			>
-				← Retour menu
+				ÔåÉ Retour menu
 			</Link>
 			<button
 				type="button"
 				onClick={() => setShowCreate(true)}
 				className="sn-btn-primary"
 			>
-				+ Créer
+				+ Cr├®er
 			</button>
 		</div>
 	)
@@ -591,8 +578,6 @@ export default function ReservationsAdminPage() {
 		setShowCreate(false)
 		setCreateTab('normal')
 		setForm(createDefaultFormState())
-		setCreateMarkPaid(false)
-		setCreatePayment(createEmptyManualPaymentState())
 		setSelectedContactId('')
 		setContacts([])
 		setContactStatus('')
@@ -620,22 +605,22 @@ export default function ReservationsAdminPage() {
 
 	return (
 		<AdminPageShell
-			title="Gestion des réservations"
-			description="Visualisez, filtrez et mettez à jour les réservations confirmées ou en attente."
+			title="Gestion des r├®servations"
+			description="Visualisez, filtrez et mettez ├á jour les r├®servations confirm├®es ou en attente."
 			actions={actions}
 		>
 			<div className="space-y-6">
 				<section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 					<div className="flex flex-wrap items-center gap-4">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Période</p>
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">P├®riode</p>
 							<p className="text-sm text-slate-700">{rangeLabel}</p>
 						</div>
 						<div className="flex flex-wrap gap-3">
 							<StatCard label="Total" value={stats.total} tone="bg-white text-slate-900 border border-slate-200" />
-							<StatCard label="Payées" value={stats.paid} tone="bg-emerald-50 text-emerald-700 border border-emerald-200" />
+							<StatCard label="Pay├®es" value={stats.paid} tone="bg-emerald-50 text-emerald-700 border border-emerald-200" />
 							<StatCard label="En attente" value={stats.pending} tone="bg-amber-50 text-amber-700 border border-amber-200" />
-							<StatCard label="À venir" value={stats.upcoming} tone="bg-sky-50 text-sky-700 border border-sky-200" />
+							<StatCard label="├Ç venir" value={stats.upcoming} tone="bg-sky-50 text-sky-700 border border-sky-200" />
 						</div>
 					</div>
 					{(isOffline || cacheTimeLabel || usingCachedData || (!!error && !data)) && (
@@ -661,7 +646,7 @@ export default function ReservationsAdminPage() {
 							{error && !data ? (
 								<span className="sn-pill sn-pill--rose">
 									<span className="sn-pill__dot" aria-hidden="true" />
-									Réseau indisponible
+									R├®seau indisponible
 								</span>
 							) : null}
 						</div>
@@ -676,16 +661,16 @@ export default function ReservationsAdminPage() {
 							disabled={refreshing}
 							className="sn-quick-action sn-quick-action--primary"
 						>
-							{refreshing ? 'Synchronisation…' : 'Relancer la synchro'}
+							{refreshing ? 'SynchronisationÔÇª' : 'Relancer la synchro'}
 						</button>
 						<Link href="/admin/settings" className="sn-quick-action">
-							Santé serveur
+							Sant├® serveur
 						</Link>
 					</div>
 					<ul className="mt-4 space-y-1 text-xs text-slate-500">
-						<li>• Sélectionnez une ligne pour préparer une chaîne ou ouvrir les actions rapides.</li>
-						<li>• L’option « Hériter du paiement » copie le fournisseur et le type sans valider le règlement.</li>
-						<li>• Utilisez « Privatisation » pour bloquer totalement la capacité d’un créneau.</li>
+						<li>ÔÇó S├®lectionnez une ligne pour pr├®parer une cha├«ne ou ouvrir les actions rapides.</li>
+						<li>ÔÇó LÔÇÖoption ┬½ H├®riter du paiement ┬╗ copie le fournisseur et le type sans valider le r├¿glement.</li>
+						<li>ÔÇó Utilisez ┬½ Privatisation ┬╗ pour bloquer totalement la capacit├® dÔÇÖun cr├®neau.</li>
 					</ul>
 				</section>
 
@@ -737,7 +722,7 @@ export default function ReservationsAdminPage() {
 						)}
 						{range === 'year' && (
 							<label className="flex flex-col gap-1">
-								<span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Année</span>
+								<span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ann├®e</span>
 								<input
 									type="number"
 									min={2000}
@@ -753,7 +738,7 @@ export default function ReservationsAdminPage() {
 							<input
 								value={query}
 								onChange={(event) => setQuery(event.target.value)}
-								placeholder="Nom, email, réf..."
+								placeholder="Nom, email, r├®f..."
 								className="w-48 rounded border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
 							/>
 						</label>
@@ -784,7 +769,7 @@ export default function ReservationsAdminPage() {
 							}}
 							className="ml-auto rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500 transition hover:bg-slate-50"
 						>
-							Réinitialiser
+							R├®initialiser
 						</button>
 					</div>
 				</section>
@@ -792,7 +777,7 @@ export default function ReservationsAdminPage() {
 				<div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
 					<section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
 						<div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-							<h2 className="text-sm font-semibold text-slate-700">Réservations ({bookings.length})</h2>
+							<h2 className="text-sm font-semibold text-slate-700">R├®servations ({bookings.length})</h2>
 							<button
 								type="button"
 								onClick={handleExportCsv}
@@ -803,17 +788,17 @@ export default function ReservationsAdminPage() {
 						</div>
 						{isLoading && (
 							<div className="px-4 py-10 text-center text-sm text-slate-500">
-								Chargement des réservations…
+								Chargement des r├®servationsÔÇª
 							</div>
 						)}
 						{error && !isLoading && (
 							<div className="px-4 py-10 text-center text-sm text-rose-600">
-								Impossible de charger les réservations.
+								Impossible de charger les r├®servations.
 							</div>
 						)}
 						{!isLoading && !error && bookings.length === 0 && (
 							<div className="px-4 py-10 text-center text-sm text-slate-400">
-								Aucun résultat pour les filtres sélectionnés.
+								Aucun r├®sultat pour les filtres s├®lectionn├®s.
 							</div>
 						)}
 						{!isLoading && !error && bookings.length > 0 && (
@@ -822,10 +807,10 @@ export default function ReservationsAdminPage() {
 									<thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
 										<tr>
 											<th className="w-28 px-4 py-3">Date</th>
-											<th className="w-28 px-4 py-3">Réf.</th>
+											<th className="w-28 px-4 py-3">R├®f.</th>
 											<th className="w-20 px-4 py-3">Heure</th>
 											<th className="w-48 px-4 py-3">Client</th>
-											<th className="w-40 px-4 py-3">Détails</th>
+											<th className="w-40 px-4 py-3">D├®tails</th>
 											<th className="w-40 px-4 py-3">Paiement</th>
 											<th className="px-4 py-3">Actions</th>
 										</tr>
@@ -847,14 +832,14 @@ export default function ReservationsAdminPage() {
 														{format(toWall(new Date(booking.startTime)), 'dd/MM/yyyy')}
 													</td>
 													<td className="px-4 py-4 align-top font-mono text-xs text-slate-500">
-														{booking.publicReference ?? '—'}
+														{booking.publicReference ?? 'ÔÇö'}
 													</td>
 													<td className="px-4 py-4 align-top font-mono text-xs text-slate-500">
 														{format(toWall(new Date(booking.startTime)), 'HH:mm')}
 													</td>
 													<td className="px-4 py-4 align-top">
 														<p className="font-semibold text-slate-800">
-															{(booking.user?.firstName ?? 'Invité')}{' '}
+															{(booking.user?.firstName ?? 'Invit├®')}{' '}
 															{booking.user?.lastName ?? ''}
 														</p>
 														{booking.user?.email && (
@@ -923,9 +908,9 @@ export default function ReservationsAdminPage() {
 
 					<section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 						<div>
-							<h2 className="text-sm font-semibold text-slate-700">Chaîne &amp; répartitions</h2>
+							<h2 className="text-sm font-semibold text-slate-700">Cha├«ne &amp; r├®partitions</h2>
 							<p className="mt-1 text-xs text-slate-500">
-								Sélectionnez la réservation de référence puis définissez la taille du groupe.
+								S├®lectionnez la r├®servation de r├®f├®rence puis d├®finissez la taille du groupe.
 							</p>
 						</div>
 						<div className="flex flex-wrap items-end gap-3">
@@ -957,13 +942,13 @@ export default function ReservationsAdminPage() {
 								onClick={handleChainPreview}
 								className="rounded border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
 							>
-								Prévisualiser
+								Pr├®visualiser
 							</button>
 						</div>
 
 						{chainPreview.length === 0 ? (
 							<div className="rounded border border-dashed border-slate-200 px-3 py-6 text-center text-xs text-slate-500">
-								Prévisualisez pour obtenir la répartition des créneaux.
+								Pr├®visualisez pour obtenir la r├®partition des cr├®neaux.
 							</div>
 						) : (
 							<ul className="space-y-2 text-sm text-slate-600">
@@ -973,13 +958,13 @@ export default function ReservationsAdminPage() {
 										className="flex items-center justify-between rounded border border-slate-100 bg-slate-50 px-3 py-2"
 									>
 										<span className="font-medium">
-											#{preview.index} • {preview.start} → {preview.end}
+											#{preview.index} ÔÇó {preview.start} ÔåÆ {preview.end}
 										</span>
 										<span className="text-xs text-slate-500">{preview.people} pax</span>
 									</li>
 								))}
 								<li className="flex items-center justify-between border-t border-slate-100 pt-2 text-xs font-semibold text-slate-600">
-									<span>Total prévu</span>
+									<span>Total pr├®vu</span>
 									<span>
 										{chainPreview.reduce((accumulator, preview) => accumulator + preview.people, 0)} pax
 									</span>
@@ -995,9 +980,9 @@ export default function ReservationsAdminPage() {
 								className="mt-0.5"
 							/>
 							<span>
-								Hériter des métadonnées de paiement
+								H├®riter des m├®tadonn├®es de paiement
 								<span className="block text-[11px] text-slate-500">
-									Copie le fournisseur et le type de paiement seulement. Les règlements restent à confirmer.
+									Copie le fournisseur et le type de paiement seulement. Les r├¿glements restent ├á confirmer.
 								</span>
 							</span>
 						</label>
@@ -1008,7 +993,7 @@ export default function ReservationsAdminPage() {
 							onClick={handleChainCreate}
 							className="w-full rounded border border-emerald-600 bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
 						>
-							{chainCreating ? 'Création…' : 'Créer la chaîne'}
+							{chainCreating ? 'Cr├®ationÔÇª' : 'Cr├®er la cha├«ne'}
 						</button>
 					</section>
 				</div>
@@ -1029,7 +1014,7 @@ export default function ReservationsAdminPage() {
 								onClick={() => removeToast(toast.id)}
 								className="text-white/80 transition hover:text-white"
 							>
-								✕
+								Ô£ò
 							</button>
 						</div>
 					))}
@@ -1047,11 +1032,11 @@ export default function ReservationsAdminPage() {
 					>
 						<div className="sn-modal-header">
 							<div>
-								<h3 className="sn-modal-title">Créer une réservation</h3>
-								<p className="sn-modal-subtitle">Planifiez un départ classique, une privatisation sur-mesure ou transformez une demande de groupe.</p>
+								<h3 className="sn-modal-title">Cr├®er une r├®servation</h3>
+								<p className="sn-modal-subtitle">Planifiez un d├®part classique, une privatisation sur-mesure ou transformez une demande de groupe.</p>
 							</div>
 							<button type="button" onClick={closeCreateModal} className="sn-modal-close" aria-label="Fermer le modal">
-								✕
+								Ô£ò
 							</button>
 						</div>
 
@@ -1092,10 +1077,10 @@ export default function ReservationsAdminPage() {
 						<div className="sn-modal-body">
 							<section className="sn-form-section">
 								<div className="sn-form-section-header">
-									<span className="sn-form-section-icon" aria-hidden="true">🛥️</span>
+									<span className="sn-form-section-icon" aria-hidden="true">­ƒøÑ´©Å</span>
 									<div>
-										<p className="sn-form-section-heading">Départ &amp; capacité</p>
-										<p className="sn-form-section-copy">Choisissez la date, l&apos;heure et répartissez adultes, enfants et bébés.</p>
+										<p className="sn-form-section-heading">D├®part &amp; capacit├®</p>
+										<p className="sn-form-section-copy">Choisissez la date, l&apos;heure et r├®partissez adultes, enfants et b├®b├®s.</p>
 									</div>
 								</div>
 								<div className="sn-form-grid sn-form-grid-2">
@@ -1109,7 +1094,7 @@ export default function ReservationsAdminPage() {
 										/>
 									</label>
 									<label className="sn-field">
-										<span className="sn-label">Heure de départ</span>
+										<span className="sn-label">Heure de d├®part</span>
 										<input
 											type="time"
 											value={form.time}
@@ -1147,7 +1132,7 @@ export default function ReservationsAdminPage() {
 										/>
 									</label>
 									<label className="sn-field">
-										<span className="sn-label">Bébés 0-3</span>
+										<span className="sn-label">B├®b├®s 0-3</span>
 										<input
 											type="number"
 											min={0}
@@ -1163,15 +1148,15 @@ export default function ReservationsAdminPage() {
 
 							<section className="sn-form-section">
 								<div className="sn-form-section-header">
-									<span className="sn-form-section-icon" aria-hidden="true">👤</span>
+									<span className="sn-form-section-icon" aria-hidden="true">­ƒæñ</span>
 									<div>
 										<p className="sn-form-section-heading">Client principal</p>
-										<p className="sn-form-section-copy">Les confirmations, rappels et factures seront envoyés à ce contact.</p>
+										<p className="sn-form-section-copy">Les confirmations, rappels et factures seront envoy├®s ├á ce contact.</p>
 									</div>
 								</div>
 								<div className="sn-form-grid sn-form-grid-2">
 									<label className="sn-field">
-										<span className="sn-label">Prénom</span>
+										<span className="sn-label">Pr├®nom</span>
 										<input
 											value={form.firstName}
 											onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
@@ -1199,7 +1184,7 @@ export default function ReservationsAdminPage() {
 												</option>
 											))}
 										</select>
-										<span className="sn-hint">Langue utilisée pour les échanges et l&apos;accueil.</span>
+										<span className="sn-hint">Langue utilis├®e pour les ├®changes et l&apos;accueil.</span>
 									</label>
 								</div>
 								<label className="sn-field">
@@ -1213,87 +1198,13 @@ export default function ReservationsAdminPage() {
 								</label>
 							</section>
 
-							<section className="sn-form-section sn-form-section--muted">
-								<div className="sn-form-section-header">
-									<span className="sn-form-section-icon" aria-hidden="true">💶</span>
-									<div>
-										<p className="sn-form-section-heading">Encaissement immédiat</p>
-										<p className="sn-form-section-copy">Renseignez les détails si la réservation est réglée à la création.</p>
-									</div>
-								</div>
-								<label className="sn-field">
-									<span className="inline-flex items-center gap-2">
-										<input
-											type="checkbox"
-											checked={createMarkPaid}
-											onChange={(event) => {
-												const checked = event.target.checked
-												setCreateMarkPaid(checked)
-												if (!checked) {
-													setCreatePayment(createEmptyManualPaymentState())
-												}
-											}}
-											disabled={creating}
-										/>
-										<span className="sn-label">Marquer la réservation comme payée</span>
-									</span>
-									<span className="sn-hint">Activez pour enregistrer directement un paiement manuel (espèces, voucher, chèque...).</span>
-								</label>
-								{createMarkPaid && (
-									<div className="sn-form-grid sn-form-grid-2">
-										<label className="sn-field">
-											<span className="sn-label">Moyen de paiement</span>
-											<select
-												value={createPayment.provider}
-												onChange={(event) => {
-													const provider = event.target.value
-													setCreatePayment((current) => updateManualPaymentState(provider, current))
-												}}
-												className="sn-input"
-												disabled={creating}
-											>
-												<option value="">Sélectionner…</option>
-												<option value="cash">Espèces</option>
-												<option value="card">Carte</option>
-												<option value="paypal">PayPal</option>
-												<option value="applepay">Apple Pay</option>
-												<option value="googlepay">Google Pay</option>
-												<option value="voucher">Voucher / Hôtel</option>
-												<option value="check">Chèque</option>
-											</select>
-											<span className="sn-hint">Indiquez le support encaissé.</span>
-										</label>
-									</div>
-								)}
-								{createMarkPaid && createPayment.provider === 'voucher' && (
-									<VoucherDetailsForm
-										value={createPayment.voucherDetails ?? createVoucherDetails()}
-										disabled={creating}
-										onChange={(details, methodType) =>
-											setCreatePayment((current) => ({
-												...current,
-												methodType: methodType ?? current.methodType,
-												voucherDetails: details
-											}))
-										}
-									/>
-								)}
-								{createMarkPaid && createPayment.provider === 'check' && (
-									<CheckDetailsForm
-										value={createPayment.checkDetails ?? createCheckDetails()}
-										disabled={creating}
-										onChange={(details) => setCreatePayment((current) => ({ ...current, checkDetails: details }))}
-									/>
-								)}
-							</section>
-
 							{createTab === 'group' && (
 								<section className="sn-form-section sn-form-section--muted">
 									<div className="sn-form-section-header">
-										<span className="sn-form-section-icon" aria-hidden="true">👥</span>
+										<span className="sn-form-section-icon" aria-hidden="true">­ƒæÑ</span>
 										<div>
-											<p className="sn-form-section-heading">Détails groupe</p>
-											<p className="sn-form-section-copy">Précisez l&apos;organisation et les informations logistiques à partager avec l&apos;équipe.</p>
+											<p className="sn-form-section-heading">D├®tails groupe</p>
+											<p className="sn-form-section-copy">Pr├®cisez l&apos;organisation et les informations logistiques ├á partager avec l&apos;├®quipe.</p>
 										</div>
 									</div>
 									<div className="sn-form-grid sn-form-grid-2">
@@ -1307,7 +1218,7 @@ export default function ReservationsAdminPage() {
 											/>
 										</label>
 										<label className="sn-field">
-											<span className="sn-label">Téléphone</span>
+											<span className="sn-label">T├®l├®phone</span>
 											<input
 												type="tel"
 												value={form.phone}
@@ -1328,7 +1239,7 @@ export default function ReservationsAdminPage() {
 									</label>
 									<div className="sn-form-grid sn-form-grid-3">
 										<label className="sn-field">
-											<span className="sn-label">Date de l&apos;évènement</span>
+											<span className="sn-label">Date de l&apos;├®v├¿nement</span>
 											<input
 												type="date"
 												value={form.eventDate}
@@ -1337,7 +1248,7 @@ export default function ReservationsAdminPage() {
 											/>
 										</label>
 										<label className="sn-field">
-											<span className="sn-label">Heure souhaitée</span>
+											<span className="sn-label">Heure souhait├®e</span>
 											<input
 												type="time"
 												value={form.eventTime}
@@ -1346,31 +1257,31 @@ export default function ReservationsAdminPage() {
 											/>
 										</label>
 										<label className="sn-field">
-											<span className="sn-label">Budget estimé</span>
+											<span className="sn-label">Budget estim├®</span>
 											<input
 												value={form.budget}
 												onChange={(event) => setForm((current) => ({ ...current, budget: event.target.value }))}
-												placeholder="Ex : 1500 €"
+												placeholder="Ex : 1500 Ôé¼"
 												className="sn-input"
 											/>
 										</label>
 									</div>
 									<label className="sn-field">
-										<span className="sn-label">Type d&apos;évènement</span>
+										<span className="sn-label">Type d&apos;├®v├¿nement</span>
 										<input
 											value={form.reason}
 											onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))}
-											placeholder="Séminaire, EVJF, anniversaire..."
+											placeholder="S├®minaire, EVJF, anniversaire..."
 											className="sn-input"
 										/>
 									</label>
 									<label className="sn-field">
-										<span className="sn-label">Notes supplémentaires</span>
+										<span className="sn-label">Notes suppl├®mentaires</span>
 										<textarea
 											rows={3}
 											value={form.message}
 											onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
-											placeholder="Consignes logistiques, demandes spécifiques, allergies..."
+											placeholder="Consignes logistiques, demandes sp├®cifiques, allergies..."
 											className="sn-input sn-textarea"
 										/>
 									</label>
@@ -1379,17 +1290,17 @@ export default function ReservationsAdminPage() {
 
 							{createTab === 'private' && (
 								<div className="sn-form-info">
-									Privatisation : le créneau sélectionné est bloqué pour un client unique et retire la capacité publique du planning.
+									Privatisation : le cr├®neau s├®lectionn├® est bloqu├® pour un client unique et retire la capacit├® publique du planning.
 								</div>
 							)}
 
 							{createTab === 'contact' && (
 								<section className="sn-form-section sn-form-section--muted">
 									<div className="sn-form-section-header">
-										<span className="sn-form-section-icon" aria-hidden="true">📥</span>
+										<span className="sn-form-section-icon" aria-hidden="true">­ƒôÑ</span>
 										<div>
 											<p className="sn-form-section-heading">Convertir un contact</p>
-											<p className="sn-form-section-copy">Filtrez vos demandes puis transformez-les en réservation interne.</p>
+											<p className="sn-form-section-copy">Filtrez vos demandes puis transformez-les en r├®servation interne.</p>
 										</div>
 									</div>
 									<div className="sn-form-grid sn-form-grid-2">
@@ -1405,8 +1316,8 @@ export default function ReservationsAdminPage() {
 											>
 												<option value="">Tous les statuts</option>
 												<option value="NEW">Nouveaux</option>
-												<option value="CONTACTED">Contactés</option>
-												<option value="CLOSED">Fermés</option>
+												<option value="CONTACTED">Contact├®s</option>
+												<option value="CLOSED">Ferm├®s</option>
 											</select>
 										</label>
 										<label className="sn-field">
@@ -1416,10 +1327,10 @@ export default function ReservationsAdminPage() {
 												onChange={(event) => setSelectedContactId(event.target.value)}
 												className="sn-input"
 											>
-												<option value="">Sélectionner…</option>
+												<option value="">S├®lectionnerÔÇª</option>
 												{contacts.map((contact) => (
 													<option key={contact.id} value={contact.id}>
-														{contact.firstName ?? ''} {contact.lastName ?? ''} • {contact.email ?? ''}
+														{contact.firstName ?? ''} {contact.lastName ?? ''} ÔÇó {contact.email ?? ''}
 													</option>
 												))}
 											</select>
@@ -1437,7 +1348,7 @@ export default function ReservationsAdminPage() {
 													body: JSON.stringify({ id: selectedContactId, kind: 'group' })
 												})
 												if (response.ok) {
-													pushToast({ type: 'success', message: 'Contact converti en réservation.' })
+													pushToast({ type: 'success', message: 'Contact converti en r├®servation.' })
 													closeCreateModal()
 													mutate()
 												} else {
@@ -1445,14 +1356,14 @@ export default function ReservationsAdminPage() {
 												}
 											} catch (convertError) {
 												console.error('Erreur conversion contact', convertError)
-												pushToast({ type: 'warning', message: 'Erreur réseau pendant la conversion.' })
+												pushToast({ type: 'warning', message: 'Erreur r├®seau pendant la conversion.' })
 											} finally {
 												setContactConverting(false)
 											}
 										}}
 										className="sn-btn-primary w-full sm:w-auto disabled:cursor-not-allowed disabled:opacity-60"
 									>
-										{contactConverting ? 'Conversion…' : 'Convertir'}
+										{contactConverting ? 'ConversionÔÇª' : 'Convertir'}
 									</button>
 								</section>
 							)}
@@ -1477,7 +1388,7 @@ export default function ReservationsAdminPage() {
 										language: form.language,
 										userDetails: {
 											firstName: fallbackString(form.firstName, 'Client'),
-											lastName: fallbackString(form.lastName, 'Mystère'),
+											lastName: fallbackString(form.lastName, 'Myst├¿re'),
 											email: fallbackString(form.email, 'override@sweetnarcisse.local'),
 											phone: basePhone.length > 0 ? basePhone : undefined
 										},
@@ -1521,22 +1432,22 @@ export default function ReservationsAdminPage() {
 										}
 
 										if (response.ok) {
-											pushToast({ type: 'success', message: 'Réservation créée.' })
+											pushToast({ type: 'success', message: 'R├®servation cr├®├®e.' })
 											closeCreateModal()
 											mutate()
 										} else {
-											pushToast({ type: 'warning', message: 'Création impossible.' })
+											pushToast({ type: 'warning', message: 'Cr├®ation impossible.' })
 										}
 									} catch (createError) {
-										console.error('Erreur création réservation', createError)
-										pushToast({ type: 'warning', message: 'Erreur réseau pendant la création.' })
+										console.error('Erreur cr├®ation r├®servation', createError)
+										pushToast({ type: 'warning', message: 'Erreur r├®seau pendant la cr├®ation.' })
 									} finally {
 										setCreating(false)
 									}
 								}}
 								className="sn-btn-primary disabled:cursor-not-allowed disabled:opacity-60"
 							>
-								{creating ? 'Création…' : 'Créer'}
+								{creating ? 'Cr├®ationÔÇª' : 'Cr├®er'}
 							</button>
 						</div>
 					</div>
@@ -1554,37 +1465,37 @@ export default function ReservationsAdminPage() {
 					>
 						<div className="sn-modal-header">
 							<div>
-								<h3 className="sn-modal-title">Détails réservation</h3>
-								<p className="sn-modal-subtitle">Synthèse de la réservation et état du paiement.</p>
+								<h3 className="sn-modal-title">D├®tails r├®servation</h3>
+								<p className="sn-modal-subtitle">Synth├¿se de la r├®servation et ├®tat du paiement.</p>
 							</div>
 							<button type="button" onClick={closeViewModal} className="sn-modal-close" aria-label="Fermer la fiche">
-								✕
+								Ô£ò
 							</button>
 						</div>
 
 						<div className="sn-modal-body">
 							<section className="sn-form-section">
 								<div className="sn-form-section-header">
-									<span className="sn-form-section-icon" aria-hidden="true">📅</span>
+									<span className="sn-form-section-icon" aria-hidden="true">­ƒôà</span>
 									<div>
-										<p className="sn-form-section-heading">Départ</p>
-										<p className="sn-form-section-copy">Créneau sélectionné et composition du groupe.</p>
+										<p className="sn-form-section-heading">D├®part</p>
+										<p className="sn-form-section-copy">Cr├®neau s├®lectionn├® et composition du groupe.</p>
 									</div>
 								</div>
 								<div className="sn-form-grid sn-form-grid-2">
 									<div className="sn-field">
 										<span className="sn-label">Date</span>
-										<span className="text-base font-semibold text-slate-900">{viewDateLabel || '—'}</span>
-										{viewTimeLabel && <span className="sn-hint">Départ à {viewTimeLabel}</span>}
+										<span className="text-base font-semibold text-slate-900">{viewDateLabel || 'ÔÇö'}</span>
+										{viewTimeLabel && <span className="sn-hint">D├®part ├á {viewTimeLabel}</span>}
 									</div>
 									<div className="sn-field">
-										<span className="sn-label">Référence</span>
-										<span className="text-base font-semibold text-slate-900">{showView.publicReference ?? '—'}</span>
-										<span className="sn-hint">Affichée sur les confirmations client.</span>
+										<span className="sn-label">R├®f├®rence</span>
+										<span className="text-base font-semibold text-slate-900">{showView.publicReference ?? 'ÔÇö'}</span>
+										<span className="sn-hint">Affich├®e sur les confirmations client.</span>
 									</div>
 									<div className="sn-field">
 										<span className="sn-label">Participants</span>
-										<span className="text-base font-semibold text-slate-900">{viewPeopleLabel || '—'}</span>
+										<span className="text-base font-semibold text-slate-900">{viewPeopleLabel || 'ÔÇö'}</span>
 									</div>
 									<div className="sn-field">
 										<span className="sn-label">Langue</span>
@@ -1594,7 +1505,7 @@ export default function ReservationsAdminPage() {
 												{showView.language.toUpperCase()}
 											</span>
 										) : (
-											<span className="text-base font-semibold text-slate-900">—</span>
+											<span className="text-base font-semibold text-slate-900">ÔÇö</span>
 										)}
 									</div>
 								</div>
@@ -1602,10 +1513,10 @@ export default function ReservationsAdminPage() {
 
 							<section className="sn-form-section">
 								<div className="sn-form-section-header">
-									<span className="sn-form-section-icon" aria-hidden="true">👤</span>
+									<span className="sn-form-section-icon" aria-hidden="true">­ƒæñ</span>
 									<div>
 										<p className="sn-form-section-heading">Client principal</p>
-										<p className="sn-form-section-copy">Coordonnées pour prévenir ou confirmer l&apos;embarquement.</p>
+										<p className="sn-form-section-copy">Coordonn├®es pour pr├®venir ou confirmer l&apos;embarquement.</p>
 									</div>
 								</div>
 								<div className="sn-form-grid sn-form-grid-2">
@@ -1618,19 +1529,19 @@ export default function ReservationsAdminPage() {
 										<span className="text-base font-semibold text-slate-900">{viewClientEmail}</span>
 									</div>
 									<div className="sn-field sm:col-span-2">
-										<span className="sn-label">Téléphone</span>
+										<span className="sn-label">T├®l├®phone</span>
 										<span className="text-base font-semibold text-slate-900">{viewClientPhone}</span>
-										<span className="sn-hint">Utilisez ce numéro pour prévenir des imprévus.</span>
+										<span className="sn-hint">Utilisez ce num├®ro pour pr├®venir des impr├®vus.</span>
 									</div>
 								</div>
 							</section>
 
 							<section className="sn-form-section">
 								<div className="sn-form-section-header">
-									<span className="sn-form-section-icon" aria-hidden="true">💳</span>
+									<span className="sn-form-section-icon" aria-hidden="true">­ƒÆ│</span>
 									<div>
 										<p className="sn-form-section-heading">Paiement</p>
-										<p className="sn-form-section-copy">Statut actuel de la réservation.</p>
+										<p className="sn-form-section-copy">Statut actuel de la r├®servation.</p>
 									</div>
 								</div>
 								<div className="sn-form-grid sn-form-grid-2">
@@ -1638,7 +1549,7 @@ export default function ReservationsAdminPage() {
 										<span className="sn-label">Statut</span>
 										<span className={viewPaymentStatus?.tone ?? 'sn-pill sn-pill--slate'}>
 											<span className="sn-pill__dot" aria-hidden="true" />
-											{viewPaymentStatus?.label ?? '—'}
+											{viewPaymentStatus?.label ?? 'ÔÇö'}
 										</span>
 									</div>
 									<div className="sn-field">
@@ -1651,10 +1562,10 @@ export default function ReservationsAdminPage() {
 							{viewMarkPaid && (
 								<section className="sn-form-section sn-form-section--muted">
 									<div className="sn-form-section-header">
-										<span className="sn-form-section-icon" aria-hidden="true">💶</span>
+										<span className="sn-form-section-icon" aria-hidden="true">­ƒÆÂ</span>
 										<div>
 											<p className="sn-form-section-heading">Confirmer le paiement</p>
-											<p className="sn-form-section-copy">Enregistrez le règlement pour maintenir le suivi comptable.</p>
+											<p className="sn-form-section-copy">Enregistrez le r├¿glement pour maintenir le suivi comptable.</p>
 										</div>
 									</div>
 									<div className="sn-form-grid sn-form-grid-2">
@@ -1664,56 +1575,53 @@ export default function ReservationsAdminPage() {
 												value={viewMarkPaid.provider}
 												onChange={(event) => {
 													const provider = event.target.value
-													setViewMarkPaid((current) => updateManualPaymentState(provider, current))
+													setViewMarkPaid((current) => {
+														if (!current) {
+															return current
+														}
+														return {
+															provider,
+															methodType: provider === 'voucher' ? current.methodType ?? 'ANCV' : undefined
+														}
+													})
 												}}
 												className="sn-input"
 												disabled={markingPaid}
 											>
-												<option value="">Sélectionner…</option>
-												<option value="cash">Espèces</option>
+												<option value="">S├®lectionnerÔÇª</option>
+												<option value="cash">Esp├¿ces</option>
 												<option value="card">Carte</option>
 												<option value="paypal">PayPal</option>
 												<option value="applepay">Apple Pay</option>
 												<option value="googlepay">Google Pay</option>
-												<option value="voucher">Voucher / Hôtel</option>
-												<option value="check">Chèque</option>
+												<option value="voucher">ANCV / CityPass</option>
 											</select>
-											<span className="sn-hint">Indiquez la source du règlement enregistré.</span>
+											<span className="sn-hint">Indiquez la source du r├¿glement enregistr├®.</span>
 										</label>
+										{viewMarkPaid.provider === 'voucher' && (
+											<label className="sn-field">
+												<span className="sn-label">D├®tail</span>
+												<select
+													value={viewMarkPaid.methodType ?? 'ANCV'}
+													onChange={(event) => {
+														const methodType = event.target.value
+														setViewMarkPaid((current) => {
+															if (!current) {
+																return current
+															}
+															return { ...current, methodType }
+														})
+													}}
+													className="sn-input"
+													disabled={markingPaid}
+												>
+													<option value="ANCV">Ch├¿que ANCV</option>
+													<option value="CityPass">City Pass</option>
+												</select>
+												<span className="sn-hint">Pr├®cisez le support utilis├®.</span>
+											</label>
+										)}
 									</div>
-									{viewMarkPaid.provider === 'voucher' && (
-										<VoucherDetailsForm
-											value={viewMarkPaid.voucherDetails ?? createVoucherDetails()}
-											disabled={markingPaid}
-											onChange={(details, methodType) =>
-												setViewMarkPaid((current) =>
-													current
-														? {
-															...current,
-															methodType: methodType ?? current.methodType,
-															voucherDetails: details
-														}
-														: current
-												)
-											}
-										/>
-									)}
-									{viewMarkPaid.provider === 'check' && (
-										<CheckDetailsForm
-											value={viewMarkPaid.checkDetails ?? createCheckDetails()}
-											disabled={markingPaid}
-											onChange={(details) =>
-												setViewMarkPaid((current) =>
-													current
-														? {
-															...current,
-															checkDetails: details
-														}
-														: current
-												)
-											}
-										/>
-									)}
 									<div className="mt-4 flex flex-wrap justify-end gap-2">
 										<button
 											type="button"
@@ -1730,43 +1638,42 @@ export default function ReservationsAdminPage() {
 											type="button"
 											disabled={markingPaid}
 											onClick={async () => {
-											if (!viewMarkPaid) {
-												pushToast({ type: 'warning', message: 'Sélectionnez un moyen de paiement.' })
-												return
-											}
-											const buildResult = buildManualPaymentPayload(viewMarkPaid)
-											if (!buildResult.ok || !buildResult.paymentMethod) {
-												pushToast({ type: 'warning', message: buildResult.error ?? 'Sélectionnez un moyen de paiement.' })
-												return
-											}
-											setMarkingPaid(true)
-											try {
-												const payload: Record<string, unknown> = {
-													newIsPaid: true,
-													paymentMethod: buildResult.paymentMethod
+												if (!viewMarkPaid.provider) {
+													pushToast({ type: 'warning', message: 'S├®lectionnez un moyen de paiement.' })
+													return
 												}
+												setMarkingPaid(true)
+												try {
+													const payload: Record<string, unknown> = {
+														newIsPaid: true,
+														paymentMethod: {
+															provider: viewMarkPaid.provider,
+															methodType:
+																viewMarkPaid.provider === 'voucher' ? viewMarkPaid.methodType : undefined
+														}
+													}
 													const response = await fetch(`/api/bookings/${showView.id}`, {
 														method: 'PATCH',
 														headers: { 'Content-Type': 'application/json' },
 														body: JSON.stringify(payload)
 													})
 													if (response.ok) {
-														pushToast({ type: 'success', message: 'Réservation marquée comme payée.' })
+														pushToast({ type: 'success', message: 'R├®servation marqu├®e comme pay├®e.' })
 														mutate()
 														closeViewModal()
 													} else {
-														pushToast({ type: 'warning', message: 'Échec de la mise à jour du paiement.' })
+														pushToast({ type: 'warning', message: '├ëchec de la mise ├á jour du paiement.' })
 													}
 												} catch (updateError) {
-													console.error('Erreur mise à jour paiement', updateError)
-													pushToast({ type: 'warning', message: 'Erreur réseau pendant la mise à jour du paiement.' })
+													console.error('Erreur mise ├á jour paiement', updateError)
+													pushToast({ type: 'warning', message: 'Erreur r├®seau pendant la mise ├á jour du paiement.' })
 												} finally {
 													setMarkingPaid(false)
 												}
 											}}
 											className="sn-btn-primary"
 										>
-											{markingPaid ? 'Validation…' : 'Valider'}
+											{markingPaid ? 'ValidationÔÇª' : 'Valider'}
 										</button>
 									</div>
 								</section>
@@ -1781,12 +1688,12 @@ export default function ReservationsAdminPage() {
 								<button
 									type="button"
 									onClick={() => {
-									setViewMarkPaid(createEmptyManualPaymentState())
+										setViewMarkPaid({ provider: '', methodType: undefined })
 										setMarkingPaid(false)
 									}}
 									className="sn-btn-primary"
 								>
-									Mettre à jour le paiement
+									Mettre ├á jour le paiement
 								</button>
 							)}
 						</div>
@@ -1805,9 +1712,9 @@ export default function ReservationsAdminPage() {
 					>
 						<div className="sn-modal-header">
 							<div>
-								<h3 className="sn-modal-title">Modifier la réservation</h3>
+								<h3 className="sn-modal-title">Modifier la r├®servation</h3>
 								<p className="sn-modal-subtitle">
-									Mettez à jour le créneau, les effectifs ou le paiement.
+									Mettez ├á jour le cr├®neau, les effectifs ou le paiement.
 								</p>
 							</div>
 							<button
@@ -1816,7 +1723,7 @@ export default function ReservationsAdminPage() {
 								className="sn-modal-close"
 								aria-label="Fermer la modification"
 							>
-								✕
+								Ô£ò
 							</button>
 						</div>
 						<EditForm
@@ -1824,7 +1731,7 @@ export default function ReservationsAdminPage() {
 							onClose={() => setShowEdit(null)}
 							onSaved={() => {
 								setShowEdit(null)
-								pushToast({ type: 'success', message: 'Réservation modifiée.' })
+								pushToast({ type: 'success', message: 'R├®servation modifi├®e.' })
 								mutate()
 							}}
 						/>
@@ -1853,7 +1760,7 @@ function EditForm({
 		language: booking.language ?? 'fr',
 		isPaid: isBookingPaid(booking),
 		paymentProvider: booking.payments?.[0]?.provider ?? '',
-		paymentMethodType: booking.payments?.[0]?.methodType ?? ''
+		paymentMethodType: booking.payments?.[0]?.methodType ?? 'ANCV'
 	}))
 	const [saving, setSaving] = useState(false)
 	const languageOptions = useMemo(() => {
@@ -1866,10 +1773,10 @@ function EditForm({
 
 	const handleSave = async () => {
 		if (state.isPaid && !state.paymentProvider) {
-			alert('Sélectionnez un moyen de paiement.')
+			alert('S├®lectionnez un moyen de paiement.')
 			return
 		}
-		const confirmation = window.confirm('Confirmer la modification de cette réservation ?')
+		const confirmation = window.confirm('Confirmer la modification de cette r├®servation ?')
 		if (!confirmation) return
 		const payload: Record<string, unknown> = {
 			adults: state.adults,
@@ -1883,15 +1790,9 @@ function EditForm({
 			payload.time = state.time
 		}
 		if (state.isPaid && state.paymentProvider) {
-			const methodType =
-				state.paymentProvider === 'voucher'
-					? state.paymentMethodType || undefined
-					: state.paymentProvider === 'check'
-						? 'Chèque'
-						: undefined
 			payload.paymentMethod = {
 				provider: state.paymentProvider,
-				methodType
+				methodType: state.paymentProvider === 'voucher' ? state.paymentMethodType : undefined
 			}
 		}
 		setSaving(true)
@@ -1904,11 +1805,11 @@ function EditForm({
 			if (response.ok) {
 				onSaved()
 			} else {
-				alert('Impossible de modifier la réservation.')
+				alert('Impossible de modifier la r├®servation.')
 			}
 		} catch (editError) {
-			console.error('Erreur modification réservation', editError)
-			alert('Erreur réseau pendant la modification.')
+			console.error('Erreur modification r├®servation', editError)
+			alert('Erreur r├®seau pendant la modification.')
 		} finally {
 			setSaving(false)
 		}
@@ -1919,10 +1820,10 @@ function EditForm({
 			<div className="sn-modal-body">
 				<section className="sn-form-section">
 					<div className="sn-form-section-header">
-						<span className="sn-form-section-icon" aria-hidden="true">🛥️</span>
+						<span className="sn-form-section-icon" aria-hidden="true">­ƒøÑ´©Å</span>
 						<div>
-							<p className="sn-form-section-heading">Départ &amp; capacité</p>
-							<p className="sn-form-section-copy">Ajustez le créneau et la composition du groupe.</p>
+							<p className="sn-form-section-heading">D├®part &amp; capacit├®</p>
+							<p className="sn-form-section-copy">Ajustez le cr├®neau et la composition du groupe.</p>
 						</div>
 					</div>
 					<div className="sn-form-grid sn-form-grid-2">
@@ -1977,7 +1878,7 @@ function EditForm({
 							/>
 						</label>
 						<label className="sn-field">
-							<span className="sn-label">Bébés</span>
+							<span className="sn-label">B├®b├®s</span>
 							<input
 								type="number"
 								min={0}
@@ -2010,10 +1911,10 @@ function EditForm({
 
 				<section className="sn-form-section">
 					<div className="sn-form-section-header">
-						<span className="sn-form-section-icon" aria-hidden="true">💳</span>
+						<span className="sn-form-section-icon" aria-hidden="true">­ƒÆ│</span>
 						<div>
 							<p className="sn-form-section-heading">Paiement</p>
-							<p className="sn-form-section-copy">Indiquez le statut et la source du règlement.</p>
+							<p className="sn-form-section-copy">Indiquez le statut et la source du r├¿glement.</p>
 						</div>
 					</div>
 					<label className="sn-field">
@@ -2025,9 +1926,9 @@ function EditForm({
 								onChange={(event) => setState((current) => ({ ...current, isPaid: event.target.checked }))}
 								className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
 							/>
-							<span className="font-semibold text-slate-700">Réglé</span>
+							<span className="font-semibold text-slate-700">R├®gl├®</span>
 						</span>
-						<span className="sn-hint">Cochez dès que la caisse confirme le paiement.</span>
+						<span className="sn-hint">Cochez d├¿s que la caisse confirme le paiement.</span>
 					</label>
 
 					{state.isPaid ? (
@@ -2036,30 +1937,26 @@ function EditForm({
 								<span className="sn-label">Moyen de paiement</span>
 								<select
 									value={state.paymentProvider}
-									onChange={(event) => {
-										const nextProvider = event.target.value
+									onChange={(event) =>
 										setState((current) => ({
 											...current,
-											paymentProvider: nextProvider,
+											paymentProvider: event.target.value,
 											paymentMethodType:
-												nextProvider === 'voucher'
-													? current.paymentMethodType || getVoucherPartnerLabel(VOUCHER_PARTNERS[0]?.id ?? '')
-													: ''
+												event.target.value === 'voucher' ? current.paymentMethodType ?? 'ANCV' : 'ANCV'
 										}))
-									}}
+									}
 									className="sn-input"
 									disabled={saving}
 								>
-									<option value="">Sélectionner…</option>
-									<option value="cash">Espèces</option>
+									<option value="">S├®lectionnerÔÇª</option>
+									<option value="cash">Esp├¿ces</option>
 									<option value="card">Carte</option>
 									<option value="paypal">PayPal</option>
 									<option value="applepay">Apple Pay</option>
 									<option value="googlepay">Google Pay</option>
-									<option value="voucher">Voucher / Hôtel</option>
-									<option value="check">Chèque</option>
+									<option value="voucher">ANCV / CityPass</option>
 								</select>
-								<span className="sn-hint">Renseignez le canal utilisé pour encaisser.</span>
+								<span className="sn-hint">Renseignez le canal utilis├® pour encaisser.</span>
 							</label>
 							{state.paymentProvider === 'voucher' && (
 								<label className="sn-field">
@@ -2072,21 +1969,17 @@ function EditForm({
 										className="sn-input"
 										disabled={saving}
 									>
-										<option value="">Sélectionner…</option>
-										{VOUCHER_PARTNERS.map((option) => (
-											<option key={option.id} value={option.label}>
-												{option.label}
-											</option>
-										))}
+										<option value="ANCV">Ch├¿que ANCV</option>
+										<option value="CityPass">City Pass</option>
 									</select>
-									<span className="sn-hint">Précisez le support reçu.</span>
+									<span className="sn-hint">Pr├®cisez le support re├ºu.</span>
 								</label>
 							)}
 						</div>
 					) : (
 						<div className="sn-form-info">
 							<p className="sn-form-info-title">Paiement en attente</p>
-							<p className="sn-form-info-hint">Confirmez le règlement dès réception pour clôturer la réservation.</p>
+							<p className="sn-form-info-hint">Confirmez le r├¿glement d├¿s r├®ception pour cl├┤turer la r├®servation.</p>
 						</div>
 					)}
 				</section>
@@ -2101,7 +1994,7 @@ function EditForm({
 					className="sn-btn-primary"
 					disabled={saving}
 				>
-					{saving ? 'Enregistrement…' : 'Enregistrer'}
+					{saving ? 'EnregistrementÔÇª' : 'Enregistrer'}
 				</button>
 			</div>
 		</>
@@ -2116,7 +2009,4 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone: 
 		</div>
 	)
 }
-
-
-
 

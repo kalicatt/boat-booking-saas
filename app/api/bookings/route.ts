@@ -15,7 +15,8 @@ import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
-import type { Booking } from '@prisma/client'
+import { auth } from '@/auth'
+import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
 import { computeBookingToken } from '@/lib/bookingToken'
 import { generateBookingQrCodeDataUrl, generateBookingQrCodeBuffer } from '@/lib/qr'
@@ -41,6 +42,33 @@ const INTERVAL = 10
 const PRICE_ADULT = 9
 const PRICE_CHILD = 4
 const PRICE_BABY = 0
+
+type ManualPaymentMetadata = {
+  voucher?: {
+    partnerId?: string
+    partnerLabel?: string
+    reference?: string
+    quantity?: number
+    totalAmount?: string
+    autoTotal?: boolean
+  }
+  check?: {
+    number?: string
+    bank?: string
+    quantity?: number
+    amount?: string
+  }
+}
+
+type ManualPaymentPayload = {
+  provider?: string
+  methodType?: string
+  metadata?: ManualPaymentMetadata
+}
+
+type AdminSessionUser = {
+  id?: string | null
+}
 
 export async function POST(request: Request) {
   try {
@@ -73,6 +101,8 @@ export async function POST(request: Request) {
       inheritPaymentForChain,
       private: isPrivate
     } = payload
+
+    const adminSession = isStaffOverride ? await auth() : null
     // 1. CAPTCHA
     if (!isStaffOverride) {
         if (!captchaToken) return NextResponse.json({ error: "Captcha requis" }, { status: 400 })
@@ -90,13 +120,17 @@ export async function POST(request: Request) {
 
     const people = adults + children + babies
     const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
-    const paymentMethodDetails = typeof paymentMethod === 'object' && paymentMethod !== null
-      ? { provider: paymentMethod.provider, methodType: paymentMethod.methodType }
+    const paymentMethodObject: ManualPaymentPayload | null =
+      typeof paymentMethod === 'object' && paymentMethod !== null
+        ? (paymentMethod as ManualPaymentPayload)
+        : null
+    const paymentMethodDetails = paymentMethodObject
+      ? { provider: paymentMethodObject.provider, methodType: paymentMethodObject.methodType }
       : undefined
     const paymentMethodValue = typeof paymentMethod === 'string'
       ? paymentMethod
       : paymentMethodDetails?.provider
-    const instantCaptureMethods = new Set(['cash', 'paypal', 'applepay', 'googlepay', 'ANCV', 'CityPass'])
+    const instantCaptureMethods = new Set(['cash', 'paypal', 'applepay', 'googlepay', 'voucher', 'check', 'ANCV', 'CityPass'])
     const shouldMarkPaid = Boolean(markAsPaid && paymentMethodValue && instantCaptureMethods.has(paymentMethodValue))
 
     // --- VALIDATION HORAIRES ---
@@ -617,19 +651,80 @@ export async function POST(request: Request) {
 
     // 8. Enregistrer le paiement si guichet
     try {
-      if (isStaffOverride && txResult.ok) {
+      if (isStaffOverride && txResult.ok && shouldMarkPaid && paymentMethodValue) {
         const amountMinor = Math.round((txResult as TxResultOk).finalPrice * 100)
-        const method = paymentMethodValue
-        if (method === 'cash') {
-          await prisma.payment.create({ data: { provider: 'cash', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
-        } else if (method === 'paypal') {
-          await prisma.payment.create({ data: { provider: 'paypal', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
-        } else if (method === 'applepay') {
-          await prisma.payment.create({ data: { provider: 'applepay', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
-        } else if (method === 'googlepay') {
-          await prisma.payment.create({ data: { provider: 'googlepay', bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
-        } else if (method === 'ANCV' || method === 'CityPass') {
-          await prisma.payment.create({ data: { provider: 'voucher', methodType: method, bookingId: createdBooking.id, amount: amountMinor, currency: 'EUR', status: 'succeeded' } })
+        const isLegacyVoucher = paymentMethodValue === 'ANCV' || paymentMethodValue === 'CityPass'
+        const resolvedProvider = paymentMethodObject?.provider || (isLegacyVoucher ? 'voucher' : paymentMethodValue)
+        const resolvedMethodType = paymentMethodObject?.methodType || (isLegacyVoucher ? paymentMethodValue : undefined)
+
+        const paymentRecord = await prisma.payment.create({
+          data: {
+            provider: resolvedProvider || 'manual',
+            methodType: resolvedMethodType,
+            bookingId: createdBooking.id,
+            amount: amountMinor,
+            currency: 'EUR',
+            status: 'succeeded',
+            rawPayload: paymentMethodObject as Prisma.InputJsonValue | undefined
+          }
+        })
+
+        if (resolvedProvider === 'voucher' || resolvedProvider === 'check') {
+          const vatRateEnv = process.env.VAT_RATE ? parseFloat(process.env.VAT_RATE) : 20.0
+          const vatRate = Number.isFinite(vatRateEnv) ? vatRateEnv : 20.0
+          const gross = amountMinor
+          const net = Math.round(gross / (1 + vatRate / 100))
+          const vat = gross - net
+          const manualMetadata = paymentMethodObject?.metadata
+          let ledgerNote: string | undefined
+          if (manualMetadata?.voucher) {
+            const voucherParts = [
+              manualMetadata.voucher.partnerLabel,
+              manualMetadata.voucher.reference ? `Ref ${manualMetadata.voucher.reference}` : null,
+              manualMetadata.voucher.quantity ? `x${manualMetadata.voucher.quantity}` : null,
+              manualMetadata.voucher.totalAmount ? `${manualMetadata.voucher.totalAmount}€` : null
+            ].filter(Boolean) as string[]
+            ledgerNote = voucherParts.length ? voucherParts.join(' • ') : undefined
+          } else if (manualMetadata?.check) {
+            const checkParts = [
+              manualMetadata.check.number ? `Chèque ${manualMetadata.check.number}` : null,
+              manualMetadata.check.bank,
+              manualMetadata.check.quantity ? `x${manualMetadata.check.quantity}` : null,
+              manualMetadata.check.amount ? `${manualMetadata.check.amount}€` : null
+            ].filter(Boolean) as string[]
+            ledgerNote = checkParts.length ? checkParts.join(' • ') : undefined
+          }
+
+          const sessionUser = (adminSession?.user as AdminSessionUser | null) ?? null
+
+          await prisma.$transaction(async (tx) => {
+            const year = new Date().getUTCFullYear()
+            const seqName = `receipt_${year}`
+            const seq = await tx.sequence.upsert({
+              where: { name: seqName },
+              create: { name: seqName, current: 1 },
+              update: { current: { increment: 1 } }
+            })
+            const receiptNo = seq.current
+            await tx.paymentLedger.create({
+              data: {
+                eventType: 'PAID',
+                bookingId: createdBooking.id,
+                paymentId: paymentRecord.id,
+                provider: resolvedProvider,
+                methodType: resolvedMethodType,
+                amount: gross,
+                currency: 'EUR',
+                actorId: sessionUser?.id ?? null,
+                vatRate,
+                netAmount: net,
+                vatAmount: vat,
+                grossAmount: gross,
+                receiptNo,
+                note: ledgerNote
+              }
+            })
+          })
         }
       }
     } catch (e: unknown) {
