@@ -16,6 +16,7 @@ import { PRICES } from '@/lib/config'
 const resendClient: Resend | null = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
 const LOCAL_BASE_REGEX = /^https?:\/\/(localhost|127(?:\.\d+){0,3}|0\.0\.0\.0|10\.[0-9.]+|192\.168\.[0-9.]+)/i
 const MAP_LINK = 'https://maps.app.goo.gl/v2S3t2Wq83B7k6996'
+const GOOGLE_REVIEW_FALLBACK = 'https://maps.app.goo.gl/C712pRcYoDAXqyEr9'
 const EUR_FORMATTER = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 const PARIS_DATE = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' })
 const PARIS_TIME = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false })
@@ -77,6 +78,7 @@ export async function sendBookingConfirmationEmail(
   const useHostedAssets = !LOCAL_BASE_REGEX.test(baseUrl)
   const token = computeBookingToken(booking.id)
   const cancelUrl = `${baseUrl}/cancel/${booking.id}/${token}`
+  const reviewUrl = process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL?.trim() || GOOGLE_REVIEW_FALLBACK
 
   const qrAsset = useHostedAssets
     ? { type: 'url' as const, url: `${baseUrl}/api/booking-qr/${booking.id}/${token}` }
@@ -187,7 +189,8 @@ export async function sendBookingConfirmationEmail(
     qrCodeCid: qrAsset.type === 'inline' ? qrAsset.cid : null,
     cancelUrl,
     logoUrl: logoAsset.type === 'url' ? logoAsset.url : null,
-    logoCid: logoAsset.type === 'inline' ? logoAsset.cid : null
+    logoCid: logoAsset.type === 'inline' ? logoAsset.cid : null,
+    reviewUrl
   }
 
   const textBody = [
@@ -197,6 +200,7 @@ export async function sendBookingConfirmationEmail(
     `Merci d'arriver 10 minutes avant le départ au Pont Saint-Pierre, 10 Rue de la Herse, 68000 Colmar.`,
     `Itinéraire Google Maps : ${MAP_LINK}`,
     `Pour gérer ou annuler votre réservation, utilisez ce lien : ${cancelUrl}`,
+    `Vous avez aimé l'expérience ? Laissez un avis : ${reviewUrl}`,
     `À très vite sur l'eau !`
   ].join('\n\n')
 

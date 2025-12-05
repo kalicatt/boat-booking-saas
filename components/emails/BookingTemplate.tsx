@@ -18,6 +18,7 @@ interface BookingEmailProps {
     cancelUrl: string
     logoUrl?: string | null
     logoCid?: string | null
+    reviewUrl?: string | null
 }
 
 const brand = {
@@ -49,12 +50,14 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     qrCodeCid,
     cancelUrl,
     logoUrl,
-    logoCid
+    logoCid,
+    reviewUrl
 }) => {
     const referenceLabel = publicReference || bookingId
     const qrSrc = (qrCodeCid ? `cid:${qrCodeCid}` : (qrCodeDataUrl || qrCodeUrl || ''))
     const resolvedLogoSrc = logoCid ? `cid:${logoCid}` : (logoUrl || defaultLogoUrl)
     const ageBreakdownParts: string[] = []
+    const reviewLink = reviewUrl || null
 
     if (adults > 0) {
         ageBreakdownParts.push(`${adults} adulte${adults > 1 ? 's' : ''}`)
@@ -210,6 +213,42 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                         </table>
                                     </td>
                                 </tr>
+
+                                {reviewLink && (
+                                    <tr>
+                                        <td style={{ padding: '0 32px 32px' }}>
+                                            <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ borderRadius: 18, border: '1px solid #fde68a', background: '#fffbea' }}>
+                                                <tbody>
+                                                    <tr>
+                                                        <td style={{ padding: '24px', textAlign: 'center' }}>
+                                                            <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>Votre avis compte</p>
+                                                            <p style={{ margin: '0 0 16px', fontSize: 14, color: '#92400e', lineHeight: 1.6 }}>
+                                                                Partagez votre expérience à bord pour aider les prochains voyageurs et soutenir l'équipage.
+                                                            </p>
+                                                            <a
+                                                                href={reviewLink}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                style={{
+                                                                    display: 'inline-block',
+                                                                    padding: '12px 28px',
+                                                                    borderRadius: 999,
+                                                                    backgroundColor: '#f97316',
+                                                                    color: '#fff7ed',
+                                                                    textDecoration: 'none',
+                                                                    fontWeight: 700,
+                                                                    fontSize: 14
+                                                                }}
+                                                            >
+                                                                Laisser un avis Google
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </td>
+                                    </tr>
+                                )}
 
                                 <tr>
                                     <td style={{ padding: '32px' }}>

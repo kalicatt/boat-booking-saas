@@ -10,7 +10,7 @@ import { isGenericCounterEmail } from '@/lib/bookingConfirmationEmail'
 export const runtime = 'nodejs'
 
 const DATE_FORMATTER = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeZone: 'Europe/Paris' })
-const GOOGLE_REVIEW_FALLBACK = 'https://g.page/r/SweetNarcisse/review'
+const GOOGLE_REVIEW_FALLBACK = 'https://maps.app.goo.gl/C712pRcYoDAXqyEr9'
 const TRIPADVISOR_FALLBACK = 'https://www.tripadvisor.fr/UserReview'
 const SUBJECT = "Votre balade en barque : qu'en avez-vous pensé ? 🛶"
 
