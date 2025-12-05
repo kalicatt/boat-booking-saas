@@ -5,10 +5,10 @@ const prisma = new PrismaClient()
 async function main() {
   // --- Flotte de base ---
   const boats = [
-    { name: 'Le Cygne (Barque 1)', capacity: 12 },
-    { name: 'La Nymphe (Barque 2)', capacity: 12 },
-    { name: 'Le Triton (Barque 3)', capacity: 12 },
-    { name: 'La Sirène (Barque 4)', capacity: 12 }
+    { name: '2022 (Barque 1)', capacity: 12 },
+    { name: '2024 (Barque 2)', capacity: 12 },
+    { name: '2025(Barque 3)', capacity: 12 },
+    { name: '2021 (Barque 4)', capacity: 12 }
   ]
 
   for (const boat of boats) {
@@ -34,17 +34,16 @@ async function main() {
   type AdminSeed = {
     email: string
     label: string
-    role: 'ADMIN' | 'SUPERADMIN'
+    role: 'EMPLOYEE' | 'ADMIN' | 'SUPERADMIN'
     pass: string
     firstName?: string
     phone?: string | null
   }
 
   const admins: AdminSeed[] = [
-    { email: 'guichet@sweet-narcisse.fr', label: 'Guichet', role: 'ADMIN', pass: hashedPassword },
-    { email: 'gestion@sweet-narcisse.fr', label: 'Gestion', role: 'ADMIN', pass: hashedPassword },
-    { email: 'tract@sweet-narcisse.fr', label: 'Tract', role: 'ADMIN', pass: hashedPassword },
-    { email: 'admin@sweet-narcisse.fr', label: 'Super Admin', role: 'SUPERADMIN', pass: hashedPassword },
+    { email: 'guichet@sweet-narcisse.fr', label: 'Guichet', role: 'EMPLOYEE', pass: hashedPassword },
+    { email: 'gestion@sweet-narcisse.fr', label: 'Gestion', role: 'EMPLOYEE', pass: hashedPassword },
+    { email: 'tract@sweet-narcisse.fr', label: 'Tract', role: 'EMPLOYEE', pass: hashedPassword },
     {
       email: 'servaislucas68@gmail.com',
       label: 'Servais',

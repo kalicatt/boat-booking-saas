@@ -1,11 +1,6 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { auth } from '@/auth'
-import { createLog } from '@/lib/logger'
 import { AdminPageShell } from '@/app/admin/_components/AdminPageShell'
-
-const isAdminRole = (role: string | null | undefined) =>
-  role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
+import { ensureAdminPageAccess } from '@/lib/adminAccess'
 
 const CMS_SECTIONS = [
   {
@@ -39,23 +34,7 @@ const CMS_SECTIONS = [
 ] as const
 
 export default async function CmsHubPage() {
-  const session = await auth()
-  const user = session?.user ?? null
-
-  if (!user || typeof user.id !== 'string') {
-    redirect('/login')
-  }
-
-  const role = typeof user.role === 'string' ? user.role : null
-
-  if (!isAdminRole(role)) {
-    const identifier = user.email ?? user.id ?? 'unknown'
-    await createLog(
-      'UNAUTHORIZED_CMS_INDEX',
-      `User ${identifier} with role ${role ?? 'unknown'} attempted /admin/cms`
-    )
-    redirect('/admin')
-  }
+  await ensureAdminPageAccess({ page: 'cms', auditEvent: 'UNAUTHORIZED_CMS_INDEX' })
 
   return (
     <AdminPageShell

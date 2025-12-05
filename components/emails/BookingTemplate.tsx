@@ -223,7 +223,7 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                         <td style={{ padding: '24px', textAlign: 'center' }}>
                                                             <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>Votre avis compte</p>
                                                             <p style={{ margin: '0 0 16px', fontSize: 14, color: '#92400e', lineHeight: 1.6 }}>
-                                                                Partagez votre expérience à bord pour aider les prochains voyageurs et soutenir l'équipage.
+                                                                Partagez votre expérience à bord pour aider les prochains voyageurs et soutenir l&apos;équipage.
                                                             </p>
                                                             <a
                                                                 href={reviewLink}

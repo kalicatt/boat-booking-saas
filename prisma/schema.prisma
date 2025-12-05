@@ -37,6 +37,7 @@ model User {
   emergencyContactName String?
   emergencyContactPhone String?
   notes      String?
+  adminPermissions Json? @default("{}")
   bookings  Booking[]
   workShifts WorkShift[]
   log Log[] 

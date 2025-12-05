@@ -7,11 +7,25 @@ import { createLog } from '@/lib/logger'
 import { EmployeeCreateSchema, EmployeeUpdateSchema, toNumber, cleanString } from '@/lib/validation'
 import { normalizeIncoming } from '@/lib/phone'
 import { evaluatePassword } from '@/lib/passwordPolicy'
+import { resolveAdminPermissions, hasPageAccess } from '@/types/adminPermissions'
 
 type EmployeeSessionUser = {
   id?: string | null
   role?: string | null
   email?: string | null
+  adminPermissions?: unknown
+}
+
+async function generateEmployeeNumber() {
+  const year = new Date().getUTCFullYear()
+  const seqName = `employee_number_${year}`
+  const seq = await prisma.sequence.upsert({
+    where: { name: seqName },
+    create: { name: seqName, current: 1 },
+    update: { current: { increment: 1 } }
+  })
+  const padded = String(seq.current).padStart(4, '0')
+  return `EMP-${year}-${padded}`
 }
 
 // --- GET : LISTER LES EMPLOYÉS ---
@@ -21,7 +35,13 @@ export async function GET() {
     const sessionUser = (session?.user ?? null) as EmployeeSessionUser | null
     const role = typeof sessionUser?.role === 'string' ? sessionUser.role : null
 
+    const sessionPermissions = resolveAdminPermissions(sessionUser?.adminPermissions)
+
     if (!role || !['EMPLOYEE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
+      return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
+    }
+
+    if (role === 'EMPLOYEE' && !hasPageAccess(sessionPermissions, 'employees')) {
       return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
     }
 
@@ -69,7 +89,8 @@ export async function GET() {
 
     const extended = base.map((emp) => ({
       ...emp,
-      manager: emp.managerId ? managerMap.get(emp.managerId) ?? null : null
+      manager: emp.managerId ? managerMap.get(emp.managerId) ?? null : null,
+      adminPermissions: resolveAdminPermissions(emp.adminPermissions)
     }))
     return NextResponse.json(extended)
   } catch (error) {
@@ -118,7 +139,8 @@ export async function POST(request: Request) {
       salary,
       emergencyContactName,
       emergencyContactPhone,
-      notes
+      notes,
+      permissions
     } = parsed.data
 
     // Normalisation E.164 si le numéro commence par '+'
@@ -128,8 +150,8 @@ export async function POST(request: Request) {
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } })
-    if (existingUser) return NextResponse.json({ error: "Email déjà utilisé." }, { status: 409 })
-
+    const targetRole = userSession.role === 'ADMIN' ? 'EMPLOYEE' : role || 'EMPLOYEE'
+    const managerId = userSession?.id ?? undefined
     const passwordPolicy = evaluatePassword(password, [email, firstName, lastName])
     if (!passwordPolicy.valid) {
       return NextResponse.json({ error: passwordPolicy.feedback || 'Mot de passe trop faible', score: passwordPolicy.score }, { status: 422 })
@@ -137,19 +159,55 @@ export async function POST(request: Request) {
 
     const hashedPassword = await hash(password, 10)
 
-    const managerId = userSession?.id ?? undefined
+    if (existingUser) {
+      if (existingUser.role !== 'CLIENT') {
+        return NextResponse.json({ error: 'Email déjà utilisé.' }, { status: 409 })
+      }
 
-    const generatedEmployeeNumber = await prisma.$transaction(async (tx) => {
-      const year = new Date().getUTCFullYear()
-      const seqName = `employee_number_${year}`
-      const seq = await tx.sequence.upsert({
-        where: { name: seqName },
-        create: { name: seqName, current: 1 },
-        update: { current: { increment: 1 } }
+      const employeeNumber = existingUser.employeeNumber ?? (await generateEmployeeNumber())
+
+      const promotedUser = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          firstName: cleanString(firstName, 60)!,
+          lastName: cleanString(lastName, 60)!,
+          email: email.toLowerCase(),
+          phone: phone || undefined,
+          address: address || undefined,
+          city: city || undefined,
+          postalCode: postalCode || undefined,
+          country: country || undefined,
+          password: hashedPassword,
+          role: targetRole,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
+          gender: gender || undefined,
+          employeeNumber,
+          hireDate: hireDate ? new Date(hireDate) : undefined,
+          department: department || undefined,
+          jobTitle: jobTitle || undefined,
+          managerId,
+          employmentStatus: employmentStatus || 'PERMANENT',
+          isFullTime: fullTime ?? true,
+          hourlyRate: toNumber(hourlyRate),
+          annualSalary: toNumber(salary),
+          emergencyContactName: emergencyContactName || undefined,
+          emergencyContactPhone: emergencyContactPhone || undefined,
+          notes: notes || undefined,
+          adminPermissions: permissions
+        }
       })
-      const padded = String(seq.current).padStart(4, '0')
-      return `EMP-${year}-${padded}`
-    })
+
+      await createLog(
+        'EMPLOYEE_PROMOTE',
+        `Conversion client → employé ${promotedUser.firstName} ${promotedUser.lastName} (${promotedUser.email})`
+      )
+
+      const { password: hiddenPassword, ...safePromotion } = promotedUser
+      void hiddenPassword
+      return NextResponse.json({ success: true, user: { ...safePromotion, adminPermissions: permissions } })
+    }
+
+    const generatedEmployeeNumber = await generateEmployeeNumber()
 
     const newUser = await prisma.user.create({
       data: {
@@ -162,7 +220,7 @@ export async function POST(request: Request) {
         postalCode: postalCode || undefined,
         country: country || undefined,
         password: hashedPassword,
-        role: userSession.role === 'ADMIN' ? 'EMPLOYEE' : role || 'EMPLOYEE',
+        role: targetRole,
         dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
         gender: gender || undefined,
         employeeNumber: generatedEmployeeNumber,
@@ -176,7 +234,8 @@ export async function POST(request: Request) {
         annualSalary: toNumber(salary),
         emergencyContactName: emergencyContactName || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
-        notes: notes || undefined
+        notes: notes || undefined,
+        adminPermissions: permissions
       }
     })
 
@@ -185,7 +244,7 @@ export async function POST(request: Request) {
     const { password: passwordHidden, ...safeUser } = newUser
     void passwordHidden
 
-    return NextResponse.json({ success: true, user: safeUser })
+    return NextResponse.json({ success: true, user: { ...safeUser, adminPermissions: permissions } })
   } catch (error) {
     console.error('POST /api/admin/employees', error)
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 })
@@ -268,7 +327,8 @@ export async function PUT(request: Request) {
       salary,
       emergencyContactName,
       emergencyContactPhone,
-      notes
+      notes,
+      permissions
     } = parsed.data
 
     let phone = rawPhone ?? undefined
@@ -303,6 +363,7 @@ export async function PUT(request: Request) {
       emergencyContactName: emergencyContactName || undefined,
       emergencyContactPhone: emergencyContactPhone || undefined,
       notes: notes || undefined,
+      ...(permissions ? { adminPermissions: permissions } : {})
     }
 
     // Si un nouveau mot de passe est fourni, on le hache et on l'ajoute
@@ -335,7 +396,7 @@ export async function PUT(request: Request) {
   const { password: passwordHidden, ...safeUser } = updatedUser
   void passwordHidden
 
-  return NextResponse.json({ success: true, user: safeUser })
+  return NextResponse.json({ success: true, user: { ...safeUser, adminPermissions: resolveAdminPermissions(updatedUser.adminPermissions) } })
   } catch (error) {
     console.error('PUT /api/admin/employees', error)
     return NextResponse.json({ error: "Erreur lors de la modification (Email déjà pris ?)" }, { status: 500 })

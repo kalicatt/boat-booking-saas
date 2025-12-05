@@ -1,61 +1,201 @@
-import Image from 'next/image'
+﻿import Image from 'next/image'
 import Link from 'next/link'
-import { auth } from '@/auth'
-import { logout } from '@/lib/actions'
-import { redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
-import { computeBatteryAlert } from '@/lib/maintenance'
 import { BoatStatus } from '@prisma/client'
 
-// 1. On définit le type complet de l'utilisateur pour TypeScript
-interface ExtendedUser {
-  name?: string | null
-  email?: string | null
-  image?: string | null
-  firstName?: string | null
-  lastName?: string | null
-  role?: string
+import { logout } from '@/lib/actions'
+import { prisma } from '@/lib/prisma'
+import { computeBatteryAlert } from '@/lib/maintenance'
+import { ensureAdminPageAccess, canAccessAdminPage } from '@/lib/adminAccess'
+import type { AdminPermissionKey } from '@/types/adminPermissions'
+
+type DashboardTile = {
+  key: AdminPermissionKey
+  href: string
+  label: string
+  description: string
+  icon: string
+  iconClass: string
+  hoverBorder: string
+  hoverText: string
+}
+
+const DASHBOARD_TILES = [
+  {
+    key: 'planning',
+    href: '/admin/planning',
+    label: 'Planning & Résas',
+    description: 'Accéder au calendrier, gérer les départs du jour et ajuster les réservations.',
+    icon: '📅',
+    iconClass: 'bg-blue-100 text-blue-600',
+    hoverBorder: 'hover:border-blue-300',
+    hoverText: 'group-hover:text-blue-600'
+  },
+  {
+    key: 'reservations',
+    href: '/admin/reservations',
+    label: 'Liste des réservations',
+    description: 'Créer, consulter, modifier ou exporter les réservations.',
+    icon: '📋',
+    iconClass: 'bg-green-100 text-green-600',
+    hoverBorder: 'hover:border-green-300',
+    hoverText: 'group-hover:text-green-600'
+  },
+  {
+    key: 'today',
+    href: '/admin/today',
+    label: 'Ops du jour',
+    description: "Vue opérateur temps-réel pour checker les départs et valider l'embarquement.",
+    icon: '⚓️',
+    iconClass: 'bg-sky-100 text-sky-600',
+    hoverBorder: 'hover:border-sky-300',
+    hoverText: 'group-hover:text-sky-600'
+  },
+  {
+    key: 'stats',
+    href: '/admin/stats',
+    label: 'Statistiques',
+    description: "Suivre le chiffre d'affaires, l'affluence et les langues.",
+    icon: '📊',
+    iconClass: 'bg-purple-100 text-purple-600',
+    hoverBorder: 'hover:border-purple-300',
+    hoverText: 'group-hover:text-purple-600'
+  },
+  {
+    key: 'fleet',
+    href: '/admin/fleet',
+    label: 'Flotte & maintenance',
+    description: 'Renommer les barques, suivre batteries et générer des alertes.',
+    icon: '🚤',
+    iconClass: 'bg-emerald-100 text-emerald-600',
+    hoverBorder: 'hover:border-emerald-300',
+    hoverText: 'group-hover:text-emerald-600'
+  },
+  {
+    key: 'hours',
+    href: '/admin/hours',
+    label: 'Heures & paie',
+    description: 'Saisir, corriger et exporter les heures des collaborateurs.',
+    icon: '🕒',
+    iconClass: 'bg-orange-100 text-orange-600',
+    hoverBorder: 'hover:border-orange-300',
+    hoverText: 'group-hover:text-orange-600'
+  },
+  {
+    key: 'accounting',
+    href: '/admin/accounting',
+    label: 'Comptabilité & caisse',
+    description: 'Ledger, clôtures journalières, remboursements et exports.',
+    icon: '💶',
+    iconClass: 'bg-indigo-100 text-indigo-600',
+    hoverBorder: 'hover:border-indigo-300',
+    hoverText: 'group-hover:text-indigo-600'
+  },
+  {
+    key: 'employees',
+    href: '/admin/employees',
+    label: 'Équipe & comptes',
+    description: 'Inviter, éditer et gérer les permissions des collaborateurs.',
+    icon: '👥',
+    iconClass: 'bg-pink-100 text-pink-600',
+    hoverBorder: 'hover:border-pink-300',
+    hoverText: 'group-hover:text-pink-600'
+  },
+  {
+    key: 'logs',
+    href: '/admin/logs',
+    label: 'Mouchard (logs)',
+    description: "Consulter l'historique des actions sensibles.",
+    icon: '🕵️‍♂️',
+    iconClass: 'bg-slate-100 text-slate-600',
+    hoverBorder: 'hover:border-slate-400',
+    hoverText: 'group-hover:text-slate-600'
+  },
+  {
+    key: 'blocks',
+    href: '/admin/blocks',
+    label: 'Blocages réservation',
+    description: 'Fermer des journées, matinées ou créneaux spécifiques.',
+    icon: '⛔',
+    iconClass: 'bg-red-100 text-red-600',
+    hoverBorder: 'hover:border-red-300',
+    hoverText: 'group-hover:text-red-600'
+  },
+  {
+    key: 'cms',
+    href: '/admin/cms',
+    label: 'CMS & site',
+    description: 'Modifier les contenus publics et publier les changements.',
+    icon: '📰',
+    iconClass: 'bg-cyan-100 text-cyan-600',
+    hoverBorder: 'hover:border-cyan-300',
+    hoverText: 'group-hover:text-cyan-600'
+  },
+  {
+    key: 'settings',
+    href: '/admin/settings',
+    label: 'Paramètres',
+    description: 'Intégrations, options globales et configuration avancée.',
+    icon: '⚙️',
+    iconClass: 'bg-amber-100 text-amber-600',
+    hoverBorder: 'hover:border-amber-300',
+    hoverText: 'group-hover:text-amber-600'
+  },
+  {
+    key: 'profile',
+    href: '/admin/profile',
+    label: 'Mon profil',
+    description: 'Mettre à jour vos informations et votre mot de passe.',
+    icon: '👤',
+    iconClass: 'bg-slate-800 text-white',
+    hoverBorder: 'hover:border-slate-500',
+    hoverText: 'group-hover:text-slate-600'
+  }
+] as const satisfies ReadonlyArray<DashboardTile>
+
+type TileAccessMap = Record<DashboardTile['key'], boolean>
+
+type RoleStyles = {
+  avatar: string
+  badge: string
+  ring: string
+}
+
+const getRoleStyles = (role: string | null | undefined): RoleStyles => {
+  switch (role) {
+    case 'SUPERADMIN':
+      return {
+        avatar: 'bg-yellow-500',
+        badge: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        ring: 'ring-yellow-100'
+      }
+    case 'ADMIN':
+      return {
+        avatar: 'bg-purple-600',
+        badge: 'bg-purple-100 text-purple-800 border-purple-200',
+        ring: 'ring-purple-100'
+      }
+    default:
+      return {
+        avatar: 'bg-blue-600',
+        badge: 'bg-blue-100 text-blue-800 border-blue-200',
+        ring: 'ring-blue-100'
+      }
+  }
 }
 
 export default async function AdminDashboard() {
-  const session = await auth()
-  
-  // 2. On "force" le type ici pour dire à TS : "T'inquiète, ces champs existent"
-  const user = session?.user as ExtendedUser | undefined
+  const { user, role, permissions } = await ensureAdminPageAccess({
+    page: 'dashboard',
+    auditEvent: 'UNAUTHORIZED_DASHBOARD'
+  })
 
-  // 3. REDIRECTION SI NON CONNECTÉ (Au lieu d'une page blanche)
-  if (!user) {
-    redirect('/login')
-  }
-
-  // Calcul des initiales (avec fallback de sécurité)
-  const initials = `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || user.name?.[0]?.toUpperCase() || '?'
-
-  // 4. DÉFINITION DES COULEURS SELON LE RÔLE
-  const getRoleStyles = (role: string) => {
-    switch (role) {
-      case 'SUPERADMIN':
-        return {
-          avatar: 'bg-yellow-500',
-          badge: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-          ring: 'ring-yellow-100'
-        }
-      case 'ADMIN':
-        return {
-          avatar: 'bg-purple-600',
-          badge: 'bg-purple-100 text-purple-800 border-purple-200',
-          ring: 'ring-purple-100'
-        }
-      default: // EMPLOYEE
-        return {
-          avatar: 'bg-blue-600',
-          badge: 'bg-blue-100 text-blue-800 border-blue-200',
-          ring: 'ring-blue-100'
-        }
-    }
-  }
-
-  const styles = getRoleStyles(user.role || 'EMPLOYEE')
+  const initials =
+    `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() ||
+    user?.name?.[0]?.toUpperCase() ||
+    user?.email?.[0]?.toUpperCase() ||
+    '?'
+  const displayName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || user?.name || user?.email || 'Compte Sweet Narcisse'
+  const styles = getRoleStyles(role)
 
   const now = new Date()
   const normalizedDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
@@ -101,7 +241,7 @@ export default async function AdminDashboard() {
     startMessages.push(`Note du chef d'équipe : ${quotaRecord.note}`)
   }
   if (!startMessages.length) {
-    startMessages.push('Départ possible sur l’ensemble de la flotte.')
+    startMessages.push("Départ possible sur l'ensemble de la flotte.")
   }
 
   const endMessages: string[] = []
@@ -115,59 +255,49 @@ export default async function AdminDashboard() {
     endMessages.push('Fin de journée : aucune alerte, cloche possible ✅')
   }
 
+  const pageAccess = DASHBOARD_TILES.reduce((acc, tile) => {
+    acc[tile.key] = canAccessAdminPage(role, permissions, tile.key)
+    return acc
+  }, {} as TileAccessMap)
+  const hasAnyTile = Object.values(pageAccess).some(Boolean)
+
   return (
     <div className="sn-admin">
-      <div className="max-w-6xl mx-auto p-8">
-        
-        {/* HEADER AVEC PROFIL COLORÉ */}
-        <div className="flex flex-col md:flex-row justify-between items-end mb-10 pb-5 border-b border-slate-200 gap-6">
-          
-          {/* Titre */}
+      <div className="mx-auto max-w-6xl p-8">
+        <div className="mb-10 flex flex-col items-end gap-6 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-slate-800">Tableau de Bord</h1>
-            <p className="text-slate-500 mt-2">Espace de gestion Sweet Narcisse</p>
+            <h1 className="text-4xl font-bold text-slate-800">Tableau de bord</h1>
+            <p className="mt-2 text-slate-500">Espace de gestion Sweet Narcisse</p>
           </div>
-          
-          {/* CARTE PROFIL & DÉCONNEXION */}
-          <div className={`flex items-center gap-4 sn-card p-2 pr-4 rounded-full ring-4 ${styles.ring}`}>
-            
-            {/* Avatar : Image OU Initiales */}
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm tracking-wider shadow-inner overflow-hidden ${!user.image ? styles.avatar : 'bg-white'}`}>
-              {user.image ? (
-                <Image
-                  src={user.image}
-                  alt="Profile"
-                  width={40}
-                  height={40}
-                  className="w-full h-full object-cover"
-                  unoptimized
-                />
+
+          <div className={`sn-card flex items-center gap-4 rounded-full p-2 pr-4 ring-4 ${styles.ring}`}>
+            <div
+              className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold tracking-wider text-white shadow-inner ${
+                user?.image ? 'bg-white' : styles.avatar
+              }`}
+            >
+              {user?.image ? (
+                <Image src={user.image} alt="Profile" width={40} height={40} className="h-full w-full rounded-full object-cover" unoptimized />
               ) : (
-                <span className="text-white">{initials}</span>
+                <span>{initials}</span>
               )}
             </div>
 
-            {/* Infos Texte */}
-            <div className="flex flex-col mr-4">
-              <span className="text-sm font-bold text-slate-800 leading-none">
-                {user.firstName} {user.lastName}
-              </span>
-              <span className={`text-[10px] font-bold uppercase mt-1 px-2 py-0.5 rounded w-fit border ${styles.badge}`}>
-                {user.role}
+            <div className="mr-4 flex flex-col">
+              <span className="text-sm font-bold leading-none text-slate-800">{displayName}</span>
+              <span className={`mt-1 w-fit rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${styles.badge}`}>
+                {role ?? 'EMPLOYEE'}
               </span>
             </div>
 
-            {/* Séparateur */}
-            <div className="h-8 w-px bg-slate-200 mx-1"></div>
+            <div className="mx-1 h-8 w-px bg-slate-200" />
 
-            {/* Bouton Déconnexion */}
             <form action={logout}>
-              <button type="submit" className="text-slate-400 hover:text-red-600 transition p-2" title="Se déconnecter">
+              <button type="submit" className="p-2 text-slate-400 transition hover:text-red-600" title="Se déconnecter">
                 🚪
               </button>
             </form>
           </div>
-
         </div>
 
         <div className="mb-8 grid gap-4 md:grid-cols-2">
@@ -175,163 +305,32 @@ export default async function AdminDashboard() {
           <AlertBanner title="Fin de journée" icon="🌇" tone="warning" items={endMessages} />
         </div>
 
-        {/* GRILLE D'OPTIONS */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
-          
-          {/* 1. PLANNING */}
-          <Link href="/admin/planning" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-blue-300 transition-all cursor-pointer hover:-translate-y-0.5">
-            <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-              📅
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-blue-600">
-              Planning & Résas
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Accéder au calendrier, gérer les départs du jour et modifier les réservations.
-            </p>
-          </Link>
-
-          {/* 2. LISTE DES RÉSERVATIONS */}
-          <Link href="/admin/reservations" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-green-300 transition-all cursor-pointer hover:-translate-y-0.5">
-            <div className="w-14 h-14 bg-green-100 text-green-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-              📋
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-green-600">
-              Liste des Réservations
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Créer, consulter, modifier, convertir depuis les contacts et chaîner des groupes.
-            </p>
-          </Link>
-
-          {/* 3. STATISTIQUES */}
-          <Link href="/admin/stats" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-purple-300 transition-all cursor-pointer hover:-translate-y-0.5">
-            <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-              📊
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-purple-600">
-              Statistiques
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Suivre le chiffre d&apos;affaires, l&apos;affluence et la répartition par langue/barque.
-            </p>
-          </Link>
-
-          {/* 3bis. FLOTTE & MAINTENANCE */}
-          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
-            <Link href="/admin/fleet" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-emerald-300 transition-all cursor-pointer hover:-translate-y-0.5">
-              <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-                🚤
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-emerald-600">
-                Flotte & Maintenance
-              </h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Renommer les barques, suivre batterie/alertes et mettre en maintenance instantanément.
-              </p>
-            </Link>
-          )}
-
-          {/* 4. HEURES & PAIE */}
-          <Link href="/admin/hours" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-orange-300 transition-all cursor-pointer hover:-translate-y-0.5">
-            <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-              🕒
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-orange-600">
-              Heures & Paie
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Saisir les heures des employés et générer les rapports mensuels.
-            </p>
-          </Link>
-
-          {/* 5. COMPTABILITÉ */}
-          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
-            <Link href="/admin/accounting" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-indigo-300 transition-all cursor-pointer hover:-translate-y-0.5">
-              <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-                💶
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-indigo-600">
-                Comptabilité
-              </h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Ledger, caisse, clôture journalière et exports CSV/PDF.
-              </p>
-            </Link>
-          )}
-
-          {/* 6. ÉQUIPE & COMPTES */}
-          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
-            <Link href="/admin/employees" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-pink-300 transition-all cursor-pointer hover:-translate-y-0.5">
-              <div className="w-14 h-14 bg-pink-100 text-pink-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-                👥
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-pink-600">
-                Équipe & Comptes
-              </h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Gérer les employés, droits et accès administrateur.
-              </p>
-            </Link>
-          )}
-
-          {/* 7. MOUCHARD (Logs) */}
-          <Link href="/admin/logs" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-slate-400 transition-all cursor-pointer hover:-translate-y-0.5">
-            <div className="w-14 h-14 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-              🕵️‍♂️
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-slate-600">
-              Mouchard (Logs)
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Surveiller l&apos;activité : suppressions, modifications et sécurité.
-            </p>
-          </Link>
-
-          {/* 8. Blocages de réservation (Admins uniquement) */}
-          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
-            <Link href="/admin/blocks" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-red-300 transition-all cursor-pointer hover:-translate-y-0.5">
-              <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-                ⛔
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-red-600">
-                Blocages Réservation
-              </h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Bloquer des journées, matinées, après-midi ou horaires spécifiques.
-              </p>
-            </Link>
-          )}
-
-          {/* 9. CMS & Site (Admins uniquement) */}
-          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
-            <Link href="/admin/cms" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-cyan-300 transition-all cursor-pointer hover:-translate-y-0.5">
-              <div className="w-14 h-14 bg-cyan-100 text-cyan-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-                📰
-              </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-cyan-600">
-                CMS & Site
-              </h2>
-              <p className="text-slate-500 text-sm leading-relaxed">
-                Modifier le contenu public, valider les brouillons et mettre en ligne.
-              </p>
-            </Link>
-          )}
-
-
-          {/* CARTE 10 : MON PROFIL */}
-          <Link href="/admin/profile" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-slate-500 transition-all cursor-pointer hover:-translate-y-0.5">
-            <div className="w-14 h-14 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
-              👤
-            </div>
-            <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-slate-600">
-              Mon Profil
-            </h2>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Modifier mon mot de passe personnel.
-            </p>
-          </Link>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
+          {DASHBOARD_TILES.map((tile) => {
+            if (!pageAccess[tile.key]) {
+              return null
+            }
+            return (
+              <Link
+                key={tile.key}
+                href={tile.href}
+                className={`group block sn-card cursor-pointer rounded-2xl border border-transparent p-6 transition-all hover:-translate-y-0.5 hover:shadow-xl ${tile.hoverBorder}`}
+              >
+                <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-3xl ${tile.iconClass}`}>
+                  {tile.icon}
+                </div>
+                <h2 className={`mb-3 text-2xl font-bold text-slate-800 ${tile.hoverText}`}>{tile.label}</h2>
+                <p className="text-sm text-slate-500">{tile.description}</p>
+              </Link>
+            )
+          })}
         </div>
+
+        {!hasAnyTile && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            Aucune section n&apos;est active pour votre compte. Contactez un administrateur pour obtenir les accès nécessaires.
+          </p>
+        )}
       </div>
     </div>
   )
@@ -345,10 +344,7 @@ type AlertBannerProps = {
 }
 
 function AlertBanner({ title, icon, items, tone }: AlertBannerProps) {
-  const palette =
-    tone === 'warning'
-      ? 'bg-amber-50 border-amber-200 text-amber-900'
-      : 'bg-sky-50 border-sky-200 text-slate-800'
+  const palette = tone === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-sky-50 border-sky-200 text-slate-800'
 
   return (
     <div className={`rounded-2xl border p-4 shadow-sm ${palette}`}>

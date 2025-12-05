@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import Credentials from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
 import { z } from "zod"
+import { resolveAdminPermissions, type AdminPermissions } from '@/types/adminPermissions'
 
 // --- 1. CONFIGURATION TYPES (Pour éviter les @ts-ignore) ---
 declare module "next-auth" {
@@ -11,6 +12,7 @@ declare module "next-auth" {
     role?: string
     firstName?: string
     lastName?: string
+    adminPermissions?: AdminPermissions
   }
   interface Session {
     user: {
@@ -19,6 +21,7 @@ declare module "next-auth" {
       lastName?: string
       id?: string
       image?: string | null
+      adminPermissions?: AdminPermissions
     } & import("next-auth").DefaultSession["user"]
   }
 }
@@ -29,6 +32,7 @@ type ExtendedToken = {
   lastName?: string
   id?: string
   image?: string | null
+  adminPermissions?: AdminPermissions
 }
 
 // --- 2. SCHÉMA DE VALIDATION ZOD ---
@@ -69,13 +73,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           if (isPasswordValid) {
              // On retourne l'objet complet pour les callbacks
+             const permissions = resolveAdminPermissions(user.adminPermissions)
              return {
                 id: user.id,
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 role: user.role,
-                image: user.image,
+               image: user.image,
+               adminPermissions: permissions
              }
           }
         }
@@ -92,6 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         extended.lastName = user.lastName
         extended.id = user.id
         extended.image = user.image 
+        extended.adminPermissions = resolveAdminPermissions(user.adminPermissions)
       }
       return extended
     },
@@ -105,6 +112,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // FIX: On force le type string pour l'ID
         session.user.id = extended.id as string
         session.user.image = (extended.image as string | null | undefined) ?? null
+        session.user.adminPermissions = extended.adminPermissions ?? resolveAdminPermissions()
       }
       return session
     }

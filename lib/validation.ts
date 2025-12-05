@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import { normalizeIncoming } from './phone'
+import { resolveAdminPermissions } from '@/types/adminPermissions'
 
 // Basic reusable sanitization – trim & remove zero-width/invisible chars
 export function cleanString(input: unknown, maxLength = 255) {
@@ -43,7 +44,8 @@ export const EmployeeCreateSchema = z.object({
   salary: z.union([z.string(), z.number()]).optional(),
   emergencyContactName: z.string().optional().transform(v => v ? cleanString(v, 80) : undefined),
   emergencyContactPhone: z.string().optional().transform(v => v ? cleanString(v, 30) : undefined),
-  notes: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v, 2000)!) : undefined)
+  notes: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v, 2000)!) : undefined),
+  permissions: z.unknown().optional().transform((value) => resolveAdminPermissions(value))
 })
 
 // Update schema: require id, all other fields optional (partial update)

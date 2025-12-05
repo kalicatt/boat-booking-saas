@@ -4,6 +4,18 @@ import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
 import Image from 'next/image'
 import { AdminPageShell } from '../_components/AdminPageShell'
+import {
+    ADMIN_PERMISSION_CONFIG,
+    ADMIN_PERMISSION_GROUPS,
+    ADMIN_PERMISSION_SECTIONS,
+    type AdminPermissionKey,
+    type AdminPermissionAction,
+    type AdminPermissions,
+    createEmptyAdminPermissions,
+    resolveAdminPermissions,
+    hasPermission,
+    hasPageAccess
+} from '@/types/adminPermissions'
 
 type Props = { canManage?: boolean }
 
@@ -38,9 +50,10 @@ type EmployeeRecord = {
     image?: string | null
     employeeNumber?: string | null
     manager?: { firstName?: string | null; lastName?: string | null } | null
+    adminPermissions?: AdminPermissions
 }
 
-type MeResponse = { role?: EmployeeRole | null }
+type MeResponse = { role?: EmployeeRole | null; permissions?: AdminPermissions }
 
 type CreateEmployeeForm = {
     firstName: string
@@ -65,11 +78,12 @@ type CreateEmployeeForm = {
     notes: string
     password: string
     role: EmployeeRole
+    permissions: AdminPermissions
 }
 
 type EmployeeWithUser = { user: EmployeeRecord }
 
-const defaultFormState: CreateEmployeeForm = {
+const createDefaultFormState = (): CreateEmployeeForm => ({
     firstName: '',
     lastName: '',
     email: '',
@@ -91,8 +105,9 @@ const defaultFormState: CreateEmployeeForm = {
     emergencyContactPhone: '',
     notes: '',
     password: '',
-    role: 'EMPLOYEE'
-}
+    role: 'EMPLOYEE',
+    permissions: createEmptyAdminPermissions()
+})
 
 const isEmployeeRecord = (value: unknown): value is EmployeeRecord => {
     if (!value || typeof value !== 'object') return false
@@ -102,15 +117,28 @@ const isEmployeeRecord = (value: unknown): value is EmployeeRecord => {
 
 const parseEmployeesResponse = (payload: unknown): EmployeeRecord[] => {
     if (!Array.isArray(payload)) return []
-    return payload.filter(isEmployeeRecord)
+    return payload
+        .filter(isEmployeeRecord)
+        .map((record) => ({
+            ...record,
+            adminPermissions: ensurePermissions(record.adminPermissions)
+        }))
 }
 
 const extractEmployee = (payload: unknown): EmployeeRecord | null => {
     if (!payload || typeof payload !== 'object') return null
-    if (isEmployeeRecord(payload)) return payload
+    if (isEmployeeRecord(payload)) {
+        return {
+            ...payload,
+            adminPermissions: ensurePermissions(payload.adminPermissions)
+        }
+    }
     const candidate = payload as EmployeeWithUser
     if (candidate && typeof candidate === 'object' && candidate.user && isEmployeeRecord(candidate.user)) {
-        return candidate.user
+        return {
+            ...candidate.user,
+            adminPermissions: ensurePermissions(candidate.user.adminPermissions)
+        }
     }
     return null
 }
@@ -121,6 +149,49 @@ const rolePriority: Record<EmployeeRole, number> = {
     MANAGER: 2,
     EMPLOYEE: 3,
     GUEST: 4
+}
+
+const PERMISSION_GROUPED_SECTIONS = Object.entries(ADMIN_PERMISSION_GROUPS)
+    .map(([groupKey, meta]) => ({
+        key: groupKey as keyof typeof ADMIN_PERMISSION_GROUPS,
+        label: meta.label,
+        sections: ADMIN_PERMISSION_SECTIONS.filter((section) => ADMIN_PERMISSION_CONFIG[section.key].group === groupKey)
+    }))
+    .filter((entry) => entry.sections.length > 0)
+
+const ensurePermissions = (value?: AdminPermissions | null): AdminPermissions =>
+    value ? resolveAdminPermissions(value) : createEmptyAdminPermissions()
+
+const resolvePermissionField = <K extends AdminPermissionKey>(
+    key: K,
+    field: 'enabled' | string
+): ('enabled' | AdminPermissionAction<K>) | null => {
+    if (field === 'enabled') return 'enabled'
+    const action = ADMIN_PERMISSION_CONFIG[key].actions.find((candidate) => candidate.key === field)
+    return action ? (action.key as AdminPermissionAction<K>) : null
+}
+
+const applyPermissionToggle = <K extends AdminPermissionKey>(
+    permissions: AdminPermissions | undefined,
+    key: K,
+    field: 'enabled' | AdminPermissionAction<K>,
+    value: boolean
+): AdminPermissions => {
+    const base = permissions ? { ...permissions } : createEmptyAdminPermissions()
+    const current = { ...base[key] }
+
+    if (field === 'enabled') {
+        current.enabled = value
+        if (!value) {
+            for (const action of ADMIN_PERMISSION_CONFIG[key].actions) {
+                ;(current as Record<string, boolean>)[action.key] = false
+            }
+        }
+    } else {
+        ;(current as Record<string, boolean>)[field] = value
+    }
+
+    return { ...base, [key]: current }
 }
 
 const sortEmployees = (list: EmployeeRecord[]): EmployeeRecord[] => {
@@ -135,12 +206,13 @@ const sortEmployees = (list: EmployeeRecord[]): EmployeeRecord[] => {
 export default function ClientEmployeesPage({ canManage = false }: Props) {
     const [employees, setEmployees] = useState<EmployeeRecord[]>([])
     const [myRole, setMyRole] = useState<EmployeeRole>('EMPLOYEE')
+    const [myPermissions, setMyPermissions] = useState<AdminPermissions>(() => createEmptyAdminPermissions())
     const [loading, setLoading] = useState(true)
     const [showCreateModal, setShowCreateModal] = useState(false)
 
     const [editTarget, setEditTarget] = useState<EmployeeRecord | null>(null)
     const [editErrors, setEditErrors] = useState<string[]>([])
-    const [form, setForm] = useState<CreateEmployeeForm>(defaultFormState)
+    const [form, setForm] = useState<CreateEmployeeForm>(() => createDefaultFormState())
 
     useEffect(() => {
         async function load() {
@@ -148,6 +220,7 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                 const meRes = await fetch('/api/auth/me', { credentials: 'include', cache: 'no-store' })
                 const mePayload = (await meRes.json()) as MeResponse
                 setMyRole(typeof mePayload?.role === 'string' ? mePayload.role : 'EMPLOYEE')
+                setMyPermissions(ensurePermissions(mePayload?.permissions))
                 const res = await fetch('/api/admin/employees', { credentials: 'include', cache: 'no-store' })
                 const employeesPayload = (await res.json()) as unknown
                 setEmployees(sortEmployees(parseEmployeesResponse(employeesPayload)))
@@ -167,14 +240,14 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
             body: JSON.stringify(form)
         })
         if (res.ok) {
-            const createdPayload = await res.json().catch(() => null) as unknown
+            const createdPayload = (await res.json().catch(() => null)) as unknown
             const createdUser = extractEmployee(createdPayload)
             if (createdUser) {
                 setEmployees((prev) => sortEmployees([createdUser, ...prev]))
             }
-            setForm(defaultFormState)
+            setForm(createDefaultFormState())
         } else {
-            const error = await res.json().catch(() => null) as { error?: string } | null
+            const error = (await res.json().catch(() => null)) as { error?: string } | null
             alert(error?.error || "Impossible de créer le collaborateur")
         }
     }
@@ -186,13 +259,17 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
     }
 
     // Prefer server-provided canManage flag; fallback to role check client-side
-    const localCanManage = canManage || myRole === 'SUPERADMIN' || myRole === 'ADMIN'
+    const canViewEmployees = myRole === 'SUPERADMIN' || myRole === 'ADMIN' || hasPageAccess(myPermissions, 'employees')
+    const canEditEmployees = canManage || myRole === 'SUPERADMIN' || myRole === 'ADMIN' || hasPermission(myPermissions, 'employees', 'edit')
+    const canInviteEmployees = myRole === 'SUPERADMIN' || myRole === 'ADMIN' || hasPermission(myPermissions, 'employees', 'invite')
+    const localCanManage = canEditEmployees
+    const allowCreate = localCanManage && canInviteEmployees
 
     return (
         <AdminPageShell
             title="Équipe & comptes"
             description="Gérez les accès, les coordonnées et les statuts de l&apos;équipe Sweet Narcisse."
-            actions={localCanManage ? (
+            actions={allowCreate ? (
                 <button onClick={()=>setShowCreateModal(true)} className="sn-btn-primary">+ Nouveau collaborateur</button>
             ) : undefined}
         >
@@ -202,138 +279,150 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                 </p>
             )}
 
-            <CreateEmployeeModal
-                open={showCreateModal}
-                onClose={()=>setShowCreateModal(false)}
-                onSubmit={(event)=>{handleSubmit(event); setShowCreateModal(false)}}
-                form={form}
-                setForm={setForm}
-                myRole={myRole}
-            />
-
-            {localCanManage ? (
-                <div className="sn-card overflow-hidden">
-                    <table className="w-full text-left text-sm">
-                        <thead className="bg-slate-50 text-slate-500 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
-                            <tr>
-                                <th className="p-4">Collaborateur</th>
-                                <th className="p-4">Coordonnées</th>
-                                <th className="p-4">Poste</th>
-                                <th className="p-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {loading ? (
-                                <tr><td colSpan={4} className="p-8 text-center">Chargement...</td></tr>
-                            ) : employees.length === 0 ? (
-                                <tr><td colSpan={4} className="p-8 text-center">Aucun collaborateur.</td></tr>
-                            ) : (
-                                employees.map((emp) => (
-                                    <tr key={emp.id} className="transition hover:bg-slate-50 dark:hover:bg-slate-800">
-                                        <td className="p-4 align-top">
-                                                <div className="flex items-start gap-3">
-                                                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
-                                                    {emp.image ? (
-                                                        <Image src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} width={48} height={48} className="h-full w-full rounded-full object-cover" />
-                                                    ) : (
-                                                        `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
-                                                    )}
-                                                </div>
-                                                <div>
-                                                    <div className="font-semibold text-slate-900 text-base">
-                                                        {emp.firstName} {emp.lastName}
-                                                    </div>
-                                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                                                        <span className={`rounded-full px-2 py-0.5 border ${
-                                                            emp.role === 'SUPERADMIN'
-                                                                ? 'border-yellow-200 bg-yellow-100 text-yellow-800'
-                                                                : emp.role === 'ADMIN'
-                                                                ? 'border-purple-200 bg-purple-100 text-purple-700'
-                                                                : 'border-blue-200 bg-blue-100 text-blue-700'
-                                                        }`}>
-                                                            {emp.role}
-                                                        </span>
-                                                        {emp.employeeNumber && (
-                                                            <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
-                                                                #{emp.employeeNumber}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 text-sm text-slate-600 align-top">
-                                            <div className="space-y-1">
-                                                <div className="flex items-center gap-2"><span aria-hidden="true">📧</span><span>{emp.email}</span></div>
-                                                <div className="flex items-center gap-2"><span aria-hidden="true">📞</span><span>{emp.phone || '-'}</span></div>
-                                                <div className="flex items-start gap-2 text-xs text-slate-400"><span aria-hidden="true">🏠</span><span>{emp.address || emp.city || emp.postalCode ? `${emp.address ?? ''} ${emp.postalCode ?? ''} ${emp.city ?? ''}`.trim() : '-'}</span></div>
-                                            </div>
-                                        </td>
-                                        <td className="p-4 align-top text-sm text-slate-600">
-                                            <div>{emp.jobTitle || '—'}</div>
-                                            <div className="text-xs text-slate-400">{emp.department || '—'}</div>
-                                            {emp.manager && (
-                                                <div className="mt-2 text-xs text-slate-500">
-                                                    Manager : {emp.manager.firstName} {emp.manager.lastName}
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="p-4 text-right align-top">
-                                            {emp.role === 'SUPERADMIN' ? (
-                                                <span className="text-xs text-slate-400">Compte protégé</span>
-                                            ) : (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setEditTarget({
-                                                                ...emp,
-                                                                fullTime: typeof emp.fullTime === 'boolean'
-                                                                    ? emp.fullTime
-                                                                    : (typeof emp.isFullTime === 'boolean' ? emp.isFullTime : true),
-                                                                salary: emp.salary ?? emp.annualSalary ?? '',
-                                                            })
-                                                            setEditErrors([])
-                                                        }}
-                                                        className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
-                                                    >
-                                                        {myRole === 'SUPERADMIN' ? 'Modifier' : 'Consulter'}
-                                                    </button>
-                                                    {myRole === 'SUPERADMIN' && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => handleDelete(emp.id, emp.firstName)}
-                                                            className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:text-red-700"
-                                                        >
-                                                            Supprimer
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            ) : (
-                <EmployeeDirectory employees={employees} loading={loading} />
+            {!canViewEmployees && !loading && (
+                <p className="inline-flex items-center gap-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                    ❗️ Accès refusé — contactez un administrateur pour obtenir les droits nécessaires.
+                </p>
             )}
 
-            <EditEmployeeModal
-                open={localCanManage && !!editTarget}
-                onClose={()=>{setEditTarget(null); setEditErrors([])}}
-                employee={editTarget}
-                setEmployee={setEditTarget}
-                canEdit={myRole === 'SUPERADMIN'}
-                errors={editErrors}
-                setErrors={setEditErrors}
-                onSaved={(updated)=>{
-                    setEmployees(prev => sortEmployees(prev.map(e => e.id === updated.id ? { ...e, ...updated } : e)))
-                    setEditTarget(null)
-                }}
-            />
+            {canViewEmployees && (
+                <>
+                    <CreateEmployeeModal
+                        open={showCreateModal}
+                        onClose={()=>setShowCreateModal(false)}
+                        onSubmit={(event)=>{handleSubmit(event); setShowCreateModal(false)}}
+                        form={form}
+                        setForm={setForm}
+                        myRole={myRole}
+                    />
+
+                    {localCanManage ? (
+                        <div className="sn-card overflow-hidden">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-500 font-bold border-b dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
+                                    <tr>
+                                        <th className="p-4">Collaborateur</th>
+                                        <th className="p-4">Coordonnées</th>
+                                        <th className="p-4">Poste</th>
+                                        <th className="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                                    {loading && (
+                                        <tr><td colSpan={4} className="p-8 text-center">Chargement...</td></tr>
+                                    )}
+                                    {!loading && employees.length === 0 && (
+                                        <tr><td colSpan={4} className="p-8 text-center">Aucun collaborateur.</td></tr>
+                                    )}
+                                    {!loading && employees.length > 0 &&
+                                        employees.map((emp) => (
+                                            <tr key={emp.id} className="transition hover:bg-slate-50 dark:hover:bg-slate-800">
+                                                <td className="p-4 align-top">
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
+                                                            {emp.image ? (
+                                                                <Image src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} width={48} height={48} className="h-full w-full rounded-full object-cover" />
+                                                            ) : (
+                                                                `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-base font-semibold text-slate-900">
+                                                                {emp.firstName} {emp.lastName}
+                                                            </div>
+                                                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                                                                <span className={`rounded-full px-2 py-0.5 border ${
+                                                                    emp.role === 'SUPERADMIN'
+                                                                        ? 'border-yellow-200 bg-yellow-100 text-yellow-800'
+                                                                        : emp.role === 'ADMIN'
+                                                                        ? 'border-purple-200 bg-purple-100 text-purple-700'
+                                                                        : 'border-blue-200 bg-blue-100 text-blue-700'
+                                                                }`}>
+                                                                    {emp.role}
+                                                                </span>
+                                                                {emp.employeeNumber && (
+                                                                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
+                                                                        #{emp.employeeNumber}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 align-top text-sm text-slate-600">
+                                                    <div className="space-y-1">
+                                                        <div className="flex items-center gap-2"><span aria-hidden="true">📧</span><span>{emp.email}</span></div>
+                                                        <div className="flex items-center gap-2"><span aria-hidden="true">📞</span><span>{emp.phone || '-'}</span></div>
+                                                        <div className="flex items-start gap-2 text-xs text-slate-400"><span aria-hidden="true">🏠</span><span>{emp.address || emp.city || emp.postalCode ? `${emp.address ?? ''} ${emp.postalCode ?? ''} ${emp.city ?? ''}`.trim() : '-'}</span></div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 align-top text-sm text-slate-600">
+                                                    <div>{emp.jobTitle || '—'}</div>
+                                                    <div className="text-xs text-slate-400">{emp.department || '—'}</div>
+                                                    {emp.manager && (
+                                                        <div className="mt-2 text-xs text-slate-500">
+                                                            Manager : {emp.manager.firstName} {emp.manager.lastName}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4 text-right align-top">
+                                                    {emp.role === 'SUPERADMIN' ? (
+                                                        <span className="text-xs text-slate-400">Compte protégé</span>
+                                                    ) : (
+                                                        <div className="flex justify-end gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setEditTarget({
+                                                                        ...emp,
+                                                                        fullTime: typeof emp.fullTime === 'boolean'
+                                                                            ? emp.fullTime
+                                                                            : (typeof emp.isFullTime === 'boolean' ? emp.isFullTime : true),
+                                                                        salary: emp.salary ?? emp.annualSalary ?? '',
+                                                                        adminPermissions: ensurePermissions(emp.adminPermissions)
+                                                                    })
+                                                                    setEditErrors([])
+                                                                }}
+                                                                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700"
+                                                            >
+                                                                {myRole === 'SUPERADMIN' ? 'Modifier' : 'Consulter'}
+                                                            </button>
+                                                            {myRole === 'SUPERADMIN' && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleDelete(emp.id, emp.firstName)}
+                                                                    className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:border-red-300 hover:text-red-700"
+                                                                >
+                                                                    Supprimer
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <EmployeeDirectory employees={employees} loading={loading} />
+                    )}
+
+                    <EditEmployeeModal
+                        open={localCanManage && !!editTarget}
+                        onClose={()=>{setEditTarget(null); setEditErrors([])}}
+                        employee={editTarget}
+                        setEmployee={setEditTarget}
+                        canEdit={myRole === 'SUPERADMIN'}
+                        errors={editErrors}
+                        setErrors={setEditErrors}
+                        onSaved={(updated)=>{
+                            setEmployees(prev => sortEmployees(prev.map(e => e.id === updated.id ? { ...e, ...updated } : e)))
+                            setEditTarget(null)
+                        }}
+                    />
+                </>
+            )}
         </AdminPageShell>
     )
 }
@@ -421,6 +510,18 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
             return next
         })
     }
+    const handlePermissionToggle = (section: AdminPermissionKey, field: 'enabled' | string, value: boolean) => {
+        if (readOnly) return
+        const normalizedField = resolvePermissionField(section, field)
+        if (!normalizedField) return
+        setEmployee((prev) => {
+            if (!prev) return prev
+            return {
+                ...prev,
+                adminPermissions: applyPermissionToggle(prev.adminPermissions, section, normalizedField, value)
+            }
+        })
+    }
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
         if (readOnly) return onClose()
@@ -432,7 +533,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
             body: JSON.stringify(payload)
         })
         if (res.ok) {
-            const updatedPayload = await res.json().catch(() => null) as unknown
+            const updatedPayload = (await res.json().catch(() => null)) as unknown
             const updatedEmployee = extractEmployee(updatedPayload)
             if (updatedEmployee) {
                 onSaved(updatedEmployee)
@@ -440,7 +541,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                 setErrors(['Réponse inattendue du serveur'])
             }
         } else {
-            const err = await res.json().catch(()=>null)
+            const err = (await res.json().catch(() => null)) as { error?: string } | null
             setErrors([err?.error || 'Erreur mise à jour'])
         }
     }
@@ -704,6 +805,16 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         />
                     </section>
 
+                    <section>
+                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Permissions back-office</h4>
+                        <p className="text-xs text-slate-500 mb-3">Activez les sections accessibles pour ce collaborateur, puis précisez les actions autorisées.</p>
+                        <PermissionsEditor
+                            permissions={employee.adminPermissions ?? createEmptyAdminPermissions()}
+                            onToggle={handlePermissionToggle}
+                            readOnly={!canEdit}
+                        />
+                    </section>
+
                     <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={onClose} className="border px-4 py-2 rounded">{readOnly ? 'Fermer' : 'Annuler'}</button>
                         {canEdit && (
@@ -718,6 +829,14 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
 // Modal de création rapide
 function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }: CreateEmployeeModalProps) {
     if (!open) return null
+    const handlePermissionToggle = (section: AdminPermissionKey, field: 'enabled' | string, value: boolean) => {
+        const normalizedField = resolvePermissionField(section, field)
+        if (!normalizedField) return
+        setForm((prev) => ({
+            ...prev,
+            permissions: applyPermissionToggle(prev.permissions, section, normalizedField, value)
+        }))
+    }
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
             <div className="bg-white w-full max-w-3xl rounded-xl shadow-lg border border-slate-200">
@@ -851,6 +970,14 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
                         <textarea className="w-full p-2 border rounded" value={form.notes || ''} onChange={e=>setForm({...form, notes: e.target.value})} />
                     </div>
 
+                    <section className="space-y-3 border border-slate-100 rounded-xl p-3">
+                        <div>
+                            <h4 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">Permissions back-office</h4>
+                            <p className="text-xs text-slate-500">Activez les pages accessibles pour ce compte puis cochez les actions autorisées.</p>
+                        </div>
+                        <PermissionsEditor permissions={form.permissions} onToggle={handlePermissionToggle} />
+                    </section>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Mot de passe provisoire</label>
@@ -936,6 +1063,70 @@ function EmployeeDirectory({ employees, loading }: EmployeeDirectoryProps) {
                     </article>
                 )
             })}
+        </div>
+    )
+}
+
+interface PermissionsEditorProps {
+    permissions: AdminPermissions
+    onToggle: (section: AdminPermissionKey, field: 'enabled' | string, value: boolean) => void
+    readOnly?: boolean
+}
+
+function PermissionsEditor({ permissions, onToggle, readOnly = false }: PermissionsEditorProps) {
+    return (
+        <div className="space-y-4">
+            {PERMISSION_GROUPED_SECTIONS.map((group) => (
+                <section key={group.key} className="space-y-3">
+                    <h5 className="text-xs font-bold uppercase tracking-[0.3em] text-slate-400">{group.label}</h5>
+                    <div className="space-y-3">
+                        {group.sections.map(({ key, config }) => {
+                            const page = permissions[key]
+                            return (
+                                <div key={key} className="rounded-2xl border border-slate-200 p-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="font-semibold text-slate-800">{config.label}</p>
+                                            {config.description && <p className="text-xs text-slate-500">{config.description}</p>}
+                                        </div>
+                                        <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                            <input
+                                                type="checkbox"
+                                                className="h-4 w-4"
+                                                checked={page.enabled}
+                                                disabled={readOnly}
+                                                onChange={(event) => onToggle(key, 'enabled', event.target.checked)}
+                                            />
+                                            Accès autorisé
+                                        </label>
+                                    </div>
+                                    {config.actions.length > 0 && (
+                                        <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                            {config.actions.map((action) => (
+                                                <label key={action.key} className="flex items-start gap-2 rounded-lg border border-slate-100 px-3 py-2 text-xs text-slate-600">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="mt-0.5 h-4 w-4"
+                                                        checked={page.enabled && Boolean(page[action.key as keyof typeof page])}
+                                                        disabled={readOnly || !page.enabled}
+                                                        onChange={(event) => onToggle(key, action.key, event.target.checked)}
+                                                    />
+                                                    <span>
+                                                        <span className="font-semibold text-slate-700">{action.label}</span>
+                                                        {action.description && (
+                                                            <span className="block text-[11px] text-slate-400">{action.description}</span>
+                                                        )}
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </section>
+            ))}
         </div>
     )
 }
