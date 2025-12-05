@@ -26,6 +26,7 @@ import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
 import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileTimeline'
 import { getBoatTheme } from '../_components/boatThemes'
 import { BookingDetailsModal } from '../_components/BookingDetailsModal'
+import { WeatherWidget } from '../_components/WeatherWidget'
 import {
   type BookingDetails,
   type PaymentMarkState,
@@ -1595,6 +1596,10 @@ export default function ClientPage() {
         <div className={`${statsGridClass} ${isNative ? '' : 'mb-8 print:mb-4'}`}>
           <TodayStatCard label="Réservations" value={stats.count} />
           <TodayStatCard label="Passagers total" value={stats.totalPeople} />
+        </div>
+
+        <div className={isNative ? 'mb-4' : 'mb-8 print:mb-6'}>
+          <WeatherWidget />
         </div>
 
         {isNative && actionFeedback && (

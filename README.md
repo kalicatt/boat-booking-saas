@@ -121,6 +121,15 @@ Environment variables:
 - `FLEET_STATUS_ENDPOINT`: optional override used by the PowerShell script (defaults to `http://localhost:3000/api/admin/fleet/check-status`). Use it if the script runs from another host or behind nginx.
 - `FLEET_MAINTENANCE_KEY`: value injected in the script’s `x-maintenance-key` header—set it to the same string as `MAINTENANCE_FLEET_SECRET` for mutual trust.
 
+## Weather & Safety Alerts
+- The admin dashboard now surfaces real-time weather and three-hour projections (wind, rafales, pluie) using OpenWeatherMap One Call 3.0.
+- Required env vars (add them to `.env.local` / production files, never commit real keys):
+	- `WEATHER_API_KEY`: your OpenWeatherMap key (One Call 3.0 access enabled).
+	- `WEATHER_LAT` / `WEATHER_LON`: decimal coordinates for the base (default values point to Strasbourg; update to your dock).
+	- `NEXT_PUBLIC_WIND_ALERT_THRESHOLD`: km/h limit that turns the widget red (default 25).
+- The backend proxy caches responses for 15 minutes; hitting `/api/admin/weather` from the UI will reuse the cached payload to keep calls under the free quota.
+- If the API key is missing or invalid, the widget/badge clearly indicates “Météo HS” so staff know data is offline.
+
 ## Docs
 - `DEPLOYMENT.md`: VPS setup, registry vs tar, reverse proxy, TLS.
 - `RELEASE.md`: Release workflow, pre-commit hook to block `*.tar`.

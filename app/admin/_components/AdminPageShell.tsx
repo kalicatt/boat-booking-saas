@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import type { ReactNode } from 'react'
+import { WeatherBadge } from './WeatherBadge'
 
 interface AdminPageShellProps {
   title: string
@@ -38,7 +39,10 @@ export function AdminPageShell({
             <p className="max-w-2xl text-sm text-slate-500">{description}</p>
           ) : null}
         </div>
-        {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <WeatherBadge />
+          {actions}
+        </div>
       </header>
 
       <div className="flex-1 space-y-6">{children}</div>
