@@ -26,8 +26,22 @@ const isAdminRole = (role: string | null | undefined) =>
 
 const FALLBACK_LOCALE: SupportedLocale = 'fr'
 
+type SearchParamInput = URLSearchParams | Record<string, string | string[] | undefined>
+
 type PageProps = {
-  searchParams?: { lang?: string }
+  searchParams?: SearchParamInput
+}
+
+const resolveLangParam = (params?: SearchParamInput): string | null => {
+  if (!params) return null
+  if (params instanceof URLSearchParams) {
+    return params.get('lang')
+  }
+  const value = params.lang
+  if (Array.isArray(value)) {
+    return value[0] ?? null
+  }
+  return typeof value === 'string' ? value : null
 }
 
 export default async function CmsFullPreviewPage({ searchParams }: PageProps) {
@@ -49,7 +63,7 @@ export default async function CmsFullPreviewPage({ searchParams }: PageProps) {
     redirect('/admin')
   }
 
-  const requestedLocale = typeof searchParams?.lang === 'string' ? (searchParams.lang as string) : null
+  const requestedLocale = resolveLangParam(searchParams)
   const safeLocale: SupportedLocale =
     requestedLocale && PUBLIC_SUPPORTED_LOCALES.includes(requestedLocale as SupportedLocale)
       ? (requestedLocale as SupportedLocale)

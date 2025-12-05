@@ -14,8 +14,22 @@ import {
 const isAdminRole = (role: string | null | undefined) =>
   role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
 
+type SearchParamInput = URLSearchParams | Record<string, string | string[] | undefined>
+
 type PageProps = {
-  searchParams?: { lang?: string }
+  searchParams?: SearchParamInput
+}
+
+const resolveLangParam = (params?: SearchParamInput): string | null => {
+  if (!params) return null
+  if (params instanceof URLSearchParams) {
+    return params.get('lang')
+  }
+  const value = params.lang
+  if (Array.isArray(value)) {
+    return value[0] ?? null
+  }
+  return typeof value === 'string' ? value : null
 }
 
 const DEFAULT_PREVIEW_LANG: SupportedLocale = 'fr'
@@ -39,7 +53,7 @@ export default async function CmsPreviewPage({ searchParams }: PageProps) {
     redirect('/admin')
   }
 
-  const requestedLocale = typeof searchParams?.lang === 'string' ? (searchParams.lang as string) : null
+  const requestedLocale = resolveLangParam(searchParams)
   const initialLocale = SUPPORTED_LOCALES.includes(requestedLocale as LocaleCode)
     ? (requestedLocale as LocaleCode)
     : DEFAULT_LOCALE
