@@ -398,11 +398,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         // If Stripe flow with pending booking, verify and finish
         if (paymentProvider === 'stripe' && stripeIntentId && pendingBookingId) {
             try {
-                const verifyRes = await fetch('/api/payments/verify-stripe-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: stripeIntentId }) })
-                const verify = await verifyRes.json()
-                if (!verifyRes.ok || verify.status !== 'succeeded') {
-                    const msg = (widgetCopy.payment_stripe_not_confirmed || 'Paiement Stripe non confirmé. Statut: {status}').replace('{status}', String(verify?.status || 'inconnu'))
-                    setGlobalErrors([msg])
+                const confirmRes = await fetch('/api/bookings/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingId: pendingBookingId, provider: 'stripe', intentId: stripeIntentId })
+                })
+                const confirm = await confirmRes.json().catch(() => ({}))
+                if (!confirmRes.ok || confirm?.success !== true) {
+                    const defaultMsg = (widgetCopy.payment_stripe_not_confirmed || 'Paiement Stripe non confirmé. Statut: {status}').replace('{status}', 'inconnu')
+                    const message = typeof confirm?.error === 'string' ? confirm.error : defaultMsg
+                    setGlobalErrors([message])
                     setIsSubmitting(false)
                     return
                 }
@@ -412,6 +417,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 return
             }
             setGlobalErrors([])
+            setPendingBookingId(null)
             setStep(STEPS.SUCCESS)
             return
         }

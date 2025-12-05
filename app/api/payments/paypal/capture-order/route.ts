@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getPaypalApiBase } from '@/lib/paypal'
+import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
 
 type PaypalAmount = { value?: string; currency_code?: string }
 type PaypalCapture = {
@@ -85,6 +86,7 @@ export async function POST(req: Request) {
         status: 'succeeded',
       }})
       await prisma.booking.update({ where: { id: bookingId }, data: { isPaid: true, status: 'CONFIRMED' } })
+      await sendBookingConfirmationEmail(bookingId)
     }
 
     return NextResponse.json({ success: true, orderId, bookingId: bookingId || null })

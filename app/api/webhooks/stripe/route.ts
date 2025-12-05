@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { prisma } from '@/lib/prisma'
+import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
 
 export async function POST(req: Request) {
   const sig = req.headers.get('stripe-signature') || ''
@@ -25,6 +26,7 @@ export async function POST(req: Request) {
       await prisma.payment.updateMany({ where: { intentId: pi.id }, data: { status: 'succeeded' } })
       if (bookingId) {
         await prisma.booking.update({ where: { id: bookingId }, data: { isPaid: true, status: 'CONFIRMED' } })
+        await sendBookingConfirmationEmail(bookingId)
       }
       break
     }

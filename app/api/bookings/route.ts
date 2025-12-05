@@ -1,38 +1,16 @@
 import { NextResponse } from 'next/server'
-import path from 'path'
-import { readFile } from 'fs/promises'
 import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
-import { Resend } from 'resend'
-import { createElement } from 'react'
-import { BookingTemplate } from '@/components/emails/BookingTemplate'
-import { sendMail } from '@/lib/mailer'
-import { renderBookingHtml } from '@/lib/emailRender'
 import { createLog } from '@/lib/logger'
 import { BookingRequestSchema } from '@/lib/validation'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
-import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import { auth } from '@/auth'
 import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
-import { computeBookingToken } from '@/lib/bookingToken'
-import { generateBookingQrCodeDataUrl, generateBookingQrCodeBuffer } from '@/lib/qr'
-import { generateBookingInvoicePdf } from '@/lib/invoicePdf'
-
-const resend: Resend | null = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null
-const LOCAL_BASE_REGEX = /^https?:\/\/(localhost|127(?:\.\d+){0,3}|0\.0\.0\.0|10\.[0-9.]+|192\.168\.[0-9.]+)/i
-const MAP_LINK = 'https://maps.app.goo.gl/v2S3t2Wq83B7k6996'
-const EUR_FORMATTER = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
-
-const isGenericCounterEmail = (value: string | null | undefined) => {
-  if (!value) return true
-  const normalized = value.trim().toLowerCase()
-  if (!normalized) return true
-  return normalized.endsWith('@local.com') || normalized.endsWith('@sweetnarcisse.local') || normalized.startsWith('override@')
-}
+import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -119,7 +97,6 @@ export async function POST(request: Request) {
     const myTotalEnd = addMinutes(myEnd, BUFFER_TIME)
 
     const people = adults + children + babies
-    const finalPrice = (adults * PRICE_ADULT) + (children * PRICE_CHILD) + (babies * PRICE_BABY)
     const paymentMethodObject: ManualPaymentPayload | null =
       typeof paymentMethod === 'object' && paymentMethod !== null
         ? (paymentMethod as ManualPaymentPayload)
@@ -268,6 +245,7 @@ export async function POST(request: Request) {
               }
             }
           },
+          invoiceEmail: invoiceEmail || null,
           isPaid: pendingOnly ? false : shouldMarkPaid,
           publicReference
         }
@@ -290,161 +268,15 @@ export async function POST(request: Request) {
 
     const createdBooking = txResult.booking
 
-    // 7. EMAIL CONFIRMATION
-    try {
-      const rawBase = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || 'http://localhost:3000'
-      const baseUrl = rawBase.replace(/\/$/, '')
-      const token = computeBookingToken(createdBooking.id)
-      const cancelUrl = `${baseUrl}/cancel/${createdBooking.id}/${token}`
-      const useHostedAssets = !LOCAL_BASE_REGEX.test(baseUrl)
-      let logoBuffer: Buffer | null = null
+    // 7. EMAIL CONFIRMATION (uniquement si la réservation est déjà confirmée)
+    if (!pendingOnly) {
       try {
-        const logoPath = path.join(process.cwd(), 'public', 'images', 'logo.jpg')
-        logoBuffer = await readFile(logoPath)
-      } catch (error) {
-        if (!useHostedAssets) {
-          console.warn('Logo asset unavailable for inline email usage:', error)
-        }
-      }
-      const qrAsset = useHostedAssets
-        ? {
-            type: 'url' as const,
-            url: `${baseUrl}/api/booking-qr/${createdBooking.id}/${token}`
-          }
-        : {
-            type: 'inline' as const,
-            cid: `booking-${createdBooking.id}-qr`,
-            dataUrl: await generateBookingQrCodeDataUrl(String(createdBooking.id), createdBooking.publicReference),
-            buffer: await generateBookingQrCodeBuffer(String(createdBooking.id), createdBooking.publicReference)
-          }
-      const logoAsset: { type: 'inline'; cid: string; buffer: Buffer } | { type: 'url'; url: string } | { type: 'none' } = (!useHostedAssets && logoBuffer)
-        ? { type: 'inline', cid: 'sweet-narcisse-logo', buffer: logoBuffer }
-        : baseUrl
-          ? { type: 'url', url: `${baseUrl}/images/logo.jpg` }
-          : { type: 'none' }
-      const mailAttachments: Array<{ filename: string; content: Buffer; contentType: string; cid?: string }> = []
-      const resendAttachments: Array<{ filename: string; content: string; contentType: string }> = []
-      if (qrAsset.type === 'inline') {
-        mailAttachments.push({
-          filename: `qr-${createdBooking.publicReference || createdBooking.id}.png`,
-          content: qrAsset.buffer,
-          contentType: 'image/png',
-          cid: qrAsset.cid
-        })
-      }
-      if (logoAsset.type === 'inline') {
-        mailAttachments.push({
-          filename: 'logo.jpg',
-          content: logoAsset.buffer,
-          contentType: 'image/jpeg',
-          cid: logoAsset.cid
-        })
-      }
-      let invoiceAttachment: { filename: string; buffer: Buffer } | null = null
-      try {
-        const invoiceBuffer = await generateBookingInvoicePdf({
-          invoiceNumber: createdBooking.publicReference || String(createdBooking.id),
-          issueDate: new Date(),
-          serviceDate: date,
-          serviceTime: time,
-          totalPrice: finalPrice,
-          adults,
-          children,
-          babies,
-          unitPrices: { adult: PRICE_ADULT, child: PRICE_CHILD, baby: PRICE_BABY },
-          customer: {
-            firstName: userDetails.firstName,
-            lastName: userDetails.lastName,
-            email: userEmailToUse,
-            phone: userDetails.phone || null
-          },
-          logoBuffer
-        })
-        const sanitizedLabel = (createdBooking.publicReference || String(createdBooking.id)).replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '') || String(createdBooking.id)
-        invoiceAttachment = {
-          filename: `Facture-${sanitizedLabel}.pdf`,
-          buffer: invoiceBuffer
-        }
-      } catch (error) {
+        await sendBookingConfirmationEmail(createdBooking.id, { invoiceEmail })
+      } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
-        console.error('Invoice PDF generation failed:', message)
-        await createLog('INVOICE_ERROR', `Échec génération facture ${createdBooking.id}: ${message}`)
+        console.error('Email send failed:', message)
+        await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmailToUse}: ${message}`)
       }
-      if (invoiceAttachment) {
-        mailAttachments.push({
-          filename: invoiceAttachment.filename,
-          content: invoiceAttachment.buffer,
-          contentType: 'application/pdf'
-        })
-        resendAttachments.push({
-          filename: invoiceAttachment.filename,
-          content: invoiceAttachment.buffer.toString('base64'),
-          contentType: 'application/pdf'
-        })
-      }
-      const reservationSender = EMAIL_FROM.reservations
-      const billingSender = EMAIL_FROM.billing
-      const replyToContact = EMAIL_ROLES.contact
-      const emailProps = {
-        firstName: userDetails.firstName || 'Client',
-        date,
-        time,
-        people: isPrivate ? targetBoat.capacity : people,
-        adults,
-        childrenCount: children,
-        babies,
-        bookingId: String(createdBooking.id),
-        publicReference: createdBooking.publicReference,
-        totalPrice: finalPrice,
-        qrCodeUrl: qrAsset.type === 'url' ? qrAsset.url : null,
-        qrCodeDataUrl: qrAsset.type === 'inline' ? qrAsset.dataUrl : null,
-        qrCodeCid: qrAsset.type === 'inline' ? qrAsset.cid : null,
-        cancelUrl,
-        logoUrl: logoAsset.type === 'url' ? logoAsset.url : null,
-        logoCid: logoAsset.type === 'inline' ? logoAsset.cid : null
-      }
-      const html = await renderBookingHtml(emailProps)
-      const textBodySegments = [
-        `Bonjour ${userDetails.firstName || 'Client'},`,
-        `Votre réservation est confirmée pour le ${date} à ${time}. Référence : ${createdBooking.publicReference || createdBooking.id}.`,
-        `Montant total : ${EUR_FORMATTER.format(finalPrice)} (facture PDF en pièce jointe).`,
-        `Merci d'arriver 10 minutes avant le départ au Pont Saint-Pierre, 10 Rue de la Herse, 68000 Colmar.`,
-        `Itinéraire Google Maps : ${MAP_LINK}`,
-        `Pour gérer ou annuler votre réservation, utilisez ce lien : ${cancelUrl}`,
-        `À très vite sur l'eau !`
-      ]
-      const textBody = textBodySegments.join('\n\n')
-      const mailAttachmentList = mailAttachments.length ? mailAttachments : undefined
-      const resendAttachmentList = resendAttachments.length ? resendAttachments : undefined
-      const requiresResendReRender = qrAsset.type === 'inline' || logoAsset.type === 'inline'
-      if(process.env.RESEND_API_KEY && resend){
-        const resendProps = requiresResendReRender
-          ? { ...emailProps, qrCodeCid: null, logoCid: null }
-          : emailProps
-        const resendHtml = requiresResendReRender ? await renderBookingHtml(resendProps) : html
-        await resend.emails.send({ from: reservationSender, to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html: resendHtml, text: textBody, replyTo: replyToContact, react: createElement(BookingTemplate, resendProps), attachments: resendAttachmentList })
-      } else {
-        await sendMail({ to: userEmailToUse, subject: `Confirmation de réservation – ${date} ${time}`, html, text: textBody, from: reservationSender, replyTo: replyToContact, attachments: mailAttachmentList })
-      }
-      await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmailToUse} pour réservation ${createdBooking.id}`)
-
-      if (invoiceEmail && invoiceEmail !== userEmailToUse) {
-        const invoiceSubject = `Facture – Réservation ${date} ${time}`
-        if(process.env.RESEND_API_KEY && resend){
-          const resendInvoiceProps = requiresResendReRender
-            ? { ...emailProps, qrCodeCid: null, logoCid: null }
-            : emailProps
-          const resendInvoiceHtml = requiresResendReRender ? await renderBookingHtml(resendInvoiceProps) : html
-          await resend.emails.send({ from: billingSender, to: invoiceEmail, subject: invoiceSubject, html: resendInvoiceHtml, text: textBody, replyTo: EMAIL_ROLES.billing, react: createElement(BookingTemplate, resendInvoiceProps), attachments: resendAttachmentList })
-        } else {
-          await sendMail({ to: invoiceEmail, subject: invoiceSubject, html, text: textBody, from: billingSender, replyTo: EMAIL_ROLES.billing, attachments: mailAttachmentList })
-        }
-          await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceEmail} pour réservation ${createdBooking.id}`)
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e)
-      console.error('Email send failed:', msg)
-      await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmailToUse}: ${String(msg)}`)
     }
 
     // Group chaining: chain consecutive boat slots for large groups
@@ -731,43 +563,6 @@ export async function POST(request: Request) {
       const msg = e instanceof Error ? e.message : String(e)
       console.error('Erreur enregistrement paiement guichet', msg)
       return NextResponse.json({ error: 'Erreur paiement', details: String(msg) }, { status: 500 })
-    }
-
-    // 9. EMAIL
-    if (!pendingOnly && userEmailToUse && !isGenericCounterEmail(userEmailToUse) && userEmailToUse.includes('@') && resend) {
-      try {
-          const rawBase = process.env.NEXT_PUBLIC_BASE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') || 'http://localhost:3000'
-          const baseUrl = rawBase.replace(/\/$/, '')
-          const token = computeBookingToken(createdBooking.id)
-          const cancelUrl = `${baseUrl}/cancel/${createdBooking.id}/${token}`
-          const useHostedAssets = !LOCAL_BASE_REGEX.test(baseUrl)
-          const qrCodeUrl = useHostedAssets ? `${baseUrl}/api/booking-qr/${createdBooking.id}/${token}` : null
-          const qrCodeDataUrl = useHostedAssets ? null : await generateBookingQrCodeDataUrl(String(createdBooking.id), createdBooking.publicReference)
-          const textBody = `Bonjour ${userDetails.firstName || 'Client'},\n\nVotre réservation est confirmée pour le ${date} à ${time}. Référence : ${createdBooking.publicReference || createdBooking.id}.\n\nPour gérer ou annuler votre réservation, utilisez ce lien : ${cancelUrl}\n\nÀ très vite sur l'eau !`
-          await resend.emails.send({
-            from: 'Sweet Narcisse <onboarding@resend.dev>',
-            to: [userEmailToUse],
-            subject: 'Confirmation de votre tour en barque 🛶',
-            text: textBody,
-            react: createElement(BookingTemplate, {
-              firstName: userDetails.firstName,
-              date,
-              time,
-              people,
-              adults,
-              childrenCount: children,
-              babies,
-              totalPrice: finalPrice,
-              bookingId: createdBooking.id,
-              publicReference: createdBooking.publicReference,
-              qrCodeUrl,
-              qrCodeDataUrl,
-              cancelUrl
-            })
-          })
-      } catch (e: unknown) {
-        console.error("Erreur email", e instanceof Error ? e.message : String(e))
-      }
     }
 
     // Invalidate memo availability cache for this date

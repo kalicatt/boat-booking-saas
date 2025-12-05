@@ -87,12 +87,14 @@ model Booking {
   children       Int      @default(0) // <--- NOUVEAU (4-10 ans)
   babies         Int      @default(0) // <--- NOUVEAU (0-3 ans)
   message String?
+  invoiceEmail String?
 
   language    String
   totalPrice  Float
   status      BookingStatus @default(PENDING)
   checkinStatus   CheckinStatus   @default(CONFIRMED) 
   isPaid          Boolean         @default(true)
+  confirmationEmailSentAt DateTime?
 
   // ... (relations inchangées) ...
   user        User      @relation(fields: [userId], references: [id])
