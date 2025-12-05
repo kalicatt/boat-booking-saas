@@ -92,3 +92,31 @@ try {
 } catch {
     Write-Warning "Impossible de récupérer l'état Fleet ($($_.Exception.Message))."
 }
+
+# 6. Envoi des demandes d'avis (Expérience Client)
+Write-Host "6. Envoi des demandes d'avis (Expérience Client)..." -ForegroundColor Cyan
+$reviewEndpoint = $env:REVIEW_CRON_ENDPOINT
+if (-not $reviewEndpoint -or $reviewEndpoint -eq '') {
+    $reviewEndpoint = "http://localhost:3000/api/cron/send-reviews"
+}
+
+$reviewHeaders = @{}
+if ($env:CRON_SECRET -and $env:CRON_SECRET -ne '') {
+    $reviewHeaders["x-cron-key"] = $env:CRON_SECRET
+}
+
+try {
+    if ($reviewHeaders.Count -gt 0) {
+        $reviewReport = Invoke-RestMethod -Uri $reviewEndpoint -Method Post -Headers $reviewHeaders
+    } else {
+        $reviewReport = Invoke-RestMethod -Uri $reviewEndpoint -Method Post
+    }
+    Write-Host "✅ Demandes d'avis traitées : $($reviewReport.processed) / $($reviewReport.total)" -ForegroundColor Green
+    if ($reviewReport.failures -and $reviewReport.failures.Count -gt 0) {
+        Write-Warning "Certaines demandes d'avis ont échoué (voir logs)."
+    }
+} catch {
+    Write-Host "⚠️ Erreur lors de l'envoi des demandes d'avis : $_" -ForegroundColor Red
+}
+
+Write-Host "--- FIN MAINTENANCE ---" -ForegroundColor Cyan

@@ -1,0 +1,1 @@
+ALTER TABLE "Booking" ADD COLUMN "reviewMailSent" BOOLEAN NOT NULL DEFAULT false;

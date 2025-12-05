@@ -95,6 +95,7 @@ model Booking {
   checkinStatus   CheckinStatus   @default(CONFIRMED) 
   isPaid          Boolean         @default(true)
   confirmationEmailSentAt DateTime?
+  reviewMailSent  Boolean         @default(false)
 
   // ... (relations inchangées) ...
   user        User      @relation(fields: [userId], references: [id])
