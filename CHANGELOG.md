@@ -9,6 +9,27 @@ The format is based on Keep a Changelog and adheres to Semantic Versioning (MAJO
 
 ---
 
+## [1.0.5] - 2025-12-05
+### Added
+- Ability to promote an existing `CLIENT` to `EMPLOYEE` directly from `/api/admin/employees` and the Admin UI, including automatic employee number generation and audit logs.
+- Dedicated developer and user guides under `docs/` to capture architecture details, SOPs, and staff workflows.
+
+### Changed
+- Prisma seed now provisions default staff accounts with the safer `EMPLOYEE` role instead of `ADMIN`.
+- Admin dashboard tiles and quick actions respect the refined permission matrix, preventing unauthorized widgets when ACLs change.
+
+### Fixed
+- Employees page table rendering, permission toggles, and booking email apostrophes that previously broke ESLint/TS builds.
+- TypeScript definitions for admin permissions and the POST employees handler, restoring clean `npm run lint` / `npm run build` runs.
+
+### Documentation
+- `README.md`, `RELEASE.md`, and deployment instructions now link to the new guides and describe the maintenance script expectations.
+
+### Credits
+- Release owner: Lucas Servais.
+
+---
+
 ## [1.0.4] - 2025-12-02
 ### Added
 - `scripts/harden-vps.sh` to automate SSH hardening, firewall rules, and fail2ban setup on fresh servers.

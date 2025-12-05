@@ -1,17 +1,17 @@
 # Release Guide
 
-Concise steps to cut a new version (e.g., 1.0.4), build Docker images, and deploy safely.
+Concise steps to cut a new version (e.g., 1.0.5), build Docker images, and deploy safely.
 
 ## 1) Bump version and tag
 
 ```powershell
-# Edit package.json version to 1.0.4 or run the helper
+# Edit package.json version to 1.0.5 or run the helper
 npm run release
 git add .
-git commit -m "release: v1.0.4"
-git tag v1.0.4
+git commit -m "release: v1.0.5"
+git tag v1.0.5
 git push origin master
-git push origin v1.0.4
+git push origin v1.0.5
 ```
 
 ## 2) Build Docker images (versioned + latest)
@@ -20,14 +20,14 @@ git push origin v1.0.4
 $workspace = "c:\SweetNarcisse\SweetNarcisse-demo"
 Push-Location $workspace
 
-docker build -t yourrepo/sweetnarcisse:1.0.4 -t yourrepo/sweetnarcisse:latest .
+docker build -t yourrepo/sweetnarcisse:1.0.5 -t yourrepo/sweetnarcisse:latest .
 
 # Option A: Push to registry
-docker push yourrepo/sweetnarcisse:1.0.4
+docker push yourrepo/sweetnarcisse:1.0.5
 docker push yourrepo/sweetnarcisse:latest
 
 # Option B: Save tar for manual transfer
-docker save yourrepo/sweetnarcisse:1.0.4 -o sweetnarcisse-1.0.4.tar
+docker save yourrepo/sweetnarcisse:1.0.5 -o sweetnarcisse-1.0.5.tar
 
 Pop-Location
 ```
@@ -35,9 +35,9 @@ Pop-Location
 ## 3) Deploy on VPS (pinned version)
 
 ```bash
-docker pull yourrepo/sweetnarcisse:1.0.4
+docker pull yourrepo/sweetnarcisse:1.0.5
 docker rm -f sweetnarcisse || true
-docker run -d -p 3000:3000 --name sweetnarcisse yourrepo/sweetnarcisse:1.0.4
+docker run -d -p 3000:3000 --name sweetnarcisse yourrepo/sweetnarcisse:1.0.5
 ```
 
 ## 4) Post-deploy checks

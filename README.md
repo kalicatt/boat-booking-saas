@@ -96,8 +96,8 @@ npm run release
 ```
 - Tag the release and push:
 ```bash
-git tag v1.0.4
-git push origin v1.0.4
+git tag v1.0.5
+git push origin v1.0.5
 ```
 - Optional CI: build/push images only on tags.
 
@@ -134,6 +134,8 @@ Environment variables:
 - `DEPLOYMENT.md`: VPS setup, registry vs tar, reverse proxy, TLS.
 - `RELEASE.md`: Release workflow, pre-commit hook to block `*.tar`.
 - `SECURITY.md`: Security practices and contact.
+- `docs/developer-guide.md`: Architecture, workflows, monitoring, troubleshooting.
+- `docs/user-guide.md`: Admin/staff walkthrough for bookings, payments, and fleet tasks.
 
 ## License
 Proprietary demo; redistribution restricted. Contact the owner for usage.
