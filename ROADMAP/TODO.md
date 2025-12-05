@@ -24,11 +24,11 @@
 > **Focus actuel :** Démarrage du module Fleet (page admin dédiée + workflows batterie/incidents).
 
 ### Fleet Management [ROADMAP_MAINTENANCE]
-- [ ] **DB:** Migration Prisma `add_fleet_management` (Champs batterie, MaintenanceLog).
-- [ ] **Logic:** Implémenter le calcul automatique des cycles de charge (Alertes J+3/J+4).
-- [ ] **Dashboard:** Créer la page `admin/fleet` avec indicateurs visuels (Batterie/Mécanique).
-- [ ] **Actions:** Ajouter les boutons rapides "Marquer comme Chargée" et "Signaler Incident".
-- [ ] **Auto:** Intégrer le scan des batteries au script `daily-maintenance.ps1`.
+- [x] **DB:** Migration Prisma `add_fleet_management` (Champs batterie, MaintenanceLog).
+- [x] **Logic:** Implémenter le calcul automatique des cycles de charge (Alertes J+3/J+4).
+- [x] **Dashboard:** Créer la page `admin/fleet` avec indicateurs visuels (Batterie/Mécanique).
+- [x] **Actions:** Ajouter les boutons rapides "Marquer comme Chargée" et "Signaler Incident".
+- [x] **Auto:** Intégrer le scan des batteries au script `daily-maintenance.ps1`.
 
 ### Meteo & Alerts [ROADMAP_METEO]
 - [ ] **Infra:** Configurer OpenWeatherMap (API Key, Lat/Lon) dans `.env`.
