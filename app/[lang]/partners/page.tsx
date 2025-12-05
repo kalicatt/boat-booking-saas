@@ -1,39 +1,68 @@
-import { getDictionary } from '@/lib/get-dictionary'
-import Image from 'next/image'
+import { getDictionary, SupportedLocale } from '@/lib/get-dictionary'
+import Link from 'next/link'
+import { getPublishedCmsPayload } from '@/lib/cms/publicContent'
 
-export default async function PartnersPage({ params }: { params: Promise<{ lang: 'en' | 'fr' | 'de' }> }) {
-  const { lang } = await params
-  const dict = await getDictionary(lang)
-
-  const partners = [
-    { name: 'Maison du Chocolat', tag: 'Artisan', img: '/images/partner1.jpg', url: '#', desc: 'Produits gourmands locaux et durables.' },
-    { name: 'Eco Colmar Initiative', tag: 'Éco', img: '/images/partner2.jpg', url: '#', desc: 'Actions pour préserver la Lauch et son écosystème.' },
-    { name: 'Atelier du Bois', tag: 'Craft', img: '/images/partner3.jpg', url: '#', desc: 'Savoir‑faire traditionnel pour nos infrastructures.' }
-  ]
+export default async function PartnersPage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang: rawLang } = await params
+  const supported: SupportedLocale[] = ['en', 'fr', 'de', 'es', 'it']
+  const safeLang: SupportedLocale = supported.includes(rawLang as SupportedLocale)
+    ? (rawLang as SupportedLocale)
+    : 'en'
+  const dict = await getDictionary(safeLang)
+  const cmsPayload = await getPublishedCmsPayload()
+  const partners = cmsPayload.partners.filter((partner) => partner.isVisible)
 
   return (
-    <main className="min-h-screen bg-water-gradient text-white pb-24">
-      <div className="relative pt-32 pb-16 px-6 text-center max-w-4xl mx-auto">
-        <h1 className="text-5xl font-serif font-bold mb-4 drop-shadow">{dict.partners?.title || 'Partners'}</h1>
-        <p className="text-slate-200 text-lg leading-relaxed">{dict.partners?.subtitle}</p>
-        <a href={`/${lang}`} className="inline-block mt-6 text-sm font-semibold text-[#eab308] hover:underline">
+    <main className="min-h-screen bg-water-gradient pb-24 text-white">
+      <div className="relative mx-auto max-w-4xl px-6 pt-32 pb-16 text-center">
+        <h1 className="mb-4 text-5xl font-serif font-bold drop-shadow">
+          {dict.partners?.title || 'Partners'}
+        </h1>
+        <p className="text-lg leading-relaxed text-slate-200">{dict.partners?.subtitle}</p>
+        <Link
+          href={`/${safeLang}`}
+          className="mt-6 inline-block text-sm font-semibold text-[#eab308] transition hover:underline"
+        >
           {dict.partners?.back_home}
-        </a>
+        </Link>
       </div>
-      <div className="max-w-6xl mx-auto px-6 grid gap-8 md:grid-cols-3">
-        {partners.map(p => (
-          <div key={p.name} className="group relative bg-white/5 backdrop-blur rounded-xl border border-white/10 p-4 flex flex-col">
-            <div className="relative w-full h-40 mb-4 overflow-hidden rounded-lg">
-              <Image src={p.img} alt={p.name} fill className="object-cover group-hover:scale-105 transition" />
-            </div>
-            <h3 className="text-xl font-serif font-bold mb-1 text-[#eab308]">{p.name}</h3>
-            <span className="text-xs uppercase tracking-wide bg-[#eab308] text-black px-2 py-1 rounded font-bold w-fit mb-2">{p.tag}</span>
-            <p className="text-sm text-slate-200 flex-1">{p.desc}</p>
-            <a href={p.url} className="mt-4 text-sm font-semibold text-[#eab308] hover:text-white transition">
-              {dict.partners?.learn_more}
-            </a>
+      <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-3">
+        {partners.length ? (
+          partners.map((partner) => (
+            <article
+              key={partner.id}
+              className="group relative flex flex-col rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur"
+            >
+              <div className="relative mb-4 h-40 w-full overflow-hidden rounded-lg border border-white/10 bg-white/10">
+                <div
+                  className="absolute inset-0 bg-contain bg-center bg-no-repeat transition duration-300 group-hover:scale-105"
+                  style={{ backgroundImage: `url(${partner.logoUrl})` }}
+                />
+              </div>
+              <h3 className="text-xl font-serif font-bold text-[#eab308]">{partner.name}</h3>
+              <p className="text-xs uppercase tracking-wide text-slate-200">
+                #{partner.order + 1}
+              </p>
+              <p className="flex-1 text-sm text-slate-200">
+                {dict.partners?.list_title ?? 'Partenaire officiel'}
+              </p>
+              {partner.websiteUrl ? (
+                <a
+                  href={partner.websiteUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 text-sm font-semibold text-[#eab308] transition hover:text-white"
+                >
+                  {dict.partners?.learn_more}
+                </a>
+              ) : null}
+            </article>
+          ))
+        ) : (
+          <div className="md:col-span-3 rounded-2xl border border-dashed border-white/20 bg-white/5 p-10 text-center text-sm text-white/70">
+            Aucun partenaire n&apos;est disponible pour le moment.
           </div>
-        ))}
+        )}
       </div>
     </main>
   )

@@ -6,7 +6,13 @@ type Level = 'info'|'warn'|'error'
 interface LogCtx {
   route?: string
   bookingId?: string | number
+  boatId?: string | number
+  partnerId?: string | number
+  slideId?: string
+  role?: string
+  filename?: string
   error?: string
+  [key: string]: unknown
 }
 
 export async function createLog(action: string, details: string) {

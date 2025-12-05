@@ -303,8 +303,23 @@ export default async function AdminDashboard() {
             </Link>
           )}
 
+          {/* 9. CMS & Site (Admins uniquement) */}
+          {(user.role === 'ADMIN' || user.role === 'SUPERADMIN') && (
+            <Link href="/admin/cms" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-cyan-300 transition-all cursor-pointer hover:-translate-y-0.5">
+              <div className="w-14 h-14 bg-cyan-100 text-cyan-600 rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
+                📰
+              </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-3 group-hover:text-cyan-600">
+                CMS & Site
+              </h2>
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Modifier le contenu public, valider les brouillons et mettre en ligne.
+              </p>
+            </Link>
+          )}
 
-          {/* CARTE 9 : MON PROFIL */}
+
+          {/* CARTE 10 : MON PROFIL */}
           <Link href="/admin/profile" className="group block sn-card p-6 rounded-2xl hover:shadow-xl hover:border-slate-500 transition-all cursor-pointer hover:-translate-y-0.5">
             <div className="w-14 h-14 bg-slate-800 text-white rounded-2xl flex items-center justify-center text-3xl mb-5 group-hover:scale-105 transition duration-300">
               👤

@@ -154,7 +154,7 @@ export async function getStats(filters: StatsFilters = {}) {
     const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`
     const time = `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
     const name = `${booking.user.lastName ?? ''} ${booking.user.firstName ?? ''}`.trim() || '-'
-    const boatName = booking.boat.name ?? '-'
+    const boatName = booking.boat?.name ?? '-'
     const people = booking.numberOfPeople
     if (booking.payments.length === 0) {
       return []
@@ -197,7 +197,7 @@ export async function getStats(filters: StatsFilters = {}) {
       const time = `${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`
       accounting.push({
         bookingId: booking.id,
-        boat: booking.boat.name ?? '-',
+        boat: booking.boat?.name ?? '-',
         date,
         time,
         name: `${booking.user.lastName ?? ''} ${booking.user.firstName ?? ''}`.trim() || '-',

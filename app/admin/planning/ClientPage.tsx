@@ -296,6 +296,7 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
   }, [])
   const [detailsGroup, setDetailsGroup] = useState<BookingDetails[]>([])
   const [detailsGroupIndex, setDetailsGroupIndex] = useState(0)
+  const [completionLoading, setCompletionLoading] = useState<string | null>(null)
 
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
@@ -883,6 +884,49 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
     } else alert('Erreur mise à jour')
   }
 
+  const handleCompleteBooking = useCallback(
+    async (bookingId: string) => {
+      if (!bookingId) return
+      const targetBooking =
+        (selectedBooking && selectedBooking.id === bookingId
+          ? selectedBooking
+          : detailsGroup.find((detail) => detail.id === bookingId)) ?? null
+      const targetDate = targetBooking?.start ?? new Date()
+      if (isLockedDate(targetDate)) {
+        alert('Période verrouillée: finalisation impossible (journée clôturée).')
+        return
+      }
+
+      setCompletionLoading(bookingId)
+      try {
+        const response = await fetch(`/api/bookings/${bookingId}/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        })
+
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new Error(payload?.error ?? 'Finalisation impossible.')
+        }
+
+        await mutate()
+        setSelectedBooking((previous) =>
+          previous && previous.id === bookingId ? { ...previous, status: 'COMPLETED' } : previous
+        )
+        setDetailsGroup((previous) =>
+          previous.map((detail) => (detail.id === bookingId ? { ...detail, status: 'COMPLETED' } : detail))
+        )
+        alert('Sortie complétée.')
+      } catch (error) {
+        console.error(error)
+        alert(error instanceof Error ? error.message : 'Finalisation impossible.')
+      } finally {
+        setCompletionLoading(null)
+      }
+    },
+    [detailsGroup, isLockedDate, mutate, selectedBooking]
+  )
+
   const handleDelete = async (id: string, title: string) => {
     const targetDate = selectedBooking?.start ?? new Date()
     if (isLockedDate(targetDate)) { alert('Période verrouillée: suppression impossible (journée clôturée).'); return }
@@ -1453,6 +1497,8 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
           onStatusUpdate={handleStatusUpdate}
           onEditTime={handleEditTime}
           onDelete={handleDelete}
+          onComplete={handleCompleteBooking}
+          completionLoadingId={completionLoading}
         />
       )}
 

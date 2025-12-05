@@ -1,10 +1,17 @@
 "use client"
 import Image from 'next/image'
 import BookingWidget from '@/components/BookingWidget'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import type { CmsPayload } from '@/lib/cms/contentSelectors'
+import {
+  DEFAULT_LOCALE as CMS_DEFAULT_LOCALE,
+  SUPPORTED_LOCALES as CMS_SUPPORTED_LOCALES,
+  type LocaleCode,
+  type TranslationRecord
+} from '@/types/cms'
 
 const LANGUAGE_OPTIONS = [
   { code: 'fr', label: 'Français', flag: '🇫🇷' },
@@ -24,7 +31,7 @@ const isSupportedLang = (value: string): value is SupportedLang =>
 interface LandingDictionary extends Record<string, unknown> {
   hero?: { title?: string; subtitle?: string; cta?: string }
   nav?: { home?: string; experience?: string; contact?: string; book?: string }
-  partners?: { nav?: string }
+  partners?: { nav?: string; learn_more?: string }
   logos?: { title?: string }
   presentation?: { title?: string; text?: string; points?: string[] }
   bento?: {
@@ -52,7 +59,43 @@ interface LandingDictionary extends Record<string, unknown> {
   }
 }
 
-export default function LandingClient({ dict, lang }: { dict: LandingDictionary; lang: SupportedLang }) {
+const pickCmsLocale = (langCode: SupportedLang | string, fallback: LocaleCode): LocaleCode => {
+  return CMS_SUPPORTED_LOCALES.includes(langCode as LocaleCode)
+    ? (langCode as LocaleCode)
+    : fallback
+}
+
+const pickCmsTranslation = (record: TranslationRecord, locale: LocaleCode): string => {
+  const direct = record[locale]
+  if (direct && direct.trim().length) return direct
+  const fallback = record[CMS_DEFAULT_LOCALE]
+  if (fallback && fallback.trim().length) return fallback
+  for (const code of CMS_SUPPORTED_LOCALES) {
+    const candidate = record[code]
+    if (candidate && candidate.trim().length) {
+      return candidate
+    }
+  }
+  return ''
+}
+
+const resolveCmsField = (
+  value: TranslationRecord | string | undefined,
+  locale: LocaleCode
+): string => {
+  if (!value) return ''
+  if (typeof value === 'string') return value
+  return pickCmsTranslation(value, locale)
+}
+
+type LandingClientProps = {
+  dict: LandingDictionary
+  lang: SupportedLang
+  cmsContent?: CmsPayload | null
+  initialCmsLocale: LocaleCode
+}
+
+export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale }: LandingClientProps) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -72,9 +115,40 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
   const routeLang = pathname?.split('/')[1] || ''
   const [currentLang, setCurrentLang] = useState<SupportedLang>(isSupportedLang(lang) ? lang : FALLBACK_LANG)
   const [liveDict, setLiveDict] = useState<LandingDictionary>(dict)
+  const [activeHeroIndex, setActiveHeroIndex] = useState(0)
+  const cmsSiteConfigMap = useMemo(() => {
+    return new Map<string, TranslationRecord | string>(
+      (cmsContent?.siteConfig ?? []).map((entry) => [entry.key, entry.value])
+    )
+  }, [cmsContent])
+  const activeCmsLocale = pickCmsLocale(currentLang, initialCmsLocale)
+  const heroSlides = useMemo(() => {
+    return (cmsContent?.heroSlides ?? []).filter((slide) => slide.isActive)
+  }, [cmsContent])
+  const visiblePartners = useMemo(() => {
+    return (cmsContent?.partners ?? []).filter((partner) => partner.isVisible)
+  }, [cmsContent])
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
   const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
+  const getCmsCopy = (key: string): string => {
+    const raw = cmsSiteConfigMap.get(key)
+    return resolveCmsField(raw, activeCmsLocale)
+  }
+  const heroEyebrow = getCmsCopy('home.hero.eyebrow')
+  const heroCtaCopy = getCmsCopy('home.hero.cta') || liveDict.hero?.cta || 'Book now'
+  const storyParagraphOverride = getCmsCopy('home.story.paragraph')
+  const heroIndexSafe = heroSlides.length ? activeHeroIndex % heroSlides.length : 0
+  const heroSlide = heroSlides[heroIndexSafe] ?? null
+  const heroTitle = heroSlide
+    ? pickCmsTranslation(heroSlide.title, activeCmsLocale) || liveDict.hero?.title || 'Sweet Narcisse'
+    : liveDict.hero?.title || 'Sweet Narcisse'
+  const heroSubtitle = heroSlide
+    ? pickCmsTranslation(heroSlide.subtitle, activeCmsLocale) || liveDict.hero?.subtitle || ''
+    : liveDict.hero?.subtitle || ''
+  const heroDesktopImage = heroSlide?.imageDesktop ?? '/images/hero-bg.jpg'
+  const heroMobileImage = heroSlide?.imageMobile ?? heroDesktopImage
+  const storyParagraph = storyParagraphOverride || (liveDict.presentation?.text as string || '')
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -111,6 +185,16 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
       window.removeEventListener('click', onClickOutside)
     }
   },[langOpen])
+
+  useEffect(() => {
+    if (heroSlides.length <= 1) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      setActiveHeroIndex((previous) => previous + 1)
+    }, 8000)
+    return () => window.clearInterval(timer)
+  }, [heroSlides.length])
 
   // Smooth scroll to reservation with offset and focus (no instant jump)
   useEffect(()=>{
@@ -303,17 +387,30 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
 
       <header className="relative h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0 hero-parallax">
-          <Image src="/images/hero-bg.jpg" alt="Colmar Petite Venise" fill className="object-cover" priority />
-          {/* Subtle vignette & warm overlay instead of heavy blue */}
+          <Image
+            src={heroDesktopImage}
+            alt={heroTitle}
+            fill
+            priority
+            sizes="100vw"
+            className="hidden object-cover sm:block"
+          />
+          <Image
+            src={heroMobileImage}
+            alt={heroTitle}
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover sm:hidden"
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.35)] via-[rgba(0,0,0,0.25)] to-[rgba(0,0,0,0.55)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(14,165,233,0.25),transparent_60%)]" />
-          {/* Bottom drip to break straight edge */}
           <div className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none">
-            <svg viewBox="0 0 1440 160" preserveAspectRatio="none" className="w-full h-full">
+            <svg viewBox="0 0 1440 160" preserveAspectRatio="none" className="h-full w-full">
               <defs>
                 <linearGradient id="dripGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0)"/>
-                  <stop offset="100%" stopColor="#ffffff"/>
+                  <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+                  <stop offset="100%" stopColor="#ffffff" />
                 </linearGradient>
                 <filter id="dripShadow" x="-10%" y="-10%" width="120%" height="120%">
                   <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
@@ -325,24 +422,62 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
                   </feMerge>
                 </filter>
               </defs>
-              {/* shadow for depth */}
-                <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
-                  fill="rgba(13,27,42,0.12)" filter="url(#dripShadow)" />
-              {/* soft drip with asymmetry to look organic */}
-              <path d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
-                    fill="url(#dripGrad)" />
+              <path
+                d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
+                fill="rgba(13,27,42,0.12)"
+                filter="url(#dripShadow)"
+              />
+              <path
+                d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
+                fill="url(#dripGrad)"
+              />
             </svg>
           </div>
         </div>
-        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto fade-in">
-          <h1 className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 drop-shadow-lg leading-[1.05]">{liveDict.hero?.title ?? 'Sweet Narcisse'}</h1>
-          <p className="text-xl md:text-2xl text-slate-200 mb-10 font-light max-w-3xl mx-auto leading-relaxed">{liveDict.hero?.subtitle ?? ''}</p>
+        <div className="relative z-10 mx-auto max-w-5xl px-4 text-center fade-in">
+          {heroEyebrow ? (
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.45em] text-sky-200">
+              {heroEyebrow}
+            </p>
+          ) : null}
+          <h1 className="text-5xl font-serif font-bold leading-[1.05] text-white drop-shadow-lg md:text-7xl">
+            {heroTitle}
+          </h1>
+          <p className="mx-auto mb-10 max-w-3xl text-xl font-light leading-relaxed text-slate-200 md:text-2xl">
+            {heroSubtitle}
+          </p>
           <div className="flex flex-col items-center justify-center gap-5">
-            <a href="#reservation" className="bg-[#0ea5e9] text-[#0f172a] px-10 py-4 rounded text-lg font-bold hover:bg-white hover:scale-105 transition transform shadow-xl inline-block">{liveDict.hero?.cta ?? 'Book now'}</a>
-            <Link href={`/${currentLang}/partners`} className="text-sm font-semibold text-slate-200 hover:text-white transition underline decoration-[#0ea5e9] decoration-2 underline-offset-4">{liveDict.partners?.nav}</Link>
+            <a
+              href="#reservation"
+              className="inline-block transform rounded bg-[#0ea5e9] px-10 py-4 text-lg font-bold text-[#0f172a] shadow-xl transition hover:scale-105 hover:bg-white"
+            >
+              {heroCtaCopy}
+            </a>
+            <Link
+              href={`/${currentLang}/partners`}
+              className="text-sm font-semibold text-slate-200 underline decoration-[#0ea5e9] decoration-2 underline-offset-4 transition hover:text-white"
+            >
+              {liveDict.partners?.nav}
+            </Link>
           </div>
         </div>
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce text-white/50 text-2xl">↓</div>
+        {heroSlides.length > 1 ? (
+          <div className="absolute bottom-8 left-1/2 flex -translate-x-1/2 gap-2">
+            {heroSlides.map((slide, index) => (
+              <button
+                key={slide.id}
+                type="button"
+                aria-label={`Slide ${index + 1}`}
+                aria-current={index === activeHeroIndex}
+                onClick={() => setActiveHeroIndex(index)}
+                className={`h-2 w-6 rounded-full transition ${index === activeHeroIndex ? 'bg-white' : 'bg-white/40'}`}
+              />
+            ))}
+          </div>
+        ) : null}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-2xl text-white/60">
+          <span className="inline-block animate-bounce">↓</span>
+        </div>
       </header>
 
       <section id="presentation" className="py-24 px-6 bg-sand-gradient section-top-blend">
@@ -350,7 +485,7 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
           <div className="space-y-6 fade-in">
             <h4 className="text-[#0ea5e9] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
             <h2 className="text-4xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
-            <p className="text-slate-600 leading-relaxed text-lg text-justify">{liveDict.presentation?.text ?? ''}</p>
+            <p className="text-slate-600 leading-relaxed text-lg text-justify">{storyParagraph}</p>
             <ul className="space-y-3 pt-4">
               {(liveDict.presentation?.points ?? []).map((item: string) => (
                 <li key={item} className="flex items-center gap-3 text-slate-700 font-medium">
@@ -371,12 +506,42 @@ export default function LandingClient({ dict, lang }: { dict: LandingDictionary;
         <div className="max-w-6xl mx-auto text-center mb-6 fade-in">
           <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{liveDict.logos?.title}</h3>
         </div>
-        <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-6 opacity-80">
-          <div className="flex items-center gap-3 px-4 py-2 border border-slate-200 rounded-md bg-slate-50">
-            <span className="text-slate-600 text-sm font-semibold">Trusted partners</span>
-            <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={110} height={34} className="h-6 w-auto rounded-sm" priority />
+        {visiblePartners.length ? (
+          <div className="max-w-5xl mx-auto grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {visiblePartners.map((partner) => (
+              <article
+                key={partner.id}
+                className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left shadow-sm"
+              >
+                <div className="flex h-24 items-center justify-center rounded-xl border border-slate-200 bg-white">
+                  <div
+                    className="h-14 w-32 bg-contain bg-center bg-no-repeat"
+                    style={{ backgroundImage: `url(${partner.logoUrl})` }}
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">{partner.name}</p>
+                  {partner.websiteUrl ? (
+                    <a
+                      href={partner.websiteUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-semibold text-[#0ea5e9] transition hover:text-slate-900"
+                    >
+                      {liveDict.partners?.learn_more ?? 'Voir le site'}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-slate-400">{liveDict.footer?.infos ?? 'Info'}</span>
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
-        </div>
+        ) : (
+          <div className="max-w-4xl mx-auto rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm text-slate-500">
+            Aucun partenaire visible pour le moment.
+          </div>
+        )}
       </section>
 
       <section className="py-24 px-6 bg-white section-top-blend">

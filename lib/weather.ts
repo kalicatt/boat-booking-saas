@@ -265,9 +265,9 @@ const buildAdminSnapshot = (raw: RawWeatherResponse): AdminWeatherSnapshot => {
             end: new Date(alert.end * 1000).toISOString(),
             description: alert.description,
             sender: alert.sender_name
-          }
+          } satisfies AdminWeatherSnapshot['alerts'][number]
         })
-        .filter((entry): entry is AdminWeatherSnapshot['alerts'][number] => entry !== null)
+        .filter((entry): entry is Exclude<typeof entry, null> => entry !== null)
     : []
 
   const highWind = metersPerSecondToKilometersPerHour(current.wind_speed) >= thresholdWindKmh

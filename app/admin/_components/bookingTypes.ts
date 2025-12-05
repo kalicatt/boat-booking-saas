@@ -1,7 +1,7 @@
 import type { Prisma } from '@prisma/client'
 
 export type BoardingStatus = 'CONFIRMED' | 'EMBARQUED' | 'NO_SHOW'
-export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+export type BookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED'
 
 export interface BookingPaymentDto {
   id: string
@@ -97,10 +97,11 @@ export const STATUS_THEME: Record<string, { label: string; background: string; b
   }
 }
 
-export const BOOKING_STATUS_THEME: Record<'PENDING' | 'CONFIRMED' | 'CANCELLED', { label: string; className: string }> = {
+export const BOOKING_STATUS_THEME: Record<BookingStatus, { label: string; className: string }> = {
   PENDING: { label: 'En attente', className: 'sn-pill sn-pill--amber' },
   CONFIRMED: { label: 'Confirmée', className: 'sn-pill sn-pill--emerald' },
-  CANCELLED: { label: 'Annulée', className: 'sn-pill sn-pill--rose' }
+  CANCELLED: { label: 'Annulée', className: 'sn-pill sn-pill--rose' },
+  COMPLETED: { label: 'Terminée', className: 'sn-pill sn-pill--slate' }
 }
 
 export const LANGUAGE_FLAGS: Record<string, string> = {

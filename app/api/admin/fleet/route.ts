@@ -55,26 +55,31 @@ type FleetUpdateAction = {
   manifest?: string | null
   lastChargeDate?: string
   batteryCycleDays?: number
+  performedBy?: string
 }
 
 type FleetResetManifestAction = {
   action: 'resetManifest'
   boatId: number
+  performedBy?: string
 }
 
 type FleetAction = FleetChargeAction | FleetIncidentAction | FleetUpdateAction | FleetResetManifestAction
 
+const hasBoatId = (payload: unknown): payload is { boatId: number } =>
+  typeof payload === 'object' && payload !== null && 'boatId' in payload && typeof (payload as { boatId: unknown }).boatId === 'number'
+
 const isChargeAction = (payload: FleetAction | { action?: string } | null | undefined): payload is FleetChargeAction =>
-  payload?.action === 'charge' && typeof payload.boatId === 'number'
+  payload?.action === 'charge' && hasBoatId(payload)
 
 const isIncidentAction = (payload: FleetAction | { action?: string } | null | undefined): payload is FleetIncidentAction =>
-  payload?.action === 'incident' && typeof payload.boatId === 'number'
+  payload?.action === 'incident' && hasBoatId(payload)
 
 const isUpdateAction = (payload: FleetAction | { action?: string } | null | undefined): payload is FleetUpdateAction =>
-  payload?.action === 'update' && typeof payload.boatId === 'number'
+  payload?.action === 'update' && hasBoatId(payload)
 
 const isResetManifestAction = (payload: FleetAction | { action?: string } | null | undefined): payload is FleetResetManifestAction =>
-  payload?.action === 'resetManifest' && typeof payload.boatId === 'number'
+  payload?.action === 'resetManifest' && hasBoatId(payload)
 
 const ensureAdmin = async () => {
   const session = await auth()

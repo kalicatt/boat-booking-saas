@@ -97,8 +97,8 @@ model Booking {
   // ... (relations inchangées) ...
   user        User      @relation(fields: [userId], references: [id])
   userId      String
-  boat        Boat      @relation(fields: [boatId], references: [id])
-  boatId      Int
+  boat        Boat?     @relation(fields: [boatId], references: [id])
+  boatId      Int?
 
   payments    Payment[]
   paymentSessions PaymentSession[]
@@ -241,6 +241,42 @@ model PaymentSession {
   @@index([status, expiresAt])
   @@index([targetDeviceId])
   @@index([targetDeviceId, status])
+}
+
+model SiteConfig {
+  key            String   @id
+  label          String
+  type           String
+  group          String
+  publishedValues Json
+  draftValues    Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model HeroSlide {
+  id           String   @id @default(uuid())
+  imageDesktop String
+  imageMobile  String?
+  title        Json
+  subtitle     Json?
+  order        Int      @default(0)
+  isActive     Boolean  @default(true)
+  draftPayload Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Partner {
+  id         String   @id @default(uuid())
+  name       String
+  logoUrl    String
+  websiteUrl String?
+  order      Int      @default(0)
+  isVisible  Boolean  @default(true)
+  draftData  Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // Immutable accounting ledger: append-only events for audit

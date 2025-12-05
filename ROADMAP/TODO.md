@@ -42,10 +42,12 @@
 **Objectif :** Autonomie client sur le contenu et récolte d'avis.
 
 ### CMS Module [ROADMAP_CMS]
-- [ ] **DB:** Migration Prisma `add_cms_tables` (SiteConfig, HeroSlide, Partner).
-- [ ] **Admin:** Créer les composants d'édition (TranslatableInput, RichTextEditor, ImageUploader).
-- [ ] **Pages:** Développer les gestionnaires : Hero (Drag&Drop), Partenaires, Textes.
-- [ ] **Front:** Connecter le site vitrine aux données dynamiques (`lib/i18n-cms.ts`).
+- [x] **DB:** Migration Prisma `add_cms_tables` (SiteConfig, HeroSlide, Partner).
+- [x] **Admin:** Créer les composants d'édition (TranslatableInput, RichTextEditor, ImageUploader).
+- [x] **Pages:** Développer les gestionnaires : Hero (Drag&Drop), Partenaires, Textes.
+- [x] **Preview/Publish:** Barre d'actions globale + page `/admin/cms/preview` pour valider les brouillons avant publication.
+- [x] **Front:** Brancher la vitrine sur le CMS (`lib/cms/publicContent.ts`, Hero slider dynamique, logos Partenaires).
+- [x] **SEO:** `generateMetadata` consomme SiteConfig (titre/description + image OG par langue) et l'admin propose un uploader dédié.
 
 ### Review Automation [ROADMAP_EXPERIENCE]
 - [ ] **DB:** Migration Prisma `add_review_mail_tracking` (Booking.reviewMailSent).

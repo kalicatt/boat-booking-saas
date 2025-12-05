@@ -1,10 +1,84 @@
 // Global CSS is already imported in root layout; avoid duplicate import here.
 import { ReactNode } from 'react';
+import type { Metadata } from 'next'
+import { getDictionary, SupportedLocale } from '@/lib/get-dictionary'
+import { getPublishedCmsPayload, getSiteConfigValue } from '@/lib/cms/publicContent'
+import {
+  DEFAULT_LOCALE as CMS_DEFAULT_LOCALE,
+  SUPPORTED_LOCALES as CMS_SUPPORTED_LOCALES,
+  type LocaleCode
+} from '@/types/cms'
 
 // 1. Définition du type avec Promise pour params (Spécifique Next.js 15)
 interface LangLayoutProps {
   children: ReactNode;
-  params: Promise<{ lang: string }>; 
+  params: Promise<{ lang: string }>;
+}
+
+const SUPPORTED_SHELL_LOCALES: SupportedLocale[] = ['en', 'fr', 'de', 'es', 'it']
+
+const resolveCmsLocale = (lang: SupportedLocale): LocaleCode => {
+  return CMS_SUPPORTED_LOCALES.includes(lang as LocaleCode) ? (lang as LocaleCode) : CMS_DEFAULT_LOCALE
+}
+
+const getBaseUrl = () => {
+  const fallback = 'http://localhost:3000'
+  const envBase = process.env.NEXT_PUBLIC_BASE_URL
+  const vercelBase = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+  const raw = envBase || vercelBase || fallback
+  return raw.replace(/\/$/, '')
+}
+
+const toAbsoluteUrl = (value: string | null | undefined): string | null => {
+  if (!value || !value.trim()) return null
+  const trimmed = value.trim()
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  const base = getBaseUrl()
+  if (trimmed.startsWith('/')) {
+    return `${base}${trimmed}`
+  }
+  return `${base}/${trimmed}`
+}
+
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ lang: string }>
+}): Promise<Metadata> {
+  const { lang: rawLang } = await params
+  const safeLang: SupportedLocale = SUPPORTED_SHELL_LOCALES.includes(rawLang as SupportedLocale)
+    ? (rawLang as SupportedLocale)
+    : 'en'
+  const dict = await getDictionary(safeLang)
+  const cmsPayload = await getPublishedCmsPayload()
+  const cmsLocale = resolveCmsLocale(safeLang)
+  const title =
+    getSiteConfigValue(cmsPayload, 'seo.home.title', cmsLocale) || dict.hero?.title || 'Sweet Narcisse'
+  const description =
+    getSiteConfigValue(cmsPayload, 'seo.home.description', cmsLocale) ||
+    dict.presentation?.text ||
+    'Promenades en barque sur la Petite Venise de Colmar.'
+  const rawOgImage = getSiteConfigValue(cmsPayload, 'seo.home.image', cmsLocale)
+  const image = toAbsoluteUrl(rawOgImage) ?? toAbsoluteUrl('/images/hero-bg.jpg')
+  const images = image ? [{ url: image }] : undefined
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: image ? [image] : undefined
+    }
+  }
 }
 
 // 2. Le composant doit être async
@@ -12,9 +86,7 @@ export default async function LangLayout({
   children,
   params
 }: LangLayoutProps) {
-
-  // 3. On await les params pour satisfaire Next.js, même si on n'utilise pas 'lang' ici
-  await params; 
+  await params;
 
   return (
     // Conteneur vitrine en mode clair uniquement
