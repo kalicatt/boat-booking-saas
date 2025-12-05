@@ -10,7 +10,7 @@ type AdminSessionUser = {
 }
 
 const isAdminRole = (role: string | null | undefined) =>
-  role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
+  role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN' || role === 'EMPLOYEE'
 
 export default async function FleetPage() {
   const session = await auth()

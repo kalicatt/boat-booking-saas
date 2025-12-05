@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { AdminPageShell } from '../_components/AdminPageShell'
 
@@ -8,6 +8,22 @@ const fetcher = (url: string) => fetch(url).then((response) => {
   if (!response.ok) throw new Error('Fleet API unavailable')
   return response.json()
 })
+
+const quotaFetcher = (dayKey: string | null) => {
+  if (!dayKey) return Promise.resolve(null)
+  return fetch(`/api/admin/fleet/quota?day=${encodeURIComponent(dayKey)}`).then((response) => {
+    if (!response.ok) throw new Error('Quota API unavailable')
+    return response.json()
+  })
+}
+
+const toDateInputValue = (value: Date) => {
+  const pad = (num: number) => String(num).padStart(2, '0')
+  const year = value.getFullYear()
+  const month = pad(value.getMonth() + 1)
+  const day = pad(value.getDate())
+  return `${year}-${month}-${day}`
+}
 
 type FleetLog = {
   id: string
@@ -21,6 +37,8 @@ type FleetLog = {
 type FleetBoat = {
   id: number
   name: string
+  planningName: string
+  fleetLabel?: string | null
   status: string
   capacity: number
   batteryCycleDays: number
@@ -31,6 +49,7 @@ type FleetBoat = {
   tripsSinceService: number
   hoursSinceService: number
   mechanicalAlert: boolean
+  manifest?: string | null
   maintenanceLogs: FleetLog[]
 }
 
@@ -46,6 +65,14 @@ type FleetResponse = {
   generatedAt: string
   stats: FleetStats
   boats: FleetBoat[]
+  viewerRole?: string | null
+}
+
+type FleetQuotaResponse = {
+  day: string
+  boatsAvailable: number
+  note?: string | null
+  exists: boolean
 }
 
 type ToastState = { type: 'success' | 'error'; message: string } | null
@@ -60,6 +87,8 @@ const statusBadge: Record<string, string> = {
   ACTIVE: 'bg-sky-100 text-sky-700 border border-sky-200',
   MAINTENANCE: 'bg-slate-900 text-white border border-slate-900'
 }
+
+const adminManifestRoles = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN']
 
 const formatDateTime = (value: string) => {
   try {
@@ -80,6 +109,24 @@ export default function FleetClientPage() {
   const [toast, setToast] = useState<ToastState>(null)
   const [pendingBoatId, setPendingBoatId] = useState<number | null>(null)
   const [incidentTarget, setIncidentTarget] = useState<FleetBoat | null>(null)
+  const [editTarget, setEditTarget] = useState<FleetBoat | null>(null)
+  const [selectedQuotaDay, setSelectedQuotaDay] = useState(() => toDateInputValue(new Date()))
+  const { data: quotaData, isLoading: quotaIsLoading, mutate: mutateQuota } = useSWR<FleetQuotaResponse | null>(
+    selectedQuotaDay ? `quota-${selectedQuotaDay}` : null,
+    () => quotaFetcher(selectedQuotaDay)
+  )
+  const [quotaValue, setQuotaValue] = useState(4)
+  const [quotaNote, setQuotaNote] = useState('')
+  const [quotaSubmitting, setQuotaSubmitting] = useState(false)
+  const viewerRole = data?.viewerRole ?? null
+  const canResetManifest = viewerRole ? adminManifestRoles.includes(viewerRole) : false
+
+  useEffect(() => {
+    if (quotaData) {
+      setQuotaValue(quotaData.boatsAvailable ?? 4)
+      setQuotaNote(quotaData.note ?? '')
+    }
+  }, [quotaData])
 
   const stats = data?.stats ?? { total: 0, criticalBatteries: 0, warningBatteries: 0, mechanicalAlerts: 0, maintenance: 0 }
   const boats = useMemo(() => data?.boats ?? [], [data])
@@ -118,15 +165,101 @@ export default function FleetClientPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'incident', boatId, description })
       })
-      if (!response.ok) throw new Error('Incident failed')
+      const payload = (await response.json().catch(() => null)) as { releaseCount?: number; error?: string } | null
+      if (!response.ok) throw new Error(payload?.error ?? 'Incident failed')
       await mutate()
-      showToast({ type: 'success', message: 'Incident signalé.' })
+      const releaseCount = payload?.releaseCount ?? 0
+      const incidentMessage =
+        releaseCount > 0
+          ? `Incident signalé. ${releaseCount} réservation(s) à réaffecter.`
+          : 'Incident signalé.'
+      showToast({ type: 'success', message: incidentMessage })
     } catch (err) {
       console.error(err)
       showToast({ type: 'error', message: "Impossible d'enregistrer l'incident." })
     } finally {
       setPendingBoatId(null)
       setIncidentTarget(null)
+    }
+  }
+
+  const handleQuotaSave = async () => {
+    if (!selectedQuotaDay) return
+    try {
+      setQuotaSubmitting(true)
+      const response = await fetch('/api/admin/fleet/quota', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          day: selectedQuotaDay,
+          boatsAvailable: quotaValue,
+          note: quotaNote || null
+        })
+      })
+      if (!response.ok) throw new Error('Quota save failed')
+      await mutateQuota()
+      showToast({ type: 'success', message: 'Capacité journalière enregistrée.' })
+    } catch (err) {
+      console.error(err)
+      showToast({ type: 'error', message: 'Impossible de mettre à jour la capacité.' })
+    } finally {
+      setQuotaSubmitting(false)
+    }
+  }
+
+  const handleResetManifest = async (boatId: number): Promise<boolean> => {
+    if (!canResetManifest) return false
+    if (typeof window !== 'undefined') {
+      const confirmed = window.confirm('Confirmer la réinitialisation du manifeste ?')
+      if (!confirmed) return false
+    }
+    try {
+      setPendingBoatId(boatId)
+      const response = await fetch('/api/admin/fleet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'resetManifest', boatId })
+      })
+      if (!response.ok) throw new Error('Reset manifest failed')
+      await mutate()
+      showToast({ type: 'success', message: 'Manifeste vidé.' })
+      return true
+    } catch (err) {
+      console.error(err)
+      showToast({ type: 'error', message: 'Impossible de réinitialiser le manifeste.' })
+      return false
+    } finally {
+      setPendingBoatId(null)
+    }
+  }
+
+  const handleUpdateBoat = async (
+    boatId: number,
+    payload: { name?: string; fleetLabel?: string | null; manifest?: string | null; lastChargeDate?: string | null; batteryCycleDays?: number }
+  ) => {
+    try {
+      setPendingBoatId(boatId)
+      const body: Record<string, unknown> = { action: 'update', boatId }
+      if (typeof payload.name === 'string') body.name = payload.name
+      if (payload.fleetLabel !== undefined) body.fleetLabel = payload.fleetLabel
+      if (payload.manifest !== undefined) body.manifest = payload.manifest
+      if (payload.lastChargeDate) body.lastChargeDate = payload.lastChargeDate
+      if (typeof payload.batteryCycleDays === 'number') body.batteryCycleDays = payload.batteryCycleDays
+
+      const response = await fetch('/api/admin/fleet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+      if (!response.ok) throw new Error('Update failed')
+      await mutate()
+      showToast({ type: 'success', message: 'Barque mise à jour.' })
+      setEditTarget(null)
+    } catch (err) {
+      console.error(err)
+      showToast({ type: 'error', message: 'Impossible de mettre à jour la barque.' })
+    } finally {
+      setPendingBoatId(null)
     }
   }
 
@@ -157,6 +290,7 @@ export default function FleetClientPage() {
                 <div>
                   <h3 className="text-xl font-semibold text-slate-900">{boat.name}</h3>
                   <p className="text-sm text-slate-500">Capacité {boat.capacity} pers.</p>
+                  <p className="text-xs text-slate-400">Nom planning : {boat.planningName}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
                   <span className={`rounded-full px-3 py-1 ${statusClass}`}>{boat.status}</span>
@@ -186,7 +320,33 @@ export default function FleetClientPage() {
                 </div>
               </dl>
 
+              {boat.manifest ? (
+                <section className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
+                  <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                    <span>Manifeste</span>
+                    {canResetManifest ? (
+                      <button
+                        type="button"
+                        onClick={() => void handleResetManifest(boat.id)}
+                        disabled={pendingBoatId === boat.id}
+                        className="rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-400 disabled:opacity-50"
+                      >
+                        ♻️ Réinitialiser
+                      </button>
+                    ) : null}
+                  </div>
+                  <p className="mt-2 whitespace-pre-line text-sm text-slate-700">{boat.manifest}</p>
+                </section>
+              ) : null}
+
               <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(boat)}
+                  className="inline-flex flex-1 items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 shadow hover:border-slate-500 hover:text-slate-900"
+                >
+                  ✏️ Renommer / Manifeste
+                </button>
                 <button
                   type="button"
                   onClick={() => handleCharge(boat.id)}
@@ -258,6 +418,103 @@ export default function FleetClientPage() {
           <StatCard label="En maintenance" value={stats.maintenance} helper="Indisponibles" />
         </section>
 
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Capacité journalière</p>
+              <p className="text-base text-slate-600">Choisissez la date et le nombre de barques à affecter (1 à 4).</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                onClick={() => setSelectedQuotaDay(toDateInputValue(new Date()))}
+              >
+                Aujourd&apos;hui
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                onClick={() => {
+                  const tomorrow = new Date()
+                  tomorrow.setDate(tomorrow.getDate() + 1)
+                  setSelectedQuotaDay(toDateInputValue(tomorrow))
+                }}
+              >
+                Demain
+              </button>
+            </div>
+          </header>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-[200px,1fr]">
+            <label className="text-sm font-semibold text-slate-700">
+              Date
+              <input
+                type="date"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                value={selectedQuotaDay}
+                onChange={(event) => setSelectedQuotaDay(event.target.value)}
+              />
+            </label>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Nombre de barques</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[1, 2, 3, 4].map((value) => {
+                    const isActive = quotaValue === value
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setQuotaValue(value)}
+                        className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
+                          isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {value} barque{value > 1 ? 's' : ''}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <label className="block text-sm font-semibold text-slate-700">
+                Note interne (facultative)
+                <textarea
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm"
+                  rows={2}
+                  value={quotaNote}
+                  onChange={(event) => setQuotaNote(event.target.value)}
+                  placeholder="Ex : équipe réduite, prévoir rotation Barque 3..."
+                />
+              </label>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                {quotaIsLoading ? 'Chargement du quota…' : quotaData?.exists ? 'Capacité personnalisée' : 'Capacité standard (4 barques)'}
+                {quotaData?.note ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">Note enregistrée</span> : null}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleQuotaSave}
+                  disabled={quotaSubmitting || !selectedQuotaDay}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold text-white shadow ${
+                    quotaSubmitting ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
+                >
+                  {quotaSubmitting ? 'Enregistrement…' : 'Appliquer'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => mutateQuota()}
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                >
+                  Rafraîchir
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {toast ? (
           <div
             className={`rounded-xl border px-4 py-3 text-sm ${
@@ -279,6 +536,17 @@ export default function FleetClientPage() {
           onClose={() => setIncidentTarget(null)}
           onSubmit={handleIncident}
           pending={pendingBoatId === incidentTarget.id}
+        />
+      ) : null}
+
+      {editTarget ? (
+        <EditBoatModal
+          boat={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSubmit={handleUpdateBoat}
+          pending={pendingBoatId === editTarget.id}
+          canResetManifest={canResetManifest}
+          onResetManifest={handleResetManifest}
         />
       ) : null}
     </>
@@ -352,6 +620,180 @@ function IncidentModal({ boat, onClose, onSubmit, pending }: IncidentModalProps)
             className="flex-1 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-700 disabled:opacity-60"
           >
             Valider
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+type EditBoatModalProps = {
+  boat: FleetBoat
+  pending: boolean
+  onClose: () => void
+  onSubmit: (
+    boatId: number,
+    payload: {
+      name?: string
+      fleetLabel?: string | null
+      manifest?: string | null
+      lastChargeDate?: string | null
+      batteryCycleDays?: number
+    }
+  ) => Promise<void>
+  canResetManifest: boolean
+  onResetManifest?: (boatId: number) => Promise<boolean>
+}
+
+function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onResetManifest }: EditBoatModalProps) {
+  const toLocalInputValue = (value: string) => {
+    try {
+      const date = new Date(value)
+      const pad = (num: number) => String(num).padStart(2, '0')
+      const year = date.getFullYear()
+      const month = pad(date.getMonth() + 1)
+      const day = pad(date.getDate())
+      const hours = pad(date.getHours())
+      const minutes = pad(date.getMinutes())
+      return `${year}-${month}-${day}T${hours}:${minutes}`
+    } catch {
+      return ''
+    }
+  }
+
+  const [fleetLabel, setFleetLabel] = useState(boat.fleetLabel ?? boat.name)
+  const [manifest, setManifest] = useState(boat.manifest ?? '')
+  const [lastChargeValue, setLastChargeValue] = useState(toLocalInputValue(boat.lastChargeDate))
+  const [cycleDays, setCycleDays] = useState(boat.batteryCycleDays)
+  const [manifestResetting, setManifestResetting] = useState(false)
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    let lastChargeISO: string | null = null
+    if (lastChargeValue) {
+      const parsed = new Date(lastChargeValue)
+      if (Number.isNaN(parsed.getTime())) {
+        alert('Date de charge invalide')
+        return
+      }
+      lastChargeISO = parsed.toISOString()
+    }
+
+    await onSubmit(boat.id, {
+      fleetLabel: fleetLabel.trim().length ? fleetLabel.trim() : null,
+      manifest: manifest.trim().length ? manifest.trim() : null,
+      lastChargeDate: lastChargeISO,
+      batteryCycleDays: cycleDays
+    })
+  }
+
+  const handleModalManifestReset = async () => {
+    if (!onResetManifest) return
+    setManifestResetting(true)
+    const success = await onResetManifest(boat.id)
+    if (success) {
+      setManifest('')
+    }
+    setManifestResetting(false)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
+        <h2 className="text-2xl font-semibold text-slate-900">Paramètres de la barque</h2>
+        <p className="text-sm text-slate-500">Appliquer un nouveau nom, manifeste ou date de dernière charge.</p>
+
+        <div className="mt-6 space-y-4">
+          <label className="block text-sm font-semibold text-slate-700">
+            Nom Fleet & maintenance
+            <input
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              value={fleetLabel}
+              onChange={(event) => setFleetLabel(event.target.value)}
+              placeholder={boat.planningName}
+            />
+          </label>
+
+          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Nom planification</p>
+            <p className="text-base font-semibold text-slate-900">{boat.planningName}</p>
+            <p className="text-xs text-slate-500">Ce libellé reste inchangé dans le planning public.</p>
+          </div>
+
+          <label className="block text-sm font-semibold text-slate-700">
+            Manifeste / Notes techniques
+            <textarea
+              className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm"
+              rows={4}
+              value={manifest}
+              onChange={(event) => setManifest(event.target.value)}
+              placeholder="Consignes spéciales, réparations, équipement..."
+            />
+            {canResetManifest ? (
+              <button
+                type="button"
+                onClick={handleModalManifestReset}
+                disabled={manifestResetting || pending}
+                className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-400 disabled:opacity-50"
+              >
+                ♻️ Purger le manifeste
+              </button>
+            ) : null}
+          </label>
+
+          <label className="block text-sm font-semibold text-slate-700">
+            Dernière charge (manuel)
+            <input
+              type="datetime-local"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              value={lastChargeValue}
+              onChange={(event) => setLastChargeValue(event.target.value)}
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Laisser vide pour conserver la valeur actuelle ({formatDateTime(boat.lastChargeDate)}).
+            </p>
+          </label>
+
+          <label className="block text-sm font-semibold text-slate-700">
+            Cycle batterie (jours)
+            <input
+              type="number"
+              min={1}
+              max={14}
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              value={cycleDays}
+              onChange={(event) =>
+                setCycleDays(Math.max(1, Math.min(14, Math.round(Number(event.target.value) || 1))))}
+            />
+            <p className="mt-1 text-xs text-slate-500">Utilisé pour déclencher les alertes J+2 / J+3 / J+4.</p>
+          </label>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setManifest('')
+              setLastChargeValue('')
+            }}
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+          >
+            Réinitialiser notes + date
+          </button>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600"
+          >
+            Annuler
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-60"
+          >
+            {pending ? 'Enregistrement…' : 'Enregistrer' }
           </button>
         </div>
       </form>

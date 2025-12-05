@@ -3,6 +3,9 @@ import Link from 'next/link'
 import { auth } from '@/auth'
 import { logout } from '@/lib/actions'
 import { redirect } from 'next/navigation'
+import { prisma } from '@/lib/prisma'
+import { computeBatteryAlert } from '@/lib/maintenance'
+import { BoatStatus } from '@prisma/client'
 
 // 1. On définit le type complet de l'utilisateur pour TypeScript
 interface ExtendedUser {
@@ -53,6 +56,64 @@ export default async function AdminDashboard() {
   }
 
   const styles = getRoleStyles(user.role || 'EMPLOYEE')
+
+  const now = new Date()
+  const normalizedDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const [fleetBoats, quotaRecord] = await Promise.all([
+    prisma.boat.findMany({ orderBy: { name: 'asc' } }),
+    prisma.dailyBoatQuota.findUnique({ where: { day: normalizedDay } })
+  ])
+
+  const fleetSummaries = fleetBoats.map((boat) => {
+    const battery = computeBatteryAlert(boat.lastChargeDate, boat.batteryCycleDays)
+    return {
+      name: boat.name,
+      status: boat.status,
+      batteryLevel: battery.level,
+      daysSinceCharge: battery.daysSinceCharge
+    }
+  })
+
+  const criticalBoats = fleetSummaries
+    .filter((boat) => boat.batteryLevel === 'CRITICAL')
+    .map((boat) => `${boat.name} (J+${boat.daysSinceCharge})`)
+  const warningBoats = fleetSummaries
+    .filter((boat) => boat.batteryLevel === 'WARNING')
+    .map((boat) => `${boat.name} (J+${boat.daysSinceCharge})`)
+  const maintenanceBoats = fleetSummaries
+    .filter((boat) => boat.status === BoatStatus.MAINTENANCE)
+    .map((boat) => boat.name)
+
+  const todaysQuota = quotaRecord?.boatsAvailable ?? 4
+  const totalActiveBoats = fleetSummaries.filter((boat) => boat.status === BoatStatus.ACTIVE).length
+
+  const startMessages: string[] = []
+  if (criticalBoats.length) {
+    startMessages.push(`Batteries critiques : ${criticalBoats.join(', ')}`)
+  }
+  if (maintenanceBoats.length) {
+    startMessages.push(`${maintenanceBoats.length} barque(s) en maintenance : ${maintenanceBoats.join(', ')}`)
+  }
+  if (todaysQuota < totalActiveBoats) {
+    startMessages.push(`Limiter les départs à ${todaysQuota} barque(s) sur ${totalActiveBoats} actives.`)
+  }
+  if (quotaRecord?.note) {
+    startMessages.push(`Note du chef d'équipe : ${quotaRecord.note}`)
+  }
+  if (!startMessages.length) {
+    startMessages.push('Départ possible sur l’ensemble de la flotte.')
+  }
+
+  const endMessages: string[] = []
+  if (criticalBoats.length) {
+    endMessages.push(`Alerte 🔴 : ${criticalBoats.join(', ')} à immobiliser.`)
+  }
+  if (warningBoats.length) {
+    endMessages.push(`Prévoir recharge pour ${warningBoats.join(', ')}.`)
+  }
+  if (!endMessages.length) {
+    endMessages.push('Fin de journée : aucune alerte, cloche possible ✅')
+  }
 
   return (
     <div className="sn-admin">
@@ -107,6 +168,11 @@ export default async function AdminDashboard() {
             </form>
           </div>
 
+        </div>
+
+        <div className="mb-8 grid gap-4 md:grid-cols-2">
+          <AlertBanner title="Début de journée" icon="🌅" tone="info" items={startMessages} />
+          <AlertBanner title="Fin de journée" icon="🌇" tone="warning" items={endMessages} />
         </div>
 
         {/* GRILLE D'OPTIONS */}
@@ -252,6 +318,43 @@ export default async function AdminDashboard() {
           </Link>
         </div>
       </div>
+    </div>
+  )
+}
+
+type AlertBannerProps = {
+  title: string
+  icon: string
+  items: string[]
+  tone: 'info' | 'warning'
+}
+
+function AlertBanner({ title, icon, items, tone }: AlertBannerProps) {
+  const palette =
+    tone === 'warning'
+      ? 'bg-amber-50 border-amber-200 text-amber-900'
+      : 'bg-sky-50 border-sky-200 text-slate-800'
+
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${palette}`}>
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em]">
+        <span>{icon}</span>
+        <span>{title}</span>
+      </div>
+      <ul className="mt-3 space-y-1 text-sm">
+        {items.length ? (
+          items.map((message) => (
+            <li key={message} className="flex items-start gap-2">
+              <span className="text-base" aria-hidden="true">
+                •
+              </span>
+              <span>{message}</span>
+            </li>
+          ))
+        ) : (
+          <li>Rien à signaler.</li>
+        )}
+      </ul>
     </div>
   )
 }

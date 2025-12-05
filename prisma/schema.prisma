@@ -54,6 +54,8 @@ model Boat {
   totalTrips        Int       @default(0)
   tripsSinceService Int       @default(0)
   hoursSinceService Float     @default(0.0)
+  manifest          String?
+  fleetLabel        String?
   bookings    Booking[]
   maintenanceLogs   MaintenanceLog[]
 }
@@ -294,6 +296,15 @@ model DailyClosure {
   totalsJson  String   // snapshot totals per method/vouchers, VAT etc.
   hash        String   // integrity hash of snapshot payload
   locked      Boolean  @default(true) // indicates period is locked for edits
+}
+
+model DailyBoatQuota {
+  id              String   @id @default(cuid())
+  day             DateTime @unique
+  boatsAvailable  Int
+  note            String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 // Generic sequencing for receipts or other counters
