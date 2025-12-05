@@ -31,10 +31,10 @@
 - [x] **Auto:** Intégrer le scan des batteries au script `daily-maintenance.ps1`.
 
 ### Meteo & Alerts [ROADMAP_METEO]
-- [ ] **Infra:** Configurer OpenWeatherMap (API Key, Lat/Lon) dans `.env`.
-- [ ] **Backend:** Créer le service `lib/weather.ts` avec cache (15min).
-- [ ] **UI:** Développer le composant `WeatherWidget` (Indicateurs Vent/Pluie).
-- [ ] **Integration:** Insérer le widget en tête du dashboard `admin/today`.
+- [x] **Infra:** Configurer OpenWeatherMap (API Key, Lat/Lon) dans `.env`.
+- [x] **Backend:** Créer le service `lib/weather.ts` avec cache (15min).
+- [x] **UI:** Développer le composant `WeatherWidget` (Indicateurs Vent/Pluie).
+- [x] **Integration:** Insérer le widget en tête du dashboard `admin/today`.
 
 ---
 
