@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import clsx from 'clsx'
 import type { CmsPreviewPayload } from '@/lib/cms/preview'
@@ -47,6 +48,8 @@ export function CmsPreviewClient({ initialData, initialLocale }: CmsPreviewClien
   const siteConfigMap = useMemo(() => {
     return new Map(initialData.siteConfig.map((entry) => [entry.key, entry.value]))
   }, [initialData.siteConfig])
+
+  const immersivePreviewHref = useMemo(() => `/admin/cms/preview/full?lang=${locale}`, [locale])
 
   return (
     <div className="space-y-6">
@@ -180,6 +183,9 @@ export function CmsPreviewClient({ initialData, initialLocale }: CmsPreviewClien
                 const rawValue = siteConfigMap.get(field.key)
                 const previewValue = rawValue ? resolveFieldValue(rawValue, locale) : ''
                 const isRichText = field.type === 'rich_text'
+                const previewLocation = field.previewLocation ?? null
+                const previewAnchor = field.previewAnchor ?? null
+                const immersiveHref = previewAnchor ? `${immersivePreviewHref}#${previewAnchor}` : null
                 return (
                   <div key={field.key} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -187,6 +193,25 @@ export function CmsPreviewClient({ initialData, initialLocale }: CmsPreviewClien
                     </p>
                     {field.helperText ? (
                       <p className="text-xs text-slate-400">{field.helperText}</p>
+                    ) : null}
+                    {previewLocation ? (
+                      <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-500">
+                        <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-slate-700">
+                          <span className="text-slate-400">Visible :</span>
+                          {previewLocation}
+                        </span>
+                        {immersiveHref ? (
+                          <Link
+                            href={immersiveHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full border border-slate-300 px-3 py-1 text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Ouvrir sur la maquette
+                            <span aria-hidden="true">↗</span>
+                          </Link>
+                        ) : null}
+                      </div>
                     ) : null}
                     {previewValue ? (
                       isRichText ? (

@@ -385,7 +385,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       ) }
 
-      <header className="relative h-screen flex items-center justify-center overflow-hidden">
+      <header
+        id="hero"
+        data-preview-anchor="hero"
+        className="relative h-screen flex items-center justify-center overflow-hidden"
+      >
         <div className="absolute inset-0 z-0 hero-parallax">
           <Image
             src={heroDesktopImage}
@@ -480,7 +484,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       </header>
 
-      <section id="presentation" className="py-24 px-6 bg-sand-gradient section-top-blend">
+      <section
+        id="presentation"
+        data-preview-anchor="presentation"
+        className="py-24 px-6 bg-sand-gradient section-top-blend"
+      >
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
           <div className="space-y-6 fade-in">
             <h4 className="text-[#0ea5e9] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
@@ -627,7 +635,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
 
       {/* Contact forms are now shown as a modal from BookingWidget; no standalone section */}
 
-      <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800">
+      <footer
+        id="footer"
+        data-preview-anchor="footer"
+        className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800"
+      >
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">

@@ -6,6 +6,8 @@ export type SiteConfigFieldDefinition = {
   key: string
   label: string
   helperText?: string
+  previewLocation?: string
+  previewAnchor?: string
   type: SiteConfigFieldType
   translatable: boolean
   rows?: number
@@ -24,12 +26,13 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
   {
     id: 'seo_home',
     title: 'SEO - Page Accueil',
-    description: 'Balises titre et description pour la page d\'entree.',
+    description: 'Identifiants utilises par les moteurs de recherche et le partage social.',
     fields: [
       {
         key: 'seo.home.title',
         label: 'Titre SEO',
-        helperText: 'Affiche dans l\'onglet du navigateur et les resultats Google.',
+        helperText: 'S\'affiche sur l\'onglet du navigateur et comme titre bleu dans Google.',
+        previewLocation: 'Google / Onglet navigateur (non visible sur la page).',
         type: 'text',
         translatable: true,
         required: true
@@ -37,7 +40,8 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
       {
         key: 'seo.home.description',
         label: 'Description Google',
-        helperText: '160 caracteres recommandes. Utilise par les moteurs de recherche.',
+        helperText: 'Résumé de 160 caracteres maximum affiche sous le titre dans Google.',
+        previewLocation: 'Google / Partage social (non visible sur la page).',
         type: 'textarea',
         rows: 4,
         translatable: true
@@ -45,7 +49,8 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
       {
         key: 'seo.home.image',
         label: 'Image Open Graph',
-        helperText: 'URL absolue ou relative pour Facebook/Twitter (1200x630).',
+        helperText: 'Image 1200x630px partagee sur Facebook/Twitter lors d\'un partage.',
+        previewLocation: "Facebook, LinkedIn, etc. lors du partage d'un lien.",
         type: 'text',
         translatable: false,
         inputMode: 'image'
@@ -55,12 +60,14 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
   {
     id: 'home_copy',
     title: 'Contenus - Accueil',
-    description: 'Textes principaux affiches sur le site public.',
+    description: 'Textes visibles sur la page d\'accueil (hero et introduction).',
     fields: [
       {
         key: 'home.hero.eyebrow',
         label: 'Accroche courte',
-        helperText: 'Texte au-dessus du titre principal.',
+        helperText: 'Badge en lettres capitales situe juste au-dessus du grand titre.',
+        previewLocation: 'Accueil > Bloc hero (bandeau superieur).',
+        previewAnchor: 'hero',
         type: 'text',
         translatable: true,
         required: true
@@ -68,7 +75,9 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
       {
         key: 'home.hero.cta',
         label: 'Bouton principal',
-        helperText: 'Label du bouton de reservation.',
+        helperText: 'Texte du bouton bleu "Reserver" place sous le titre du hero.',
+        previewLocation: 'Accueil > Bloc hero (bouton d\'action).',
+        previewAnchor: 'hero',
         type: 'text',
         translatable: true,
         required: true
@@ -76,7 +85,9 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
       {
         key: 'home.story.paragraph',
         label: 'Paragraphe d\'introduction',
-        helperText: 'Court texte presentant l\'experience.',
+        helperText: 'Grand paragraphe qui raconte l\'experience dans la section "Sweet Narcisse".',
+        previewLocation: 'Accueil > Section presentation (sous le hero).',
+        previewAnchor: 'presentation',
         type: 'textarea',
         rows: 5,
         translatable: true
@@ -86,19 +97,22 @@ export const SITE_CONFIG_GROUPS: SiteConfigGroupDefinition[] = [
   {
     id: 'legal_assets',
     title: 'Mentions & Footer',
-    description: 'Informations obligatoires et textes de pied de page.',
+    description: 'Textes legaux et informations complementaires visibles en bas de page.',
     fields: [
       {
         key: 'legal.mentions',
         label: 'Mentions legales',
-        helperText: 'Contenu HTML riche affiche dans la page dediee.',
+        helperText: 'Contenu HTML de la page /legal. Peut inclure titres, paragraphes, liens.',
+        previewLocation: 'Page Mentions legales complete (/legal).',
         type: 'rich_text',
         translatable: false
       },
       {
         key: 'footer.contact.line',
         label: 'Texte de contact',
-        helperText: 'Phrase courte dans le footer.',
+        helperText: 'Petite phrase juste au-dessus des liens legaux dans le footer.',
+        previewLocation: 'Accueil > Footer (colonne Infos).',
+        previewAnchor: 'footer',
         type: 'text',
         translatable: true
       }
