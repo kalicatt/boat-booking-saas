@@ -3,7 +3,7 @@
 Ce document résume les protections côté serveur mises en place, la procédure de signalement et les recommandations pour aller plus loin.
 
 ### Signalement de vulnérabilité
-- **Contact** : envoyez un email à `security@sweet-narcisse.fr` (ou `lucas@sweet-narcisse.fr` en secours) avec un descriptif détaillé, étapes de reproduction, et tout POC.
+- **Contact** : envoyez un email à `servaislucas68@gmail.com` en secours) avec un descriptif détaillé, étapes de reproduction, et tout POC.
 - **Chiffrement** : la clé PGP publique est disponible dans `certs/README.md`; utilisez-la pour les rapports sensibles.
 - **SLA réponse** : accusé de réception sous 2 jours ouvrés, patch correctif sous 14 jours pour les failles critiques (ou contournement documenté).
 - **Divulgation responsable** : merci de ne pas rendre publiques les informations tant qu’un correctif n’est pas déployé. Nous publions ensuite la vulnérabilité et les étapes de mitigation dans `CHANGELOG.md` et `SECURITY.md`.
@@ -65,24 +65,12 @@ Ce document résume les protections côté serveur mises en place, la procédure
 | Sanitation basique | ✅ | Ajouter liste blanche caractères avancés si besoin |
 | Rôles & permissions | ✅ | Ajouter tests automatiques |
 | Logs actions critiques | ✅ | Ajouter logs pour échecs validation |
-| Rate limiting | ❌ | Implémenter Redis token bucket |
-| CSP/Headers | ❌ | Ajouter middleware sécurité |
-| Force mot de passe | ❌ | Intégrer zxcvbn + policy |
-| Monitoring | ❌ | Dashboard Grafana / alerts |
+| Rate limiting | ✅ | Token bucket `lib/rateLimit.ts` (Upstash Redis) branché sur `/api/*` |
+| CSP/Headers | ✅ | Middleware `middleware.security.ts` applique CSP + headers durcis |
+| Force mot de passe | ✅ | Politique `lib/passwordPolicy.ts` avec zxcvbn > 3 |
+| Monitoring | ✅ | Dashboards Grafana + alerting PROM/Alertmanager |
 
-### Exemple Middleware Sécurité (proposition)
-```ts
-// middleware.security.ts (exemple futur)
-import { NextResponse } from 'next/server'
-export function middleware(req: Request) {
-  const res = NextResponse.next()
-  res.headers.set('X-Frame-Options', 'DENY')
-  res.headers.set('X-Content-Type-Options', 'nosniff')
-  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
-  res.headers.set('Permissions-Policy', 'geolocation=(), camera=()')
-  return res
-}
-```
+
 
 ### Comment Contribuer
 - Ajouter tout nouveau endpoint avec schéma Zod dans `lib/validation.ts`.
