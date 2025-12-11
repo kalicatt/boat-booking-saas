@@ -1,7 +1,7 @@
 {
   "nav": {"experience": "L'ESPERIENZA", "contact": "CONTATTO", "book": "PRENOTA 🎟️"},
   "hero": {"title": "Vivi Colmar in modo diverso", "subtitle": "Un momento tranquillo sull'acqua, senza folla né stress – una pausa autentica nel cuore della Piccola Venezia.", "cta": "PRENOTA IL POSTO"},
-  "presentation": {"title": "La Piccola Venezia alsaziana come non l'hai mai vista.", "text": "Lasciati cullare dal lieve movimento della Lauch. I nostri barcaioli appassionati ti guideranno tra i quartieri storici dei conciatori e dei pescatori. Una vista unica sulle case a graticcio colorate, lontano dalla folla.", "points": ["Guide multilingue (FR, EN, DE, IT)", "Barche tradizionali a fondo piatto", "Percorso di 25 minuti in pieno centro", "Passeggini sorvegliati direttamente al pontile", "Cani di compagnia benvenuti a bordo"]},
+  "presentation": {"title": "La Piccola Venezia alsaziana come non l'hai mai vista.", "text": "Lasciati cullare dal lieve movimento della Lauch. I nostri barcaioli appassionati ti guideranno tra i quartieri storici dei conciatori e dei pescatori. Una vista unica sulle case a graticcio colorate, lontano dalla folla.", "points": ["Guide multilingue (tour attualmente disponibili in FR, EN, DE)", "Barche tradizionali a fondo piatto", "Percorso di 25 minuti in pieno centro", "Passeggini sorvegliati direttamente al pontile", "Cani di compagnia benvenuti a bordo"]},
   "bento": {"title": "Perché scegliere il nostro giro?", "subtitle": "Un formato pensato per massimizzare il piacere e ridurre gli attriti.", "cards": [
     {"title": "⏱ Durata ottimale", "text": "25 minuti: abbastanza per staccare, facile da inserire."},
     {"title": "🌿 Impatto leggero", "text": "Navigazione dolce rispettosa di patrimonio e ambiente."},
