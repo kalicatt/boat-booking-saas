@@ -1,10 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 import Stripe from 'stripe'
+import { PAYMENT_TIMEOUT_MINUTES } from '../lib/config'
 
 const prisma = new PrismaClient()
 
 async function main() {
-  const ttlMin = Number(process.env.PENDING_BOOKING_TTL_MIN || '30')
+  const ttlEnv = process.env.PENDING_BOOKING_TTL_MIN
+  const ttlParsed = ttlEnv ? Number(ttlEnv) : NaN
+  const ttlMin = Number.isFinite(ttlParsed) && ttlParsed > 0 ? ttlParsed : PAYMENT_TIMEOUT_MINUTES
   const cutoff = new Date(Date.now() - ttlMin * 60 * 1000)
 
   console.log(`🧹 Cleanup pending bookings older than ${ttlMin} minutes (before ${cutoff.toISOString()})`)

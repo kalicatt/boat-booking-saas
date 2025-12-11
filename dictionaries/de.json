@@ -98,7 +98,12 @@
       "payment_paypal_processing_error": "Fehler bei der PayPal-Verarbeitung",
       "payment_paypal_network_error": "Netzwerkfehler bei der PayPal-Verknüpfung.",
       "payment_paypal_not_configured": "PayPal nicht konfiguriert",
-      "payment_paypal_sdk_load_failed": "PayPal-SDK konnte nicht geladen werden"
+      "payment_paypal_sdk_load_failed": "PayPal-SDK konnte nicht geladen werden",
+      "payment_countdown_title": "Zahlungs-Countdown",
+      "payment_countdown_label": "Restzeit",
+      "payment_countdown_helper": "Ihre Plätze bleiben ab diesem Schritt {minutes} Min reserviert.",
+      "payment_countdown_expired": "Zeit abgelaufen. Starten Sie die Zahlung neu, um Ihre Plätze zu behalten.",
+      "payment_restart_btn": "Zahlung neu starten"
     }
   },
   "group_form": {

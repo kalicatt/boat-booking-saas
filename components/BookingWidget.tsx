@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { PHONE_CODES } from '@/lib/phoneData'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
-import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
+import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
 import dynamic from 'next/dynamic'
 import type { Lang } from '@/lib/contactClient'
@@ -11,6 +11,7 @@ const ContactModal = dynamic(() => import('@/components/ContactModal'), { ssr: f
 import PaymentElementWrapper from '@/components/PaymentElementWrapper'
 import StripeWalletButton from '@/components/StripeWalletButton'
 import PayPalButton from '@/components/PayPalButton'
+import PaymentCountdown from '@/components/PaymentCountdown'
 
 type BookingWidgetCopy = {
     captcha_required?: string
@@ -36,6 +37,11 @@ type BookingWidgetCopy = {
     payment_stripe_not_confirmed?: string
     payment_stripe_verify_failed?: string
     payment_paypal_capture_failed?: string
+    payment_countdown_title?: string
+    payment_countdown_label?: string
+    payment_countdown_helper?: string
+    payment_countdown_expired?: string
+    payment_restart_btn?: string
 } & Record<string, string | undefined>
 
 type BookingWidgetDict = {
@@ -88,6 +94,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const widgetCopy = useMemo(() => (bookingDict.widget ?? {}) as BookingWidgetCopy, [bookingDict])
     const groupFormCopy = useMemo(() => (dict.group_form ?? {}) as GroupFormCopy, [dict])
     const privateFormCopy = useMemo(() => (dict.private_form ?? {}) as PrivateFormCopy, [dict])
+    const countdownHelperText = useMemo(() => {
+        const template = widgetCopy.payment_countdown_helper || 'Vos places sont bloquées pendant {minutes} min à partir de cette étape.'
+        return template.replace('{minutes}', String(PAYMENT_TIMEOUT_MINUTES))
+    }, [widgetCopy])
   
   // Données de réservation
     // Date locale (YYYY-MM-DD) pour éviter tout décalage de fuseau
@@ -122,6 +132,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const [phoneError, setPhoneError] = useState<string | null>(null)
 
     const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
+    const [pendingSignature, setPendingSignature] = useState<string | null>(null)
+    const [pendingExpiresAt, setPendingExpiresAt] = useState<string | null>(null)
+    const [pendingSecondsLeft, setPendingSecondsLeft] = useState<number | null>(null)
+    const [pendingExpired, setPendingExpired] = useState(false)
     const [captchaToken, setCaptchaToken] = useState<string | null>(null)
     const recaptchaRef = useRef<ReCAPTCHA>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -134,6 +148,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         const [stripeIntentId, setStripeIntentId] = useState<string | null>(null)
     const widgetRef = useRef<HTMLDivElement | null>(null)
     const initialStepRender = useRef(true)
+    const expirationHandledRef = useRef(false)
 
     const validateLocalPhone = (digits: string) => {
         if (!digits) return 'Numéro requis'
@@ -153,8 +168,25 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
     const buildE164 = useCallback(() => localToE164(phoneCode, formData.phone), [phoneCode, formData.phone])
     const getFormattedPhone = useCallback(() => formatInternational(buildE164()), [buildE164])
+    const releasePendingBooking = useCallback(async (bookingId: string) => {
+        try {
+            await fetch('/api/bookings/release', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ bookingId })
+            })
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error)
+            console.warn('Unable to release pending booking:', msg)
+        }
+    }, [])
     const ensurePendingBooking = useCallback(async (): Promise<string> => {
-        if (pendingBookingId) return pendingBookingId
+        if (pendingBookingId && pendingExpiresAt) {
+            const expiresAt = new Date(pendingExpiresAt).getTime()
+            if (expiresAt > Date.now()) return pendingBookingId
+            await releasePendingBooking(pendingBookingId)
+            setPendingBookingId(null)
+        }
         if (!captchaToken) {
             const captchaMsg = widgetCopy.captcha_required || 'Captcha requis'
             setGlobalErrors([captchaMsg])
@@ -192,9 +224,19 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             setGlobalErrors([notFound])
             throw new Error(notFound)
         }
+        const expiresAtIso = typeof payload?.pendingExpiresAt === 'string'
+            ? payload.pendingExpiresAt
+            : (payload?.booking?.createdAt
+                ? new Date(new Date(payload.booking.createdAt).getTime() + (PAYMENT_TIMEOUT_MINUTES * 60 * 1000)).toISOString()
+                : null)
         setPendingBookingId(newId)
+        setPendingSignature(`${date}|${selectedSlot || ''}|${adults}|${children}|${babies}`)
+        setPendingExpiresAt(expiresAtIso)
+        setPendingExpired(false)
+        setPendingSecondsLeft(null)
+        expirationHandledRef.current = false
         return newId
-    }, [adults, babies, buildE164, captchaToken, children, date, formData, language, pendingBookingId, selectedSlot, widgetCopy])
+    }, [adults, babies, buildE164, captchaToken, children, date, formData, language, pendingBookingId, pendingExpiresAt, releasePendingBooking, selectedSlot, widgetCopy])
 
     const initializeStripeIntent = useCallback(async () => {
         if (initializingStripe) return
@@ -223,18 +265,40 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         }
     }, [ensurePendingBooking, initializingStripe, widgetCopy])
 
+    const handlePendingExpiration = useCallback(async () => {
+        if (!pendingBookingId) return
+        expirationHandledRef.current = true
+        try {
+            await releasePendingBooking(pendingBookingId)
+        } finally {
+            setPendingBookingId(null)
+            setPendingSignature(null)
+            setPendingExpiresAt(null)
+            setPendingSecondsLeft(null)
+            setPendingExpired(true)
+            setPaymentProvider(null)
+            setPaymentSucceeded(false)
+            setClientSecret(null)
+            setStripeIntentId(null)
+            setPaypalOrderId(null)
+            const expiredMsg = widgetCopy.payment_countdown_expired || 'Votre session de paiement a expiré. Relancez le paiement pour conserver vos places.'
+            setGlobalErrors([expiredMsg])
+        }
+    }, [pendingBookingId, releasePendingBooking, widgetCopy])
+
     useEffect(() => {
         if (step !== STEPS.PAYMENT) return
-        if (clientSecret) return
+        if (clientSecret || pendingExpired) return
         initializeStripeIntent().catch(() => {
             /* Errors surfaced via stripeError state */
         })
-    }, [step, clientSecret, initializeStripeIntent])
+    }, [step, clientSecret, initializeStripeIntent, pendingExpired])
 
   // Calculs
   const totalPeople = adults + children + babies
     const isGroup = totalPeople > GROUP_THRESHOLD // Bascule automatiquement en mode Groupe
     const totalPrice = (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
+                const countdownTotalSeconds = PAYMENT_TIMEOUT_MINUTES * 60
         const progressSegments = [
             { id: STEPS.CRITERIA, label: widgetCopy.step_criteria_short || widgetCopy.step_criteria_title || 'Critères' },
             { id: STEPS.SLOTS, label: widgetCopy.step_slots_short || widgetCopy.step_slots_title || 'Horaires' },
@@ -289,6 +353,31 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     }, [ensurePendingBooking, step])
 
     useEffect(() => {
+        expirationHandledRef.current = false
+    }, [pendingExpiresAt])
+
+    useEffect(() => {
+        if (!pendingExpiresAt) {
+            setPendingSecondsLeft(null)
+            return
+        }
+        const expiresAt = new Date(pendingExpiresAt).getTime()
+        const tick = () => {
+            const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000))
+            setPendingSecondsLeft(remaining)
+            if (remaining <= 0 && pendingBookingId && !expirationHandledRef.current) {
+                expirationHandledRef.current = true
+                handlePendingExpiration().catch(() => {
+                    /* errors already surfaced */
+                })
+            }
+        }
+        tick()
+        const interval = window.setInterval(tick, 1000)
+        return () => window.clearInterval(interval)
+    }, [handlePendingExpiration, pendingBookingId, pendingExpiresAt])
+
+    useEffect(() => {
         if (initialStepRender.current) {
             initialStepRender.current = false
             return
@@ -297,6 +386,44 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             widgetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
         }
     }, [step])
+
+    useEffect(() => {
+        if (!pendingBookingId || !pendingSignature) return
+        const currentSignature = selectedSlot ? `${date}|${selectedSlot}|${adults}|${children}|${babies}` : null
+        if (currentSignature && currentSignature === pendingSignature) return
+        let cancelled = false
+        const release = async () => {
+            try {
+                await releasePendingBooking(pendingBookingId)
+            } finally {
+                if (cancelled) return
+                setPendingBookingId(null)
+                setPendingSignature(null)
+                setPendingExpiresAt(null)
+                setPendingSecondsLeft(null)
+                setPendingExpired(false)
+                setClientSecret(null)
+                setStripeIntentId(null)
+                setPaypalOrderId(null)
+                setPaymentProvider(null)
+                setPaymentSucceeded(false)
+            }
+        }
+        release()
+        return () => {
+            cancelled = true
+        }
+    }, [adults, babies, children, date, pendingBookingId, pendingSignature, releasePendingBooking, selectedSlot])
+
+    useEffect(() => {
+        return () => {
+            if (pendingBookingId) {
+                releasePendingBooking(pendingBookingId).catch(() => {
+                    /* noop */
+                })
+            }
+        }
+    }, [pendingBookingId, releasePendingBooking])
 
   // --- ACTIONS DU TUNNEL ---
 
@@ -391,6 +518,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         if (e) e.preventDefault()
                                 if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
                                 if (!paymentSucceeded) { setGlobalErrors(["Veuillez finaliser le paiement avant confirmation."]); return }
+                                if (pendingExpired) {
+                                    setGlobalErrors([widgetCopy.payment_countdown_expired || 'La réservation temporaire a expiré. Relancez le paiement.'])
+                                    return
+                                }
     
     setIsSubmitting(true)
     try {
@@ -417,6 +548,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             }
             setGlobalErrors([])
             setPendingBookingId(null)
+            setPendingSignature(null)
+            setPendingExpiresAt(null)
+            setPendingSecondsLeft(null)
+            setPendingExpired(false)
+            setPaymentProvider(null)
+            setStripeIntentId(null)
+            setPaypalOrderId(null)
             setStep(STEPS.SUCCESS)
             return
         }
@@ -424,6 +562,14 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         // If PayPal flow with pending booking already captured, just finish
         if (paymentProvider === 'paypal' && pendingBookingId && paymentSucceeded) {
             setGlobalErrors([])
+            setPendingBookingId(null)
+            setPendingSignature(null)
+            setPendingExpiresAt(null)
+            setPendingSecondsLeft(null)
+            setPendingExpired(false)
+            setPaymentProvider(null)
+            setStripeIntentId(null)
+            setPaypalOrderId(null)
             setStep(STEPS.SUCCESS)
             return
         }
@@ -471,6 +617,14 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 }
             }
             setGlobalErrors([])
+            setPendingBookingId(null)
+            setPendingSignature(null)
+            setPendingExpiresAt(null)
+            setPendingSecondsLeft(null)
+            setPendingExpired(false)
+            setPaymentProvider(null)
+            setStripeIntentId(null)
+            setPaypalOrderId(null)
             setStep(STEPS.SUCCESS)
         } else {
             const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
@@ -853,6 +1007,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     </p>
 
                     <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4">
+                        {pendingBookingId && (
+                            <PaymentCountdown
+                                title={widgetCopy.payment_countdown_title || 'Compte à rebours paiement'}
+                                label={widgetCopy.payment_countdown_label || 'Temps restant'}
+                                helperText={countdownHelperText}
+                                secondsLeft={pendingSecondsLeft}
+                                totalSeconds={countdownTotalSeconds}
+                                expired={pendingExpired}
+                            />
+                        )}
                         <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
                             <h3 className="text-sm font-bold text-slate-700">{widgetCopy.summary_payment_details || 'Récapitulatif'}</h3>
                             <div className="text-sm text-slate-600 flex justify-between"><span>{widgetCopy.date_label || 'Date'}</span><span>{(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}</span></div>
@@ -871,89 +1035,112 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                         type="button"
                                         className="text-xs underline"
                                         onClick={() => {
+                                            setGlobalErrors([])
                                             initializeStripeIntent().catch(() => {
                                                 /* handled via stripeError */
                                             })
                                         }}
                                     >
-                                        {widgetCopy.btn_pay_now || 'Payer maintenant'}
+                                        {pendingExpired
+                                            ? (widgetCopy.payment_restart_btn || widgetCopy.btn_pay_now || 'Relancer le paiement')
+                                            : (widgetCopy.btn_pay_now || 'Payer maintenant')}
                                     </button>
                                 )}
                             </div>
-                            <div className="text-xs text-slate-500">
-                                {clientSecret ? (
-                                    <PaymentElementWrapper
-                                        clientSecret={clientSecret}
-                                        onSuccess={(intentId) => {
+                            {pendingExpired ? (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-2">
+                                    <p>{widgetCopy.payment_countdown_expired || 'Temps écoulé. Relancez le paiement pour conserver vos places.'}</p>
+                                    <button
+                                        type="button"
+                                        className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-3 py-2 text-[11px] font-semibold text-white hover:bg-amber-500"
+                                        onClick={() => {
                                             setGlobalErrors([])
-                                            setStripeIntentId(intentId)
-                                            setPaymentSucceeded(true)
-                                            setPaymentProvider('stripe')
-                                        }}
-                                    />
-                                ) : (
-                                    initializingStripe
-                                        ? (widgetCopy.payment_initializing || 'Préparation du paiement en cours…')
-                                        : (widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement')
-                                )}
-                                {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
-                            </div>
-
-                            <div>
-                                <PayPalButton
-                                    amount={totalPrice}
-                                    messages={{
-                                        notConfigured: widgetCopy.payment_paypal_not_configured || 'PayPal non configuré',
-                                        genericError: widgetCopy.payment_error_generic || 'Erreur de paiement',
-                                        sdkLoadFailed: widgetCopy.payment_paypal_sdk_load_failed || 'Chargement PayPal impossible'
-                                    }}
-                                    onSuccess={async (oid) => {
-                                        setGlobalErrors([])
-                                        try {
-                                            setPaypalOrderId(oid)
-                                            setPaymentProvider('paypal')
-                                            const bookingId = await ensurePendingBooking()
-                                            const cap = await fetch('/api/payments/paypal/capture-order', {
-                                                method: 'POST',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ orderId: oid, bookingId })
+                                            initializeStripeIntent().catch(() => {
+                                                /* handled via stripeError */
                                             })
-                                            const capData = await cap.json().catch(() => ({}))
-                                            if (!cap.ok) {
-                                                setGlobalErrors([capData?.error || (widgetCopy.payment_paypal_capture_failed || 'Capture PayPal échouée')])
-                                                return
-                                            }
-                                            setPaymentSucceeded(true)
-                                            setGlobalErrors([])
-                                        } catch (error: unknown) {
-                                            const msg = error instanceof Error ? error.message : String(error)
-                                            console.error('PayPal processing error:', msg)
-                                            setGlobalErrors([widgetCopy.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
-                                        }
-                                    }}
-                                    onError={(msg) => {
-                                        if (msg) setGlobalErrors([msg])
-                                        setPaymentProvider(null)
-                                    }}
-                                />
-                            </div>
+                                        }}
+                                    >
+                                        {widgetCopy.payment_restart_btn || widgetCopy.btn_pay_now || 'Relancer le paiement'}
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="text-xs text-slate-500">
+                                        {clientSecret ? (
+                                            <PaymentElementWrapper
+                                                clientSecret={clientSecret}
+                                                onSuccess={(intentId) => {
+                                                    setGlobalErrors([])
+                                                    setStripeIntentId(intentId)
+                                                    setPaymentSucceeded(true)
+                                                    setPaymentProvider('stripe')
+                                                }}
+                                            />
+                                        ) : (
+                                            initializingStripe
+                                                ? (widgetCopy.payment_initializing || 'Préparation du paiement en cours…')
+                                                : (widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement')
+                                        )}
+                                        {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
+                                    </div>
 
-                            <div className="mt-3">
-                                <StripeWalletButton
-                                    amount={totalPrice * 100}
-                                    currency="eur"
-                                    country="FR"
-                                    label="Sweet Narcisse"
-                                    ensurePendingBooking={ensurePendingBooking}
-                                    onSuccess={(intentId) => {
-                                        setGlobalErrors([])
-                                        setStripeIntentId(intentId)
-                                        setPaymentSucceeded(true)
-                                        setPaymentProvider('stripe')
-                                    }}
-                                    onError={(msg) => setGlobalErrors([msg])}
-                                />
-                            </div>
+                                    <div>
+                                        <PayPalButton
+                                            amount={totalPrice}
+                                            messages={{
+                                                notConfigured: widgetCopy.payment_paypal_not_configured || 'PayPal non configuré',
+                                                genericError: widgetCopy.payment_error_generic || 'Erreur de paiement',
+                                                sdkLoadFailed: widgetCopy.payment_paypal_sdk_load_failed || 'Chargement PayPal impossible'
+                                            }}
+                                            onSuccess={async (oid) => {
+                                                setGlobalErrors([])
+                                                try {
+                                                    setPaypalOrderId(oid)
+                                                    setPaymentProvider('paypal')
+                                                    const bookingId = await ensurePendingBooking()
+                                                    const cap = await fetch('/api/payments/paypal/capture-order', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ orderId: oid, bookingId })
+                                                    })
+                                                    const capData = await cap.json().catch(() => ({}))
+                                                    if (!cap.ok) {
+                                                        setGlobalErrors([capData?.error || (widgetCopy.payment_paypal_capture_failed || 'Capture PayPal échouée')])
+                                                        return
+                                                    }
+                                                    setPaymentSucceeded(true)
+                                                    setGlobalErrors([])
+                                                } catch (error: unknown) {
+                                                    const msg = error instanceof Error ? error.message : String(error)
+                                                    console.error('PayPal processing error:', msg)
+                                                    setGlobalErrors([widgetCopy.payment_paypal_processing_error || 'Erreur lors du traitement PayPal'])
+                                                }
+                                            }}
+                                            onError={(msg) => {
+                                                if (msg) setGlobalErrors([msg])
+                                                setPaymentProvider(null)
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="mt-3">
+                                        <StripeWalletButton
+                                            amount={totalPrice * 100}
+                                            currency="eur"
+                                            country="FR"
+                                            label="Sweet Narcisse"
+                                            ensurePendingBooking={ensurePendingBooking}
+                                            onSuccess={(intentId) => {
+                                                setGlobalErrors([])
+                                                setStripeIntentId(intentId)
+                                                setPaymentSucceeded(true)
+                                                setPaymentProvider('stripe')
+                                            }}
+                                            onError={(msg) => setGlobalErrors([msg])}
+                                        />
+                                    </div>
+                                </>
+                            )}
 
                             <div className="pt-2 text-[11px] text-slate-500 leading-snug">
                                 {(() => {
@@ -982,8 +1169,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     <button
                         type="button"
                         onClick={() => handleBookingSubmit()}
-                        disabled={isSubmitting || !paymentSucceeded}
-                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                        disabled={isSubmitting || !paymentSucceeded || pendingExpired}
+                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded && !pendingExpired ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
                         {isSubmitting
                             ? widgetCopy.submitting

@@ -1,20 +1,20 @@
 {
-  "nav": {"experience": "LA EXPERIENCIA", "contact": "CONTACTO", "book": "RESERVAR 🎟️"},
-  "hero": {"title": "Vive Colmar de otra manera", "subtitle": "Disfruta de un momento tranquilo sobre el agua, sin multitudes ni estrés – una pausa auténtica en el corazón de la Pequeña Venecia.", "cta": "RESERVAR MI PLAZA"},
-  "presentation": {"title": "La Pequeña Venecia de Alsacia como nunca la has visto.", "text": "Déjate mecer por el murmullo del río Lauch. Nuestros barqueros apasionados te guiarán por los barrios históricos de curtidores y pescaderos. Una vista única de las casas entramadas y coloridas, lejos del bullicio.", "points": ["Guías multilingües (tours actualmente en FR, EN, DE)", "Barcas tradicionales de fondo plano", "Recorrido de 25 minutos en pleno centro", "Carritos vigilados directamente en nuestro embarcadero", "Perros de compañía bienvenidos a bordo"]},
-  "bento": {"title": "¿Por qué elegir nuestro paseo?", "subtitle": "Un formato pensado para maximizar tu placer y reducir fricciones.", "cards": [
-    {"title": "⏱ Duración ideal", "text": "25 minutos: suficiente para desconectar, fácil de encajar."},
-    {"title": "🌿 Bajo impacto", "text": "Navegación suave respetuosa con patrimonio y entorno."},
-    {"title": "🗣 Guías humanos", "text": "Historias locales reales, no un audio genérico."},
-    {"title": "📍 Salida céntrica", "text": "En el corazón histórico. Sin desplazamientos extra."},
-    {"title": "🎫 Sin fricción", "text": "Reserva sencilla, pago en sitio u online."},
-    {"title": "👥 Grupo & privado", "text": "Opciones para familias, eventos, escuelas."}
+  "nav": {"experience": "LA EXPERIENCIA", "contact": "CONTACTO", "book": "RESERVAR ðŸŽŸï¸"},
+  "hero": {"title": "Vive Colmar de otra manera", "subtitle": "Disfruta de un momento tranquilo sobre el agua, sin multitudes ni estrÃ©s â€“ una pausa autÃ©ntica en el corazÃ³n de la PequeÃ±a Venecia.", "cta": "RESERVAR MI PLAZA"},
+  "presentation": {"title": "La PequeÃ±a Venecia de Alsacia como nunca la has visto.", "text": "DÃ©jate mecer por el murmullo del rÃ­o Lauch. Nuestros barqueros apasionados te guiarÃ¡n por los barrios histÃ³ricos de curtidores y pescaderos. Una vista Ãºnica de las casas entramadas y coloridas, lejos del bullicio.", "points": ["GuÃ­as multilingÃ¼es (tours actualmente en FR, EN, DE)", "Barcas tradicionales de fondo plano", "Recorrido de 25 minutos en pleno centro", "Carritos vigilados directamente en nuestro embarcadero", "Perros de compaÃ±Ã­a bienvenidos a bordo"]},
+  "bento": {"title": "Â¿Por quÃ© elegir nuestro paseo?", "subtitle": "Un formato pensado para maximizar tu placer y reducir fricciones.", "cards": [
+    {"title": "â± DuraciÃ³n ideal", "text": "25 minutos: suficiente para desconectar, fÃ¡cil de encajar."},
+    {"title": "ðŸŒ¿ Bajo impacto", "text": "NavegaciÃ³n suave respetuosa con patrimonio y entorno."},
+    {"title": "ðŸ—£ GuÃ­as humanos", "text": "Historias locales reales, no un audio genÃ©rico."},
+    {"title": "ðŸ“ Salida cÃ©ntrica", "text": "En el corazÃ³n histÃ³rico. Sin desplazamientos extra."},
+    {"title": "ðŸŽ« Sin fricciÃ³n", "text": "Reserva sencilla, pago en sitio u online."},
+    {"title": "ðŸ‘¥ Grupo & privado", "text": "Opciones para familias, eventos, escuelas."}
   ]},
-  "social": {"title": "Les encantó", "subtitle": "Cientos de viajeros sorprendidos al redescubrir Colmar desde el agua.", "cta": "Ver más reseñas", "sourceLink": "Ver en TripAdvisor", "aggregatePrefix": "Valoración global", "reviewsLabel": "reseñas"},
+  "social": {"title": "Les encantÃ³", "subtitle": "Cientos de viajeros sorprendidos al redescubrir Colmar desde el agua.", "cta": "Ver mÃ¡s reseÃ±as", "sourceLink": "Ver en TripAdvisor", "aggregatePrefix": "ValoraciÃ³n global", "reviewsLabel": "reseÃ±as"},
   "logos": {"title": "Socios & Confianza"},
-  "booking": {"title": "Reserva tu salida", "subtitle": "Elige tu horario abajo. Pago en sitio u online.", "widget": {"date": "FECHA", "passengers": "PASAJEROS", "language": "IDIOMA", "choose": "Elegir hora", "reserve": "RESERVAR", "no_slot": "No hay salidas disponibles.", "form_title": "Datos de contacto", "form_subtitle": "Último paso para confirmar.", "confirm": "CONFIRMAR", "adults": "Adultos", "children": "Niños (4-10)", "babies": "Bebés (-3)", "free": "Gratis (0,00 €)", "step_criteria_title": "Configura tu salida", "step_slots_title": "Elige tu hora", "slots_subtitle": "Horarios disponibles para", "step_success": "¡Reserva confirmada!", "loading": "Buscando...", "submitting": "Procesando...", "btn_search": "Ver disponibilidad", "btn_continue_group": "Solicitud grupo →", "btn_continue_private": "Solicitud privado →", "btn_validate_slot": "Confirmar hora", "private_toggle_title": "Privatizar barca", "private_toggle_subtitle": "Tour exclusivo (bajo presupuesto)", "private_badge": "Privado", "group_badge": "Grupo", "summary_details": "Detalles", "summary_departure": "Salida", "summary_title_standard": "Tu Reserva", "help_text": "¿Necesitas ayuda?", "modify_btn": "Modificar", "duration_text": "Duración: ~25 min", "back_btn": "Volver", "btn_pay_now": "Pagar ahora", "payment_title": "Pago", "init_payment_hint": "Haz clic para iniciar el pago", "payment_error_network": "Error de red en el pago", "payment_error_generic": "Error de pago", "payment_stripe_not_confirmed": "Pago de Stripe no confirmado. Estado: {status}", "payment_stripe_verify_failed": "No se pudo verificar el pago de Stripe.", "booking_create_failed": "No se pudo crear la reserva", "booking_not_found": "Reserva no encontrada", "payment_paypal_capture_failed": "La captura de PayPal ha fallado", "payment_paypal_processing_error": "Error al procesar PayPal", "payment_paypal_network_error": "Error de red durante la asociación con PayPal.", "payment_paypal_not_configured": "PayPal no está configurado", "payment_paypal_sdk_load_failed": "Fallo al cargar el SDK de PayPal"}},
-  "footer": {"hours_title": "Horario", "open_days": "Abierto cada día", "morning_label": "Mañana:", "morning_hours": "10:00 - 11:45", "afternoon_label": "Tarde:", "afternoon_hours": "13:30 - 17:45", "infos": "Información", "legal": "Aviso Legal", "cgv": "Condiciones", "privacy": "Política de Privacidad", "employee_access": "Acceso Empleado 🔒", "rights": "© 2025 Sweet Narcisse. Todos los derechos reservados.", "access_map": "Mapa de acceso", "departure_label": "Salida: Pont Saint-Pierre", "map_title": "Ubicación del embarcadero Sweet Narcisse"},
-  "partners": {"nav": "Socios", "title": "Nuestros Socios Locales", "subtitle": "Colaboramos con artesanos e iniciativas eco y culturales de Colmar.", "list_title": "Selección", "learn_more": "Saber más", "back_home": "← Volver"}
+  "booking": {"title": "Reserva tu salida", "subtitle": "Elige tu horario abajo. Pago en sitio u online.", "widget": {"date": "FECHA", "passengers": "PASAJEROS", "language": "IDIOMA", "choose": "Elegir hora", "reserve": "RESERVAR", "no_slot": "No hay salidas disponibles.", "form_title": "Datos de contacto", "form_subtitle": "Ãšltimo paso para confirmar.", "confirm": "CONFIRMAR", "adults": "Adultos", "children": "NiÃ±os (4-10)", "babies": "BebÃ©s (-3)", "free": "Gratis (0,00 â‚¬)", "step_criteria_title": "Configura tu salida", "step_slots_title": "Elige tu hora", "slots_subtitle": "Horarios disponibles para", "step_success": "Â¡Reserva confirmada!", "loading": "Buscando...", "submitting": "Procesando...", "btn_search": "Ver disponibilidad", "btn_continue_group": "Solicitud grupo â†’", "btn_continue_private": "Solicitud privado â†’", "btn_validate_slot": "Confirmar hora", "private_toggle_title": "Privatizar barca", "private_toggle_subtitle": "Tour exclusivo (bajo presupuesto)", "private_badge": "Privado", "group_badge": "Grupo", "summary_details": "Detalles", "summary_departure": "Salida", "summary_title_standard": "Tu Reserva", "help_text": "Â¿Necesitas ayuda?", "modify_btn": "Modificar", "duration_text": "DuraciÃ³n: ~25 min", "back_btn": "Volver", "btn_pay_now": "Pagar ahora", "payment_title": "Pago", "init_payment_hint": "Haz clic para iniciar el pago", "payment_error_network": "Error de red en el pago", "payment_error_generic": "Error de pago", "payment_stripe_not_confirmed": "Pago de Stripe no confirmado. Estado: {status}", "payment_stripe_verify_failed": "No se pudo verificar el pago de Stripe.", "booking_create_failed": "No se pudo crear la reserva", "booking_not_found": "Reserva no encontrada", "payment_paypal_capture_failed": "La captura de PayPal ha fallado", "payment_paypal_processing_error": "Error al procesar PayPal", "payment_paypal_network_error": "Error de red durante la asociaciÃ³n con PayPal.", "payment_paypal_not_configured": "PayPal no estÃ¡ configurado", "payment_paypal_sdk_load_failed": "Fallo al cargar el SDK de PayPal", "payment_countdown_title": "Reserva temporal", "payment_countdown_label": "Tiempo restante", "payment_countdown_helper": "Tus plazas permanecen bloqueadas durante {minutes} min a partir de este paso.", "payment_countdown_expired": "Tiempo agotado. Reinicia el pago para conservar tus plazas.", "payment_restart_btn": "Reiniciar el pago"}},
+  "footer": {"hours_title": "Horario", "open_days": "Abierto cada dÃ­a", "morning_label": "MaÃ±ana:", "morning_hours": "10:00 - 11:45", "afternoon_label": "Tarde:", "afternoon_hours": "13:30 - 17:45", "infos": "InformaciÃ³n", "legal": "Aviso Legal", "cgv": "Condiciones", "privacy": "PolÃ­tica de Privacidad", "employee_access": "Acceso Empleado ðŸ”’", "rights": "Â© 2025 Sweet Narcisse. Todos los derechos reservados.", "access_map": "Mapa de acceso", "departure_label": "Salida: Pont Saint-Pierre", "map_title": "UbicaciÃ³n del embarcadero Sweet Narcisse"},
+  "partners": {"nav": "Socios", "title": "Nuestros Socios Locales", "subtitle": "Colaboramos con artesanos e iniciativas eco y culturales de Colmar.", "list_title": "SelecciÃ³n", "learn_more": "Saber mÃ¡s", "back_home": "â† Volver"}
   ,
   "group_form": {
     "title": "Solicitud de Grupo (+{people} personas)",
@@ -22,20 +22,21 @@
     "placeholder_firstname": "Nombre",
     "placeholder_lastname": "Apellido",
     "placeholder_email": "Email",
-    "placeholder_phone": "Teléfono",
+    "placeholder_phone": "TelÃ©fono",
     "placeholder_message": "Especifica tu solicitud (hora, necesidades...)",
     "button_send": "ENVIAR SOLICITUD",
-    "sent_title": "¡Solicitud enviada!",
+    "sent_title": "Â¡Solicitud enviada!",
     "sent_message": "Te contactaremos en 24h.",
     "sent_button": "Nueva solicitud"
   },
   "private_form": {
-    "title": "Solicitud de Privatización",
+    "title": "Solicitud de PrivatizaciÃ³n",
     "subtitle": "Rellena este formulario para recibir un presupuesto personalizado para un tour privado en barca.",
-    "placeholder_message": "Hora deseada, ocasión especial, champagne, peticiones especiales...",
+    "placeholder_message": "Hora deseada, ocasiÃ³n especial, champagne, peticiones especiales...",
     "message_label": "Mensaje / Peticiones especiales",
     "button_send": "SOLICITAR PRESUPUESTO",
-    "sent_title": "¡Solicitud recibida!",
-    "sent_message": "Hemos recibido tu solicitud de privatización. Te contactaremos muy pronto."
+    "sent_title": "Â¡Solicitud recibida!",
+    "sent_message": "Hemos recibido tu solicitud de privatizaciÃ³n. Te contactaremos muy pronto."
   }
 }
+

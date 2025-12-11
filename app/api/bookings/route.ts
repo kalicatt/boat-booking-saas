@@ -7,7 +7,7 @@ import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
-import { MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
+import { MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES } from '@/lib/config'
 import { auth } from '@/auth'
 import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
@@ -569,7 +569,16 @@ export async function POST(request: Request) {
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
 
-    return NextResponse.json({ success: true, bookingId: createdBooking.id, status: createdBooking.status, booking: createdBooking, chainCreated, overlaps })
+    const pendingExpiresAt = pendingOnly ? addMinutes(createdBooking.createdAt, PAYMENT_TIMEOUT_MINUTES) : null
+    return NextResponse.json({
+      success: true,
+      bookingId: createdBooking.id,
+      status: createdBooking.status,
+      booking: createdBooking,
+      chainCreated,
+      overlaps,
+      ...(pendingExpiresAt ? { pendingExpiresAt: pendingExpiresAt.toISOString() } : {})
+    })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
     console.error("ERREUR API:", msg)

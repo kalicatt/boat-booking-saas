@@ -94,7 +94,12 @@
       "payment_paypal_processing_error": "Erreur lors du traitement PayPal",
       "payment_paypal_network_error": "Erreur réseau lors de l'association PayPal.",
       "payment_paypal_not_configured": "PayPal non configuré",
-      "payment_paypal_sdk_load_failed": "Échec du chargement du SDK PayPal"
+      "payment_paypal_sdk_load_failed": "Échec du chargement du SDK PayPal",
+      "payment_countdown_title": "Blocage de paiement",
+      "payment_countdown_label": "Temps restant",
+      "payment_countdown_helper": "Vos places sont bloquées pendant {minutes} min à partir de cette étape.",
+      "payment_countdown_expired": "Temps écoulé. Relancez le paiement pour conserver vos places.",
+      "payment_restart_btn": "Relancer le paiement"
     }
   },
   "group_form": {

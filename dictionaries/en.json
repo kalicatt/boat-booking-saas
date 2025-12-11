@@ -94,7 +94,12 @@
       "payment_paypal_processing_error": "Error while processing PayPal",
       "payment_paypal_network_error": "Network error during PayPal association.",
       "payment_paypal_not_configured": "PayPal not configured",
-      "payment_paypal_sdk_load_failed": "Failed to load PayPal SDK"
+      "payment_paypal_sdk_load_failed": "Failed to load PayPal SDK",
+      "payment_countdown_title": "Payment hold",
+      "payment_countdown_label": "Time left",
+      "payment_countdown_helper": "Your seats stay locked for {minutes} min once you reach this step.",
+      "payment_countdown_expired": "Hold expired. Restart payment to keep your seats.",
+      "payment_restart_btn": "Restart payment"
     }
   },
   "group_form": {
