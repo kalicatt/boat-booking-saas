@@ -7,6 +7,7 @@ import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
+import { MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
 import { auth } from '@/auth'
 import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Horaire ${time} impossible. (10h-11h45 / 13h30-17h45)` }, { status: 400 })
     }
 
-    // 2.b VERROU: Interdiction de réserver moins de 5 minutes avant le départ
+    // 2.b VERROU: Interdiction de réserver trop près du départ
     // On compare dans la même "échelle murale" que le front (dates locales traitées comme UTC)
     const pad = (n: number) => String(n).padStart(2, '0')
     const todayLocalISO = getParisTodayISO()
@@ -132,8 +133,8 @@ export async function POST(request: Request) {
       const mm = pad(mmNow)
       const { instant: wallNow } = parseParisWallDate(todayLocalISO, `${hh}:${mm}`)
       const diffMs = myStart.getTime() - wallNow.getTime()
-      if (diffMs <= 5 * 60 * 1000 && !isStaffOverride) {
-        return NextResponse.json({ error: `Réservation trop tardive: moins de 5 minutes avant le départ.` }, { status: 400 })
+      if (diffMs < MIN_BOOKING_DELAY_MINUTES * 60 * 1000 && !isStaffOverride) {
+        return NextResponse.json({ error: `Réservation trop tardive: moins de ${MIN_BOOKING_DELAY_MINUTES} minutes avant le départ.` }, { status: 400 })
       }
     }
 

@@ -8,6 +8,7 @@ export const PRICES = {
 export const GROUP_THRESHOLD = 12; // >12 triggers group flow
 export const TOUR_DURATION_MINUTES = 25;
 export const TOUR_BUFFER_MINUTES = 5;
+export const MIN_BOOKING_DELAY_MINUTES = 30;
 // Base grid interval in minutes along the day; keep small so offsets can be matched precisely
 export const DEPARTURE_INTERVAL_MINUTES = 5;
 

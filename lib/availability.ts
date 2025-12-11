@@ -1,6 +1,6 @@
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
-import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES, BOAT_DEPARTURE_OFFSETS_MINUTES } from '@/lib/config'
+import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES, BOAT_DEPARTURE_OFFSETS_MINUTES, MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
 import type { Boat, Booking, BlockedInterval } from '@prisma/client'
 
 type AvailabilityBoat = Pick<Boat, 'id' | 'capacity'>
@@ -55,7 +55,7 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
     const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
     if (!isMorning && !isAfternoon) continue
 
-    if (dateParam === todayLocalISO && minutesTotal <= nowLocalMinutes + 5) continue
+    if (dateParam === todayLocalISO && minutesTotal < nowLocalMinutes + MIN_BOOKING_DELAY_MINUTES) continue
 
     const withinCycle = ((minutesTotal - startTimeInMinutes) % cycleMinutes + cycleMinutes) % cycleMinutes
     const offsetIndex = activeOffsets.findIndex(off => withinCycle === off)

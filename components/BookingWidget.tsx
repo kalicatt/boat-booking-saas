@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { PHONE_CODES } from '@/lib/phoneData'
 import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
-import { PRICES, GROUP_THRESHOLD } from '@/lib/config'
+import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
 import dynamic from 'next/dynamic'
 import type { Lang } from '@/lib/contactClient'
@@ -334,11 +334,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 let filtered = slots
                 if (date === todayLocal) {
                     const nowMinutes = now.getHours() * 60 + now.getMinutes()
-                    // Petit tampon de 5 minutes pour éviter les "bords"
                     filtered = slots.filter((s) => {
                         const [h, m] = s.split(':').map(Number)
                         const mins = (h * 60) + m
-                        return mins > nowMinutes + 5
+                        return mins >= nowMinutes + MIN_BOOKING_DELAY_MINUTES
                     })
                 }
 
