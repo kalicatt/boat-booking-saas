@@ -9,7 +9,6 @@ Walkthrough for administrators, employees, and booking agents who run day-to-day
 - **URL**: `https://sweet-narcisse.fr/admin` (or your staging hostname). Bookmark it.
 - **Browsers**: Latest Chrome, Edge, Safari, or Firefox. Mobile Safari/Chrome supported for on-site tablets.
 - **Login**: Use the email + password supplied by your lead. MFA is optional today; rotate passwords every quarter.
-- **Password resets**: Click "Forgot password" on the login screen, or ask an admin with the `canManageStaff` permission to trigger a reset email.
 - **Language**: Use the globe icon to switch locales. Dictionaries cover FR/EN/ES/DE/IT.
 
 ---
@@ -19,7 +18,6 @@ Walkthrough for administrators, employees, and booking agents who run day-to-day
 - **Hero tiles**: Fleet availability, bookings today, pending tasks. Tiles hide automatically if your role lacks permission.
 - **Weather block**: Real-time + 3h forecast. Red badge appears when wind exceeds `NEXT_PUBLIC_WIND_ALERT_THRESHOLD`.
 - **Quick actions**: Shortcuts to new booking, refund search, contact forms, or manual payment capture (visible to privileged roles only).
-- **Theme toggle**: Moon/Sun icon near the header switches between light/dark for night mode on the dock.
 - **Alerts**: System notices (cron failures, webhook retries) appear at the top; click to view remediation tips.
 
 ---
