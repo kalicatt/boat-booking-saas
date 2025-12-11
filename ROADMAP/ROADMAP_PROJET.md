@@ -33,6 +33,8 @@ Objectif : stabiliser le parcours client, corriger les bugs visibles et sécuris
   - Requête Prisma équivalente : `prisma.booking.deleteMany({ where: { status: 'PENDING', createdAt: { lt: subMinutes(new Date(), 5) } } })`.
   - Écouter `payment_intent.canceled` côté `lib/payments/stripe.ts` pour libérer instantanément les créneaux.
 
+  Product polish: Consider adding a small alert/CTA in the confirmation screen guiding users to their email or next steps (voucher pick-up, directions, etc.).
+
 ### Interface Météo
 - **Tâches** : fiabiliser et lisser l'affichage météo.
 - **Spécifications techniques** :
