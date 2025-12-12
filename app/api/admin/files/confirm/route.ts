@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { EmployeeDocumentAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { EmployeeDocumentConfirmSchema } from '@/lib/validation'
 import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../_access'
+import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
 
 export async function POST(req: Request) {
   const access = await ensureDocumentAdminAccess()
@@ -36,6 +38,14 @@ export async function POST(req: Request) {
     })
 
     await createLog('EMPLOYEE_DOC_CONFIRMED', `Document ${document.id} confirmé pour utilisateur ${document.userId}`)
+    await logDocumentAction({
+      documentId: document.id,
+      targetUserId: document.userId,
+      actorId: access.user.id ?? document.uploadedById,
+      action: EmployeeDocumentAction.CONFIRM,
+      details: document.fileName,
+      ...extractRequestContext(req)
+    })
 
     return NextResponse.json({ document })
   } catch (error) {

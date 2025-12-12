@@ -6,6 +6,7 @@ export type AdminDocumentSessionUser = {
   id?: string | null
   role?: string | null
   adminPermissions?: unknown
+  isActive?: boolean | null
 }
 
 type AccessSuccess = {
@@ -27,7 +28,7 @@ export async function ensureDocumentAdminAccess(): Promise<AccessResult> {
     !!role &&
     (allowedRoles.has(role) || (role === 'EMPLOYEE' && hasPageAccess(permissions, 'employees')))
 
-  if (!user || !hasPermission || !role) {
+  if (!user || !hasPermission || !role || user.isActive === false) {
     return { error: NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 }) }
   }
 

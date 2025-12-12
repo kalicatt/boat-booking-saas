@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { auth } from '@/auth'
+import { resolveAdminPermissions, hasPageAccess } from '@/types/adminPermissions'
 import type { Prisma, ContactStatus } from '@prisma/client'
 
 const CONTACT_STATUSES: ContactStatus[] = ['NEW','CONTACTED','CLOSED']
@@ -7,8 +9,36 @@ const CONTACT_STATUSES: ContactStatus[] = ['NEW','CONTACTED','CLOSED']
 const isContactStatus = (value: unknown): value is ContactStatus =>
   typeof value === 'string' && CONTACT_STATUSES.includes(value as ContactStatus)
 
+type AccessResult = { error: NextResponse } | { ok: true }
+
+async function ensureContactsAccess(): Promise<AccessResult> {
+  const session = await auth()
+  const user = session?.user
+
+  if (!user) {
+    return { error: NextResponse.json({ error: 'Non authentifié.' }, { status: 401 }) }
+  }
+
+  if (user.isActive === false) {
+    return { error: NextResponse.json({ error: 'Compte désactivé. Contactez un administrateur.' }, { status: 403 }) }
+  }
+
+  const role = typeof user.role === 'string' ? user.role : null
+  const permissions = resolveAdminPermissions(user.adminPermissions)
+  const allowed = role === 'SUPERADMIN' || role === 'ADMIN' || hasPageAccess(permissions, 'reservations')
+
+  if (!allowed) {
+    return { error: NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 }) }
+  }
+
+  return { ok: true }
+}
+
 export async function GET(request: Request) {
   try {
+    const access = await ensureContactsAccess()
+    if ('error' in access) return access.error
+
     const { searchParams } = new URL(request.url)
     const statusParam = searchParams.get('status')
     const where: Prisma.ContactRequestWhereInput = {}
@@ -27,6 +57,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const access = await ensureContactsAccess()
+    if ('error' in access) return access.error
+
     const body = await request.json()
     const { contactId } = body || {}
     if (!contactId) return NextResponse.json({ error: 'contactId requis' }, { status: 400 })

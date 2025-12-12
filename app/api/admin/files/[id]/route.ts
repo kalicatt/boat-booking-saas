@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { EmployeeDocumentAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { deleteObject } from '@/lib/storage'
 import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../_access'
+import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
 
 type RouteParams = { id?: string | string[] }
 
@@ -53,6 +55,14 @@ export async function DELETE(req: NextRequest, context: { params?: RouteParams |
   await prisma.employeeDocument.delete({ where: { id: documentId } })
 
   await createLog('EMPLOYEE_DOC_DELETE', `Suppression document ${document.id} par ${access.user.id ?? 'inconnu'}`)
+  await logDocumentAction({
+    documentId: document.id,
+    targetUserId: document.userId,
+    actorId: access.user.id,
+    action: EmployeeDocumentAction.DELETE,
+    details: document.fileName,
+    ...extractRequestContext(req)
+  })
 
   return NextResponse.json({ deleted: true })
 }

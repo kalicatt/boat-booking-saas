@@ -47,6 +47,7 @@ model User {
   employeeDocuments EmployeeDocument[] @relation("EmployeeDocumentOwner")
   uploadedEmployeeDocuments EmployeeDocument[] @relation("EmployeeDocumentUploader")
   archivedEmployeeDocuments EmployeeDocument[] @relation("EmployeeDocumentArchiver")
+  documentAuditEntries EmployeeDocumentLog[] @relation("EmployeeDocumentLogActor")
   log Log[] 
   createdBlocks BlockedInterval[] @relation("UserCreatedBlocks")
   createdSessions PaymentSession[] @relation("PaymentSessionCreatedBy")
@@ -161,10 +162,26 @@ model EmployeeDocument {
   expiresAt    DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
-
   @@index([userId])
   @@index([status])
   @@index([expiresAt])
+}
+
+model EmployeeDocumentLog {
+  id         String                  @id @default(cuid())
+  documentId String
+  targetUserId String?
+  actorId    String?
+  actor      User?                   @relation("EmployeeDocumentLogActor", fields: [actorId], references: [id])
+  action     EmployeeDocumentAction
+  ipAddress  String?
+  userAgent  String?
+  details    String?
+  createdAt  DateTime                @default(now())
+
+  @@index([documentId])
+  @@index([actorId])
+  @@index([targetUserId])
 }
 
 model Log {
@@ -229,6 +246,15 @@ enum EmployeeDocumentStatus {
   PENDING
   ACTIVE
   ARCHIVED
+}
+
+enum EmployeeDocumentAction {
+  UPLOAD_REQUEST
+  CONFIRM
+  DOWNLOAD
+  PREVIEW
+  ARCHIVE
+  DELETE
 }
 
 model Payment {

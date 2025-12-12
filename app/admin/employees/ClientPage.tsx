@@ -401,7 +401,7 @@ function EmployeeDocumentsPanel({ employeeId, employeeName, open, canEdit }: Emp
                     </div>
                     <input ref={fileInputRef} type="file" className="w-full" onChange={handleFileChange} accept="application/pdf,image/*,.doc,.docx" />
                     <div className="flex justify-end gap-2">
-                        <button type="button" className="text-xs text-slate-500" onClick={resetUploadForm}>Réinitialiser</button>
+                        <button type="button" className="text-xs text-slate-500" onClick={() => resetUploadForm()}>Réinitialiser</button>
                         <button type="button" className="rounded bg-slate-900 px-4 py-2 text-xs font-semibold text-white" onClick={handleUpload} disabled={uploading}>
                             {uploading ? 'Envoi…' : 'Uploader'}
                         </button>
@@ -1070,10 +1070,10 @@ interface EmployeeDocumentsModalProps {
 function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, errors, setErrors, onSaved }: EditEmployeeModalProps) {
     const firstFieldRef = useRef<HTMLInputElement|null>(null)
     const dialogRef = useRef<HTMLDivElement|null>(null)
-    const passwordInfo = useMemo(
-        () => (employee ? getPasswordInsights(employee.password, [employee.email, employee.firstName, employee.lastName]) : null),
-        [employee?.password, employee?.email, employee?.firstName, employee?.lastName]
-    )
+    const passwordInfo = useMemo(() => {
+        if (!employee) return null
+        return getPasswordInsights(employee.password, [employee.email, employee.firstName, employee.lastName])
+    }, [employee])
     useEffect(()=>{ if(open && firstFieldRef.current) firstFieldRef.current.focus() }, [open])
     useEffect(()=>{
         if(!open) return
@@ -1623,7 +1623,7 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
                 </div>
                 <form onSubmit={onSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-auto">
                     <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                        Champs marqués <span className="font-semibold text-rose-500">*</span> obligatoires. Utilisez un mot de passe d'au moins 12 caractères.
+                        Champs marqués <span className="font-semibold text-rose-500">*</span> obligatoires. Utilisez un mot de passe d&rsquo;au moins 12 caractères.
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>

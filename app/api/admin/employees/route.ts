@@ -14,6 +14,7 @@ type EmployeeSessionUser = {
   role?: string | null
   email?: string | null
   adminPermissions?: unknown
+  isActive?: boolean | null
 }
 
 async function generateEmployeeNumber() {
@@ -36,6 +37,10 @@ export async function GET() {
     const role = typeof sessionUser?.role === 'string' ? sessionUser.role : null
 
     const sessionPermissions = resolveAdminPermissions(sessionUser?.adminPermissions)
+
+    if (sessionUser?.isActive === false) {
+      return NextResponse.json({ error: 'Compte désactivé. Contactez un administrateur.' }, { status: 403 })
+    }
 
     if (!role || !['EMPLOYEE', 'ADMIN', 'SUPERADMIN'].includes(role)) {
       return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
@@ -116,6 +121,10 @@ export async function POST(request: Request) {
 
     // Autorisations: SUPERADMIN et ADMIN peuvent créer des comptes,
     // mais un ADMIN ne peut créer que des EMPLOYEE (pas d'ADMIN)
+    if (userSession?.isActive === false) {
+      return NextResponse.json({ error: 'Compte désactivé. Contactez un administrateur.' }, { status: 403 })
+    }
+
     if (!userSession?.role || (userSession.role !== 'SUPERADMIN' && userSession.role !== 'ADMIN')) {
       return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
     }
@@ -266,6 +275,10 @@ export async function DELETE(request: Request) {
 
     const userSession = (session?.user ?? null) as EmployeeSessionUser | null
 
+    if (userSession?.isActive === false) {
+      return NextResponse.json({ error: 'Compte désactivé. Contactez un administrateur.' }, { status: 403 })
+    }
+
     if (userSession?.role !== 'SUPERADMIN') {
         return NextResponse.json({ 
             error: "⛔ Accès refusé. Seul le Propriétaire peut supprimer un compte." 
@@ -300,6 +313,10 @@ export async function PUT(request: Request) {
     const session = await auth()
 
     const userSession = (session?.user ?? null) as EmployeeSessionUser | null
+
+    if (userSession?.isActive === false) {
+      return NextResponse.json({ error: 'Compte désactivé. Contactez un administrateur.' }, { status: 403 })
+    }
 
     if (userSession?.role !== 'SUPERADMIN') {
         return NextResponse.json({ error: "Action refusée." }, { status: 403 })

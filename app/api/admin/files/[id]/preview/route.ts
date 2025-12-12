@@ -1,9 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Readable } from 'node:stream'
+import { EmployeeDocumentAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getObjectStream } from '@/lib/storage'
 import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../../_access'
+import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
+
+type RouteParams = { id?: string | string[] }
+
+const isPromise = (value: unknown): value is Promise<RouteParams> =>
+  typeof value === 'object' && value !== null && 'then' in (value as Record<string, unknown>)
+
+const pickId = (raw?: string | string[]) => {
+  if (!raw) return null
+  return Array.isArray(raw) ? raw[0] : raw
+}
 
 function toWebStream(body: Awaited<ReturnType<typeof getObjectStream>>['body']) {
   if (!body) {
@@ -34,9 +46,13 @@ function toWebStream(body: Awaited<ReturnType<typeof getObjectStream>>['body']) 
   throw new Error('Type de flux non supporté')
 }
 
-function resolveDocumentId(req: NextRequest, rawId?: string | string[]) {
-  if (rawId) {
-    return Array.isArray(rawId) ? rawId[0] : rawId
+async function resolveDocumentId(req: NextRequest, params?: RouteParams | Promise<RouteParams>) {
+  if (params) {
+    const resolved = isPromise(params) ? await params : params
+    const fromParams = pickId(resolved?.id)
+    if (fromParams) {
+      return fromParams
+    }
   }
 
   const segments = req.nextUrl.pathname.split('/').filter(Boolean)
@@ -47,11 +63,11 @@ function resolveDocumentId(req: NextRequest, rawId?: string | string[]) {
   return null
 }
 
-export async function GET(req: NextRequest, { params }: { params?: { id?: string | string[] } }) {
+export async function GET(req: NextRequest, context: { params?: RouteParams | Promise<RouteParams> }) {
   const access = await ensureDocumentAdminAccess()
   if ('error' in access) return access.error
 
-  const documentId = resolveDocumentId(req, params?.id)
+  const documentId = await resolveDocumentId(req, context?.params)
   if (!documentId) {
     return NextResponse.json({ error: 'Identifiant manquant' }, { status: 400 })
   }
@@ -66,6 +82,14 @@ export async function GET(req: NextRequest, { params }: { params?: { id?: string
     const stream = toWebStream(object.body)
 
     await createLog('EMPLOYEE_DOC_PREVIEW', `Prévisualisation document ${document.id} par ${access.user.id ?? 'inconnu'}`)
+    await logDocumentAction({
+      documentId: document.id,
+      targetUserId: document.userId,
+      actorId: access.user.id,
+      action: EmployeeDocumentAction.PREVIEW,
+      details: document.fileName,
+      ...extractRequestContext(req)
+    })
 
     const headers = new Headers()
     headers.set('Content-Type', object.contentType || document.mimeType || 'application/octet-stream')

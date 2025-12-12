@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server'
+import { EmployeeDocumentAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { EmployeeDocumentArchiveSchema } from '@/lib/validation'
 import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../_access'
+import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
 
 export async function POST(req: Request) {
   const access = await ensureDocumentAdminAccess()
@@ -39,6 +41,14 @@ export async function POST(req: Request) {
       'EMPLOYEE_DOC_ARCHIVE',
       `Archivage document ${document.id} pour utilisateur ${document.userId}${reason ? ` (${reason})` : ''}`
     )
+    await logDocumentAction({
+      documentId: document.id,
+      targetUserId: document.userId,
+      actorId: access.user.id,
+      action: EmployeeDocumentAction.ARCHIVE,
+      details: reason ?? undefined,
+      ...extractRequestContext(req)
+    })
 
     return NextResponse.json({ document, archived: true })
   } catch (error) {

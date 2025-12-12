@@ -19,6 +19,7 @@ export type AdminSessionUser = {
   name?: string | null
   adminPermissions?: AdminPermissions | null
   image?: string | null
+  isActive?: boolean | null
 }
 
 export type AdminAccessContext = {
@@ -38,6 +39,10 @@ export async function getAdminAccessContext(): Promise<AdminAccessContext> {
 
   if (!user) {
     redirect('/login')
+  }
+
+  if (user.isActive === false) {
+    redirect('/admin/account-disabled')
   }
 
   const role = typeof user.role === 'string' ? user.role : null

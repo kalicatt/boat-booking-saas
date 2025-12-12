@@ -15,6 +15,13 @@ export async function authenticate(formData: FormData) {
       switch (error.type) {
         case 'CredentialsSignin':
           return { error: 'Identifiants incorrects.' };
+        case 'AccessDenied': {
+          const cause = typeof error.cause === 'string' ? error.cause : undefined
+          if (cause === 'ACCOUNT_DISABLED') {
+            return { error: 'Compte désactivé. Contactez un administrateur pour réactiver votre accès.' }
+          }
+          return { error: 'Accès refusé.' }
+        }
         default:
           return { error: "Une erreur est survenue." };
       }

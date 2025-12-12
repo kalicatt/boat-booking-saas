@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
+import { EmployeeDocumentAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { createDownloadUrl } from '@/lib/storage'
 import { EmployeeDocumentDownloadSchema } from '@/lib/validation'
 import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../_access'
+import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
 
 export async function POST(req: Request) {
   const access = await ensureDocumentAdminAccess()
@@ -30,6 +32,14 @@ export async function POST(req: Request) {
     const signed = await createDownloadUrl({ key: document.storageKey })
 
     await createLog('EMPLOYEE_DOC_DOWNLOAD', `Téléchargement document ${document.id} par ${access.user.id ?? 'inconnu'}`)
+    await logDocumentAction({
+      documentId: document.id,
+      targetUserId: document.userId,
+      actorId: access.user.id,
+      action: EmployeeDocumentAction.DOWNLOAD,
+      details: document.fileName,
+      ...extractRequestContext(req)
+    })
 
     return NextResponse.json({
       downloadUrl: signed.url,

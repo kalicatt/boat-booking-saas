@@ -1,4 +1,4 @@
-import NextAuth from "next-auth"
+import NextAuth, { AuthError } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 import Credentials from "next-auth/providers/credentials"
@@ -13,6 +13,7 @@ declare module "next-auth" {
     firstName?: string
     lastName?: string
     adminPermissions?: AdminPermissions
+    isActive?: boolean
   }
   interface Session {
     user: {
@@ -22,6 +23,7 @@ declare module "next-auth" {
       id?: string
       image?: string | null
       adminPermissions?: AdminPermissions
+      isActive?: boolean
     } & import("next-auth").DefaultSession["user"]
   }
 }
@@ -34,6 +36,7 @@ type ExtendedToken = {
   image?: string | null
   adminPermissions?: AdminPermissions
   sessionVersion?: number
+  isActive?: boolean
 }
 
 // --- 2. SCHÉMA DE VALIDATION ZOD ---
@@ -68,7 +71,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           
           const user = await prisma.user.findUnique({ where: { email } })
           
-          if (!user || !user.password || user.isActive === false) return null
+          if (!user || !user.password) return null
+          if (user.isActive === false) {
+            throw new AuthError('AccessDenied', { cause: 'ACCOUNT_DISABLED' })
+          }
 
           const isPasswordValid = await compare(password, user.password)
 
@@ -83,7 +89,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 role: user.role,
                image: user.image,
                adminPermissions: permissions,
-               sessionVersion: user.sessionVersion ?? 0
+               sessionVersion: user.sessionVersion ?? 0,
+               isActive: user.isActive
              }
           }
         }
@@ -104,6 +111,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         extended.image = enriched.image
         extended.adminPermissions = resolveAdminPermissions(enriched.adminPermissions)
         extended.sessionVersion = enriched.sessionVersion ?? 0
+        extended.isActive = enriched.isActive !== false
         return extended
       }
 
@@ -126,11 +134,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
       })
 
-      if (!dbUser || dbUser.isActive === false) {
+      if (!dbUser) {
         return {}
       }
 
-      extended.role = dbUser.role
+      const isActive = dbUser.isActive !== false
+      extended.isActive = isActive
+      extended.role = isActive ? dbUser.role : undefined
       extended.firstName = dbUser.firstName
       extended.lastName = dbUser.lastName
       extended.id = dbUser.id
@@ -151,6 +161,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.id = extended.id
       session.user.image = (extended.image as string | null | undefined) ?? null
       session.user.adminPermissions = extended.adminPermissions ?? resolveAdminPermissions()
+      session.user.isActive = extended.isActive !== false
+      if (session.user.isActive === false) {
+        session.user.role = undefined
+      }
       return session
     }
   }

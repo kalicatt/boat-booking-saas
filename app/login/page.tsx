@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [networkOnline, setNetworkOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
   const [now, setNow] = useState(() => new Date())
   const isNative = useIsNativePlatform()
+  const accountDisabled = /désactivé/i.test(errorMessage)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -201,7 +202,15 @@ export default function LoginPage() {
             >
               {isLoading ? 'Connexion...' : 'Se connecter'}
             </button>
-            {errorMessage && (
+            {accountDisabled ? (
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-left text-sm text-rose-700 space-y-2">
+                <p className="font-semibold text-rose-800">Compte désactivé</p>
+                <p>Votre accès administratif est temporairement désactivé. Contactez un administrateur Sweet Narcisse pour réactiver votre profil ou connaître la marche à suivre.</p>
+                <div className="rounded-xl bg-white/70 px-3 py-2 text-[13px] font-semibold text-rose-800">
+                  ✉️ operations@sweet-narcisse.fr
+                </div>
+              </div>
+            ) : errorMessage && (
               <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-semibold text-red-600">
                 {errorMessage}
               </div>
