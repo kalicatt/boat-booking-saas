@@ -50,7 +50,95 @@ export const EmployeeCreateSchema = z.object({
 
 // Update schema: require id, all other fields optional (partial update)
 export const EmployeeUpdateSchema = EmployeeCreateSchema.partial().extend({
-  id: z.string().uuid()
+  id: z.string().uuid(),
+  role: z.enum(['EMPLOYEE','ADMIN','SUPERADMIN']).optional()
+})
+
+const EMPLOYEE_DOCUMENT_MAX_SIZE = 25 * 1024 * 1024 // 25 MB hard limit
+const EMPLOYEE_DOCUMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+])
+
+const sanitizeNonEmpty = (value: string, max = 255) => {
+  const cleaned = cleanString(value, max) ?? ''
+  return cleaned
+}
+
+const isoDateString = z
+  .string()
+  .min(4)
+  .max(30)
+  .refine((value) => !Number.isNaN(new Date(value).getTime()), { message: 'Date invalide' })
+
+export const EmployeeDocumentUploadSchema = z
+  .object({
+    userId: z.string().uuid(),
+    category: z
+      .string()
+      .min(1)
+      .max(60)
+      .transform((value) => sanitizeNonEmpty(value, 60))
+      .refine((value) => value.length > 0, { message: 'Catégorie requise' }),
+    fileName: z
+      .string()
+      .min(3)
+      .max(180)
+      .transform((value) => sanitizeNonEmpty(value, 180))
+      .refine((value) => value.length > 0, { message: 'Nom de fichier requis' }),
+    mimeType: z
+      .string()
+      .min(3)
+      .max(120)
+      .transform((value) => value.toLowerCase())
+      .refine((value) => EMPLOYEE_DOCUMENT_MIME_TYPES.has(value), { message: 'Type non supporté' }),
+    size: z.number().int().positive().max(EMPLOYEE_DOCUMENT_MAX_SIZE),
+    checksum: z
+      .string()
+      .regex(/^[A-Za-z0-9+/=]{16,}$/)
+      .optional(),
+    expiresAt: z
+      .string()
+      .optional()
+      .refine((value) => !value || !Number.isNaN(new Date(value).getTime()), { message: 'Date invalide' })
+  })
+
+export const EmployeeDocumentConfirmSchema = z.object({
+  documentId: z.string().min(10).max(64)
+})
+
+export const EmployeeDocumentDownloadSchema = z.object({
+  documentId: z.string().min(10).max(64)
+})
+
+export const EmployeeDocumentArchiveSchema = z.object({
+  documentId: z.string().min(10).max(64),
+  reason: z
+    .string()
+    .max(240)
+    .optional()
+    .transform((value) => (value ? stripScriptTags(sanitizeNonEmpty(value, 240)) : undefined))
+})
+
+export const EmployeeArchiveRequestSchema = z.object({
+  employmentEndDate: isoDateString.optional(),
+  reason: z
+    .string()
+    .max(240)
+    .optional()
+    .transform((value) => (value ? stripScriptTags(sanitizeNonEmpty(value, 240)) : undefined))
+})
+
+export const EmployeeReactivateRequestSchema = z.object({
+  note: z
+    .string()
+    .max(240)
+    .optional()
+    .transform((value) => (value ? stripScriptTags(sanitizeNonEmpty(value, 240)) : undefined))
 })
 
 // Blocks schema (start/end ISO strings & reason)

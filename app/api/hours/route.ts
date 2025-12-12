@@ -27,7 +27,10 @@ export async function GET(request: Request) {
 
     // On récupère tous les employés pour les afficher même s'ils n'ont pas travaillé
     const employees = await prisma.user.findMany({
-      where: { role: { in: ['EMPLOYEE', 'ADMIN', 'SUPERADMIN'] } }
+      where: {
+        role: { in: ['EMPLOYEE', 'ADMIN', 'SUPERADMIN'] },
+        isActive: true
+      }
     })
 
     // On construit le rapport

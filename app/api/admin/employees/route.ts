@@ -45,8 +45,16 @@ export async function GET() {
       return NextResponse.json({ error: '⛔ Accès refusé.' }, { status: 403 })
     }
 
+    const where: Prisma.UserWhereInput = {
+      role: { in: ['EMPLOYEE', 'ADMIN', 'SUPERADMIN'] }
+    }
+
+    if (role === 'EMPLOYEE') {
+      where.isActive = true
+    }
+
     const employees = await prisma.user.findMany({
-      where: { role: { in: ['EMPLOYEE', 'ADMIN', 'SUPERADMIN'] } },
+      where,
       orderBy: [{ role: 'desc' }, { lastName: 'asc' }]
     })
 

@@ -50,10 +50,15 @@ export async function GET(request: Request) {
     let employees
     if (role === 'EMPLOYEE' && email) {
       const me = await prisma.user.findUnique({ where: { email } })
-      if (!me) return NextResponse.json([])
+      if (!me || me.isActive === false) return NextResponse.json([])
       employees = [me]
     } else {
-      employees = await prisma.user.findMany({ where: { role: { in: ['EMPLOYEE', 'ADMIN'] } } })
+      employees = await prisma.user.findMany({
+        where: {
+          role: { in: ['EMPLOYEE', 'ADMIN'] },
+          isActive: true
+        }
+      })
     }
 
     const shifts = await prisma.workShift.findMany({

@@ -37,5 +37,34 @@
     "button_send": "RICHIEDI PREVENTIVO",
     "sent_title": "Richiesta ricevuta!",
     "sent_message": "Abbiamo ricevuto la tua richiesta di privatizzazione. Ti contatteremo a breve."
+  },
+  "weatherPage": {
+    "eyebrow": "Condizioni in tempo reale",
+    "title": "Bollettino meteo",
+    "subtitle": "Vento, pioggia e livello della Lauch aggiornati ogni ora per pianificare la crociera.",
+    "back": "← Torna alla home",
+    "alertsLink": "Vedi le allerte",
+    "badge": "Bollettino pubblico",
+    "widget": {
+      "updatedAtPrefix": "Aggiornato"
+    },
+    "alerts": {
+      "title": "Allerte vento e pioggia",
+      "subtitle": "Condividiamo gli avvisi ufficiali che possono incidere sulle partenze.",
+      "empty": "Nessuna allerta nelle ultime 24h.",
+      "badge": "Allerta attiva",
+      "source": "Fonte",
+      "duration": "{start} → {end}",
+      "impact": "Soglia {threshold} km/h"
+    },
+    "insights": {
+      "title": "Indicatori aggiuntivi",
+      "subtitle": "Contesto dallo stesso rilevamento meteo.",
+      "humidity": "Umidità",
+      "pressure": "Pressione",
+      "sunrise": "Alba",
+      "sunset": "Tramonto",
+      "uv": "Indice UV"
+    }
   }
 }

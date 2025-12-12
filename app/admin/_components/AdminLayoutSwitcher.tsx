@@ -6,6 +6,7 @@ import type { ReactNode } from 'react'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
 
 import MobileAdminLayout from './MobileAdminLayout'
+import { WeatherBadge } from './WeatherBadge'
 
 interface AdminLayoutSwitcherProps {
   children: ReactNode
@@ -27,6 +28,11 @@ function DesktopAdminLayout({ children }: { children: ReactNode }) {
             />
             <span className="font-serif text-xl font-bold text-slate-900">Admin</span>
           </Link>
+          <div className="flex items-center gap-3">
+            <Link href="/admin/weather" className="inline-flex">
+              <WeatherBadge className="cursor-pointer transition hover:scale-[1.01]" />
+            </Link>
+          </div>
         </div>
       </header>
       <main className="flex-1 px-4 py-6">

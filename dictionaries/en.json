@@ -148,5 +148,34 @@
     "list_title": "Featured Partners",
     "learn_more": "Learn more",
     "back_home": "← Back to Home"
+  },
+  "weatherPage": {
+    "eyebrow": "Live Conditions",
+    "title": "Weather & River Bulletin",
+    "subtitle": "Wind, rain and river context updated hourly so you can plan your cruise with confidence.",
+    "back": "← Back to home",
+    "alertsLink": "View alerts",
+    "badge": "Public bulletin",
+    "widget": {
+      "updatedAtPrefix": "Updated"
+    },
+    "alerts": {
+      "title": "Wind & Rain Alerts",
+      "subtitle": "We relay meteorological bulletins that can impact departures.",
+      "empty": "No alerts detected over the last 24h.",
+      "badge": "Active alert",
+      "source": "Source",
+      "duration": "{start} → {end}",
+      "impact": "Threshold {threshold} km/h"
+    },
+    "insights": {
+      "title": "Additional Indicators",
+      "subtitle": "Context derived from the same weather snapshot.",
+      "humidity": "Humidity",
+      "pressure": "Pressure",
+      "sunrise": "Sunrise",
+      "sunset": "Sunset",
+      "uv": "UV index"
+    }
   }
 }

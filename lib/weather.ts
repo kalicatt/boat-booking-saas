@@ -1,3 +1,5 @@
+import { memoGet, memoSet } from '@/lib/memoCache'
+
 const WEATHER_ENDPOINT_V3 = 'https://api.openweathermap.org/data/3.0/onecall'
 const WEATHER_ENDPOINT_V2 = 'https://api.openweathermap.org/data/2.5/onecall'
 const WEATHER_CACHE_TAG = 'admin-weather'
@@ -5,6 +7,8 @@ const DEFAULT_REVALIDATE_SECONDS = 900
 const MS_TO_KMH = 3.6
 const WEATHER_CACHE_WINDOW_MS = DEFAULT_REVALIDATE_SECONDS * 1000
 const WEATHER_DAILY_LIMIT = 1000
+const PUBLIC_WEATHER_CACHE_KEY = 'weather:public'
+const PUBLIC_WEATHER_TTL_MS = 60 * 60 * 1000
 
 type WeatherCacheState = {
   snapshot: AdminWeatherSnapshot | null
@@ -209,6 +213,16 @@ export async function getAdminWeatherSnapshot(): Promise<AdminWeatherSnapshot> {
 
   state.inFlight = promise
   return promise
+}
+
+export async function getPublicWeatherSnapshot(): Promise<AdminWeatherSnapshot> {
+  const cached = memoGet<AdminWeatherSnapshot>(PUBLIC_WEATHER_CACHE_KEY)
+  if (cached) {
+    return cached
+  }
+  const snapshot = await getAdminWeatherSnapshot()
+  memoSet(PUBLIC_WEATHER_CACHE_KEY, snapshot, PUBLIC_WEATHER_TTL_MS)
+  return snapshot
 }
 
 const resetDailyCounter = (state: WeatherCacheState) => {

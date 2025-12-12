@@ -51,9 +51,17 @@ Objectif : fournir des outils fiables aux équipes internes.
 - **Dépôt de fichiers** :
   - Stockage S3/MinIO via un service dédié (`lib/storage.ts` à créer).
   - Générer des URL pré-signées côté API (`app/api/admin/files/*`) pour éviter d'exposer S3.
+  - Clés normalisées `employees/{userId}/{documentId}/{slug}` pour simplifier l'archivage/purge et limiter les collisions.
+  - Prévoir des TTL distincts upload (5 min) / download (1 min) via variables d'environnement (`STORAGE_*`).
 - **Archivage & GDPR** :
-  - Ajouter `isActive` et dates d'expiration dans `prisma/schema.prisma` pour les employés.
-  - Planifier une tâche (`scripts/cron/purgeEmployeeDocs.ts`) qui supprime définitivement les documents après le délai légal.
+  - Étendre `User` avec `isActive`, `employmentEndDate`, `archiveReason` et empêcher l'accès aux comptes désactivés.
+  - Nouvelle table `EmployeeDocument` (statut, version, métadonnées fichiers, `archivedAt`), reliée à chaque employé.
+  - Endpoints d'archivage (`POST /admin/employees/:id/archive` & `reactivate`) qui marquent le compte inactif, conservent les documents et invalident les sessions.
+  - Cron (`scripts/cron/purgeEmployeeDocs.ts`) pour supprimer physiquement les objets (`archivedAt` ou `expiresAt` dépassé), sinon ils restent disponibles pour réembauche.
+- **UI & sécurité** :
+  - Onglet Documents dans la fiche employé (liste, upload, archive, aperçu PDF intégré via viewer `PdfViewer`).
+  - Filtrer `isActive=false` dans toutes les vues (carte équipe, contacts, accès admin) et afficher un écran "Compte désactivé" côté employé.
+  - Journaliser toutes les actions de fichiers (upload, download, archive) pour audit.
 
 ### Gestion des Aléas & Communication
 - **Annulation météo** :

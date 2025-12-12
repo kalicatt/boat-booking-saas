@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import type { FormEvent } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import type { FormEvent, ChangeEvent, MouseEvent } from 'react'
 import Image from 'next/image'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { PdfViewer } from '@/components/PdfViewer'
 import { AdminPageShell } from '../_components/AdminPageShell'
+import zxcvbn from 'zxcvbn'
 import {
     ADMIN_PERMISSION_CONFIG,
     ADMIN_PERMISSION_GROUPS,
@@ -51,6 +54,518 @@ type EmployeeRecord = {
     employeeNumber?: string | null
     manager?: { firstName?: string | null; lastName?: string | null } | null
     adminPermissions?: AdminPermissions
+    isActive?: boolean | null
+    employmentEndDate?: string | null
+    archiveReason?: string | null
+}
+
+type DirectoryFilter = 'active' | 'inactive' | 'all'
+
+const DIRECTORY_FILTER_QUERY_KEY = 'teamFilter'
+
+const parseDirectoryFilter = (value: string | null): DirectoryFilter => {
+    if (value === 'inactive' || value === 'all') return value
+    return 'active'
+}
+
+const SECTION_CARD_CLASS = 'rounded-2xl border border-slate-100 bg-white/70 p-4 space-y-4 shadow-sm'
+const PASSWORD_STRENGTH_LABELS = ['Très faible', 'Faible', 'Moyen', 'Bon', 'Excellent'] as const
+const PASSWORD_STRENGTH_CLASSES = ['bg-rose-500', 'bg-orange-500', 'bg-amber-400', 'bg-lime-500', 'bg-emerald-500'] as const
+
+type PasswordStrengthInfo = {
+    score: number
+    label: string
+    color: string
+    helper?: string
+    progress: number
+}
+
+const getPasswordInsights = (password?: string | null, inputs: Array<string | null | undefined> = []): PasswordStrengthInfo | null => {
+    if (!password) return null
+    const payload = zxcvbn(password, inputs.filter(Boolean) as string[])
+    const score = Math.min(4, Math.max(0, payload.score))
+    const progress = ((score + 1) / PASSWORD_STRENGTH_LABELS.length) * 100
+    return {
+        score,
+        label: PASSWORD_STRENGTH_LABELS[score],
+        color: PASSWORD_STRENGTH_CLASSES[score],
+        helper: payload.feedback.warning || payload.feedback.suggestions[0] || undefined,
+        progress
+    }
+}
+
+const RequiredIndicator = () => (
+    <span className="ml-1 font-semibold text-rose-500">
+        *
+        <span className="sr-only">Champ obligatoire</span>
+    </span>
+)
+
+function SectionHeader({ title, hint }: { title: string; hint?: string }) {
+    return (
+        <div className="flex flex-col gap-1">
+            <h4 className="text-xs font-bold uppercase tracking-[0.4em] text-slate-400">{title}</h4>
+            {hint && <p className="text-xs text-slate-500">{hint}</p>}
+        </div>
+    )
+}
+
+function PasswordStrengthIndicator({ info, idleHint }: { info?: PasswordStrengthInfo | null; idleHint?: string }) {
+    if (!info) {
+        return idleHint ? <p className="text-[11px] text-slate-400">{idleHint}</p> : null
+    }
+    return (
+        <div className="space-y-1" aria-live="polite">
+            <div className="h-1.5 w-full rounded-full bg-slate-100">
+                <div className={`h-full rounded-full ${info.color}`} style={{ width: `${info.progress}%` }} />
+            </div>
+            <div className="flex flex-wrap justify-between text-[11px] text-slate-500">
+                <span>{info.label}</span>
+                {info.helper && <span className="text-slate-400">{info.helper}</span>}
+            </div>
+        </div>
+    )
+}
+
+function EmployeeDocumentsPanel({ employeeId, employeeName, open, canEdit }: EmployeeDocumentsPanelProps) {
+    const [documents, setDocuments] = useState<EmployeeDocumentSummary[]>([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const [selectedDoc, setSelectedDoc] = useState<EmployeeDocumentSummary | null>(null)
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+    const [uploadCategory, setUploadCategory] = useState('')
+    const [uploadExpiresAt, setUploadExpiresAt] = useState('')
+    const [uploadFile, setUploadFile] = useState<File | null>(null)
+    const [uploading, setUploading] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
+    const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'confirming' | 'success'>('idle')
+    const [flashMessage, setFlashMessage] = useState<string | null>(null)
+    const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+    const fetchDocuments = useCallback(async () => {
+        if (!employeeId) return
+        setLoading(true)
+        setError(null)
+        try {
+            const res = await fetch(`/api/admin/employees/${employeeId}/documents`, { cache: 'no-store' })
+            if (!res.ok) {
+                const err = (await res.json().catch(() => null)) as { error?: string } | null
+                throw new Error(err?.error || 'Impossible de charger les documents')
+            }
+            const payload = (await res.json().catch(() => [])) as EmployeeDocumentSummary[]
+            setDocuments(payload)
+        } catch (caught) {
+            console.error(caught)
+            setError(caught instanceof Error ? caught.message : 'Erreur réseau')
+        } finally {
+            setLoading(false)
+        }
+    }, [employeeId])
+
+    useEffect(() => {
+        if (!open) {
+            setPreviewUrl(null)
+            setSelectedDoc(null)
+            return
+        }
+        fetchDocuments()
+    }, [open, fetchDocuments])
+
+    const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+        const nextFile = event.target.files?.[0] ?? null
+        setUploadFile(nextFile)
+    }
+
+    const resetUploadForm = (options?: { preserveStatus?: boolean }) => {
+        setUploadCategory('')
+        setUploadExpiresAt('')
+        setUploadFile(null)
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
+        if (!options?.preserveStatus) {
+            setUploadProgress(0)
+            setUploadStatus('idle')
+            setFlashMessage(null)
+        }
+    }
+
+    const handleUpload = async (event?: FormEvent<HTMLFormElement> | MouseEvent<HTMLButtonElement>) => {
+        event?.preventDefault()
+        if (!uploadFile || !uploadCategory.trim()) {
+            setError('Fichier et catégorie requis.')
+            return
+        }
+        const fileLabel = uploadFile.name
+        let succeeded = false
+        setUploading(true)
+        setError(null)
+        setUploadStatus('uploading')
+        setUploadProgress(0)
+            setFlashMessage(null)
+        try {
+            const payload = {
+                userId: employeeId,
+                category: uploadCategory.trim(),
+                fileName: fileLabel,
+                mimeType: uploadFile.type || 'application/octet-stream',
+                size: uploadFile.size,
+                expiresAt: uploadExpiresAt || undefined
+            }
+            const signedRes = await fetch('/api/admin/files/upload-url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            if (!signedRes.ok) {
+                const err = (await signedRes.json().catch(() => null)) as { error?: string } | null
+                throw new Error(err?.error || 'Échec préparation upload')
+            }
+            const signedPayload = (await signedRes.json()) as {
+                uploadUrl: string
+                document: { id: string }
+            }
+
+            await new Promise<void>((resolve, reject) => {
+                const xhr = new XMLHttpRequest()
+                xhr.open('PUT', signedPayload.uploadUrl)
+                xhr.setRequestHeader('Content-Type', payload.mimeType)
+                xhr.upload.onprogress = (progressEvent) => {
+                    if (progressEvent.lengthComputable) {
+                        const percent = Math.round((progressEvent.loaded / progressEvent.total) * 100)
+                        setUploadProgress(percent)
+                    }
+                }
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        resolve()
+                    } else {
+                        reject(new Error('Échec envoi vers le stockage'))
+                    }
+                }
+                xhr.onerror = () => reject(new Error('Échec envoi vers le stockage'))
+                xhr.send(uploadFile)
+            })
+
+            setUploadStatus('confirming')
+
+            const confirmRes = await fetch('/api/admin/files/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ documentId: signedPayload.document.id })
+            })
+            if (!confirmRes.ok) {
+                const err = (await confirmRes.json().catch(() => null)) as { error?: string } | null
+                throw new Error(err?.error || 'Confirmation impossible')
+            }
+
+            setUploadStatus('success')
+            setUploadProgress(100)
+            succeeded = true
+            await fetchDocuments()
+            resetUploadForm({ preserveStatus: true })
+            setFlashMessage(`Document "${fileLabel}" importé.`)
+            setTimeout(() => setFlashMessage(null), 5000)
+        } catch (caught) {
+            console.error(caught)
+            setUploadStatus('idle')
+            setUploadProgress(0)
+            setError(caught instanceof Error ? caught.message : 'Upload impossible')
+        } finally {
+            setUploading(false)
+            if (!succeeded) {
+                setUploadStatus('idle')
+            } else {
+                setTimeout(() => {
+                    setUploadStatus('idle')
+                    setUploadProgress(0)
+                }, 2000)
+            }
+        }
+    }
+
+    const requestDownloadUrl = async (documentId: string) => {
+        const res = await fetch('/api/admin/files/download-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ documentId })
+        })
+        if (!res.ok) {
+            const err = (await res.json().catch(() => null)) as { error?: string } | null
+            throw new Error(err?.error || 'Téléchargement indisponible')
+        }
+        const payload = (await res.json()) as { downloadUrl: string }
+        return payload.downloadUrl
+    }
+
+    const ensureInteractiveDocument = (doc: EmployeeDocumentSummary) => {
+        if (doc.status === 'ARCHIVED') {
+            setError('Ce document est archivé et ne peut plus être consulté.')
+            return false
+        }
+        return true
+    }
+
+    const handlePreview = (doc: EmployeeDocumentSummary) => {
+        if (!ensureInteractiveDocument(doc)) return
+        setSelectedDoc(doc)
+        setPreviewUrl(`/api/admin/files/${doc.id}/preview?ts=${Date.now()}`)
+    }
+
+    const handleDownload = async (doc: EmployeeDocumentSummary) => {
+        try {
+            if (!ensureInteractiveDocument(doc)) return
+            const url = await requestDownloadUrl(doc.id)
+            window.open(url, '_blank', 'noopener,noreferrer')
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : 'Téléchargement refusé')
+        }
+    }
+
+    const handleArchive = async (doc: EmployeeDocumentSummary) => {
+        const reason = prompt('Raison de l’archivage (optionnel):') ?? undefined
+        try {
+            const res = await fetch('/api/admin/files/archive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ documentId: doc.id, reason })
+            })
+            if (!res.ok) {
+                const err = (await res.json().catch(() => null)) as { error?: string } | null
+                throw new Error(err?.error || 'Archivage impossible')
+            }
+            await fetchDocuments()
+        } catch (caught) {
+            setError(caught instanceof Error ? caught.message : 'Erreur archivage')
+        }
+    }
+
+    const handleDelete = async (doc: EmployeeDocumentSummary) => {
+        if (!canEdit) return
+        if (!confirm(`Supprimer définitivement "${doc.fileName}" ? Cette action est irréversible.`)) {
+            return
+        }
+        try {
+            const res = await fetch(`/api/admin/files/${doc.id}`, { method: 'DELETE' })
+            if (!res.ok) {
+                const err = (await res.json().catch(() => null)) as { error?: string } | null
+                throw new Error(err?.error || 'Suppression impossible')
+            }
+            if (selectedDoc?.id === doc.id) {
+                setSelectedDoc(null)
+                setPreviewUrl(null)
+            }
+            await fetchDocuments()
+            setFlashMessage(`Document "${doc.fileName}" supprimé.`)
+            setTimeout(() => setFlashMessage(null), 5000)
+        } catch (caught) {
+            console.error(caught)
+            setError(caught instanceof Error ? caught.message : 'Erreur suppression')
+        }
+    }
+
+    const visibleDocs = documents
+    const hasDocuments = visibleDocs.length > 0
+
+    return (
+        <section className="space-y-3 rounded-3xl border border-slate-100 bg-white/40 p-4">
+            <div className="flex flex-col gap-1">
+                <h4 className="text-xs font-bold uppercase tracking-[0.4em] text-slate-400">Documents</h4>
+                <p className="text-sm text-slate-500">Contrats, justificatifs, attestations liés à {employeeName}.</p>
+            </div>
+
+            {error && <p className="rounded border border-red-200 bg-red-50 p-2 text-xs text-red-700">{error}</p>}
+            {flashMessage && (
+                <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-700">{flashMessage}</p>
+            )}
+
+            <div className="flex items-center justify-between">
+                <button type="button" className="text-xs font-semibold text-slate-500" onClick={fetchDocuments} disabled={loading}>
+                    {loading ? 'Actualisation…' : 'Rafraîchir la liste'}
+                </button>
+                <span className="text-xs text-slate-400">{hasDocuments ? `${visibleDocs.length} document(s)` : 'Aucun document'}</span>
+            </div>
+
+            {canEdit && (
+                <div className="rounded-2xl border border-dashed border-slate-300 p-4 space-y-3 bg-white" role="group" aria-labelledby={`doc-upload-${employeeId}`}>
+                    <p id={`doc-upload-${employeeId}`} className="text-xs font-semibold text-slate-500">Ajouter un document</p>
+                    <div className="grid gap-3 md:grid-cols-2">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Catégorie</label>
+                            <input className="w-full rounded border p-2" value={uploadCategory} onChange={(e)=>setUploadCategory(e.target.value)} placeholder="Contrat, RIB, etc." />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Expiration (optionnel)</label>
+                            <input type="date" className="w-full rounded border p-2" value={uploadExpiresAt} onChange={(e)=>setUploadExpiresAt(e.target.value)} />
+                        </div>
+                    </div>
+                    <input ref={fileInputRef} type="file" className="w-full" onChange={handleFileChange} accept="application/pdf,image/*,.doc,.docx" />
+                    <div className="flex justify-end gap-2">
+                        <button type="button" className="text-xs text-slate-500" onClick={resetUploadForm}>Réinitialiser</button>
+                        <button type="button" className="rounded bg-slate-900 px-4 py-2 text-xs font-semibold text-white" onClick={handleUpload} disabled={uploading}>
+                            {uploading ? 'Envoi…' : 'Uploader'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-2">
+                {loading && <p className="text-sm text-slate-500">Chargement…</p>}
+                {!loading && !hasDocuments && <p className="text-sm text-slate-500">Aucun document enregistré pour cet employé.</p>}
+                {hasDocuments && (
+                    <ul className="space-y-2">
+                        {visibleDocs.map((doc) => (
+                            <li key={doc.id} className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-semibold text-slate-900">{doc.fileName}</span>
+                                    <span className="text-xs text-slate-400">{doc.category}</span>
+                                    <span className="text-xs text-slate-400">v{doc.version}</span>
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                                        doc.status === 'ACTIVE'
+                                            ? 'bg-emerald-100 text-emerald-800'
+                                            : doc.status === 'ARCHIVED'
+                                            ? 'bg-rose-100 text-rose-700'
+                                            : 'bg-amber-100 text-amber-800'
+                                    }`}>
+                                        {doc.status}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    Ajouté le {formatDate(doc.uploadedAt || doc.createdAt)} · {formatBytes(doc.size)} · {doc.mimeType}
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                    <button
+                                        className={`rounded-full border border-slate-200 px-3 py-1 ${doc.status === 'ARCHIVED' ? 'cursor-not-allowed opacity-50' : ''}`}
+                                        type="button"
+                                        onClick={()=>handlePreview(doc)}
+                                        disabled={doc.status === 'ARCHIVED'}
+                                        title={doc.status === 'ARCHIVED' ? 'Document archivé, aucune prévisualisation disponible' : undefined}
+                                    >
+                                        Prévisualiser
+                                    </button>
+                                    <button
+                                        className={`rounded-full border border-slate-200 px-3 py-1 ${doc.status === 'ARCHIVED' ? 'cursor-not-allowed opacity-50' : ''}`}
+                                        type="button"
+                                        onClick={()=>handleDownload(doc)}
+                                        disabled={doc.status === 'ARCHIVED'}
+                                        title={doc.status === 'ARCHIVED' ? 'Document archivé, téléchargement désactivé' : undefined}
+                                    >
+                                        Télécharger
+                                    </button>
+                                    {canEdit && doc.status !== 'ARCHIVED' && (
+                                        <button className="rounded-full border border-rose-200 px-3 py-1 text-rose-600" type="button" onClick={()=>handleArchive(doc)}>
+                                            Archiver
+                                        </button>
+                                    )}
+                                    {canEdit && (
+                                        <button className="rounded-full border border-red-200 px-3 py-1 text-red-600" type="button" onClick={()=>handleDelete(doc)}>
+                                            Supprimer
+                                        </button>
+                                    )}
+                                </div>
+                            </li>
+                        ))}
+                            {uploadStatus !== 'idle' && (
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                        <span>
+                                            {uploadStatus === 'uploading'
+                                                ? 'Envoi du fichier…'
+                                                : uploadStatus === 'confirming'
+                                                ? 'Confirmation côté serveur…'
+                                                : 'Import terminé'}
+                                        </span>
+                                        {uploadStatus === 'uploading' && <span>{uploadProgress}%</span>}
+                                    </div>
+                                    <div className="h-2 w-full rounded-full bg-slate-100">
+                                        <div
+                                            className={`h-full rounded-full ${uploadStatus === 'success' ? 'bg-emerald-500' : 'bg-slate-900'}`}
+                                            style={{ width: `${uploadStatus === 'uploading' ? uploadProgress : 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                    </ul>
+                )}
+            </div>
+
+            {previewUrl && selectedDoc && (
+                <div className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-slate-600">Prévisualisation : {selectedDoc.fileName}</p>
+                        <button type="button" className="text-xs text-slate-500" onClick={()=>{setPreviewUrl(null); setSelectedDoc(null)}}>
+                            Fermer
+                        </button>
+                    </div>
+                    {selectedDoc.mimeType === 'application/pdf' ? (
+                        <PdfViewer src={previewUrl} fileName={selectedDoc.fileName} hint="PDF privé" />
+                    ) : selectedDoc.mimeType.startsWith('image/') ? (
+                        <Image src={previewUrl} alt={selectedDoc.fileName} width={800} height={600} className="max-h-72 w-full rounded object-contain" unoptimized />
+                    ) : (
+                        <p className="text-xs text-slate-500">Prévisualisation non disponible pour ce format.</p>
+                    )}
+                    <p className="text-[11px] text-slate-400">Les liens sécurisés expirent rapidement, relancez l’aperçu si nécessaire.</p>
+                </div>
+            )}
+        </section>
+    )
+}
+
+function EmployeeDocumentsModal({ open, onClose, employee, canEdit }: EmployeeDocumentsModalProps) {
+    if (!open || !employee) return null
+    const employeeName = `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || employee.email
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+            <div className="sn-card w-full max-w-4xl overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Documents</p>
+                        <h3 className="text-lg font-bold text-slate-900">{employeeName}</h3>
+                        {employee.employeeNumber && (
+                            <p className="text-xs text-slate-400">Matricule #{employee.employeeNumber}</p>
+                        )}
+                    </div>
+                    <button type="button" onClick={onClose} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600">
+                        Fermer
+                    </button>
+                </div>
+                <div className="max-h-[70vh] overflow-auto px-5 py-4">
+                    <EmployeeDocumentsPanel
+                        employeeId={employee.id}
+                        employeeName={employeeName}
+                        open={open}
+                        canEdit={canEdit}
+                    />
+                </div>
+            </div>
+        </div>
+    )
+}
+
+type EmployeeDocumentStatus = 'PENDING' | 'ACTIVE' | 'ARCHIVED'
+
+type BasicUserRef = {
+    id: string
+    firstName?: string | null
+    lastName?: string | null
+} | null
+
+type EmployeeDocumentSummary = {
+    id: string
+    userId: string
+    category: string
+    fileName: string
+    mimeType: string
+    size: number
+    version: number
+    status: EmployeeDocumentStatus
+    uploadedAt?: string | null
+    archivedAt?: string | null
+    expiresAt?: string | null
+    createdAt?: string | null
+    uploadedBy?: BasicUserRef
+    archivedBy?: BasicUserRef
 }
 
 type MeResponse = { role?: EmployeeRole | null; permissions?: AdminPermissions }
@@ -203,6 +718,25 @@ const sortEmployees = (list: EmployeeRecord[]): EmployeeRecord[] => {
     })
 }
 
+const formatBytes = (value: number) => {
+    if (!Number.isFinite(value) || value <= 0) return '—'
+    const units = ['o', 'Ko', 'Mo', 'Go']
+    let size = value
+    let unitIndex = 0
+    while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024
+        unitIndex += 1
+    }
+    return `${size.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+const formatDate = (value?: string | null) => {
+    if (!value) return null
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+    return date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+}
+
 export default function ClientEmployeesPage({ canManage = false }: Props) {
     const [employees, setEmployees] = useState<EmployeeRecord[]>([])
     const [myRole, setMyRole] = useState<EmployeeRole>('EMPLOYEE')
@@ -213,6 +747,8 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
     const [editTarget, setEditTarget] = useState<EmployeeRecord | null>(null)
     const [editErrors, setEditErrors] = useState<string[]>([])
     const [form, setForm] = useState<CreateEmployeeForm>(() => createDefaultFormState())
+    const [statusAction, setStatusAction] = useState<{ mode: 'archive' | 'reactivate'; employee: EmployeeRecord } | null>(null)
+    const [documentsTarget, setDocumentsTarget] = useState<EmployeeRecord | null>(null)
 
     useEffect(() => {
         async function load() {
@@ -345,6 +881,11 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                                                                         #{emp.employeeNumber}
                                                                     </span>
                                                                 )}
+                                                                {emp.isActive === false && (
+                                                                    <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-700">
+                                                                        Archivé
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     </div>
@@ -364,12 +905,30 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                                                             Manager : {emp.manager.firstName} {emp.manager.lastName}
                                                         </div>
                                                     )}
+                                                    {emp.isActive === false && (
+                                                        <div className="mt-2 text-xs text-rose-600">
+                                                            Archivé
+                                                            {emp.employmentEndDate && (
+                                                                <span> depuis le {formatDate(emp.employmentEndDate)}</span>
+                                                            )}
+                                                            {emp.archiveReason && (
+                                                                <span> — {emp.archiveReason}</span>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td className="p-4 text-right align-top">
                                                     {emp.role === 'SUPERADMIN' ? (
                                                         <span className="text-xs text-slate-400">Compte protégé</span>
                                                     ) : (
-                                                        <div className="flex justify-end gap-2">
+                                                        <div className="flex flex-wrap justify-end gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setDocumentsTarget(emp)}
+                                                                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-slate-400"
+                                                            >
+                                                                Documents
+                                                            </button>
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
@@ -387,6 +946,24 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                                                             >
                                                                 {myRole === 'SUPERADMIN' ? 'Modifier' : 'Consulter'}
                                                             </button>
+                                                            {myRole === 'SUPERADMIN' && emp.isActive !== false && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setStatusAction({ mode: 'archive', employee: emp })}
+                                                                    className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:border-rose-300 hover:text-rose-700"
+                                                                >
+                                                                    Archiver
+                                                                </button>
+                                                            )}
+                                                            {myRole === 'SUPERADMIN' && emp.isActive === false && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setStatusAction({ mode: 'reactivate', employee: emp })}
+                                                                    className="rounded-full border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 hover:text-emerald-800"
+                                                                >
+                                                                    Réactiver
+                                                                </button>
+                                                            )}
                                                             {myRole === 'SUPERADMIN' && (
                                                                 <button
                                                                     type="button"
@@ -421,6 +998,22 @@ export default function ClientEmployeesPage({ canManage = false }: Props) {
                             setEditTarget(null)
                         }}
                     />
+                    <EmployeeDocumentsModal
+                        open={!!documentsTarget}
+                        employee={documentsTarget}
+                        onClose={()=>setDocumentsTarget(null)}
+                        canEdit={localCanManage}
+                    />
+                    <EmployeeStatusModal
+                        open={!!statusAction}
+                        mode={statusAction?.mode ?? 'archive'}
+                        employee={statusAction?.employee ?? null}
+                        onClose={()=>setStatusAction(null)}
+                        onCompleted={(updated)=>{
+                            setEmployees(prev => sortEmployees(prev.map(e => e.id === updated.id ? { ...e, ...updated } : e)))
+                            setStatusAction(null)
+                        }}
+                    />
                 </>
             )}
         </AdminPageShell>
@@ -452,9 +1045,35 @@ interface EmployeeDirectoryProps {
     loading: boolean
 }
 
+interface EmployeeStatusModalProps {
+    open: boolean
+    mode: 'archive' | 'reactivate'
+    employee: EmployeeRecord | null
+    onClose: () => void
+    onCompleted: (updated: EmployeeRecord) => void
+}
+
+interface EmployeeDocumentsPanelProps {
+    employeeId: string
+    employeeName: string
+    open: boolean
+    canEdit: boolean
+}
+
+interface EmployeeDocumentsModalProps {
+    open: boolean
+    employee: EmployeeRecord | null
+    onClose: () => void
+    canEdit: boolean
+}
+
 function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, errors, setErrors, onSaved }: EditEmployeeModalProps) {
     const firstFieldRef = useRef<HTMLInputElement|null>(null)
     const dialogRef = useRef<HTMLDivElement|null>(null)
+    const passwordInfo = useMemo(
+        () => (employee ? getPasswordInsights(employee.password, [employee.email, employee.firstName, employee.lastName]) : null),
+        [employee?.password, employee?.email, employee?.firstName, employee?.lastName]
+    )
     useEffect(()=>{ if(open && firstFieldRef.current) firstFieldRef.current.focus() }, [open])
     useEffect(()=>{
         if(!open) return
@@ -565,11 +1184,20 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                             </ul>
                         </div>
                     )}
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Identité</h4>
+                    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[12px] text-slate-600">
+                        <span>Champs marqués <span className="font-semibold text-rose-500">*</span> obligatoires.</span>
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${employee.isActive === false ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                            {employee.isActive === false ? 'Compte archivé' : 'Compte actif'}
+                        </span>
+                    </div>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Identité" hint="Synchronisée avec les exports RH et les documents légaux." />
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-firstName">Prénom</label>
+                                <label className="flex items-center text-xs font-bold text-slate-500 mb-1" htmlFor="edit-firstName">
+                                    Prénom
+                                    <RequiredIndicator />
+                                </label>
                                 <input
                                     ref={firstFieldRef}
                                     id="edit-firstName"
@@ -580,7 +1208,10 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-lastName">Nom</label>
+                                <label className="flex items-center text-xs font-bold text-slate-500 mb-1" htmlFor="edit-lastName">
+                                    Nom
+                                    <RequiredIndicator />
+                                </label>
                                 <input
                                     id="edit-lastName"
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -616,11 +1247,14 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         </div>
                     </section>
 
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Contact</h4>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Contact" hint="Coordonnées partagées avec l'équipe et visibles dans les exports." />
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-email">Email</label>
+                                <label className="flex items-center text-xs font-bold text-slate-500 mb-1" htmlFor="edit-email">
+                                    Email
+                                    <RequiredIndicator />
+                                </label>
                                 <input
                                     id="edit-email"
                                     type="email"
@@ -631,7 +1265,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1" htmlFor="edit-phone">Téléphone</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1" htmlFor="edit-phone">Téléphone</label>
                                 <input
                                     id="edit-phone"
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -642,7 +1276,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                             </div>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Adresse</label>
+                            <label className="text-xs font-bold text-slate-500 mb-1">Adresse</label>
                             <textarea
                                 className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                 value={employee.address || ''}
@@ -652,7 +1286,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         </div>
                         <div className="grid grid-cols-3 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Ville</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Ville</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.city || ''}
@@ -661,7 +1295,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Code postal</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Code postal</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.postalCode || ''}
@@ -670,7 +1304,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Pays</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Pays</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.country || ''}
@@ -681,11 +1315,11 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         </div>
                     </section>
 
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Contrat</h4>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Contrat" hint="Statut RH, rattachement et informations liées au poste." />
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Département</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Département</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.department || ''}
@@ -694,7 +1328,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Poste</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Poste</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.jobTitle || ''}
@@ -703,7 +1337,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Date d&apos;embauche</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Date d&apos;embauche</label>
                                 <input
                                     type="date"
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -713,7 +1347,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Temps de travail</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Temps de travail</label>
                                 <select
                                     className="w-full rounded border bg-white p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={(employee.fullTime ?? employee.isFullTime) ? 'FULL' : 'PART'}
@@ -725,7 +1359,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Statut</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Statut</label>
                                 <select
                                     className="w-full rounded border bg-white p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.employmentStatus || 'PERMANENT'}
@@ -737,7 +1371,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Manager</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Manager</label>
                                 <input
                                     className="w-full rounded border bg-slate-100 p-2 text-slate-500"
                                     value={employee.manager ? `${employee.manager.firstName ?? ''} ${employee.manager.lastName ?? ''}`.trim() : '—'}
@@ -747,11 +1381,11 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         </div>
                     </section>
 
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Rémunération</h4>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Rémunération" hint="Champ visible uniquement par les SuperAdmin." />
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Taux horaire (€)</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.hourlyRate ?? ''}
@@ -760,7 +1394,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Salaire annuel (€)</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.salary ?? employee.annualSalary ?? ''}
@@ -771,11 +1405,11 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         </div>
                     </section>
 
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Contact d&apos;urgence</h4>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Contact d'urgence" hint="Personne alertée en cas d'incident ou de problème médical." />
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Nom</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Nom</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.emergencyContactName || ''}
@@ -784,7 +1418,7 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">Téléphone</label>
+                                <label className="text-xs font-bold text-slate-500 mb-1">Téléphone</label>
                                 <input
                                     className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                                     value={employee.emergencyContactPhone || ''}
@@ -795,8 +1429,8 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         </div>
                     </section>
 
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Notes internes</h4>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Notes internes" hint="Visible uniquement dans l'administration, non partagé avec l'employé." />
                         <textarea
                             className="w-full rounded border p-2 disabled:cursor-not-allowed disabled:bg-slate-100"
                             value={employee.notes || ''}
@@ -805,15 +1439,33 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
                         />
                     </section>
 
-                    <section>
-                        <h4 className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-2">Permissions back-office</h4>
-                        <p className="text-xs text-slate-500 mb-3">Activez les sections accessibles pour ce collaborateur, puis précisez les actions autorisées.</p>
+                    <section className={SECTION_CARD_CLASS}>
+                        <SectionHeader title="Permissions back-office" hint="Activez les sections accessibles puis cochez les actions autorisées." />
                         <PermissionsEditor
                             permissions={employee.adminPermissions ?? createEmptyAdminPermissions()}
                             onToggle={handlePermissionToggle}
                             readOnly={!canEdit}
                         />
                     </section>
+
+                    {canEdit && (
+                        <section className={SECTION_CARD_CLASS}>
+                            <SectionHeader title="Sécurité & accès" hint="Réinitialisez le mot de passe si besoin. Laissez vide pour conserver l'actuel." />
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500" htmlFor="edit-password">Nouveau mot de passe</label>
+                                <input
+                                    id="edit-password"
+                                    type="password"
+                                    className="w-full rounded border p-2"
+                                    placeholder="Laisser vide pour ne rien changer"
+                                    value={employee.password || ''}
+                                    onChange={(event) => handleChange('password', event.target.value)}
+                                    disabled={readOnly}
+                                />
+                                <PasswordStrengthIndicator info={passwordInfo} idleHint="12 caractères minimum recommandés." />
+                            </div>
+                        </section>
+                    )}
 
                     <div className="flex justify-end gap-2 pt-2">
                         <button type="button" onClick={onClose} className="border px-4 py-2 rounded">{readOnly ? 'Fermer' : 'Annuler'}</button>
@@ -826,8 +1478,133 @@ function EditEmployeeModal({ open, onClose, employee, setEmployee, canEdit, erro
         </div>
     )
 }
+
+function EmployeeStatusModal({ open, mode, employee, onClose, onCompleted }: EmployeeStatusModalProps) {
+    const [reason, setReason] = useState('')
+    const [effectiveDate, setEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10))
+    const [submitting, setSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (!open || !employee) return
+        setReason(mode === 'archive' ? employee.archiveReason ?? '' : '')
+        setEffectiveDate(employee.employmentEndDate?.slice(0, 10) ?? new Date().toISOString().slice(0, 10))
+        setSubmitting(false)
+        setError(null)
+    }, [open, employee, mode])
+
+    if (!open || !employee) return null
+
+    const title = mode === 'archive' ? `Archiver ${employee.firstName}` : `Réactiver ${employee.firstName}`
+    const description =
+        mode === 'archive'
+            ? "Définissez la date de fin de contrat et précisez, si besoin, la raison de l'archivage."
+            : 'Ajoutez une note interne expliquant la réactivation.'
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault()
+        if (submitting) return
+        setSubmitting(true)
+        setError(null)
+        try {
+            const payload =
+                mode === 'archive'
+                    ? {
+                          employmentEndDate: effectiveDate || undefined,
+                          reason: reason?.trim() ? reason.trim() : undefined
+                      }
+                    : {
+                          note: reason?.trim() ? reason.trim() : undefined
+                      }
+
+            const endpoint = `/api/admin/employees/${employee.id}/${mode === 'archive' ? 'archive' : 'reactivate'}`
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+
+            if (!res.ok) {
+                const err = (await res.json().catch(() => null)) as { error?: string } | null
+                setError(err?.error || 'Action impossible pour le moment.')
+                return
+            }
+
+            const responsePayload = (await res.json().catch(() => null)) as unknown
+            const updatedEmployee = extractEmployee(responsePayload)
+            if (!updatedEmployee) {
+                setError('Réponse inattendue du serveur.')
+                return
+            }
+            onCompleted(updatedEmployee)
+        } catch (caught) {
+            console.error(caught)
+            setError('Erreur réseau, veuillez réessayer.')
+        } finally {
+            setSubmitting(false)
+        }
+    }
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" role="dialog" aria-modal="true">
+            <div className="sn-card w-full max-w-md" role="document">
+                <div className="border-b p-4">
+                    <h3 className="font-bold" id="employee-status-title">{title}</h3>
+                    <p className="text-xs text-slate-500">{description}</p>
+                </div>
+                <form onSubmit={handleSubmit} className="p-4 space-y-4" aria-describedby="employee-status-errors">
+                    {error && (
+                        <div className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700" id="employee-status-errors">
+                            {error}
+                        </div>
+                    )}
+                    {mode === 'archive' && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Date de fin effective</label>
+                            <input
+                                type="date"
+                                className="w-full rounded border p-2"
+                                value={effectiveDate}
+                                onChange={(event) => setEffectiveDate(event.target.value)}
+                            />
+                        </div>
+                    )}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">
+                            {mode === 'archive' ? "Raison de l'archivage" : 'Note de réactivation'} (optionnel)
+                        </label>
+                        <textarea
+                            className="w-full rounded border p-2"
+                            value={reason}
+                            onChange={(event) => setReason(event.target.value)}
+                            maxLength={240}
+                            rows={3}
+                        />
+                        <p className="text-[11px] text-slate-400">240 caractères max.</p>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-2">
+                        <button type="button" onClick={onClose} className="border px-4 py-2 rounded" disabled={submitting}>
+                            Annuler
+                        </button>
+                        <button
+                            type="submit"
+                            className={`px-4 py-2 rounded text-white ${mode === 'archive' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                            disabled={submitting}
+                        >
+                            {submitting ? 'Patientez…' : mode === 'archive' ? 'Archiver' : 'Réactiver'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
+}
 // Modal de création rapide
 function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }: CreateEmployeeModalProps) {
+    const passwordInfo = useMemo(
+        () => getPasswordInsights(form.password, [form.email, form.firstName, form.lastName]),
+        [form.password, form.email, form.firstName, form.lastName]
+    )
     if (!open) return null
     const handlePermissionToggle = (section: AdminPermissionKey, field: 'enabled' | string, value: boolean) => {
         const normalizedField = resolvePermissionField(section, field)
@@ -845,24 +1622,39 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800">✕</button>
                 </div>
                 <form onSubmit={onSubmit} className="p-4 space-y-4 max-h-[80vh] overflow-auto">
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                        Champs marqués <span className="font-semibold text-rose-500">*</span> obligatoires. Utilisez un mot de passe d'au moins 12 caractères.
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Prénom</label>
+                            <label className="flex items-center text-xs font-bold text-slate-500 mb-1">
+                                Prénom
+                                <RequiredIndicator />
+                            </label>
                             <input required className="w-full p-2 border rounded" value={form.firstName} onChange={e=>setForm({...form, firstName: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Nom</label>
+                            <label className="flex items-center text-xs font-bold text-slate-500 mb-1">
+                                Nom
+                                <RequiredIndicator />
+                            </label>
                             <input required className="w-full p-2 border rounded" value={form.lastName} onChange={e=>setForm({...form, lastName: e.target.value})} />
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Email</label>
+                            <label className="flex items-center text-xs font-bold text-slate-500 mb-1">
+                                Email
+                                <RequiredIndicator />
+                            </label>
                             <input required type="email" className="w-full p-2 border rounded" value={form.email} onChange={e=>setForm({...form, email: e.target.value})} />
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Téléphone</label>
+                            <label className="flex items-center text-xs font-bold text-slate-500 mb-1">
+                                Téléphone
+                                <RequiredIndicator />
+                            </label>
                             <input required className="w-full p-2 border rounded" value={form.phone} onChange={e=>setForm({...form, phone: e.target.value})} />
                         </div>
                     </div>
@@ -980,8 +1772,19 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Mot de passe provisoire</label>
-                            <input required className="w-full p-2 border rounded" value={form.password || ''} onChange={e=>setForm({...form, password: e.target.value})} />
+                            <label className="flex items-center text-xs font-bold text-slate-500 mb-1">
+                                Mot de passe provisoire
+                                <RequiredIndicator />
+                            </label>
+                            <input
+                                required
+                                type="password"
+                                className="w-full p-2 border rounded"
+                                value={form.password || ''}
+                                onChange={e=>setForm({...form, password: e.target.value})}
+                                placeholder="12 caractères minimum"
+                            />
+                            <PasswordStrengthIndicator info={passwordInfo} idleHint="Évitez les mots du dictionnaire et ajoutez des chiffres." />
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 mb-1">Rôle</label>
@@ -1002,67 +1805,130 @@ function CreateEmployeeModal({ open, onClose, onSubmit, form, setForm, myRole }:
     )
 }
 
-function EmployeeDirectory({ employees, loading }: EmployeeDirectoryProps) {
+export function EmployeeDirectory({ employees, loading }: EmployeeDirectoryProps) {
+    const searchParams = useSearchParams()
+    const router = useRouter()
+    const pathname = usePathname()
+    const directoryFilter = parseDirectoryFilter(searchParams.get(DIRECTORY_FILTER_QUERY_KEY))
+
     if (loading) {
         return <div className="sn-card p-8 text-center text-sm text-slate-500">Chargement...</div>
     }
     if (employees.length === 0) {
         return <div className="sn-card p-8 text-center text-sm text-slate-500">Aucun collaborateur pour l&apos;instant.</div>
     }
+
+    const activeCount = employees.filter((emp) => emp.isActive !== false).length
+    const archivedCount = employees.filter((emp) => emp.isActive === false).length
+    const filteredEmployees = employees.filter((emp) => {
+        if (directoryFilter === 'active') return emp.isActive !== false
+        if (directoryFilter === 'inactive') return emp.isActive === false
+        return true
+    })
+
+    const filters: Array<{ value: DirectoryFilter; label: string; count: number }> = [
+        { value: 'active', label: 'Actifs', count: activeCount },
+        { value: 'inactive', label: 'Archivés', count: archivedCount },
+        { value: 'all', label: 'Tous', count: employees.length }
+    ]
+
+    const handleFilterChange = (nextFilter: DirectoryFilter) => {
+        if (nextFilter === directoryFilter) return
+        const params = new URLSearchParams(searchParams.toString())
+        if (nextFilter === 'active') {
+            params.delete(DIRECTORY_FILTER_QUERY_KEY)
+        } else {
+            params.set(DIRECTORY_FILTER_QUERY_KEY, nextFilter)
+        }
+        const query = params.toString()
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    }
+
     return (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {employees.map((emp) => {
-                const displayRole = emp.role ?? 'EMPLOYEE'
-                return (
-                    <article key={emp.id} className="sn-card flex flex-col gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
-                                {emp.image ? (
-                                    <Image src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} width={48} height={48} className="h-full w-full rounded-full object-cover" />
-                                ) : (
-                                    `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
-                                )}
-                            </div>
-                            <div>
-                                <div className="font-semibold text-slate-900">
-                                    {emp.firstName} {emp.lastName}
+        <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+                {filters.map((filter) => (
+                    <button
+                        key={filter.value}
+                        type="button"
+                        onClick={() => handleFilterChange(filter.value)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                            directoryFilter === filter.value
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-400'
+                        }`}
+                    >
+                        {filter.label} · {filter.count}
+                    </button>
+                ))}
+            </div>
+            {filteredEmployees.length === 0 ? (
+                <div className="sn-card p-8 text-center text-sm text-slate-500">
+                    {directoryFilter === 'inactive'
+                        ? 'Aucun compte archivé à afficher.'
+                        : 'Aucun collaborateur actif pour cette vue.'}
+                </div>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {filteredEmployees.map((emp) => {
+                        const displayRole = emp.role ?? 'EMPLOYEE'
+                        return (
+                            <article key={emp.id} className="sn-card flex flex-col gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-200 font-semibold text-slate-600">
+                                        {emp.image ? (
+                                            <Image src={emp.image} alt={`${emp.firstName} ${emp.lastName}`} width={48} height={48} className="h-full w-full rounded-full object-cover" />
+                                        ) : (
+                                            `${emp.firstName?.[0] ?? ''}${emp.lastName?.[0] ?? ''}`.toUpperCase()
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="font-semibold text-slate-900">
+                                            {emp.firstName} {emp.lastName}
+                                        </div>
+                                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                                            <span className={`rounded-full px-2 py-0.5 border ${
+                                                displayRole === 'SUPERADMIN'
+                                                    ? 'border-yellow-200 bg-yellow-100 text-yellow-800'
+                                                    : displayRole === 'ADMIN'
+                                                    ? 'border-purple-200 bg-purple-100 text-purple-700'
+                                                    : 'border-blue-200 bg-blue-100 text-blue-700'
+                                            }`}>
+                                                {displayRole}
+                                            </span>
+                                            {emp.employeeNumber && (
+                                                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
+                                                    #{emp.employeeNumber}
+                                                </span>
+                                            )}
+                                            {emp.jobTitle && (
+                                                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
+                                                    {emp.jobTitle}
+                                                </span>
+                                            )}
+                                            {emp.isActive === false && (
+                                                <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-700">
+                                                    Archivé
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                                    <span className={`rounded-full px-2 py-0.5 border ${
-                                        displayRole === 'SUPERADMIN'
-                                            ? 'border-yellow-200 bg-yellow-100 text-yellow-800'
-                                            : displayRole === 'ADMIN'
-                                            ? 'border-purple-200 bg-purple-100 text-purple-700'
-                                            : 'border-blue-200 bg-blue-100 text-blue-700'
-                                    }`}>
-                                        {displayRole}
-                                    </span>
-                                    {emp.employeeNumber && (
-                                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
-                                            #{emp.employeeNumber}
-                                        </span>
+                                <div className="text-sm text-slate-600 space-y-1">
+                                    <div className="flex items-center gap-2"><span aria-hidden="true">📧</span><span>{emp.email}</span></div>
+                                    {emp.phone && <div className="flex items-center gap-2"><span aria-hidden="true">📞</span><span>{emp.phone}</span></div>}
+                                    {emp.manager && (
+                                        <div className="flex items-center gap-2 text-xs text-slate-400">
+                                            <span aria-hidden="true">👤</span>
+                                            <span>Manager : {emp.manager.firstName ?? ''} {emp.manager.lastName ?? ''}</span>
+                                        </div>
                                     )}
-                                    {emp.jobTitle && (
-                                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-slate-500">
-                                            {emp.jobTitle}
-                                        </span>
-                                    )}
                                 </div>
-                            </div>
-                        </div>
-                        <div className="text-sm text-slate-600 space-y-1">
-                            <div className="flex items-center gap-2"><span aria-hidden="true">📧</span><span>{emp.email}</span></div>
-                            {emp.phone && <div className="flex items-center gap-2"><span aria-hidden="true">📞</span><span>{emp.phone}</span></div>}
-                            {emp.manager && (
-                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                    <span aria-hidden="true">👤</span>
-                                    <span>Manager : {emp.manager.firstName ?? ''} {emp.manager.lastName ?? ''}</span>
-                                </div>
-                            )}
-                        </div>
-                    </article>
-                )
-            })}
+                            </article>
+                        )
+                    })}
+                </div>
+            )}
         </div>
     )
 }

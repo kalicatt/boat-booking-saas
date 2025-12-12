@@ -34,12 +34,19 @@ model User {
   isFullTime  Boolean? @default(true)
   hourlyRate  Float?
   annualSalary Float?
+  employmentEndDate DateTime?
+  archiveReason String?
+  isActive   Boolean   @default(true)
+  sessionVersion Int    @default(0)
   emergencyContactName String?
   emergencyContactPhone String?
   notes      String?
   adminPermissions Json? @default("{}")
   bookings  Booking[]
   workShifts WorkShift[]
+  employeeDocuments EmployeeDocument[] @relation("EmployeeDocumentOwner")
+  uploadedEmployeeDocuments EmployeeDocument[] @relation("EmployeeDocumentUploader")
+  archivedEmployeeDocuments EmployeeDocument[] @relation("EmployeeDocumentArchiver")
   log Log[] 
   createdBlocks BlockedInterval[] @relation("UserCreatedBlocks")
   createdSessions PaymentSession[] @relation("PaymentSessionCreatedBy")
@@ -134,6 +141,32 @@ model WorkShift {
   createdAt    DateTime @default(now())
 }
 
+model EmployeeDocument {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation("EmployeeDocumentOwner", fields: [userId], references: [id])
+  uploadedById String?
+  uploadedBy   User?    @relation("EmployeeDocumentUploader", fields: [uploadedById], references: [id])
+  archivedById String?
+  archivedBy   User?    @relation("EmployeeDocumentArchiver", fields: [archivedById], references: [id])
+  category     String
+  fileName     String
+  mimeType     String
+  size         Int
+  storageKey   String   @unique
+  version      Int      @default(1)
+  status       EmployeeDocumentStatus @default(PENDING)
+  uploadedAt   DateTime?
+  archivedAt   DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
 model Log {
   id        String   @id @default(uuid())
   action    String   // Ex: "DELETE_BOOKING", "ADD_SHIFT"
@@ -190,6 +223,12 @@ enum CheckinStatus {
 enum EmploymentStatus {
   PERMANENT
   TEMPORARY
+}
+
+enum EmployeeDocumentStatus {
+  PENDING
+  ACTIVE
+  ARCHIVED
 }
 
 model Payment {

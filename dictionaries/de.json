@@ -152,5 +152,34 @@
     "list_title": "Ausgewählte Partner",
     "learn_more": "Mehr erfahren",
     "back_home": "← Zurück zur Startseite"
+  },
+  "weatherPage": {
+    "eyebrow": "Live-Bedingungen",
+    "title": "Wetter- & Flussbericht",
+    "subtitle": "Wind, Regen und Lauch-Pegel stündlich aktualisiert für eine sichere Planung.",
+    "back": "← Zurück zur Startseite",
+    "alertsLink": "Warnungen ansehen",
+    "badge": "Öffentlicher Bericht",
+    "widget": {
+      "updatedAtPrefix": "Aktualisiert"
+    },
+    "alerts": {
+      "title": "Wind- & Regenwarnungen",
+      "subtitle": "Wir geben die amtlichen Hinweise weiter, die Abfahrten beeinflussen können.",
+      "empty": "Keine Warnungen in den letzten 24h.",
+      "badge": "Aktive Warnung",
+      "source": "Quelle",
+      "duration": "{start} → {end}",
+      "impact": "Schwelle {threshold} km/h"
+    },
+    "insights": {
+      "title": "Zusätzliche Kennzahlen",
+      "subtitle": "Kontext aus demselben Wetter-Datensatz.",
+      "humidity": "Luftfeuchtigkeit",
+      "pressure": "Luftdruck",
+      "sunrise": "Sonnenaufgang",
+      "sunset": "Sonnenuntergang",
+      "uv": "UV-Index"
+    }
   }
 }

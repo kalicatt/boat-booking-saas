@@ -26,6 +26,12 @@ export const ADMIN_PERMISSION_CONFIG = {
     group: 'overview',
     actions: []
   },
+  weather: {
+    label: 'Météo',
+    description: 'Conditions opérationnelles et alertes météo.',
+    group: 'overview',
+    actions: []
+  },
   planning: {
     label: 'Planning & Résas',
     description: 'Calendrier opérationnel et gestion des départs.',

@@ -61,6 +61,16 @@ const DASHBOARD_TILES = [
     hoverText: 'group-hover:text-purple-600'
   },
   {
+    key: 'weather',
+    href: '/admin/weather',
+    label: 'Météo',
+    description: 'Consulter les conditions et décider des ouvertures.',
+    icon: '🌤️',
+    iconClass: 'bg-sky-100 text-sky-600',
+    hoverBorder: 'hover:border-sky-300',
+    hoverText: 'group-hover:text-sky-600'
+  },
+  {
     key: 'fleet',
     href: '/admin/fleet',
     label: 'Flotte & maintenance',
@@ -347,16 +357,16 @@ function AlertBanner({ title, icon, items, tone }: AlertBannerProps) {
   const palette = tone === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-sky-50 border-sky-200 text-slate-800'
 
   return (
-    <div className={`rounded-2xl border p-4 shadow-sm ${palette}`}>
-      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.3em]">
+    <div className={`rounded-xl border p-3 shadow-sm ${palette}`}>
+      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em]">
         <span>{icon}</span>
         <span>{title}</span>
       </div>
-      <ul className="mt-3 space-y-1 text-sm">
+      <ul className="mt-2 space-y-1 text-[12px] leading-snug">
         {items.length ? (
           items.map((message) => (
             <li key={message} className="flex items-start gap-2">
-              <span className="text-base" aria-hidden="true">
+              <span className="text-sm" aria-hidden="true">
                 •
               </span>
               <span>{message}</span>
@@ -369,3 +379,4 @@ function AlertBanner({ title, icon, items, tone }: AlertBannerProps) {
     </div>
   )
 }
+

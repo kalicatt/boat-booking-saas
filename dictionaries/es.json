@@ -38,5 +38,35 @@
     "sent_title": "Â¡Solicitud recibida!",
     "sent_message": "Hemos recibido tu solicitud de privatizaciÃ³n. Te contactaremos muy pronto."
   }
+,
+  "weatherPage": {
+    "eyebrow": "Condiciones en directo",
+    "title": "Boletín meteorológico",
+    "subtitle": "Viento, lluvia y nivel del Lauch actualizados cada hora para planificar tu paseo.",
+    "back": "← Volver al inicio",
+    "alertsLink": "Ver alertas",
+    "badge": "Boletín público",
+    "widget": {
+      "updatedAtPrefix": "Actualizado"
+    },
+    "alerts": {
+      "title": "Alertas de viento y lluvia",
+      "subtitle": "Compartimos los avisos oficiales que pueden afectar las salidas.",
+      "empty": "Sin alertas en las últimas 24h.",
+      "badge": "Alerta activa",
+      "source": "Fuente",
+      "duration": "{start} → {end}",
+      "impact": "Umbral {threshold} km/h"
+    },
+    "insights": {
+      "title": "Indicadores adicionales",
+      "subtitle": "Contexto derivado del mismo registro meteorológico.",
+      "humidity": "Humedad",
+      "pressure": "Presión",
+      "sunrise": "Amanecer",
+      "sunset": "Atardecer",
+      "uv": "Índice UV"
+    }
+  }
 }
 

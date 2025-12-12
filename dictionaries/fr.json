@@ -148,5 +148,34 @@
     "list_title": "Sélection",
     "learn_more": "En savoir plus",
     "back_home": "← Retour à l'accueil"
+  },
+  "weatherPage": {
+    "eyebrow": "Conditions en direct",
+    "title": "Bulletin Météo",
+    "subtitle": "Vent, pluie et niveaux de la Lauch mis à jour chaque heure.",
+    "back": "← Retour à l’accueil",
+    "alertsLink": "Voir les alertes",
+    "badge": "Bulletin public",
+    "widget": {
+      "updatedAtPrefix": "Actualisé"
+    },
+    "alerts": {
+      "title": "Alertes vent & pluie",
+      "subtitle": "Nous relayons les bulletins Météo-France pouvant impacter les départs.",
+      "empty": "Aucune alerte recensée sur les dernières 24h.",
+      "badge": "Alerte active",
+      "source": "Source",
+      "duration": "{start} → {end}",
+      "impact": "Seuil {threshold} km/h"
+    },
+    "insights": {
+      "title": "Indicateurs complémentaires",
+      "subtitle": "Contexte issu du même relevé météo.",
+      "humidity": "Humidité",
+      "pressure": "Pression",
+      "sunrise": "Lever du soleil",
+      "sunset": "Coucher du soleil",
+      "uv": "Indice UV"
+    }
   }
 }

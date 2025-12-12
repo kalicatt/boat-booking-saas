@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { memoGet, memoSet } from '@/lib/memoCache'
 import { computeAvailability } from '@/lib/availability'
 
+type AvailabilityPayload = { date: string; availableSlots: string[]; blockedReason?: string }
+
 // Logic moved to lib/availability.ts
 
 export async function GET(request: Request) {
@@ -27,7 +29,7 @@ export async function GET(request: Request) {
   try {
     // Cache key (memo cache)
     const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
-    const memoHit = memoGet(cacheKey)
+    const memoHit = memoGet<AvailabilityPayload>(cacheKey)
     if (memoHit) return NextResponse.json(memoHit)
     const boats = await prisma.boat.findMany({ 
         where: { status: 'ACTIVE' },
@@ -66,12 +68,12 @@ export async function GET(request: Request) {
     })
     if (hasFullDayBlock) {
       const reason = blocks.find(b => b.scope === 'day')?.reason || 'Journée indisponible'
-      const result = { date: dateParam, availableSlots: [], blockedReason: reason }
+      const result: AvailabilityPayload = { date: dateParam, availableSlots: [], blockedReason: reason }
       memoSet(cacheKey, result)
       return NextResponse.json(result)
     }
 
-    const result = computeAvailability({
+    const result: AvailabilityPayload = computeAvailability({
       dateParam,
       requestedLang,
       peopleNeeded,

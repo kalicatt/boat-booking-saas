@@ -33,6 +33,7 @@ type ExtendedToken = {
   id?: string
   image?: string | null
   adminPermissions?: AdminPermissions
+  sessionVersion?: number
 }
 
 // --- 2. SCHÉMA DE VALIDATION ZOD ---
@@ -67,7 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           
           const user = await prisma.user.findUnique({ where: { email } })
           
-          if (!user || !user.password) return null
+          if (!user || !user.password || user.isActive === false) return null
 
           const isPasswordValid = await compare(password, user.password)
 
@@ -81,7 +82,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 lastName: user.lastName,
                 role: user.role,
                image: user.image,
-               adminPermissions: permissions
+               adminPermissions: permissions,
+               sessionVersion: user.sessionVersion ?? 0
              }
           }
         }
@@ -91,29 +93,64 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     async jwt({ token, user }) {
-      const extended = token as typeof token & ExtendedToken
+      const extended = token as typeof token & ExtendedToken & { sub?: string }
+
       if (user) {
-        extended.role = user.role
-        extended.firstName = user.firstName
-        extended.lastName = user.lastName
-        extended.id = user.id
-        extended.image = user.image 
-        extended.adminPermissions = resolveAdminPermissions(user.adminPermissions)
+        const enriched = user as typeof user & { sessionVersion?: number; adminPermissions?: AdminPermissions }
+        extended.role = enriched.role
+        extended.firstName = enriched.firstName
+        extended.lastName = enriched.lastName
+        extended.id = enriched.id
+        extended.image = enriched.image
+        extended.adminPermissions = resolveAdminPermissions(enriched.adminPermissions)
+        extended.sessionVersion = enriched.sessionVersion ?? 0
+        return extended
       }
+
+      const userId = typeof extended.sub === 'string' ? extended.sub : extended.id
+      if (!userId) {
+        return extended
+      }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          role: true,
+          firstName: true,
+          lastName: true,
+          image: true,
+          adminPermissions: true,
+          sessionVersion: true,
+          isActive: true
+        }
+      })
+
+      if (!dbUser || dbUser.isActive === false) {
+        return {}
+      }
+
+      extended.role = dbUser.role
+      extended.firstName = dbUser.firstName
+      extended.lastName = dbUser.lastName
+      extended.id = dbUser.id
+      extended.image = dbUser.image
+      extended.adminPermissions = resolveAdminPermissions(dbUser.adminPermissions)
+      extended.sessionVersion = dbUser.sessionVersion ?? 0
       return extended
     },
     async session({ session, token }) {
-      const extended = token as typeof token & ExtendedToken
-      if (session.user && token) {
-        // Plus besoin de @ts-ignore grâce au module declare plus haut !
-        session.user.role = (extended.role as string | undefined)
-        session.user.firstName = (extended.firstName as string | undefined)
-        session.user.lastName = (extended.lastName as string | undefined)
-        // FIX: On force le type string pour l'ID
-        session.user.id = extended.id as string
-        session.user.image = (extended.image as string | null | undefined) ?? null
-        session.user.adminPermissions = extended.adminPermissions ?? resolveAdminPermissions()
+      const extended = token as typeof token & ExtendedToken & { sub?: string }
+      if (!session.user || !extended.sub || !extended.id) {
+        return session
       }
+
+      session.user.role = extended.role as string | undefined
+      session.user.firstName = extended.firstName as string | undefined
+      session.user.lastName = extended.lastName as string | undefined
+      session.user.id = extended.id
+      session.user.image = (extended.image as string | null | undefined) ?? null
+      session.user.adminPermissions = extended.adminPermissions ?? resolveAdminPermissions()
       return session
     }
   }
