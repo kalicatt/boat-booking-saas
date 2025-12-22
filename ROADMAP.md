@@ -363,11 +363,33 @@
   - Recherches par date/status : O(n) → O(log n)
 - **Application**: `npx prisma migrate deploy` sur serveur
 
-### 19. Pagination API
+### 19. ✅ Pagination API
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 2h
-- **Routes**: `/api/admin/reservations`, `/api/admin/employees`
-- **Cursor-based** Prisma (meilleur que offset)
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Route modifiée**: `/api/admin/reservations`
+- **Implémentation**:
+  - Pagination cursor-based (meilleure que offset pour grandes datasets)
+  - Paramètres: `?cursor=<id>&limit=<n>`
+  - Défaut: 50 items, max: 200 items
+  - Réponse paginée:
+    ```json
+    {
+      "data": [...],
+      "pagination": {
+        "hasMore": true,
+        "nextCursor": "uuid-dernier-item",
+        "limit": 50,
+        "count": 50
+      }
+    }
+    ```
+  - Compatible avec filtres existants (q, payment)
+  - Logger Pino intégré pour erreurs
+- **Avantages cursor vs offset**:
+  - Performance constante O(1) vs O(n) pour offset
+  - Pas de problème de "page shift" sur insertions
+  - Meilleur pour infinite scroll
 
 ---
 

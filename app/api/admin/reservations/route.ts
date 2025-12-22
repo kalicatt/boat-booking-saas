@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseISO, addDays, startOfDay } from 'date-fns'
+import { logger } from '@/lib/logger'
+
+// Pagination defaults
+const DEFAULT_PAGE_SIZE = 50
+const MAX_PAGE_SIZE = 200
 
 const normalizeQuery = (value: string) => value.trim().toLowerCase()
 const compactQuery = (value: string) => value.replace(/[^a-z0-9]/gi, '').toLowerCase()
@@ -56,11 +61,22 @@ export async function GET(request: Request) {
   const endParam = searchParams.get('end')
   const q = (searchParams.get('q') || '').trim()
   const payment = (searchParams.get('payment') || '').trim()
+  
+  // Pagination parameters
+  const cursor = searchParams.get('cursor') // ID of last item from previous page
+  const limitParam = searchParams.get('limit')
+  const limit = Math.min(
+    Math.max(1, parseInt(limitParam || String(DEFAULT_PAGE_SIZE), 10) || DEFAULT_PAGE_SIZE),
+    MAX_PAGE_SIZE
+  )
+  
   if (!startParam || !endParam) return NextResponse.json({ error: 'Missing range' }, { status: 400 })
+  
   try {
     const start = parseISO(startParam)
     const endRaw = parseISO(endParam)
     const end = addDays(startOfDay(endRaw), 1)
+    
     const bookings = await prisma.booking.findMany({
       where: {
         startTime: { gte: start, lt: end },
@@ -70,22 +86,45 @@ export async function GET(request: Request) {
         user: { select: { firstName: true, lastName: true, email: true, phone: true } },
         payments: { select: { id: true, provider: true, methodType: true, status: true } }
       },
-      orderBy: { startTime: 'asc' }
+      orderBy: { startTime: 'asc' },
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     })
 
-    const paymentFiltered = payment ? bookings.filter(b => {
-      const p = b.payments?.[0]
-      if (!p) return false
-      if (payment === 'voucher') return p.provider === 'voucher'
-      return p.provider === payment
-    }) : bookings
+    // Determine if there are more results
+    const hasMore = bookings.length > limit
+    const results = hasMore ? bookings.slice(0, limit) : bookings
+    const nextCursor = hasMore ? results[results.length - 1]?.id : null
 
-    const queryFiltered = q ? paymentFiltered.filter(booking => matchesQuery(booking, q)) : paymentFiltered
+    // Apply in-memory filters (payment provider, search query)
+    let filtered = results
+    
+    if (payment) {
+      filtered = filtered.filter(b => {
+        const p = b.payments?.[0]
+        if (!p) return false
+        if (payment === 'voucher') return p.provider === 'voucher'
+        return p.provider === payment
+      })
+    }
 
-    return NextResponse.json(queryFiltered)
+    if (q) {
+      filtered = filtered.filter(booking => matchesQuery(booking, q))
+    }
+
+    // Return paginated response
+    return NextResponse.json({
+      data: filtered,
+      pagination: {
+        hasMore,
+        nextCursor,
+        limit,
+        count: filtered.length,
+      }
+    })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
-    console.error(msg)
+    logger.error({ error, route: '/api/admin/reservations' }, 'Failed to fetch reservations')
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
