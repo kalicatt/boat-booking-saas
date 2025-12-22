@@ -102,14 +102,21 @@
 
 ## 📊 Monitoring Gratuit (Semaine 4)
 
-### 10. Dashboards Grafana Pré-Configurés
+### 10. ✅ Dashboards Grafana Pré-Configurés
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 3h
 - **Dashboards**:
-  - **Business**: CA jour/semaine, taux remplissage
-  - **Technique**: Latency p95, error rate, CPU/RAM
-  - **API**: Top endpoints lents
+  - **Business**: CA jour/semaine, taux remplissage, conversion, répartition langues
+  - **Performance**: Latency p50/p95/p99, error rate, throughput
+  - **API**: Top routes par volume, status codes
 - **Source**: Prometheus déjà en place
+- **✅ Fait**: Business & Performance dashboards provisionnés automatiquement
+- **Métriques implémentées**:
+  - HTTP requests (method, route, status, duration)
+  - Booking revenue/count/cancellations par langue
+  - Passenger counts
+  - Boat capacities
+- **Auto-tracking**: Middleware Next.js enregistre automatiquement toutes les requêtes HTTP
 
 ### 11. Alerting Gratuit
 - **Priorité**: 🟡 Moyenne
@@ -404,9 +411,10 @@
 - **GitHub Actions CI** - Tests + Lint + Security (22/12/2025)
 - **0 vulnérabilités npm** (22/12/2025)
 - **Tests unitaires** - 76 tests couvrant la logique critique (22/12/2025)
+- **Dashboards Grafana** - Business + Performance avec métriques auto (22/12/2025)
 
 ### 🔄 En Cours
-- Dashboards Grafana
+- Configuration alerting Grafana/Alertmanager
 - Rate limiting production
 
 ### ⏳ Planifié
@@ -436,10 +444,11 @@
 3. ✅ npm audit fix (5min) - **FAIT 22/12/2025**
 4. ✅ Setup GitHub Actions CI (1h) - **FAIT 22/12/2025**
 5. ✅ Tests unitaires critiques (2h) - **FAIT 22/12/2025**
-6. 🔄 Dashboards Grafana (3h) - **EN COURS**
-7. ⏸️ Rate limiting production (1h)
+6. ✅ Dashboards Grafana (3h) - **FAIT 22/12/2025**
+7. 🔄 Configuration alerting (1h) - **EN COURS**
+8. ⏸️ Rate limiting production (1h)
 
-**Sprint 1 Progress**: 5/5 complétés | **Sprint 2 Progress**: 0/2
+**Sprint 1 Progress**: 5/5 complétés ✅ | **Sprint 2 Progress**: 1/2 ✅
 
 ---
 
