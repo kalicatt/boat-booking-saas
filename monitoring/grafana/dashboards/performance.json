@@ -6,6 +6,7 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
+  "uid": "performance",
   "links": [],
   "liveNow": false,
   "panels": [

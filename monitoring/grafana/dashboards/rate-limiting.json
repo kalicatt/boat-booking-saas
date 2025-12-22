@@ -1,6 +1,7 @@
 {
   "dashboard": {
     "title": "Rate Limiting",
+    "uid": "rate-limiting",
     "tags": ["sweet-narcisse", "security"],
     "timezone": "browser",
     "schemaVersion": 38,
