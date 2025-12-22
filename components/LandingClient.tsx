@@ -2,10 +2,69 @@
 import Image from 'next/image'
 import OptimizedImage from '@/components/OptimizedImage'
 import BookingWidget from '@/components/BookingWidget'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import TripReviews from '@/components/TripReviews'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+
+// ============================================
+// 🎬 Parallax Scrolling Hook (comme Goonies)
+// ============================================
+function useParallax() {
+  const [scrollY, setScrollY] = useState(0)
+  const [windowHeight, setWindowHeight] = useState(0)
+  const ticking = useRef(false)
+
+  useEffect(() => {
+    setWindowHeight(window.innerHeight)
+    setScrollY(window.scrollY)
+
+    const handleScroll = () => {
+      if (!ticking.current) {
+        window.requestAnimationFrame(() => {
+          setScrollY(window.scrollY)
+          ticking.current = false
+        })
+        ticking.current = true
+      }
+    }
+
+    const handleResize = () => {
+      setWindowHeight(window.innerHeight)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  // Calcule le déplacement parallax pour un élément
+  const getParallaxStyle = useCallback((speed: number = 0.5, offset: number = 0) => {
+    const y = (scrollY - offset) * speed
+    return {
+      transform: `translate3d(0, ${y}px, 0)`,
+      willChange: 'transform' as const,
+    }
+  }, [scrollY])
+
+  // Calcule l'opacité basée sur la position de scroll
+  const getScrollOpacity = useCallback((start: number, end: number) => {
+    if (scrollY < start) return 0
+    if (scrollY > end) return 1
+    return (scrollY - start) / (end - start)
+  }, [scrollY])
+
+  // Vérifie si un élément est visible dans le viewport
+  const isInView = useCallback((elementTop: number, threshold: number = 0.2) => {
+    const viewportBottom = scrollY + windowHeight
+    return viewportBottom > elementTop + (windowHeight * threshold)
+  }, [scrollY, windowHeight])
+
+  return { scrollY, windowHeight, getParallaxStyle, getScrollOpacity, isInView }
+}
 import type { CmsPayload } from '@/lib/cms/contentSelectors'
 import {
   DEFAULT_LOCALE as CMS_DEFAULT_LOCALE,
@@ -104,6 +163,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   const firstLinkRef = useRef<HTMLAnchorElement|null>(null)
   const panelRef = useRef<HTMLDivElement|null>(null)
   const menuButtonRef = useRef<HTMLButtonElement|null>(null)
+  
+  // Parallax scroll system
+  const { scrollY, windowHeight, getParallaxStyle, isInView } = useParallax()
+  const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
+  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map())
   const closeMenu = () => {
     if(menuOpen){
       setMenuClosing(true)
@@ -150,6 +214,32 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   const heroDesktopImage = heroSlide?.imageDesktop ?? '/images/hero-bg.webp'
   const heroMobileImage = heroSlide?.imageMobile ?? heroDesktopImage
   const storyParagraph = storyParagraphOverride || (liveDict.presentation?.text as string || '')
+  
+  // Parallax section visibility detection
+  useEffect(() => {
+    const checkVisibility = () => {
+      const newVisible = new Set<string>()
+      sectionRefs.current.forEach((el, id) => {
+        const rect = el.getBoundingClientRect()
+        const threshold = window.innerHeight * 0.15
+        if (rect.top < window.innerHeight - threshold && rect.bottom > threshold) {
+          newVisible.add(id)
+        }
+      })
+      setVisibleSections(newVisible)
+    }
+    
+    window.addEventListener('scroll', checkVisibility, { passive: true })
+    checkVisibility()
+    return () => window.removeEventListener('scroll', checkVisibility)
+  }, [])
+  
+  // Register section ref helper
+  const registerSection = useCallback((id: string) => (el: HTMLElement | null) => {
+    if (el) sectionRefs.current.set(id, el)
+    else sectionRefs.current.delete(id)
+  }, [])
+  
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
@@ -433,7 +523,14 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         data-preview-anchor="hero"
         className="relative h-screen flex items-center justify-center overflow-hidden"
       >
-        <div className="absolute inset-0 z-0 hero-parallax">
+        {/* Parallax background - bouge lentement */}
+        <div 
+          className="absolute inset-0 z-0"
+          style={{
+            transform: `translate3d(0, ${scrollY * 0.4}px, 0) scale(${1 + scrollY * 0.0002})`,
+            willChange: 'transform',
+          }}
+        >
           <Image
             src={heroDesktopImage}
             alt={heroTitle}
@@ -481,19 +578,27 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
             </svg>
           </div>
         </div>
-        <div className="relative z-10 mx-auto max-w-5xl px-4 text-center fade-in">
+        {/* Hero content - bouge plus vite (effet de profondeur) */}
+        <div 
+          className="relative z-10 mx-auto max-w-5xl px-4 text-center"
+          style={{
+            transform: `translate3d(0, ${scrollY * 0.15}px, 0)`,
+            opacity: Math.max(0, 1 - scrollY / 600),
+            willChange: 'transform, opacity',
+          }}
+        >
           {heroEyebrow ? (
-            <p className="mb-4 text-fluid-xs font-semibold uppercase tracking-[0.45em] text-sky-200">
+            <p className="mb-4 text-fluid-xs font-semibold uppercase tracking-[0.45em] text-sky-200 parallax-text-reveal">
               {heroEyebrow}
             </p>
           ) : null}
-          <h1 className="text-fluid-hero font-serif font-bold leading-[1.05] text-white drop-shadow-lg">
+          <h1 className="text-fluid-hero font-serif font-bold leading-[1.05] text-white drop-shadow-lg parallax-text-reveal" style={{ animationDelay: '0.2s' }}>
             {heroTitle}
           </h1>
-          <p className="mx-auto mb-10 max-w-3xl text-fluid-xl font-light leading-relaxed text-slate-200">
+          <p className="mx-auto mb-10 max-w-3xl text-fluid-xl font-light leading-relaxed text-slate-200 parallax-text-reveal" style={{ animationDelay: '0.4s' }}>
             {heroSubtitle}
           </p>
-          <div className="flex flex-col items-center justify-center gap-5">
+          <div className="flex flex-col items-center justify-center gap-5 parallax-text-reveal" style={{ animationDelay: '0.6s' }}>
             <a
               href="#reservation"
               className="btn-interactive btn-haptic btn-ripple inline-block rounded-xl bg-[#0ea5e9] px-10 py-4 text-fluid-base font-bold text-[#0f172a] shadow-xl hover:bg-white hover:shadow-2xl"
@@ -527,13 +632,30 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       </header>
 
+      {/* ============================================
+          📖 SECTION STORYTELLING PARALLAX 
+          ============================================ */}
       <section
         id="presentation"
+        ref={registerSection('presentation')}
         data-preview-anchor="presentation"
-        className="py-24 px-6 bg-sand-gradient section-top-blend overflow-hidden"
+        className="relative py-32 px-6 bg-sand-gradient section-top-blend overflow-hidden min-h-screen"
       >
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <div className="space-y-6 animate-slide-left" style={{ animationDelay: '0.2s' }}>
+        {/* Floating decorative elements with parallax */}
+        <div 
+          className="absolute top-20 left-10 w-32 h-32 bg-sky-200/30 rounded-full blur-3xl pointer-events-none"
+          style={{ transform: `translate3d(0, ${(scrollY - windowHeight) * -0.1}px, 0)` }}
+        />
+        <div 
+          className="absolute bottom-40 right-20 w-48 h-48 bg-sky-300/20 rounded-full blur-3xl pointer-events-none"
+          style={{ transform: `translate3d(0, ${(scrollY - windowHeight) * 0.15}px, 0)` }}
+        />
+        
+        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center relative z-10">
+          {/* Text content - slides from left */}
+          <div 
+            className={`space-y-6 transition-all duration-1000 ease-out ${visibleSections.has('presentation') ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-20'}`}
+          >
             <h4 className="text-[#0ea5e9] font-bold tracking-widest text-fluid-xs uppercase">Sweet Narcisse</h4>
             <h2 className="text-fluid-3xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
             <p className="text-slate-600 leading-relaxed text-fluid-base text-justify">{storyParagraph}</p>
@@ -541,8 +663,8 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               {(liveDict.presentation?.points ?? []).map((item: string, i: number) => (
                 <li 
                   key={item} 
-                  className="flex items-center gap-3 text-slate-700 font-medium animate-on-scroll"
-                  style={{ animationDelay: `${0.4 + i * 0.1}s` }}
+                  className={`flex items-center gap-3 text-slate-700 font-medium transition-all duration-700 ease-out ${visibleSections.has('presentation') ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-10'}`}
+                  style={{ transitionDelay: `${0.3 + i * 0.15}s` }}
                 >
                   <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold text-sm">✓</span>
                   {item}
@@ -550,9 +672,24 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               ))}
             </ul>
           </div>
-          <div className="relative group animate-slide-right" style={{ animationDelay: '0.3s' }}>
-            <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
-            <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
+          
+          {/* Image - slides from right with parallax rotation */}
+          <div 
+            className={`relative group transition-all duration-1000 ease-out ${visibleSections.has('presentation') ? 'opacity-100 translate-x-0 rotate-0' : 'opacity-0 translate-x-20 rotate-3'}`}
+            style={{ transitionDelay: '0.2s' }}
+          >
+            <div 
+              className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl transition duration-500"
+              style={{ transform: `rotate(${3 + Math.sin(scrollY * 0.002) * 2}deg)` }}
+            />
+            <OptimizedImage 
+              src="/images/presentation.webp" 
+              fallback="/images/presentation.jpg" 
+              alt="Barque Colmar" 
+              width={800} 
+              height={500} 
+              className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover group-hover:scale-[1.02] transition-transform duration-700" 
+            />
           </div>
         </div>
       </section>
@@ -599,9 +736,26 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         )}
       </section>
 
-      <section className="py-24 px-6 bg-white section-top-blend overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-16 text-center animate-on-scroll">
+      {/* ============================================
+          📦 SECTION BENTO AVEC PARALLAX STAGGER
+          ============================================ */}
+      <section 
+        ref={registerSection('bento')}
+        className="relative py-32 px-6 bg-white section-top-blend overflow-hidden"
+      >
+        {/* Decorative parallax backgrounds */}
+        <div 
+          className="absolute top-0 left-0 w-full h-full opacity-30 pointer-events-none"
+          style={{ transform: `translate3d(0, ${(scrollY - windowHeight * 1.5) * -0.05}px, 0)` }}
+        >
+          <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-sky-100 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/3 right-1/4 w-48 h-48 bg-blue-100 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div 
+            className={`mb-16 text-center transition-all duration-1000 ease-out ${visibleSections.has('bento') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+          >
             <h2 className="text-fluid-3xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
             <p className="text-fluid-base text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
@@ -621,12 +775,12 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               return (
                 <div
                   key={idx}
-                  className={`bento-card animate-on-scroll group min-h-[280px]`}
+                  className={`bento-card group min-h-[280px] transition-all duration-700 ease-out ${visibleSections.has('bento') ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-8 scale-95'}`}
                   style={{
                     backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15)), url(${bg})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center top',
-                    animationDelay: `${0.2 + idx * 0.1}s`,
+                    transitionDelay: `${0.1 + idx * 0.12}s`,
                   }}
                   onMouseMove={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -651,16 +805,47 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       </section>
 
-      <section className="py-24 px-6 bg-sand-gradient section-top-blend overflow-hidden" id="reviews">
-        <div className="max-w-5xl mx-auto text-center mb-12 animate-on-scroll">
+      {/* ============================================
+          ⭐ SECTION AVIS AVEC PARALLAX
+          ============================================ */}
+      <section 
+        ref={registerSection('reviews')}
+        className="relative py-32 px-6 bg-sand-gradient section-top-blend overflow-hidden" 
+        id="reviews"
+      >
+        {/* Parallax floating stars/decorations */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div 
+            className="absolute top-20 left-[10%] text-4xl opacity-20"
+            style={{ transform: `translate3d(0, ${(scrollY - windowHeight * 2.5) * -0.08}px, 0)` }}
+          >⭐</div>
+          <div 
+            className="absolute top-40 right-[15%] text-3xl opacity-15"
+            style={{ transform: `translate3d(0, ${(scrollY - windowHeight * 2.5) * 0.1}px, 0)` }}
+          >⭐</div>
+          <div 
+            className="absolute bottom-32 left-[20%] text-2xl opacity-10"
+            style={{ transform: `translate3d(0, ${(scrollY - windowHeight * 2.5) * -0.12}px, 0)` }}
+          >⭐</div>
+        </div>
+        
+        <div 
+          className={`max-w-5xl mx-auto text-center mb-12 transition-all duration-1000 ease-out ${visibleSections.has('reviews') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+        >
           <h2 className="text-fluid-3xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
           <p className="text-fluid-base text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
         </div>
-        <div className="max-w-6xl mx-auto animate-scale" style={{ animationDelay: '0.3s' }}>
+        <div 
+          className={`max-w-6xl mx-auto transition-all duration-1000 ease-out ${visibleSections.has('reviews') ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+          style={{ transitionDelay: '0.2s' }}
+        >
           <TripReviews dict={liveDict} lang={currentLang} />
         </div>
       </section>
 
+      {/* ============================================
+          📅 SECTION RÉSERVATION AVEC PARALLAX
+          ============================================ */}
       <div className="wave-divider" aria-hidden="true">
         <svg viewBox="0 0 1440 100" preserveAspectRatio="none">
           <defs>
@@ -673,16 +858,36 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           <path fill="url(#reservationWave)" d="M0,100 L0,50 C160,20 320,20 480,40 C640,60 800,80 960,70 C1120,60 1280,30 1440,40 L1440,100 Z" />
         </svg>
       </div>
-      <section id="reservation" className="-mt-6 py-24 px-4 bg-[#0d1b2a] relative overflow-hidden section-top-blend section-top-blend-dark">
-        <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-          <div className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20"></div>
-          <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
+      <section 
+        ref={registerSection('reservation')}
+        id="reservation" 
+        className="-mt-6 py-32 px-4 bg-[#0d1b2a] relative overflow-hidden section-top-blend section-top-blend-dark"
+      >
+        {/* Parallax glowing orbs */}
+        <div className="absolute top-0 left-0 w-full h-full opacity-30 pointer-events-none">
+          <div 
+            className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20"
+            style={{ transform: `translate3d(${(scrollY - windowHeight * 3) * 0.05}px, ${(scrollY - windowHeight * 3) * -0.03}px, 0)` }}
+          />
+          <div 
+            className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"
+            style={{ transform: `translate3d(${(scrollY - windowHeight * 3) * -0.05}px, ${(scrollY - windowHeight * 3) * 0.03}px, 0)` }}
+          />
+          <div 
+            className="absolute w-64 h-64 bg-cyan-400 rounded-full blur-[100px] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+            style={{ transform: `translate(-50%, -50%) scale(${1 + Math.sin((scrollY - windowHeight * 3) * 0.002) * 0.2})` }}
+          />
         </div>
-        <div className="relative z-10 max-w-6xl mx-auto text-center mb-12 animate-on-scroll">
+        <div 
+          className={`relative z-10 max-w-6xl mx-auto text-center mb-12 transition-all duration-1000 ease-out ${visibleSections.has('reservation') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+        >
           <h2 className="text-4xl font-serif font-bold text-white mb-4">{liveDict.booking?.title ?? 'Book now'}</h2>
           <p className="text-slate-400 text-lg">{liveDict.booking?.subtitle ?? ''}</p>
         </div>
-        <div className="relative z-10 animate-scale" style={{ animationDelay: '0.2s' }}>
+        <div 
+          className={`relative z-10 transition-all duration-1000 ease-out ${visibleSections.has('reservation') ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+          style={{ transitionDelay: '0.2s' }}
+        >
           <div className="sn-card sn-card-body">
             <BookingWidget dict={liveDict} initialLang={currentLang} />
           </div>

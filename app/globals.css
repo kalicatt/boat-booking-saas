@@ -320,6 +320,79 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 }
 
 /* ============================================
+   🎬 PARALLAX STORYTELLING SYSTEM
+   Style Goonies / Webflow
+   ============================================ */
+
+/* Hero text reveal animation */
+.parallax-text-reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  animation: parallaxTextReveal 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes parallaxTextReveal {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth parallax transitions */
+.parallax-layer {
+  will-change: transform;
+  transition: transform 0.1s linear;
+}
+
+/* Section transitions */
+.section-parallax {
+  position: relative;
+  overflow: hidden;
+}
+
+.section-parallax::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating elements parallax */
+.parallax-float {
+  animation: parallaxFloat 6s ease-in-out infinite;
+}
+
+@keyframes parallaxFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(2deg); }
+}
+
+/* Depth layers for parallax */
+.parallax-depth-1 { z-index: 1; }
+.parallax-depth-2 { z-index: 2; }
+.parallax-depth-3 { z-index: 3; }
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .parallax-text-reveal,
+  .parallax-float {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ============================================
    🔄 Simple Animation System (Always Works)
    ============================================ */
 
