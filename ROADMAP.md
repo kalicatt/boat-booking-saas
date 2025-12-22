@@ -624,19 +624,10 @@
 
 ## 📱 Mobile (Semaine 12)
 
-### 29. ✅ Offline Mode Basique
+### 29. ❌ Offline Mode Basique (Retiré)
 - **Priorité**: 🟢 Basse
-- **Effort**: 3h
-- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
-- **Réalisé**:
-  - ✅ `lib/offlineMode.tsx` - Provider React, hooks, utilitaires caching
-  - ✅ `components/OfflineSyncButton.tsx` - UI synchronisation
-- **Features**:
-  - `OfflineProvider` context avec détection connectivité
-  - `useOffline()` hook pour état offline/online
-  - Cache IndexedDB (idb-keyval): disponibilités, horaires, brouillons
-  - Gestion réservations en attente avec sync automatique
-  - Indicateur visuel connexion, liste pending bookings
+- **Status**: ❌ **RETIRÉ** (22/12/2025)
+- **Raison**: Non nécessaire - les clients n'ont pas besoin de télécharger l'app
 
 ### 30. ✅ PWA Optimisations
 - **Priorité**: 🟢 Basse
