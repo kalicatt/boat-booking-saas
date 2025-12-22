@@ -1,0 +1,219 @@
+{
+  "dashboard": {
+    "title": "Rate Limiting",
+    "tags": ["sweet-narcisse", "security"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Rate Limiter - Requests Allowed",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(rate_limiter_allowed_total[5m])) by (bucket)",
+            "legendFormat": "{{bucket}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "color": {"mode": "palette-classic"},
+            "custom": {"lineWidth": 2, "fillOpacity": 10, "showPoints": "never"}
+          }
+        },
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]},
+          "tooltip": {"mode": "multi"}
+        }
+      },
+      {
+        "id": 2,
+        "title": "Rate Limiter - Requests Blocked",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum(rate(rate_limiter_blocked_total[5m])) by (bucket)",
+            "legendFormat": "{{bucket}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "color": {"mode": "palette-classic"},
+            "custom": {"lineWidth": 2, "fillOpacity": 10, "showPoints": "never"}
+          }
+        },
+        "options": {
+          "legend": {"displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"]},
+          "tooltip": {"mode": "multi"}
+        }
+      },
+      {
+        "id": 3,
+        "title": "Top 10 Blocked Buckets (Last Hour)",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(rate_limiter_blocked_total[1h])) by (bucket))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": [
+            {"matcher": {"id": "byName", "options": "Value"}, "properties": [{"id": "displayName", "value": "Blocked Requests"}]},
+            {"matcher": {"id": "byName", "options": "bucket"}, "properties": [{"id": "displayName", "value": "Bucket"}]}
+          ]
+        },
+        "options": {
+          "sortBy": [{"displayName": "Blocked Requests", "desc": true}]
+        },
+        "transformations": [
+          {"id": "organize", "options": {"excludeByName": {"Time": true}, "indexByName": {}, "renameByName": {}}}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Block Rate Percentage",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "100 * sum(rate(rate_limiter_blocked_total[5m])) / (sum(rate(rate_limiter_allowed_total[5m])) + sum(rate(rate_limiter_blocked_total[5m])))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 5, "color": "yellow"},
+                {"value": 20, "color": "red"}
+              ]
+            }
+          }
+        },
+        "options": {
+          "orientation": "auto",
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        }
+      },
+      {
+        "id": 5,
+        "title": "Total Allowed vs Blocked (24h)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(increase(rate_limiter_allowed_total[24h]))",
+            "legendFormat": "Allowed",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {"mode": "fixed", "fixedColor": "green"}
+          }
+        },
+        "options": {
+          "graphMode": "none",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Total Blocked (24h)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(increase(rate_limiter_blocked_total[24h]))",
+            "legendFormat": "Blocked",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {"mode": "fixed", "fixedColor": "red"}
+          }
+        },
+        "options": {
+          "graphMode": "none",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 7,
+        "title": "Active Buckets",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "count(count by (bucket) (rate_limiter_allowed_total))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {"mode": "fixed", "fixedColor": "blue"}
+          }
+        },
+        "options": {
+          "graphMode": "none",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 8,
+        "title": "Blocked Buckets (Active)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 16},
+        "targets": [
+          {
+            "expr": "count(count by (bucket) (rate_limiter_blocked_total))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "color": {"mode": "fixed", "fixedColor": "orange"}
+          }
+        },
+        "options": {
+          "graphMode": "none",
+          "textMode": "value_and_name",
+          "colorMode": "background"
+        }
+      }
+    ],
+    "time": {"from": "now-6h", "to": "now"},
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m"]
+    }
+  },
+  "folderId": 0,
+  "overwrite": true
+}

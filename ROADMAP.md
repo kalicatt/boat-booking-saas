@@ -161,11 +161,18 @@
   - Backup chiffré GPG
   - 90 jours rétention
 
-### 15. Rate Limiting Production
+### 15. ✅ Rate Limiting Production
 - **Priorité**: 🟠 Haute
 - **Effort**: 1h
-- **Action**: Tester `lib/rateLimit.ts` en prod
-- **Upstash Redis**: 🆓 10k req/jour gratuit
+- **Status**: ✅ **COMPLÉTÉ**
+- **Implémentation**:
+  - Backend Upstash Redis configuré (fallback mémoire)
+  - 7 endpoints protégés (contact, bookings, auth)
+  - Métriques Prometheus: `rate_limiter_allowed_total`, `rate_limiter_blocked_total`
+  - Dashboard Grafana: 8 panneaux (taux, blocages, top IPs)
+  - Documentation: `monitoring/RATE_LIMITING.md`
+  - Alerte Prometheus: RateLimiterBlockSpike (>25 req/5min)
+- **Upstash Redis**: 🆓 10k req/jour gratuit (suffisant)
 
 ---
 
@@ -449,7 +456,8 @@
 5. ✅ Tests unitaires critiques (2h) - **FAIT 22/12/2025**
 6. ✅ Dashboards Grafana (3h) - **FAIT 22/12/2025**
 7. ✅ Configuration alerting (1h) - **FAIT 22/12/2025**
-8. 🔄 Rate limiting production (1h) - **EN COURS**
+8. ✅ Rate limiting production (1h) - **FAIT 22/12/2025**
+9. 🔄 API integration tests (2h) - **SUIVANT**
 
 **Sprint 1 Progress**: 5/5 complétés ✅ | **Sprint 2 Progress**: 2/2 complétés ✅ | **Sprint 3 Progress**: 0/1
 
