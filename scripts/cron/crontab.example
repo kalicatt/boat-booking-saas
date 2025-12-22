@@ -22,6 +22,12 @@
 0 4 * * * root cd /opt/sweet-narcisse && npx tsx scripts/cron/purgeEmployeeDocs.ts >> /var/log/sweet-narcisse/cron.log 2>&1
 
 # ============================================================================
+# Audit Log Archive - Daily at 5 AM
+# ============================================================================
+# Archives and encrypts audit logs to MinIO
+0 5 * * * root /opt/sweet-narcisse/scripts/archive-audit-logs.sh >> /var/log/sweet-narcisse/cron.log 2>&1
+
+# ============================================================================
 # Log Rotation - Weekly (Sunday at 2 AM)
 # ============================================================================
 # Archives and compresses old logs

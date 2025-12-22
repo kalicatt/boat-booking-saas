@@ -272,13 +272,22 @@
   - Logging complet
   - Compatible Linux, macOS, Windows
 
-### 14. Logs Audit Immutables
+### 14. ✅ Logs Audit Immutables
 - **Priorité**: 🟢 Basse
 - **Effort**: 3h
-- **Solution Gratuite**:
-  - Export quotidien vers **MinIO** (déjà en place)
-  - Backup chiffré GPG
-  - 90 jours rétention
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `scripts/archive-audit-logs.sh` - Script archivage quotidien
+  - ✅ `systemd/audit-logs.timer` - Timer quotidien (5h)
+  - ✅ `systemd/audit-logs.service` - Service systemd
+  - ✅ Crontab mis à jour
+- **Fonctionnalités**:
+  - Archivage quotidien des logs
+  - Compression gzip
+  - Chiffrement GPG optionnel
+  - Upload vers MinIO (stockage immutable)
+  - Checksums SHA256 pour intégrité
+  - Retention 90 jours automatique
 
 ### 15. ✅ Rate Limiting Production
 - **Priorité**: 🟠 Haute
