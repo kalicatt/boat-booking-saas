@@ -480,14 +480,42 @@
 
 ## 🏗️ Architecture (Semaine 9-10)
 
-### 23. Services Layer
+### 23. ✅ Services Layer
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 4h
-- **Refactoring**:
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `services/index.ts` - Export centralisé
+  - ✅ `services/BookingService.ts` - Logique réservation
+  - ✅ `services/PaymentService.ts` - Logique paiements
+  - ✅ `services/FleetService.ts` - Gestion flotte
+- **Architecture**:
   ```
   services/
-    BookingService.ts
-    PaymentService.ts
+    index.ts          # Exports centralisés + types
+    BookingService.ts # Validation, conflits, création
+    PaymentService.ts # Traitement, remboursements, métriques
+    FleetService.ts   # Rotation bateaux, capacités
+  ```
+- **Fonctionnalités BookingService**:
+  - Validation créneaux horaires (plages autorisées)
+  - Détection conflits (partage slot même langue)
+  - Création avec gestion privatisation
+  - Chaînage groupes (groupChain)
+  - Annulation et récupération
+- **Fonctionnalités PaymentService**:
+  - Traitement paiements multi-providers
+  - Idempotence (évite doublons)
+  - Calcul TVA automatique
+  - Ledger entries pour comptabilité
+  - Remboursements partiels/totaux
+  - Métriques par période
+- **Fonctionnalités FleetService**:
+  - Rotation automatique des barques
+  - Calcul capacité par slot
+  - Sélection bateau forcé (staff)
+  - Cache boats:active intégré
+- **Bénéfice**: Routes API = thin controllers, tests faciles
     FleetService.ts
   ```
 - **Bénéfice**: Routes API = thin controllers, tests faciles
