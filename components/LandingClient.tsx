@@ -164,65 +164,6 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
     window.addEventListener('scroll', revealFadeIn)
     revealFadeIn()
     
-    // Scroll-driven animations fallback using Intersection Observer
-    // Only activate if browser doesn't support scroll-driven animations
-    const supportsScrollDriven = CSS.supports('animation-timeline', 'view()')
-    
-    if (!supportsScrollDriven) {
-      const scrollAnimationClasses = [
-        'scroll-reveal',
-        'scroll-fade-in', 
-        'scroll-slide-left',
-        'scroll-slide-right',
-        'scroll-scale',
-        'scroll-rotate',
-        'scroll-text-reveal',
-        'scroll-zoom-in',
-        'scroll-from-left',
-        'scroll-from-right',
-        'scroll-split-reveal'
-      ]
-      
-      const observerOptions = {
-        root: null,
-        rootMargin: '0px 0px -10% 0px',
-        threshold: 0.1
-      }
-      
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible')
-            // Don't unobserve - let it stay visible
-          }
-        })
-      }, observerOptions)
-      
-      // Observe all scroll animation elements
-      scrollAnimationClasses.forEach(className => {
-        document.querySelectorAll(`.${className}`).forEach(el => {
-          observer.observe(el)
-        })
-      })
-      
-      // Also handle stagger children
-      document.querySelectorAll('.scroll-stagger').forEach(parent => {
-        const staggerObserver = new IntersectionObserver((entries) => {
-          entries.forEach(entry => {
-            if (entry.isIntersecting) {
-              // Add is-visible to all children with delays
-              Array.from(entry.target.children).forEach((child, index) => {
-                setTimeout(() => {
-                  child.classList.add('is-visible')
-                }, index * 100)
-              })
-            }
-          })
-        }, { threshold: 0.2 })
-        staggerObserver.observe(parent)
-      })
-    }
-    
     const onHash = () => setCurrentHash(window.location.hash || '')
     const onSearch = () => setCurrentSearch(window.location.search || '')
     window.addEventListener('hashchange', onHash)
@@ -592,16 +533,16 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         className="py-24 px-6 bg-sand-gradient section-top-blend overflow-hidden"
       >
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <div className="space-y-6">
-            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-fluid-xs uppercase scroll-text-reveal">Sweet Narcisse</h4>
-            <h2 className="text-fluid-3xl font-serif font-bold text-deep scroll-from-left">{liveDict.presentation?.title ?? ''}</h2>
-            <p className="text-slate-600 leading-relaxed text-fluid-base text-justify scroll-fade-in">{storyParagraph}</p>
-            <ul className="space-y-3 pt-4 scroll-stagger">
+          <div className="space-y-6 animate-slide-left" style={{ animationDelay: '0.2s' }}>
+            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-fluid-xs uppercase">Sweet Narcisse</h4>
+            <h2 className="text-fluid-3xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
+            <p className="text-slate-600 leading-relaxed text-fluid-base text-justify">{storyParagraph}</p>
+            <ul className="space-y-3 pt-4">
               {(liveDict.presentation?.points ?? []).map((item: string, i: number) => (
                 <li 
                   key={item} 
-                  className="flex items-center gap-3 text-slate-700 font-medium scroll-slide-left"
-                  style={{ animationDelay: `${i * 100}ms` }}
+                  className="flex items-center gap-3 text-slate-700 font-medium animate-on-scroll"
+                  style={{ animationDelay: `${0.4 + i * 0.1}s` }}
                 >
                   <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold text-sm">✓</span>
                   {item}
@@ -609,8 +550,8 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               ))}
             </ul>
           </div>
-          <div className="relative group scroll-zoom-in">
-            <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500 scroll-glow"></div>
+          <div className="relative group animate-slide-right" style={{ animationDelay: '0.3s' }}>
+            <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
             <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
           </div>
         </div>
@@ -660,11 +601,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
 
       <section className="py-24 px-6 bg-white section-top-blend overflow-hidden">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-16 text-center">
-            <h2 className="text-fluid-3xl font-serif font-bold mb-4 scroll-text-reveal">{liveDict.bento?.title}</h2>
-            <p className="text-fluid-base text-slate-600 max-w-2xl mx-auto scroll-fade-in">{liveDict.bento?.subtitle}</p>
+          <div className="mb-16 text-center animate-on-scroll">
+            <h2 className="text-fluid-3xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
+            <p className="text-fluid-base text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
-          <div className="bento-grid scroll-stagger">
+          <div className="bento-grid">
             {liveDict.bento?.cards?.map((c: Record<string, unknown>, idx: number) => {
               const originalTitle = String(c.title || '').trim();
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
@@ -677,16 +618,15 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
               else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.webp';
               const text = typeof c.text === 'string' ? c.text : String(c.text ?? '');
-              const scrollClass = idx % 2 === 0 ? 'scroll-from-left' : 'scroll-from-right';
               return (
                 <div
                   key={idx}
-                  className={`bento-card ${scrollClass} group min-h-[280px]`}
+                  className={`bento-card animate-on-scroll group min-h-[280px]`}
                   style={{
                     backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15)), url(${bg})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center top',
-                    animationDelay: `${idx * 80}ms`,
+                    animationDelay: `${0.2 + idx * 0.1}s`,
                   }}
                   onMouseMove={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -712,11 +652,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       </section>
 
       <section className="py-24 px-6 bg-sand-gradient section-top-blend overflow-hidden" id="reviews">
-        <div className="max-w-5xl mx-auto text-center mb-12">
-          <h2 className="text-fluid-3xl font-serif font-bold mb-3 scroll-text-reveal">{liveDict.social?.title}</h2>
-          <p className="text-fluid-base text-slate-600 max-w-xl mx-auto scroll-fade-in">{liveDict.social?.subtitle}</p>
+        <div className="max-w-5xl mx-auto text-center mb-12 animate-on-scroll">
+          <h2 className="text-fluid-3xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
+          <p className="text-fluid-base text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
         </div>
-        <div className="max-w-6xl mx-auto scroll-zoom-in">
+        <div className="max-w-6xl mx-auto animate-scale" style={{ animationDelay: '0.3s' }}>
           <TripReviews dict={liveDict} lang={currentLang} />
         </div>
       </section>
@@ -735,14 +675,14 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       </div>
       <section id="reservation" className="-mt-6 py-24 px-4 bg-[#0d1b2a] relative overflow-hidden section-top-blend section-top-blend-dark">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-          <div className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20 scroll-parallax-slow"></div>
-          <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0 scroll-parallax-fast"></div>
+          <div className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20"></div>
+          <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
         </div>
-        <div className="relative z-10 max-w-6xl mx-auto text-center mb-12 scroll-split-reveal">
+        <div className="relative z-10 max-w-6xl mx-auto text-center mb-12 animate-on-scroll">
           <h2 className="text-4xl font-serif font-bold text-white mb-4">{liveDict.booking?.title ?? 'Book now'}</h2>
           <p className="text-slate-400 text-lg">{liveDict.booking?.subtitle ?? ''}</p>
         </div>
-        <div className="relative z-10 fade-in">
+        <div className="relative z-10 animate-scale" style={{ animationDelay: '0.2s' }}>
           <div className="sn-card sn-card-body">
             <BookingWidget dict={liveDict} initialLang={currentLang} />
           </div>
