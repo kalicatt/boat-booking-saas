@@ -549,34 +549,8 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           />
           <div className="absolute inset-0 bg-gradient-to-b from-[rgba(0,0,0,0.35)] via-[rgba(0,0,0,0.25)] to-[rgba(0,0,0,0.55)]" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_20%,rgba(14,165,233,0.25),transparent_60%)]" />
-          <div className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none">
-            <svg viewBox="0 0 1440 160" preserveAspectRatio="none" className="h-full w-full">
-              <defs>
-                <linearGradient id="dripGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0)" />
-                  <stop offset="100%" stopColor="#ffffff" />
-                </linearGradient>
-                <filter id="dripShadow" x="-10%" y="-10%" width="120%" height="120%">
-                  <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
-                  <feOffset in="blur" dx="0" dy="4" result="offset" />
-                  <feColorMatrix in="offset" type="matrix" values="0 0 0 0 0.05  0 0 0 0 0.08  0 0 0 0 0.12  0 0 0 0.35 0" result="shadow" />
-                  <feMerge>
-                    <feMergeNode in="shadow" />
-                    <feMergeNode in="SourceGraphic" />
-                  </feMerge>
-                </filter>
-              </defs>
-              <path
-                d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
-                fill="rgba(13,27,42,0.12)"
-                filter="url(#dripShadow)"
-              />
-              <path
-                d="M0,40 C240,20 420,35 620,30 C780,26 920,18 1090,35 C1230,50 1340,70 1440,60 L1440,160 L0,160 Z"
-                fill="url(#dripGrad)"
-              />
-            </svg>
-          </div>
+          {/* Transition fluide vers section suivante */}
+          <div className="absolute bottom-0 left-0 right-0 h-48 pointer-events-none bg-gradient-to-t from-white via-white/80 to-transparent" />
         </div>
         {/* Hero content - bouge plus vite (effet de profondeur) */}
         <div 
@@ -639,7 +613,10 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         id="presentation"
         ref={registerSection('presentation')}
         data-preview-anchor="presentation"
-        className="relative py-32 px-6 bg-sand-gradient section-top-blend overflow-hidden min-h-screen"
+        className="relative py-32 px-6 overflow-hidden min-h-screen"
+        style={{
+          background: 'linear-gradient(180deg, #ffffff 0%, #faf8f5 30%, #f3e5c7 100%)'
+        }}
       >
         {/* Floating decorative elements with parallax */}
         <div 
@@ -694,8 +671,9 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       </section>
 
-      <section className="py-8 px-6 bg-white section-top-blend">
-        <div className="max-w-6xl mx-auto text-center mb-6 fade-in">
+      {/* Partners section avec transition fluide */}
+      <section className="py-12 px-6" style={{ background: 'linear-gradient(180deg, #faf8f5 0%, #ffffff 100%)' }}>
+        <div className="max-w-6xl mx-auto text-center mb-6">
           <h3 className="text-sm uppercase tracking-widest text-slate-500 font-semibold">{liveDict.logos?.title}</h3>
         </div>
         {visiblePartners.length ? (
@@ -741,7 +719,10 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           ============================================ */}
       <section 
         ref={registerSection('bento')}
-        className="relative py-32 px-6 bg-white section-top-blend overflow-hidden"
+        className="relative py-32 px-6 overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #faf8f5 0%, #ffffff 20%, #ffffff 80%, #ffffff 100%)'
+        }}
       >
         {/* Decorative parallax backgrounds */}
         <div 
@@ -810,8 +791,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           ============================================ */}
       <section 
         ref={registerSection('reviews')}
-        className="relative py-32 px-6 bg-sand-gradient section-top-blend overflow-hidden" 
+        className="relative py-32 px-6 overflow-hidden" 
         id="reviews"
+        style={{
+          background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 10%, #e8f0f5 100%)'
+        }}
       >
         {/* Parallax floating stars/decorations */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -844,24 +828,15 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       </section>
 
       {/* ============================================
-          📅 SECTION RÉSERVATION AVEC PARALLAX
+          📅 SECTION RÉSERVATION - Transition fluide
           ============================================ */}
-      <div className="wave-divider" aria-hidden="true">
-        <svg viewBox="0 0 1440 100" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="reservationWave" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(248,250,252,0.15)" />
-              <stop offset="65%" stopColor="rgba(248,250,252,0.65)" />
-              <stop offset="100%" stopColor="#ffffff" />
-            </linearGradient>
-          </defs>
-          <path fill="url(#reservationWave)" d="M0,100 L0,50 C160,20 320,20 480,40 C640,60 800,80 960,70 C1120,60 1280,30 1440,40 L1440,100 Z" />
-        </svg>
-      </div>
       <section 
         ref={registerSection('reservation')}
         id="reservation" 
-        className="-mt-6 py-32 px-4 bg-[#0d1b2a] relative overflow-hidden section-top-blend section-top-blend-dark"
+        className="py-32 px-4 relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(180deg, #e8f0f5 0%, #1e3a5f 15%, #0d1b2a 30%, #0d1b2a 100%)'
+        }}
       >
         {/* Parallax glowing orbs */}
         <div className="absolute top-0 left-0 w-full h-full opacity-30 pointer-events-none">
@@ -899,7 +874,10 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       <footer
         id="footer"
         data-preview-anchor="footer"
-        className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800"
+        className="text-slate-400 py-16"
+        style={{
+          background: 'linear-gradient(180deg, #0d1b2a 0%, #0a1420 50%, #050a10 100%)'
+        }}
       >
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
