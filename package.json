@@ -70,7 +70,8 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss-safe-area": "^1.2.0",
     "zod": "^3.23.8",
-    "zxcvbn": "^4.4.2"
+    "zxcvbn": "^4.4.2",
+    "prisma": "^5.17.0"
   },
   "devDependencies": {
     "@capacitor/android": "^7.4.4",
@@ -94,7 +95,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
     "pg": "^8.16.3",
-    "prisma": "^5.17.0",
     "tailwindcss": "^3.4.14",
     "ts-node": "^10.9.2",
     "typescript": "5.9.3",
