@@ -395,11 +395,39 @@
 
 ## 🎨 UX & Accessibilité (Semaine 8)
 
-### 20. Audit Lighthouse
+### 20. ✅ Audit Lighthouse
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 1h
-- **Outil**: Chrome DevTools (gratuit)
-- **Objectif**: Score > 90 Performance + A11y
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Implémentation**:
+  - ✅ Lighthouse CLI installé (157 packages)
+  - ✅ Script automatisé: `scripts/lighthouse-audit.js`
+  - ✅ Scripts npm: `npm run lighthouse`, `npm run lighthouse:mobile`
+  - ✅ Support desktop et mobile
+  - ✅ Rapports HTML et JSON générés automatiquement
+  - ✅ Audit des 4 catégories: Performance, Accessibility, Best Practices, SEO
+  - ✅ Seuil de réussite: 90+ sur Performance et Accessibility
+- **Utilisation**:
+  ```bash
+  # Audit desktop (par défaut)
+  npm run lighthouse
+  
+  # Audit mobile
+  npm run lighthouse:mobile
+  
+  # URL personnalisée
+  npm run lighthouse -- --url=https://sweet-narcisse.com
+  ```
+- **Rapports**: Sauvegardés dans `lighthouse-reports/`
+- **Format sortie**:
+  ```
+  📊 Results for homepage:
+    Performance:    ✅ 95
+    Accessibility:  ✅ 92
+    Best Practices: ✅ 100
+    SEO:            ✅ 100
+  ```
+- **Prochaines étapes**: Intégrer dans CI/CD, fixer les issues A11y détectées
 
 ### 21. Fixes A11y Critiques
 - **Priorité**: 🟡 Moyenne
