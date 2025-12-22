@@ -642,21 +642,54 @@
 
 ## 🌍 Compliance RGPD (Semaine 13)
 
-### 31. Export Données Personnelles
+### 31. ✅ Export Données Personnelles
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 2h
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `app/api/user/export/route.ts` - Route export RGPD Art. 20
 - **Route**: `GET /api/user/export`
-- **Format**: JSON + PDF
+- **Formats**: JSON (défaut), PDF-ready (?format=pdf)
+- **Données exportées**:
+  - Informations utilisateur (id, email, nom, téléphone, date création)
+  - Réservations (référence, date, heure, passagers, prix, statut)
+  - Paiements (provider, montant, devise, statut)
+  - Demandes de contact
+- **Sécurité**: Authentification requise (session NextAuth)
+- **Audit**: Log de chaque export
 
-### 32. Droit à l'Oubli
+### 32. ✅ Droit à l'Oubli
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 1h
-- **Action**: Cascade delete + anonymisation logs
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `app/api/user/delete/route.ts` - Route suppression RGPD Art. 17
+- **Route**: `DELETE /api/user/delete`
+- **Comportement**:
+  - Anonymisation des données utilisateur (email → deleted_xxx@deleted.sweetnarcisse.local)
+  - Conservation réservations 10 ans (obligation comptable française)
+  - Suppression des demandes de contact
+  - Invalidation des sessions existantes
+- **Restrictions**:
+  - Pas de suppression avec réservations < 30 jours
+  - Confirmation explicite requise (`{ "confirmation": "DELETE_MY_DATA" }`)
+- **Audit**: Log détaillé de chaque suppression
 
-### 33. Consentement Cookies
+### 33. ✅ Consentement Cookies
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 2h
-- **Solution**: **Tarteaucitron.js** (gratuit, français)
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `components/CookieConsent.tsx` - Composant consentement
+- **Solution**: **Tarteaucitron.js** v1.17.0 (gratuit, français)
+- **Fonctionnalités**:
+  - Bandeau conforme RGPD/ePrivacy
+  - Mode haute confidentialité (opt-in strict)
+  - Boutons "Tout accepter" / "Tout refuser"
+  - Personnalisation par service (Stripe, PayPal)
+  - Styling adapté Sweet Narcisse (couleurs, mode sombre)
+- **Services déclarés**: Stripe (paiements), PayPal (paiements)
+- **Hook**: `useCookieConsent(serviceName)` pour vérification
 
 ---
 
