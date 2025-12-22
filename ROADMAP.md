@@ -253,15 +253,24 @@
 
 ## 🔐 Sécurité Renforcée (Semaine 5)
 
-### 13. Rotation Secrets Automatisée
+### 13. ✅ Rotation Secrets Automatisée
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 2h
-- **Solution**: Script cron mensuel
-  ```bash
-  # Génère nouveau NEXTAUTH_SECRET
-  # Update .env.production.local
-  # Rolling restart app
-  ```
+- **Status**: ✅ **COMPLÉTÉ** (27/06/2025)
+- **Réalisé**:
+  - ✅ `scripts/rotate-secrets.sh` - Script Bash Linux/macOS
+  - ✅ `scripts/rotate-secrets.ps1` - Script PowerShell Windows
+  - ✅ `scripts/cron/crontab.example` - Configuration cron
+  - ✅ `systemd/secret-rotation.timer` - Timer systemd
+  - ✅ `systemd/secret-rotation.service` - Service systemd
+  - ✅ `docs/secret-rotation.md` - Documentation complète
+- **Fonctionnalités**:
+  - Rotation NEXTAUTH_SECRET mensuelle automatique
+  - Backup avant rotation (6 mois de rétention)
+  - Restart applicatif automatique (Docker/systemd/PM2)
+  - Mode dry-run pour tests
+  - Logging complet
+  - Compatible Linux, macOS, Windows
 
 ### 14. Logs Audit Immutables
 - **Priorité**: 🟢 Basse
