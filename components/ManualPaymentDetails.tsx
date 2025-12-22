@@ -75,17 +75,18 @@ export function VoucherDetailsForm({ value, disabled = false, onChange }: Vouche
             </label>
             <div className="sn-form-grid sn-form-grid-2">
                 <div className="sn-field">
-                    <span className="sn-label">Quantité</span>
-                    <div className="flex items-center gap-2">
+                    <span id="voucher-quantity-label" className="sn-label">Quantité</span>
+                    <div className="flex items-center gap-2" role="group" aria-labelledby="voucher-quantity-label">
                         <button
                             type="button"
                             onClick={() => handleQuantityChange('dec')}
                             className="rounded border border-slate-200 px-2 py-1 text-sm"
                             disabled={disabled || value.quantity <= 1}
+                            aria-label="Diminuer la quantité de vouchers"
                         >
                             -
                         </button>
-                        <div className="w-12 rounded border border-slate-200 px-2 py-1 text-center text-sm font-semibold">
+                        <div className="w-12 rounded border border-slate-200 px-2 py-1 text-center text-sm font-semibold" aria-live="polite">
                             {value.quantity}
                         </div>
                         <button
@@ -93,6 +94,7 @@ export function VoucherDetailsForm({ value, disabled = false, onChange }: Vouche
                             onClick={() => handleQuantityChange('inc')}
                             className="rounded border border-slate-200 px-2 py-1 text-sm"
                             disabled={disabled}
+                            aria-label="Augmenter la quantité de vouchers"
                         >
                             +
                         </button>
@@ -161,17 +163,18 @@ export function CheckDetailsForm({ value, disabled = false, onChange }: CheckDet
             </label>
             <div className="sn-form-grid sn-form-grid-2">
                 <div className="sn-field">
-                    <span className="sn-label">Quantité</span>
-                    <div className="flex items-center gap-2">
+                    <span id="check-quantity-label" className="sn-label">Quantité</span>
+                    <div className="flex items-center gap-2" role="group" aria-labelledby="check-quantity-label">
                         <button
                             type="button"
                             onClick={() => handleQuantityChange('dec')}
                             className="rounded border border-slate-200 px-2 py-1 text-sm"
                             disabled={disabled || value.quantity <= 1}
+                            aria-label="Diminuer la quantité de chèques"
                         >
                             -
                         </button>
-                        <div className="w-12 rounded border border-slate-200 px-2 py-1 text-center text-sm font-semibold">
+                        <div className="w-12 rounded border border-slate-200 px-2 py-1 text-center text-sm font-semibold" aria-live="polite">
                             {value.quantity}
                         </div>
                         <button
@@ -179,6 +182,7 @@ export function CheckDetailsForm({ value, disabled = false, onChange }: CheckDet
                             onClick={() => handleQuantityChange('inc')}
                             className="rounded border border-slate-200 px-2 py-1 text-sm"
                             disabled={disabled}
+                            aria-label="Augmenter la quantité de chèques"
                         >
                             +
                         </button>

@@ -662,7 +662,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                     {stepIndex === 0 && (
                         <div className="space-y-4">
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Départ</p>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500" id="qbm-departure-label">Départ</p>
                                 <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                                     <div>
                                         <p className="text-3xl font-extrabold text-slate-800">{time || '--:--'}</p>
@@ -672,6 +672,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                         type="time"
                                         value={time}
                                         onChange={(event) => setTime(event.target.value)}
+                                        aria-labelledby="qbm-departure-label"
                                         className="rounded-lg border border-slate-300 px-3 py-2 text-lg font-semibold text-blue-900 shadow-inner focus:border-blue-500 focus:outline-none"
                                     />
                                 </div>
@@ -688,10 +689,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     </p>
                                 </div>
                                 <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    <label htmlFor="qbm-language" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                                         Langue du tour
                                     </label>
                                     <select
+                                        id="qbm-language"
                                         value={language}
                                         onChange={(event) => setLanguage(event.target.value)}
                                         className="mt-2 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
@@ -753,10 +755,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                         <div className="space-y-4">
                                     <div className="grid gap-3 sm:grid-cols-3">
                                         <div>
-                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <label htmlFor="qbm-lastName" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                 Nom du client
                                             </label>
                                             <input
+                                                id="qbm-lastName"
                                                 value={lastName}
                                                 onChange={(event) => setLastName(event.target.value)}
                                                 placeholder="Nom"
@@ -764,10 +767,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <label htmlFor="qbm-firstName" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                 Prénom
                                             </label>
                                             <input
+                                                id="qbm-firstName"
                                                 value={firstName}
                                                 onChange={(event) => setFirstName(event.target.value)}
                                                 placeholder="Prénom"
@@ -775,10 +779,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                             />
                                         </div>
                                         <div>
-                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <label htmlFor="qbm-email" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                 Email (facture)
                                             </label>
                                             <input
+                                                id="qbm-email"
                                                 type="email"
                                                 value={email}
                                                 onChange={(event) => setEmail(event.target.value)}
@@ -790,10 +795,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
                                     <div className="grid gap-3 sm:grid-cols-2">
                                         <div>
-                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <label htmlFor="qbm-phone" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                 Téléphone
                                             </label>
                                             <input
+                                                id="qbm-phone"
                                                 value={phone}
                                                 onChange={(event) => setPhone(event.target.value)}
                                                 placeholder="Optionnel"
@@ -806,10 +812,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     </div>
 
                             <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <label htmlFor="qbm-message" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                     Note interne / commentaire
                                 </label>
                                 <textarea
+                                    id="qbm-message"
                                     value={message}
                                     onChange={(event) => setMessage(event.target.value)}
                                     placeholder="Ex: Groupe scolaire, arrivée anticipée, etc."
@@ -846,10 +853,11 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                     <>
                                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                         <div>
-                                            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                            <label htmlFor="qbm-paymentMethod" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                 Mode de paiement
                                             </label>
                                             <select
+                                                id="qbm-paymentMethod"
                                                 value={paymentMethod}
                                                     onChange={(event) =>
                                                         handlePaymentMethodChange(event.target.value as PaymentOption | '')
@@ -869,11 +877,12 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
                                         {paymentMethod === 'cash' && (
                                             <div className="relative">
-                                                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                <label htmlFor="qbm-cashReceived" className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
                                                     Montant perçu (€)
                                                 </label>
                                                 <div className="mt-1 flex items-center gap-2">
                                                     <input
+                                                        id="qbm-cashReceived"
                                                         ref={cashInputRef}
                                                         value={cashReceived}
                                                         onChange={(event) => handleCashInputChange(event.target.value)}

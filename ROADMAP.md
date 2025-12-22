@@ -429,14 +429,21 @@
   ```
 - **Prochaines étapes**: Intégrer dans CI/CD, fixer les issues A11y détectées
 
-### 21. Fixes A11y Critiques
+### 21. ✅ Fixes A11y Critiques
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 3h
-- **Actions**:
-  - Labels ARIA manquants
-  - Contraste couleurs (WCAG AA)
-  - Navigation clavier complète
-- **Outil**: **axe DevTools** (gratuit)
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Implémentation**:
+  - Ajout `htmlFor`/`id` pour associations label-input dans ContactForms.tsx (12 champs)
+  - Ajout `aria-labelledby` et `aria-label` dans QuickBookingModal.tsx (10 contrôles)
+  - Ajout `role="group"` et `aria-pressed` pour boutons toggle dans BookingWidget.tsx
+  - Ajout `aria-label` pour boutons +/- dans ManualPaymentDetails.tsx
+  - Ajout `aria-live="polite"` pour annonces de changements de quantité
+- **Fichiers modifiés**:
+  - `components/ContactForms.tsx`
+  - `components/QuickBookingModal.tsx`
+  - `components/BookingWidget.tsx`
+  - `components/ManualPaymentDetails.tsx`
 
 ### 22. Internationalisation Emails
 - **Priorité**: 🟢 Basse

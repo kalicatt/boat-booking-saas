@@ -764,8 +764,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     
                     <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 space-y-6 flex-1">
                         <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.date}</label>
+                            <label htmlFor="bw-date" className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.date}</label>
                             <input
+                                id="bw-date"
                                 type="date"
                                 value={date}
                                 min={todayLocalISO}
@@ -780,8 +781,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.passengers}</label>
-                            <div className="space-y-1">
+                            <span id="bw-passengers-label" className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.passengers}</span>
+                            <div className="space-y-1" role="group" aria-labelledby="bw-passengers-label">
                                 <Counter label={widgetCopy.adults} price={`${PRICES.ADULT}€`} value={adults} setter={setAdults} />
                                 <Counter label={widgetCopy.children} price={`${PRICES.CHILD}€`} value={children} setter={setChildren} />
                                 <Counter label={widgetCopy.babies} price={widgetCopy.free} value={babies} setter={setBabies} />
@@ -801,10 +802,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 </div>
 
                         <div>
-                            <label className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.language}</label>
-                            <div className="flex gap-2">
+                            <span id="bw-language-label" className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.language}</span>
+                            <div className="flex gap-2" role="group" aria-labelledby="bw-language-label">
                                 {['FR', 'EN', 'DE'].map(lang => (
                                     <button key={lang} onClick={() => setLanguage(lang)}
+                                        aria-pressed={language === lang}
                                         className={`flex-1 py-2 rounded-lg font-bold border transition-all text-sm ${language === lang ? 'border-[#0ea5e9] bg-sky-50 text-slate-900 shadow-sm' : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50'}`}>
                                         {lang === 'FR' ? '🇫🇷' : lang === 'EN' ? '🇬🇧' : '🇩🇪'} {lang}
                                     </button>
@@ -887,28 +889,29 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     >
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_firstname}</label>
-                                <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
+                                <label htmlFor="bw-firstName" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_firstname}</label>
+                                <input id="bw-firstName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                     value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                             </div>
                             <div>
-                                <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_lastname}</label>
-                                <input required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
+                                <label htmlFor="bw-lastName" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_lastname}</label>
+                                <input id="bw-lastName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                     value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                             </div>
                         </div>
                         
                         <div>
-                            <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_email}</label>
-                            <input required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
+                            <label htmlFor="bw-email" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_email}</label>
+                            <input id="bw-email" required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
                                 value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                         
                                                 <div>
-                                                        <label className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_phone}</label>
-                                                        <div className="flex gap-2 mt-1 items-start">
+                                                        <label id="bw-phone-label" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_phone}</label>
+                                                        <div className="flex gap-2 mt-1 items-start" role="group" aria-labelledby="bw-phone-label">
                                                             <div className="flex flex-col w-40">
                                                                 <input
+                                                                    aria-label="Indicatif téléphonique"
                                                                     list="phoneCodes"
                                                                     value={phoneCodeInput}
                                                                     onChange={e => {
@@ -939,6 +942,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                     required
                                                                     type="tel"
                                                                     inputMode="tel"
+                                                                    aria-label="Numéro de téléphone"
                                                                     className={`w-full p-3 border rounded-lg bg-white focus:ring-2 outline-none ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
                                                                     value={formData.phone}
                                                                     onChange={e => {
@@ -967,8 +971,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                         {(step === STEPS.GROUP_CONTACT || step === STEPS.PRIVATE_CONTACT) && (
                              <div>
-                                <label className="text-xs font-bold uppercase text-slate-500">{privateFormCopy.message_label || "Message"}</label>
-                                <textarea className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none h-20" 
+                                <label htmlFor="bw-message" className="text-xs font-bold uppercase text-slate-500">{privateFormCopy.message_label || "Message"}</label>
+                                <textarea id="bw-message" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none h-20" 
                                     placeholder={step === STEPS.PRIVATE_CONTACT ? privateFormCopy.placeholder_message : groupFormCopy.placeholder_message}
                                     value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
                             </div>

@@ -195,61 +195,61 @@ export default function ContactForms({ lang, dict }: { lang: Lang, dict: Contact
         </div>
         <form onSubmit={onSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">{tr.firstName}</label>
-            <input name="firstName" required className="w-full p-2 border rounded" />
+            <label htmlFor="contact-firstName" className="block text-xs font-bold text-slate-500 mb-1">{tr.firstName}</label>
+            <input id="contact-firstName" name="firstName" required className="w-full p-2 border rounded" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">{tr.lastName}</label>
-            <input name="lastName" required className="w-full p-2 border rounded" />
+            <label htmlFor="contact-lastName" className="block text-xs font-bold text-slate-500 mb-1">{tr.lastName}</label>
+            <input id="contact-lastName" name="lastName" required className="w-full p-2 border rounded" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">{tr.email}</label>
-            <input type="email" name="email" required className="w-full p-2 border rounded" />
+            <label htmlFor="contact-email" className="block text-xs font-bold text-slate-500 mb-1">{tr.email}</label>
+            <input id="contact-email" type="email" name="email" required className="w-full p-2 border rounded" />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">{tr.phone}</label>
-            <input name="phone" className="w-full p-2 border rounded" />
+            <label htmlFor="contact-phone" className="block text-xs font-bold text-slate-500 mb-1">{tr.phone}</label>
+            <input id="contact-phone" name="phone" className="w-full p-2 border rounded" />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 mb-1">{tr.messageLabel}</label>
-            <textarea name="message" rows={3} className="w-full p-2 border rounded" placeholder={tr.messagePlaceholder} />
+            <label htmlFor="contact-message" className="block text-xs font-bold text-slate-500 mb-1">{tr.messageLabel}</label>
+            <textarea id="contact-message" name="message" rows={3} className="w-full p-2 border rounded" placeholder={tr.messagePlaceholder} />
           </div>
           {active==='group' ? (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-                <input name="people" type="number" min={1} className="w-full p-2 border rounded" required defaultValue={prefill.people ?? ''} />
+                <label htmlFor="contact-people-group" className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
+                <input id="contact-people-group" name="people" type="number" min={1} className="w-full p-2 border rounded" required defaultValue={prefill.people ?? ''} />
               </div>
               <div>
-                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.companyLabel}</label>
-                 <input name="company" className="w-full p-2 border rounded" placeholder={tr.companyPlaceholder} />
+                 <label htmlFor="contact-company" className="block text-xs font-bold text-slate-500 mb-1">{tr.companyLabel}</label>
+                 <input id="contact-company" name="company" className="w-full p-2 border rounded" placeholder={tr.companyPlaceholder} />
               </div>
               <div className="md:col-span-2">
-                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.reasonLabel}</label>
-                 <input name="reason" className="w-full p-2 border rounded" placeholder={tr.reasonPlaceholder} />
+                 <label htmlFor="contact-reason" className="block text-xs font-bold text-slate-500 mb-1">{tr.reasonLabel}</label>
+                 <input id="contact-reason" name="reason" className="w-full p-2 border rounded" placeholder={tr.reasonPlaceholder} />
               </div>
               <div>
-                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.eventDateLabel}</label>
-                 <input name="eventDate" className="w-full p-2 border rounded" placeholder={tr.eventDatePlaceholder} defaultValue={prefill.date ?? ''} />
+                 <label htmlFor="contact-eventDate" className="block text-xs font-bold text-slate-500 mb-1">{tr.eventDateLabel}</label>
+                 <input id="contact-eventDate" name="eventDate" className="w-full p-2 border rounded" placeholder={tr.eventDatePlaceholder} defaultValue={prefill.date ?? ''} />
               </div>
               <div>
-                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.eventTimeLabel}</label>
-                 <input name="eventTime" className="w-full p-2 border rounded" placeholder={tr.eventTimePlaceholder} />
+                 <label htmlFor="contact-eventTime" className="block text-xs font-bold text-slate-500 mb-1">{tr.eventTimeLabel}</label>
+                 <input id="contact-eventTime" name="eventTime" className="w-full p-2 border rounded" placeholder={tr.eventTimePlaceholder} />
               </div>
               <div className="md:col-span-2">
-                 <label className="block text-xs font-bold text-slate-500 mb-1">{tr.budgetLabel}</label>
-                 <input name="budget" className="w-full p-2 border rounded" placeholder={tr.budgetPlaceholder} />
+                 <label htmlFor="contact-budget" className="block text-xs font-bold text-slate-500 mb-1">{tr.budgetLabel}</label>
+                 <input id="contact-budget" name="budget" className="w-full p-2 border rounded" placeholder={tr.budgetPlaceholder} />
               </div>
             </>
           ) : (
             <>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
-                <input name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} placeholder={privateDict.placeholder_people || ''} />
+                <label htmlFor="contact-people-private" className="block text-xs font-bold text-slate-500 mb-1">{tr.people}</label>
+                <input id="contact-people-private" name="people" type="number" min={1} className="w-full p-2 border rounded" defaultValue={prefill.people ?? ''} placeholder={privateDict.placeholder_people || ''} />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">{tr.date}</label>
-                <input name="date" className="w-full p-2 border rounded" placeholder={privateDict.placeholder_date || 'YYYY-MM-DD'} defaultValue={prefill.date ?? ''} />
+                <label htmlFor="contact-date" className="block text-xs font-bold text-slate-500 mb-1">{tr.date}</label>
+                <input id="contact-date" name="date" className="w-full p-2 border rounded" placeholder={privateDict.placeholder_date || 'YYYY-MM-DD'} defaultValue={prefill.date ?? ''} />
               </div>
             </>
           )}
