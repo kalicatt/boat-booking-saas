@@ -441,26 +441,26 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
         <div className="relative z-10 mx-auto max-w-5xl px-4 text-center fade-in">
           {heroEyebrow ? (
-            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.45em] text-sky-200">
+            <p className="mb-4 text-fluid-xs font-semibold uppercase tracking-[0.45em] text-sky-200">
               {heroEyebrow}
             </p>
           ) : null}
-          <h1 className="text-5xl font-serif font-bold leading-[1.05] text-white drop-shadow-lg md:text-7xl">
+          <h1 className="text-fluid-hero font-serif font-bold leading-[1.05] text-white drop-shadow-lg">
             {heroTitle}
           </h1>
-          <p className="mx-auto mb-10 max-w-3xl text-xl font-light leading-relaxed text-slate-200 md:text-2xl">
+          <p className="mx-auto mb-10 max-w-3xl text-fluid-xl font-light leading-relaxed text-slate-200">
             {heroSubtitle}
           </p>
           <div className="flex flex-col items-center justify-center gap-5">
             <a
               href="#reservation"
-              className="inline-block transform rounded bg-[#0ea5e9] px-10 py-4 text-lg font-bold text-[#0f172a] shadow-xl transition hover:scale-105 hover:bg-white"
+              className="btn-interactive btn-haptic btn-ripple inline-block rounded-xl bg-[#0ea5e9] px-10 py-4 text-fluid-base font-bold text-[#0f172a] shadow-xl hover:bg-white hover:shadow-2xl"
             >
               {heroCtaCopy}
             </a>
             <Link
               href={`/${currentLang}/partners`}
-              className="text-sm font-semibold text-slate-200 underline decoration-[#0ea5e9] decoration-2 underline-offset-4 transition hover:text-white"
+              className="text-fluid-sm font-semibold text-slate-200 underline decoration-[#0ea5e9] decoration-2 underline-offset-4 transition hover:text-white"
             >
               {liveDict.partners?.nav}
             </Link>
@@ -491,22 +491,26 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         className="py-24 px-6 bg-sand-gradient section-top-blend"
       >
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <div className="space-y-6 fade-in">
-            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-sm uppercase">Sweet Narcisse</h4>
-            <h2 className="text-4xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
-            <p className="text-slate-600 leading-relaxed text-lg text-justify">{storyParagraph}</p>
+          <div className="space-y-6 scroll-slide-left">
+            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-fluid-xs uppercase">Sweet Narcisse</h4>
+            <h2 className="text-fluid-3xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
+            <p className="text-slate-600 leading-relaxed text-fluid-base text-justify">{storyParagraph}</p>
             <ul className="space-y-3 pt-4">
-              {(liveDict.presentation?.points ?? []).map((item: string) => (
-                <li key={item} className="flex items-center gap-3 text-slate-700 font-medium">
+              {(liveDict.presentation?.points ?? []).map((item: string, i: number) => (
+                <li 
+                  key={item} 
+                  className="flex items-center gap-3 text-slate-700 font-medium scroll-reveal"
+                  style={{ animationDelay: `${i * 100}ms` }}
+                >
                   <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold">✓</span>
                   {item}
                 </li>
               ))}
             </ul>
           </div>
-          <div className="relative group fade-in">
+          <div className="relative group scroll-slide-right">
             <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
-            <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
+            <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover scroll-rotate" />
           </div>
         </div>
       </section>
@@ -555,53 +559,64 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
 
       <section className="py-24 px-6 bg-white section-top-blend">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-12 text-center fade-in">
-            <h2 className="text-4xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
-            <p className="text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
+          <div className="mb-16 text-center scroll-reveal">
+            <h2 className="text-fluid-3xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
+            <p className="text-fluid-base text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
           </div>
-          <div className="grid gap-6 md:grid-cols-3 auto-rows-[200px]">
+          <div className="bento-grid">
             {liveDict.bento?.cards?.map((c: Record<string, unknown>, idx: number) => {
               const originalTitle = String(c.title || '').trim();
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
-              // Use normalized display title for matching so "Frictionless" remap is honored
               const t = title.toLowerCase();
-              // Map images by semantic title across locales (WebP for better compression)
               let bg = '/images/presentation.webp';
               if (/(perfect|longueur|perfetto|perfecto)/i.test(t)) bg = '/images/perfectlength.webp';
-              else if (/(impact|empreinte|impatto)/i.test(t)) bg = '/images/low-impact.jpg'; // Keep JPG (WebP worse)
+              else if (/(impact|empreinte|impatto)/i.test(t)) bg = '/images/low-impact.jpg';
               else if (/(guide|humain|guida|humano)/i.test(t)) bg = '/images/human-guide.webp';
               else if (/(group|groupe|gruppo|grupo|privat)/i.test(t)) bg = '/images/group-private.webp';
-              else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg'; // Keep JPG (WebP worse)
+              else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
               else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.webp';
               const text = typeof c.text === 'string' ? c.text : String(c.text ?? '');
-                return (
-                  <div
-                    key={idx}
-                    className={`fade-in sn-card p-5 overflow-hidden hover:shadow-lg transition group ${idx===0||idx===3? 'md:row-span-2' : ''}`}
-                    style={{
-                      backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.20), rgba(0,0,0,0.12)), url(${bg})`,
-                      backgroundSize: 'cover',
+              // Bento sizes: first and 4th are large
+              const bentoSize = idx === 0 || idx === 3 ? 'bento-md bento-tall' : 'bento-sm';
+              const scrollClass = idx % 2 === 0 ? 'scroll-slide-left' : 'scroll-slide-right';
+              return (
+                <div
+                  key={idx}
+                  className={`bento-card ${bentoSize} ${scrollClass} group`}
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15)), url(${bg})`,
+                    backgroundSize: 'cover',
                     backgroundPosition: 'center top',
-                    backgroundBlendMode: 'normal'
-                    }}
-                  >
-                    <div className="bg-white/85 rounded-md px-3 py-2 inline-block shadow-sm max-w-[85%]">
-                      <h3 className="font-serif text-lg font-bold mb-0.5 text-[#0f172a] group-hover:text-[#0ea5e9] transition">{title}</h3>
-                      <p className="text-[13px] text-slate-700 leading-relaxed">{text}</p>
+                  }}
+                  onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width) * 100;
+                    const y = ((e.clientY - rect.top) / rect.height) * 100;
+                    e.currentTarget.style.setProperty('--mouse-x', `${x}%`);
+                    e.currentTarget.style.setProperty('--mouse-y', `${y}%`);
+                  }}
+                >
+                  <div className="bento-content h-full flex flex-col justify-end">
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-lg transform transition-all duration-300 group-hover:bg-white group-hover:shadow-xl group-hover:-translate-y-1">
+                      <h3 className="font-serif text-fluid-lg font-bold text-[#0f172a] group-hover:text-[#0ea5e9] transition-colors mb-1">
+                        {title}
+                      </h3>
+                      <p className="text-fluid-sm text-slate-600 leading-relaxed">{text}</p>
+                    </div>
                   </div>
-                  </div>
-                );
+                </div>
+              );
             })}
           </div>
         </div>
       </section>
 
       <section className="py-24 px-6 bg-sand-gradient section-top-blend" id="reviews">
-        <div className="max-w-5xl mx-auto text-center mb-12 fade-in">
-          <h2 className="text-4xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
-          <p className="text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
+        <div className="max-w-5xl mx-auto text-center mb-12 scroll-reveal">
+          <h2 className="text-fluid-3xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
+          <p className="text-fluid-base text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
         </div>
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto scroll-fade-in">
           <TripReviews dict={liveDict} lang={currentLang} />
         </div>
       </section>

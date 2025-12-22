@@ -2,9 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   🎨 UX 2025 - Sweet Narcisse Design System
+   ============================================ */
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* Fluid Typography Scale */
+  --fluid-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --fluid-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --fluid-base: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  --fluid-lg: clamp(1.125rem, 1rem + 0.65vw, 1.375rem);
+  --fluid-xl: clamp(1.25rem, 1rem + 1.25vw, 1.75rem);
+  --fluid-2xl: clamp(1.5rem, 1.1rem + 2vw, 2.5rem);
+  --fluid-3xl: clamp(2rem, 1.2rem + 4vw, 4rem);
+  --fluid-4xl: clamp(2.5rem, 1.5rem + 5vw, 5rem);
+  --fluid-hero: clamp(2.75rem, 1.5rem + 6vw, 7rem);
 }
 /* Dark mode removed: keep light variables only */
 :root {
@@ -85,6 +100,472 @@ a:hover { text-decoration: none; }
 
 /* Typography overrides */
 h1,h2,h3,.font-serif { font-family: var(--font-display), serif; }
+body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
+
+/* ============================================
+   🔤 Fluid Typography Classes
+   ============================================ */
+.text-fluid-xs { font-size: var(--fluid-xs); }
+.text-fluid-sm { font-size: var(--fluid-sm); }
+.text-fluid-base { font-size: var(--fluid-base); }
+.text-fluid-lg { font-size: var(--fluid-lg); }
+.text-fluid-xl { font-size: var(--fluid-xl); }
+.text-fluid-2xl { font-size: var(--fluid-2xl); }
+.text-fluid-3xl { font-size: var(--fluid-3xl); }
+.text-fluid-4xl { font-size: var(--fluid-4xl); }
+.text-fluid-hero { font-size: var(--fluid-hero); line-height: 1.05; }
+
+/* ============================================
+   📜 Scroll-Driven Animations (SDA)
+   ============================================ */
+@supports (animation-timeline: scroll()) {
+  .scroll-reveal {
+    animation: scrollReveal linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 40%;
+  }
+  
+  @keyframes scrollReveal {
+    from { opacity: 0; transform: translateY(60px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  
+  .scroll-fade-in {
+    animation: scrollFadeIn linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 30%;
+  }
+  
+  @keyframes scrollFadeIn {
+    from { opacity: 0; filter: blur(8px); }
+    to { opacity: 1; filter: blur(0); }
+  }
+  
+  .scroll-slide-left {
+    animation: scrollSlideLeft linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 35%;
+  }
+  
+  @keyframes scrollSlideLeft {
+    from { opacity: 0; transform: translateX(-80px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  .scroll-slide-right {
+    animation: scrollSlideRight linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 35%;
+  }
+  
+  @keyframes scrollSlideRight {
+    from { opacity: 0; transform: translateX(80px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  .scroll-scale {
+    animation: scrollScale linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 50%;
+  }
+  
+  @keyframes scrollScale {
+    from { transform: scale(0.8); opacity: 0.5; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  
+  .scroll-rotate {
+    animation: scrollRotate linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 60%;
+  }
+  
+  @keyframes scrollRotate {
+    from { transform: rotate(-5deg) scale(0.95); }
+    to { transform: rotate(0deg) scale(1); }
+  }
+  
+  /* Hero parallax via scroll */
+  .hero-scroll-parallax {
+    animation: heroParallax linear both;
+    animation-timeline: scroll();
+    animation-range: 0% 100%;
+  }
+  
+  @keyframes heroParallax {
+    from { transform: translateY(0) scale(1); }
+    to { transform: translateY(150px) scale(1.1); }
+  }
+}
+
+/* Fallback for browsers without scroll-driven animations */
+@supports not (animation-timeline: scroll()) {
+  .scroll-reveal,
+  .scroll-fade-in,
+  .scroll-slide-left,
+  .scroll-slide-right,
+  .scroll-scale,
+  .scroll-rotate {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  
+  .scroll-reveal.fade-in-visible,
+  .scroll-fade-in.fade-in-visible,
+  .scroll-slide-left.fade-in-visible,
+  .scroll-slide-right.fade-in-visible,
+  .scroll-scale.fade-in-visible,
+  .scroll-rotate.fade-in-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   🍱 Bento Grid avec Container Queries
+   ============================================ */
+.bento-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+@media (min-width: 768px) {
+  .bento-grid {
+    grid-template-columns: repeat(12, 1fr);
+    gap: 1.25rem;
+  }
+}
+
+.bento-card {
+  container-type: inline-size;
+  container-name: bento;
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9));
+  border: 1px solid rgba(226,232,240,0.8);
+  box-shadow: 0 4px 20px rgba(13,27,42,0.06);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.4s ease,
+              border-color 0.3s ease;
+}
+
+.bento-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 50px rgba(13,27,42,0.12);
+  border-color: rgba(14,165,233,0.4);
+}
+
+/* Bento card sizes */
+.bento-sm { grid-column: span 12; }
+.bento-md { grid-column: span 12; }
+.bento-lg { grid-column: span 12; }
+.bento-wide { grid-column: span 12; }
+.bento-tall { grid-row: span 1; }
+
+@media (min-width: 768px) {
+  .bento-sm { grid-column: span 4; }
+  .bento-md { grid-column: span 6; }
+  .bento-lg { grid-column: span 8; }
+  .bento-wide { grid-column: span 12; }
+  .bento-tall { grid-row: span 2; }
+}
+
+/* Container Query responsive content */
+@container bento (min-width: 400px) {
+  .bento-content {
+    flex-direction: row;
+    gap: 1.5rem;
+  }
+  .bento-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 1.75rem;
+  }
+  .bento-title {
+    font-size: var(--fluid-xl);
+  }
+}
+
+@container bento (min-width: 500px) {
+  .bento-content {
+    padding: 2rem;
+  }
+  .bento-icon {
+    width: 80px;
+    height: 80px;
+    font-size: 2rem;
+  }
+}
+
+.bento-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  height: 100%;
+}
+
+.bento-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  color: white;
+  font-size: 1.5rem;
+  box-shadow: 0 8px 20px rgba(14,165,233,0.3);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.bento-card:hover .bento-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 12px 30px rgba(14,165,233,0.4);
+}
+
+.bento-title {
+  font-size: var(--fluid-lg);
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.bento-text {
+  font-size: var(--fluid-sm);
+  color: #64748b;
+  line-height: 1.6;
+}
+
+/* Bento card hover effects */
+.bento-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+              rgba(14,165,233,0.1) 0%, 
+              transparent 60%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.bento-card:hover::before {
+  opacity: 1;
+}
+
+/* ============================================
+   ✨ Micro-interactions Boutons
+   ============================================ */
+.btn-interactive {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.15s ease,
+              box-shadow 0.25s ease,
+              background 0.2s ease;
+}
+
+.btn-interactive::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.btn-interactive:hover::before {
+  opacity: 1;
+}
+
+.btn-interactive:active {
+  transform: scale(0.97);
+}
+
+/* Haptic feedback simulation */
+@media (hover: hover) {
+  .btn-haptic:hover {
+    animation: hapticPulse 0.15s ease;
+  }
+}
+
+@keyframes hapticPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* Button success state (checkmark transform) */
+.btn-success-state {
+  position: relative;
+}
+
+.btn-success-state .btn-text {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.btn-success-state.is-success .btn-text {
+  opacity: 0;
+  transform: scale(0.8);
+}
+
+.btn-success-state .btn-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0);
+  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.btn-success-state.is-success .btn-check {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.btn-success-state.is-success {
+  background: #10b981 !important;
+  border-color: #10b981 !important;
+}
+
+/* Loading spinner button */
+.btn-loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.btn-loading .btn-text {
+  opacity: 0;
+}
+
+.btn-loading::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: btnSpin 0.8s linear infinite;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Ripple effect */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 50%;
+  left: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.4) 0%, transparent 70%);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.btn-ripple:active::after {
+  transform: translate(-50%, -50%) scale(2.5);
+  opacity: 1;
+  transition: 0s;
+}
+
+/* ============================================
+   📝 Formulaires Progressifs (:user-valid)
+   ============================================ */
+.form-progressive input,
+.form-progressive select,
+.form-progressive textarea {
+  transition: border-color 0.2s ease, 
+              box-shadow 0.2s ease,
+              background 0.2s ease;
+}
+
+/* Only show validation after user interaction */
+.form-progressive input:user-valid,
+.form-progressive select:user-valid,
+.form-progressive textarea:user-valid {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16,185,129,0.03), transparent);
+}
+
+.form-progressive input:user-valid:focus,
+.form-progressive select:user-valid:focus,
+.form-progressive textarea:user-valid:focus {
+  box-shadow: 0 0 0 4px rgba(16,185,129,0.15);
+}
+
+.form-progressive input:user-invalid,
+.form-progressive select:user-invalid,
+.form-progressive textarea:user-invalid {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239,68,68,0.03), transparent);
+}
+
+.form-progressive input:user-invalid:focus,
+.form-progressive select:user-invalid:focus,
+.form-progressive textarea:user-invalid:focus {
+  box-shadow: 0 0 0 4px rgba(239,68,68,0.15);
+}
+
+/* Validation icons */
+.form-field-wrapper {
+  position: relative;
+}
+
+.form-field-wrapper::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.form-field-wrapper:has(input:user-valid)::after {
+  opacity: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2310b981'%3E%3Cpath fill-rule='evenodd' d='M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z' clip-rule='evenodd'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.form-field-wrapper:has(input:user-invalid)::after {
+  opacity: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23ef4444'%3E%3Cpath fill-rule='evenodd' d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* Error message that appears only after user interaction */
+.form-error {
+  display: none;
+  font-size: var(--fluid-xs);
+  color: #ef4444;
+  margin-top: 0.5rem;
+  animation: errorSlide 0.3s ease;
+}
+
+@keyframes errorSlide {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.form-field-wrapper:has(input:user-invalid) + .form-error,
+.form-field-wrapper:has(select:user-invalid) + .form-error {
+  display: block;
+}
 body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 
 /* Reusable card + button styles for consistency */

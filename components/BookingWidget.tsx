@@ -861,7 +861,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                     <div className="mt-6">
                         <button onClick={handleSearch} disabled={loading} 
-                            className="w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2">
+                            className="btn-interactive btn-haptic w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2">
                             {loading ? <span className="animate-spin">⏳</span> : null}
                             {loading ? widgetCopy.loading : isGroup ? widgetCopy.btn_continue_group : isPrivate ? widgetCopy.btn_continue_private : widgetCopy.btn_search}
                         </button>
@@ -909,7 +909,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                     <div className="mt-6">
                                  <button onClick={() => setStep(STEPS.CONTACT)} disabled={!selectedSlot} 
-                                     className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedSlot ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
+                                     className={`btn-interactive btn-haptic w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${selectedSlot ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>
                             {widgetCopy.btn_validate_slot} →
                         </button>
                     </div>
@@ -932,24 +932,24 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     
                     <form 
                         onSubmit={handleContactSubmit} 
-                        className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4"
+                        className="form-progressive flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4"
                     >
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
+                            <div className="form-field-wrapper">
                                 <label htmlFor="bw-firstName" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_firstname}</label>
-                                <input id="bw-firstName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
+                                <input id="bw-firstName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300" 
                                     value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                             </div>
-                            <div>
+                            <div className="form-field-wrapper">
                                 <label htmlFor="bw-lastName" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_lastname}</label>
-                                <input id="bw-lastName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
+                                <input id="bw-lastName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300" 
                                     value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                             </div>
                         </div>
                         
-                        <div>
+                        <div className="form-field-wrapper">
                             <label htmlFor="bw-email" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_email}</label>
-                            <input id="bw-email" required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none" 
+                            <input id="bw-email" required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300" 
                                 value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                         
@@ -1040,7 +1040,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 </div>
                         
                         <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
-                            className="w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg mt-4">
+                            className="btn-interactive btn-haptic w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg mt-4">
                             {isSubmitting ? widgetCopy.submitting : (widgetCopy.btn_go_to_payment || 'Continuer vers le paiement')}
                         </button>
                     </form>
