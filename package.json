@@ -80,6 +80,7 @@
     "@capacitor/geolocation": "^6.0.1",
     "@capacitor/ios": "^7.4.4",
     "@tailwindcss/postcss": "^4.1.17",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "@types/bcryptjs": "^2.4.6",
