@@ -569,11 +569,19 @@
   - Compte des réservations
 - **Alertes**: Email/Slack en cas d'échec
 
-### 28. Disaster Recovery Plan
+### 28. ✅ Disaster Recovery Plan
 - **Priorité**: 🟢 Basse
 - **Effort**: 2h
-- **Doc**: Procédure step-by-step
-- **RTO**: < 4h, **RPO**: < 6h
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `docs/disaster-recovery.md` - Plan DR complet
+- **Contenu**:
+  - Procédures recovery: DB, App, MinIO, Redis, Infrastructure complète
+  - Classification incidents (SEV1-4)
+  - Checklist pre/post incident
+  - Templates communication et post-mortem
+  - Commandes utiles et contacts d'urgence
+- **Objectifs**: RTO < 4h | RPO < 6h
 
 ---
 
