@@ -196,6 +196,127 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
     from { transform: translateY(0) scale(1); }
     to { transform: translateY(150px) scale(1.1); }
   }
+
+  /* ============================================
+     📖 Scroll Storytelling Effects
+     ============================================ */
+  
+  /* Text reveal character by character effect */
+  .scroll-text-reveal {
+    animation: textReveal linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 40%;
+  }
+  
+  @keyframes textReveal {
+    from { 
+      opacity: 0; 
+      clip-path: inset(0 100% 0 0);
+      filter: blur(4px);
+    }
+    to { 
+      opacity: 1; 
+      clip-path: inset(0 0 0 0);
+      filter: blur(0);
+    }
+  }
+
+  /* Parallax depth layers */
+  .scroll-parallax-slow {
+    animation: parallaxSlow linear both;
+    animation-timeline: view();
+    animation-range: entry 0% exit 100%;
+  }
+  
+  @keyframes parallaxSlow {
+    from { transform: translateY(-50px); }
+    to { transform: translateY(50px); }
+  }
+
+  .scroll-parallax-fast {
+    animation: parallaxFast linear both;
+    animation-timeline: view();
+    animation-range: entry 0% exit 100%;
+  }
+  
+  @keyframes parallaxFast {
+    from { transform: translateY(-100px); }
+    to { transform: translateY(100px); }
+  }
+
+  /* Zoom in on scroll */
+  .scroll-zoom-in {
+    animation: scrollZoomIn linear both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 60%;
+  }
+  
+  @keyframes scrollZoomIn {
+    from { transform: scale(0.7); opacity: 0; filter: blur(10px); }
+    to { transform: scale(1); opacity: 1; filter: blur(0); }
+  }
+
+  /* Stagger children animation */
+  .scroll-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .scroll-stagger > *:nth-child(2) { animation-delay: 100ms; }
+  .scroll-stagger > *:nth-child(3) { animation-delay: 200ms; }
+  .scroll-stagger > *:nth-child(4) { animation-delay: 300ms; }
+  .scroll-stagger > *:nth-child(5) { animation-delay: 400ms; }
+  .scroll-stagger > *:nth-child(6) { animation-delay: 500ms; }
+
+  /* Horizontal scroll into view */
+  .scroll-from-left {
+    animation: fromLeft linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 40%;
+  }
+  
+  @keyframes fromLeft {
+    from { transform: translateX(-150px) rotate(-5deg); opacity: 0; }
+    to { transform: translateX(0) rotate(0); opacity: 1; }
+  }
+
+  .scroll-from-right {
+    animation: fromRight linear both;
+    animation-timeline: view();
+    animation-range: entry 5% cover 40%;
+  }
+  
+  @keyframes fromRight {
+    from { transform: translateX(150px) rotate(5deg); opacity: 0; }
+    to { transform: translateX(0) rotate(0); opacity: 1; }
+  }
+
+  /* Split reveal - mask from center */
+  .scroll-split-reveal {
+    animation: splitReveal linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 50%;
+  }
+  
+  @keyframes splitReveal {
+    from { 
+      clip-path: inset(50% 50% 50% 50%);
+      transform: scale(1.2);
+    }
+    to { 
+      clip-path: inset(0% 0% 0% 0%);
+      transform: scale(1);
+    }
+  }
+
+  /* Glow pulse on scroll */
+  .scroll-glow {
+    animation: scrollGlow linear both;
+    animation-timeline: view();
+    animation-range: entry 20% cover 60%;
+  }
+  
+  @keyframes scrollGlow {
+    0% { box-shadow: 0 0 0 rgba(14, 165, 233, 0); }
+    50% { box-shadow: 0 0 60px rgba(14, 165, 233, 0.4); }
+    100% { box-shadow: 0 0 20px rgba(14, 165, 233, 0.1); }
+  }
 }
 
 /* Fallback for browsers without scroll-driven animations */

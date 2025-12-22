@@ -297,29 +297,20 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
       <nav className={`fixed w-full z-40 transition-all ${scrolled ? 'backdrop-blur-md bg-white/90 shadow-sm border-b border-slate-200 h-16' : 'bg-transparent h-20'} `}>
-        <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <button 
-              ref={menuButtonRef} 
-              aria-label="Menu" 
-              onClick={()=>{ setMenuOpen(true); }} 
-              className="hamburger-btn p-2 rounded-lg hover:bg-white/10 active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
-            >
-              <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
-              <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
-              <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
-            </button>
-            <Link
-              href={`/${currentLang}`}
-              aria-label={liveDict?.nav?.home || 'Accueil'}
-              className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-sm"
-            >
-              <OptimizedImage src="/images/logo.webp" fallback="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={48} className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} priority />
-            </Link>
-          </div>
-          {/* All navigation links removed from header; accessible only via offcanvas menu */}
+        <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
+          <button 
+            ref={menuButtonRef} 
+            aria-label="Menu" 
+            onClick={()=>{ setMenuOpen(true); }} 
+            className="hamburger-btn rounded-lg hover:bg-white/10 active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+          >
+            <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+            <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+            <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+          </button>
+          {/* Logo removed - clean minimal header */}
+          <div className="flex-1"></div>
         </div>
-        {/* Off-canvas menu */}
       </nav>
       {/* Offcanvas outside nav so fixed covers viewport */}
       { (menuOpen || menuClosing) && (
@@ -327,12 +318,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           <div onClick={closeMenu} className={`menu-backdrop absolute inset-0 bg-slate-900/60 transition-opacity duration-300 ${menuOpen && !menuClosing ? 'opacity-100' : 'opacity-0'}`}></div>
           <div ref={panelRef} className={`absolute top-0 left-0 h-full w-[320px] bg-gradient-to-b from-white to-slate-50 shadow-2xl flex flex-col ${menuClosing ? 'menu-panel-closing' : 'menu-panel'}`}>
             <div className="flex items-center justify-between px-6 h-20 border-b border-slate-100/80">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#0284c7] flex items-center justify-center shadow-lg shadow-sky-500/20">
-                  <span className="text-white text-lg">🚤</span>
-                </div>
-                <span className="font-serif font-bold text-xl bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Menu</span>
-              </div>
+              <span className="font-serif font-bold text-2xl bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Sweet Narcisse</span>
               <button 
                 aria-label="Fermer" 
                 onClick={closeMenu} 
@@ -343,57 +329,50 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
                 </svg>
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto py-6 px-4">
-              <ul className="space-y-2">
+            <nav className="flex-1 overflow-y-auto py-8 px-4">
+              <ul className="space-y-1">
                 <li className="menu-link-animate" style={{ animationDelay: '50ms' }}>
-                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="menu-link flex items-center">
-                    <span className="menu-icon">🌊</span>
+                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="menu-link">
                     {liveDict.nav?.experience ?? 'Experience'}
                   </a>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '100ms' }}>
-                  <Link onClick={closeMenu} href={`/${currentLang}/partners`} className="menu-link flex items-center">
-                    <span className="menu-icon">🤝</span>
+                  <Link onClick={closeMenu} href={`/${currentLang}/partners`} className="menu-link">
                     {liveDict.partners?.nav || 'Partners'}
                   </Link>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '150ms' }}>
-                  <a onClick={closeMenu} href="#contact" className="menu-link flex items-center">
-                    <span className="menu-icon">✉️</span>
+                  <a onClick={closeMenu} href="#contact" className="menu-link">
                     {liveDict.nav?.contact ?? 'Contact'}
                   </a>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '200ms' }}>
-                  <a onClick={closeMenu} href="#reservation" className="menu-link flex items-center">
-                    <span className="menu-icon">📅</span>
+                  <a onClick={closeMenu} href="#reservation" className="menu-link">
                     {liveDict.nav?.book ?? 'Book'}
                   </a>
                 </li>
                 
-                <li className="menu-link-animate" style={{ animationDelay: '250ms' }}>
+                <li className="menu-link-animate pt-6" style={{ animationDelay: '250ms' }}>
                   <div className="menu-divider"></div>
-                  <span className="block px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-slate-400 font-bold">{liveDict.footer?.infos ?? 'Infos'}</span>
+                  <span className="block px-4 py-3 text-[11px] uppercase tracking-[0.2em] text-slate-400 font-bold">{liveDict.footer?.infos ?? 'Infos'}</span>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '300ms' }}>
-                  <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="menu-link flex items-center text-sm">
-                    <span className="menu-icon text-sm">📜</span>
+                  <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="menu-link text-sm text-slate-500">
                     {liveDict.footer?.legal ?? 'Legal'}
                   </Link>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '350ms' }}>
-                  <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="menu-link flex items-center text-sm">
-                    <span className="menu-icon text-sm">📋</span>
+                  <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="menu-link text-sm text-slate-500">
                     {liveDict.footer?.cgv ?? 'Terms'}
                   </Link>
                 </li>
                 <li className="menu-link-animate" style={{ animationDelay: '400ms' }}>
-                  <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="menu-link flex items-center text-sm">
-                    <span className="menu-icon text-sm">🔒</span>
+                  <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="menu-link text-sm text-slate-500">
                     {liveDict.footer?.privacy ?? 'Privacy'}
                   </Link>
                 </li>
                 
-                <li className="menu-link-animate pt-4" style={{ animationDelay: '450ms' }}>
+                <li className="menu-link-animate pt-6" style={{ animationDelay: '450ms' }}>
                   <div className="menu-divider"></div>
                   <div ref={dropdownRef} className="mt-4">
                     <button 
@@ -440,7 +419,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
             </nav>
             {/* Menu footer */}
             <div className="px-6 py-4 border-t border-slate-100/80 bg-slate-50/50">
-              <p className="text-xs text-slate-400 text-center">Sweet Narcisse © {new Date().getFullYear()}</p>
+              <p className="text-xs text-slate-400 text-center">© {new Date().getFullYear()} Sweet Narcisse</p>
             </div>
           </div>
         </div>
@@ -548,29 +527,29 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       <section
         id="presentation"
         data-preview-anchor="presentation"
-        className="py-24 px-6 bg-sand-gradient section-top-blend"
+        className="py-24 px-6 bg-sand-gradient section-top-blend overflow-hidden"
       >
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <div className="space-y-6 scroll-slide-left">
-            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-fluid-xs uppercase">Sweet Narcisse</h4>
-            <h2 className="text-fluid-3xl font-serif font-bold text-deep">{liveDict.presentation?.title ?? ''}</h2>
-            <p className="text-slate-600 leading-relaxed text-fluid-base text-justify">{storyParagraph}</p>
-            <ul className="space-y-3 pt-4">
+          <div className="space-y-6">
+            <h4 className="text-[#0ea5e9] font-bold tracking-widest text-fluid-xs uppercase scroll-text-reveal">Sweet Narcisse</h4>
+            <h2 className="text-fluid-3xl font-serif font-bold text-deep scroll-from-left">{liveDict.presentation?.title ?? ''}</h2>
+            <p className="text-slate-600 leading-relaxed text-fluid-base text-justify scroll-fade-in">{storyParagraph}</p>
+            <ul className="space-y-3 pt-4 scroll-stagger">
               {(liveDict.presentation?.points ?? []).map((item: string, i: number) => (
                 <li 
                   key={item} 
-                  className="flex items-center gap-3 text-slate-700 font-medium scroll-reveal"
+                  className="flex items-center gap-3 text-slate-700 font-medium scroll-slide-left"
                   style={{ animationDelay: `${i * 100}ms` }}
                 >
-                  <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold">✓</span>
+                  <span className="w-6 h-6 rounded-full bg-sky-100 text-[#0ea5e9] flex items-center justify-center font-bold text-sm">✓</span>
                   {item}
                 </li>
               ))}
             </ul>
           </div>
-          <div className="relative group scroll-slide-right">
-            <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
-            <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover scroll-rotate" />
+          <div className="relative group scroll-zoom-in">
+            <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500 scroll-glow"></div>
+            <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
           </div>
         </div>
       </section>
@@ -617,13 +596,13 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         )}
       </section>
 
-      <section className="py-24 px-6 bg-white section-top-blend">
+      <section className="py-24 px-6 bg-white section-top-blend overflow-hidden">
         <div className="max-w-7xl mx-auto">
-          <div className="mb-16 text-center scroll-reveal">
-            <h2 className="text-fluid-3xl font-serif font-bold mb-4">{liveDict.bento?.title}</h2>
-            <p className="text-fluid-base text-slate-600 max-w-2xl mx-auto">{liveDict.bento?.subtitle}</p>
+          <div className="mb-16 text-center">
+            <h2 className="text-fluid-3xl font-serif font-bold mb-4 scroll-text-reveal">{liveDict.bento?.title}</h2>
+            <p className="text-fluid-base text-slate-600 max-w-2xl mx-auto scroll-fade-in">{liveDict.bento?.subtitle}</p>
           </div>
-          <div className="bento-grid">
+          <div className="bento-grid scroll-stagger">
             {liveDict.bento?.cards?.map((c: Record<string, unknown>, idx: number) => {
               const originalTitle = String(c.title || '').trim();
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
@@ -636,7 +615,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
               else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.webp';
               const text = typeof c.text === 'string' ? c.text : String(c.text ?? '');
-              const scrollClass = idx % 2 === 0 ? 'scroll-slide-left' : 'scroll-slide-right';
+              const scrollClass = idx % 2 === 0 ? 'scroll-from-left' : 'scroll-from-right';
               return (
                 <div
                   key={idx}
@@ -645,6 +624,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
                     backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15)), url(${bg})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center top',
+                    animationDelay: `${idx * 80}ms`,
                   }}
                   onMouseMove={(e) => {
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -669,12 +649,12 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       </section>
 
-      <section className="py-24 px-6 bg-sand-gradient section-top-blend" id="reviews">
-        <div className="max-w-5xl mx-auto text-center mb-12 scroll-reveal">
-          <h2 className="text-fluid-3xl font-serif font-bold mb-3">{liveDict.social?.title}</h2>
-          <p className="text-fluid-base text-slate-600 max-w-xl mx-auto">{liveDict.social?.subtitle}</p>
+      <section className="py-24 px-6 bg-sand-gradient section-top-blend overflow-hidden" id="reviews">
+        <div className="max-w-5xl mx-auto text-center mb-12">
+          <h2 className="text-fluid-3xl font-serif font-bold mb-3 scroll-text-reveal">{liveDict.social?.title}</h2>
+          <p className="text-fluid-base text-slate-600 max-w-xl mx-auto scroll-fade-in">{liveDict.social?.subtitle}</p>
         </div>
-        <div className="max-w-6xl mx-auto scroll-fade-in">
+        <div className="max-w-6xl mx-auto scroll-zoom-in">
           <TripReviews dict={liveDict} lang={currentLang} />
         </div>
       </section>
@@ -691,12 +671,12 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           <path fill="url(#reservationWave)" d="M0,100 L0,50 C160,20 320,20 480,40 C640,60 800,80 960,70 C1120,60 1280,30 1440,40 L1440,100 Z" />
         </svg>
       </div>
-      <section id="reservation" className="-mt-6 py-24 px-4 bg-[#0d1b2a] relative overflow-hidden fade-in section-top-blend section-top-blend-dark">
+      <section id="reservation" className="-mt-6 py-24 px-4 bg-[#0d1b2a] relative overflow-hidden section-top-blend section-top-blend-dark">
         <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
-          <div className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20"></div>
-          <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0"></div>
+          <div className="absolute w-96 h-96 bg-sky-500 rounded-full blur-[120px] -top-20 -left-20 scroll-parallax-slow"></div>
+          <div className="absolute w-96 h-96 bg-blue-500 rounded-full blur-[120px] bottom-0 right-0 scroll-parallax-fast"></div>
         </div>
-        <div className="relative z-10 max-w-6xl mx-auto text-center mb-12">
+        <div className="relative z-10 max-w-6xl mx-auto text-center mb-12 scroll-split-reveal">
           <h2 className="text-4xl font-serif font-bold text-white mb-4">{liveDict.booking?.title ?? 'Book now'}</h2>
           <p className="text-slate-400 text-lg">{liveDict.booking?.subtitle ?? ''}</p>
         </div>
