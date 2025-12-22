@@ -1,10 +1,9 @@
-// proxy.ts (à la racine du projet)
-
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { match } from '@formatjs/intl-localematcher'
 import Negotiator from 'negotiator'
 import { auth } from '@/auth'
+import { recordHttpRequest } from '@/lib/metrics'
 
 const DEFAULT_CONNECT_SOURCES = [
   "'self'",
@@ -154,11 +153,21 @@ function getLocale(request: NextRequest) {
 
 // --- LE PROXY COMBINÉ ---
 export const proxy = auth((req) => {
-  const { pathname } = req.nextUrl
+  const startTime = performance.now()
+  const method = req.method
+  const pathname = req.nextUrl.pathname
+
+  // Simplify route for metrics (remove IDs, language codes, etc.)
+  const route = pathname
+    .replace(/\/\d+/g, '/:id')
+    .replace(/\/(fr|en|de|es|it)(\/|$)/, '/:lang$2')
+    .replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '/:uuid')
+
+  const { pathname: originalPath } = req.nextUrl
   const userAgent = req.headers.get('user-agent') || ''
   const isNativeApp = /(Capacitor|SweetNarcisseApp)/i.test(userAgent) || /;\s?wv\)/i.test(userAgent)
 
-  if (pathname.startsWith('/admin/employees')) {
+  if (originalPath.startsWith('/admin/employees')) {
     type ProxyAuth = { auth?: { user?: { role?: string | null } } }
     const user = (req as unknown as ProxyAuth).auth?.user
     if (!user) {
@@ -169,37 +178,62 @@ export const proxy = auth((req) => {
   }
 
   if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/cancel') ||
-    pathname.includes('.')
+    originalPath.startsWith('/_next') ||
+    originalPath.startsWith('/admin') ||
+    originalPath.startsWith('/login') ||
+    originalPath.startsWith('/cancel') ||
+    originalPath.includes('.')
   ) {
-    return applySecurityHeaders(NextResponse.next())
+    const response = applySecurityHeaders(NextResponse.next())
+    trackRequestMetrics(method, route, response.status, startTime)
+    return response
   }
 
-  if (pathname.startsWith('/api')) {
-    return applySecurityHeaders(NextResponse.next())
+  if (originalPath.startsWith('/api')) {
+    const response = applySecurityHeaders(NextResponse.next())
+    trackRequestMetrics(method, route, response.status, startTime)
+    return response
   }
 
   if (isNativeApp) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'
     url.search = ''
-    return applySecurityHeaders(NextResponse.redirect(url))
+    const response = applySecurityHeaders(NextResponse.redirect(url))
+    trackRequestMetrics(method, route, response.status, startTime)
+    return response
   }
 
   const pathnameHasLocale = locales.some(
-    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+    (locale) => originalPath.startsWith(`/${locale}/`) || originalPath === `/${locale}`
   )
 
-  if (pathnameHasLocale) return applySecurityHeaders(NextResponse.next())
+  if (pathnameHasLocale) {
+    const response = applySecurityHeaders(NextResponse.next())
+    trackRequestMetrics(method, route, response.status, startTime)
+    return response
+  }
 
   const locale = getLocale(req)
-  req.nextUrl.pathname = `/${locale}${pathname}`
+  req.nextUrl.pathname = `/${locale}${originalPath}`
 
-  return applySecurityHeaders(NextResponse.redirect(req.nextUrl))
+  const response = applySecurityHeaders(NextResponse.redirect(req.nextUrl))
+  trackRequestMetrics(method, route, response.status, startTime)
+  return response
 })
+
+function trackRequestMetrics(method: string, route: string, status: number, startTime: number) {
+  // Skip metrics endpoint to avoid recursion
+  if (route.startsWith('/api/metrics')) return
+  
+  Promise.resolve().then(() => {
+    const duration = performance.now() - startTime
+    recordHttpRequest(method, route, status, duration)
+  }).catch((err) => {
+    // Silently ignore metrics errors to not break requests
+    console.debug('Metrics tracking failed:', err)
+  })
+}
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
