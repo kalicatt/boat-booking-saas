@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { prisma } from '@/lib/prisma'
-import { memoInvalidateByDate } from '@/lib/memoCache'
+import { cacheInvalidateDate } from '@/lib/cache'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 
 export async function POST(request: Request) {
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 
     if (booking.date) {
       const bookingDate = booking.date.toISOString().slice(0, 10)
-      memoInvalidateByDate(bookingDate)
+      cacheInvalidateDate(bookingDate)
     }
 
     return NextResponse.json({ success: true })

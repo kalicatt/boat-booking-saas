@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { memoGet, memoSet } from '@/lib/memoCache'
+import { withCache, CACHE_TTL } from '@/lib/cache'
 import { computeAvailability } from '@/lib/availability'
 
 type AvailabilityPayload = { date: string; availableSlots: string[]; blockedReason?: string }
@@ -27,61 +27,70 @@ export async function GET(request: Request) {
   if (peopleNeeded === 0) return NextResponse.json({ date: dateParam, availableSlots: [] })
 
   try {
-    // Cache key (memo cache)
+    // Use Redis cache with automatic fallback to memory
     const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
-    const memoHit = memoGet<AvailabilityPayload>(cacheKey)
-    if (memoHit) return NextResponse.json(memoHit)
-    const boats = await prisma.boat.findMany({ 
-        where: { status: 'ACTIVE' },
-        orderBy: { id: 'asc' } 
-    })
+    
+    const result = await withCache<AvailabilityPayload>(
+      cacheKey,
+      async () => {
+        // Fetch boats (cached separately for better reuse)
+        const boats = await withCache(
+          'boats:active',
+          () => prisma.boat.findMany({ 
+            where: { status: 'ACTIVE' },
+            orderBy: { id: 'asc' } 
+          }),
+          CACHE_TTL.BOATS
+        )
 
-    if (boats.length === 0) {
-        return NextResponse.json({ date: dateParam, availableSlots: [] })
-    }
+        if (boats.length === 0) {
+          return { date: dateParam, availableSlots: [] }
+        }
 
-    // Fenêtre du jour en UTC "flottant" (pas de décalage local)
-    const dayStartUtc = new Date(`${dateParam}T00:00:00.000Z`)
-    const dayEndUtc = new Date(`${dateParam}T23:59:59.999Z`)
-    const bookings = await prisma.booking.findMany({
-      where: {
-        startTime: { gte: dayStartUtc, lte: dayEndUtc },
-        status: { not: 'CANCELLED' }
-      }
-    })
+        // Fenêtre du jour en UTC "flottant" (pas de décalage local)
+        const dayStartUtc = new Date(`${dateParam}T00:00:00.000Z`)
+        const dayEndUtc = new Date(`${dateParam}T23:59:59.999Z`)
+        
+        const bookings = await prisma.booking.findMany({
+          where: {
+            startTime: { gte: dayStartUtc, lte: dayEndUtc },
+            status: { not: 'CANCELLED' }
+          }
+        })
 
-    // Fetch any blocks overlapping the requested day once
-    const blocks = await prisma.blockedInterval.findMany({
-      where: {
-        start: { lte: dayEndUtc },
-        end: { gte: dayStartUtc },
-      }
-    })
+        // Fetch any blocks overlapping the requested day once
+        const blocks = await prisma.blockedInterval.findMany({
+          where: {
+            start: { lte: dayEndUtc },
+            end: { gte: dayStartUtc },
+          }
+        })
 
-    // If a full-day block exists, short-circuit to no availability
-    const hasFullDayBlock = blocks.some(b => {
-      if (b.scope !== 'day') return false
-      const bStart = new Date(b.start)
-      const bEnd = new Date(b.end)
-      // Consider a day block if it spans the whole day range
-      return bStart <= dayStartUtc && bEnd >= dayEndUtc
-    })
-    if (hasFullDayBlock) {
-      const reason = blocks.find(b => b.scope === 'day')?.reason || 'Journée indisponible'
-      const result: AvailabilityPayload = { date: dateParam, availableSlots: [], blockedReason: reason }
-      memoSet(cacheKey, result)
-      return NextResponse.json(result)
-    }
+        // If a full-day block exists, short-circuit to no availability
+        const hasFullDayBlock = blocks.some(b => {
+          if (b.scope !== 'day') return false
+          const bStart = new Date(b.start)
+          const bEnd = new Date(b.end)
+          return bStart <= dayStartUtc && bEnd >= dayEndUtc
+        })
+        
+        if (hasFullDayBlock) {
+          const reason = blocks.find(b => b.scope === 'day')?.reason || 'Journée indisponible'
+          return { date: dateParam, availableSlots: [], blockedReason: reason }
+        }
 
-    const result: AvailabilityPayload = computeAvailability({
-      dateParam,
-      requestedLang,
-      peopleNeeded,
-      boats,
-      bookings,
-      blocks
-    })
-    memoSet(cacheKey, result)
+        return computeAvailability({
+          dateParam,
+          requestedLang,
+          peopleNeeded,
+          boats,
+          bookings,
+          blocks
+        })
+      },
+      CACHE_TTL.AVAILABILITY
+    )
+    
     return NextResponse.json(result)
 
   } catch (error) {

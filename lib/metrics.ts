@@ -1,4 +1,5 @@
 import client from 'prom-client'
+import { getCacheMetrics } from '@/lib/cache'
 
 type MetricsContext = {
   register: client.Registry
@@ -11,6 +12,10 @@ type MetricsContext = {
   bookingCancelled: client.Counter<'language'>
   bookingPeople: client.Counter<'language'>
   boatCapacity: client.Gauge<'boat'>
+  cacheHits: client.Gauge
+  cacheMisses: client.Gauge
+  cacheErrors: client.Gauge
+  cacheHitRate: client.Gauge
 }
 
 const globalMetrics = globalThis as typeof globalThis & {
@@ -89,6 +94,30 @@ function initMetrics(): MetricsContext {
     registers: [register]
   })
 
+  const cacheHits = new client.Gauge({
+    name: 'sweet_narcisse_cache_hits_total',
+    help: 'Total number of cache hits',
+    registers: [register]
+  })
+
+  const cacheMisses = new client.Gauge({
+    name: 'sweet_narcisse_cache_misses_total',
+    help: 'Total number of cache misses',
+    registers: [register]
+  })
+
+  const cacheErrors = new client.Gauge({
+    name: 'sweet_narcisse_cache_errors_total',
+    help: 'Total number of cache errors',
+    registers: [register]
+  })
+
+  const cacheHitRate = new client.Gauge({
+    name: 'sweet_narcisse_cache_hit_rate_percent',
+    help: 'Cache hit rate percentage',
+    registers: [register]
+  })
+
   globalMetrics.__snMetrics = {
     register,
     rateLimitAllowed,
@@ -99,7 +128,11 @@ function initMetrics(): MetricsContext {
     bookingCount,
     bookingCancelled,
     bookingPeople,
-    boatCapacity
+    boatCapacity,
+    cacheHits,
+    cacheMisses,
+    cacheErrors,
+    cacheHitRate
   }
 
   return globalMetrics.__snMetrics
@@ -115,7 +148,11 @@ const {
   bookingCount,
   bookingCancelled,
   bookingPeople,
-  boatCapacity
+  boatCapacity,
+  cacheHits,
+  cacheMisses,
+  cacheErrors,
+  cacheHitRate
 } = initMetrics()
 
 export function recordRateLimitEvent(bucket: string, allowed: boolean) {
@@ -148,7 +185,18 @@ export function setBoatCapacity(boatName: string, capacity: number) {
   boatCapacity.set({ boat: boatName }, capacity)
 }
 
+export function updateCacheMetrics() {
+  const metrics = getCacheMetrics()
+  cacheHits.set(metrics.hits)
+  cacheMisses.set(metrics.misses)
+  cacheErrors.set(metrics.errors)
+  const hitRate = parseFloat(metrics.hitRate.replace('%', ''))
+  cacheHitRate.set(hitRate)
+}
+
 export async function serializeMetrics() {
+  // Update cache metrics before serialization
+  updateCacheMetrics()
   return register.metrics()
 }
 

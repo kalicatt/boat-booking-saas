@@ -5,7 +5,7 @@ import { createLog } from '@/lib/logger'
 import { BookingRequestSchema } from '@/lib/validation'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
-import { memoInvalidateByDate } from '@/lib/memoCache'
+import { cacheInvalidateDate } from '@/lib/cache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
 import { MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES } from '@/lib/config'
 import { auth } from '@/auth'
@@ -567,8 +567,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Erreur paiement', details: String(msg) }, { status: 500 })
     }
 
-    // Invalidate memo availability cache for this date
-    memoInvalidateByDate(date)
+    // Invalidate cache for this date (availability, bookings)
+    cacheInvalidateDate(date)
 
     // Record business metrics (only for confirmed bookings)
     if (!pendingOnly) {
