@@ -1,6 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import { POST as contactPost } from '@/app/api/contact/private/route'
 
+// Mock Resend
+vi.mock('resend', () => ({
+  Resend: vi.fn(() => ({
+    emails: {
+      send: vi.fn(() => Promise.resolve({ id: 'test-email-id' }))
+    }
+  }))
+}))
+
 // Mock le rate limiter
 vi.mock('@/lib/rateLimit', () => ({
   rateLimit: vi.fn(() => Promise.resolve({ allowed: true, remaining: 5 })),
@@ -64,7 +73,7 @@ describe('POST /api/contact/private', () => {
     expect(response.status).toBe(400)
     
     const data = await response.json()
-    expect(data.error).toContain('message') || expect(data.error).toContain('caractères')
+    expect(data.error).toMatch(/message|caractères/)
   })
 
   it('should accept valid contact request', async () => {
