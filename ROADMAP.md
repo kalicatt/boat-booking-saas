@@ -118,17 +118,20 @@
   - Boat capacities
 - **Auto-tracking**: Middleware Next.js enregistre automatiquement toutes les requêtes HTTP
 
-### 11. Alerting Gratuit
+### 11. ✅ Alerting Gratuit
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 1h
+- **✅ Fait**: 11 règles d'alertes configurées (infrastructure + application + business)
 - **Canaux**:
-  - Email (SMTP existant)
-  - **Ntfy.sh** (push notifications gratuites)
-  - Webhook Discord/Telegram (gratuit)
-- **Alertes**:
-  - Disque > 85%
-  - App down > 2min
-  - Error rate > 5%
+  - ✅ Email SMTP avec templates HTML
+  - ✅ **Ntfy.sh** (push notifications mobiles gratuites - topic: sweetnarcisse-alerts)
+  - ✅ Webhook Discord (optionnel via env var)
+  - ✅ Generic webhook (fallback)
+- **Alertes configurées**:
+  - ✅ Infrastructure: Disque >85%, RAM >90%, CPU >80%
+  - ✅ Application: App down >2min, Error rate >5%, Latency P95 >2s, Rate limiter spikes, DB failure
+  - ✅ Business: Pas de réservations après 14h, Taux annulation >20%
+- **Features**: Grouping, inhibition rules, résolution auto, repeat intervals intelligents
 
 ### 12. Logs Structurés
 - **Priorité**: 🟡 Moyenne
@@ -412,9 +415,9 @@
 - **0 vulnérabilités npm** (22/12/2025)
 - **Tests unitaires** - 76 tests couvrant la logique critique (22/12/2025)
 - **Dashboards Grafana** - Business + Performance avec métriques auto (22/12/2025)
+- **Alerting system** - 11 alertes multi-canaux (email/ntfy/discord) (22/12/2025)
 
 ### 🔄 En Cours
-- Configuration alerting Grafana/Alertmanager
 - Rate limiting production
 
 ### ⏳ Planifié
@@ -445,10 +448,10 @@
 4. ✅ Setup GitHub Actions CI (1h) - **FAIT 22/12/2025**
 5. ✅ Tests unitaires critiques (2h) - **FAIT 22/12/2025**
 6. ✅ Dashboards Grafana (3h) - **FAIT 22/12/2025**
-7. 🔄 Configuration alerting (1h) - **EN COURS**
-8. ⏸️ Rate limiting production (1h)
+7. ✅ Configuration alerting (1h) - **FAIT 22/12/2025**
+8. 🔄 Rate limiting production (1h) - **EN COURS**
 
-**Sprint 1 Progress**: 5/5 complétés ✅ | **Sprint 2 Progress**: 1/2 ✅
+**Sprint 1 Progress**: 5/5 complétés ✅ | **Sprint 2 Progress**: 2/2 complétés ✅ | **Sprint 3 Progress**: 0/1
 
 ---
 
