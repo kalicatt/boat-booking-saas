@@ -12,6 +12,7 @@ import { auth } from '@/auth'
 import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
 import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
+import { recordBooking } from '@/lib/metrics'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -568,6 +569,15 @@ export async function POST(request: Request) {
 
     // Invalidate memo availability cache for this date
     memoInvalidateByDate(date)
+
+    // Record business metrics (only for confirmed bookings)
+    if (!pendingOnly) {
+      recordBooking(
+        createdBooking.language,
+        createdBooking.totalPrice,
+        createdBooking.numberOfPeople
+      )
+    }
 
     const pendingExpiresAt = pendingOnly ? addMinutes(createdBooking.createdAt, PAYMENT_TIMEOUT_MINUTES) : null
     return NextResponse.json({

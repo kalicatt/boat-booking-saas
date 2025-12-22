@@ -4,6 +4,13 @@ type MetricsContext = {
   register: client.Registry
   rateLimitAllowed: client.Counter<'bucket'>
   rateLimitBlocked: client.Counter<'bucket'>
+  httpRequestDuration: client.Histogram<'method' | 'route' | 'status'>
+  httpRequestsTotal: client.Counter<'method' | 'route' | 'status'>
+  bookingRevenue: client.Counter<'language'>
+  bookingCount: client.Counter<'language'>
+  bookingCancelled: client.Counter<'language'>
+  bookingPeople: client.Counter<'language'>
+  boatCapacity: client.Gauge<'boat'>
 }
 
 const globalMetrics = globalThis as typeof globalThis & {
@@ -32,16 +39,84 @@ function initMetrics(): MetricsContext {
     registers: [register]
   })
 
+  const httpRequestDuration = new client.Histogram<'method' | 'route' | 'status'>({
+    name: 'http_request_duration_ms',
+    help: 'Duration of HTTP requests in ms',
+    labelNames: ['method', 'route', 'status'],
+    buckets: [10, 50, 100, 200, 500, 1000, 2000, 5000],
+    registers: [register]
+  })
+
+  const httpRequestsTotal = new client.Counter<'method' | 'route' | 'status'>({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'route', 'status'],
+    registers: [register]
+  })
+
+  const bookingRevenue = new client.Counter<'language'>({
+    name: 'sweet_narcisse_booking_revenue_euros_total',
+    help: 'Total booking revenue in euros',
+    labelNames: ['language'],
+    registers: [register]
+  })
+
+  const bookingCount = new client.Counter<'language'>({
+    name: 'sweet_narcisse_booking_count_total',
+    help: 'Total number of confirmed bookings',
+    labelNames: ['language'],
+    registers: [register]
+  })
+
+  const bookingCancelled = new client.Counter<'language'>({
+    name: 'sweet_narcisse_booking_cancelled_total',
+    help: 'Total number of cancelled bookings',
+    labelNames: ['language'],
+    registers: [register]
+  })
+
+  const bookingPeople = new client.Counter<'language'>({
+    name: 'sweet_narcisse_booking_people_total',
+    help: 'Total number of passengers',
+    labelNames: ['language'],
+    registers: [register]
+  })
+
+  const boatCapacity = new client.Gauge<'boat'>({
+    name: 'sweet_narcisse_boat_capacity_total',
+    help: 'Total boat capacity',
+    labelNames: ['boat'],
+    registers: [register]
+  })
+
   globalMetrics.__snMetrics = {
     register,
     rateLimitAllowed,
-    rateLimitBlocked
+    rateLimitBlocked,
+    httpRequestDuration,
+    httpRequestsTotal,
+    bookingRevenue,
+    bookingCount,
+    bookingCancelled,
+    bookingPeople,
+    boatCapacity
   }
 
   return globalMetrics.__snMetrics
 }
 
-const { register, rateLimitAllowed, rateLimitBlocked } = initMetrics()
+const {
+  register,
+  rateLimitAllowed,
+  rateLimitBlocked,
+  httpRequestDuration,
+  httpRequestsTotal,
+  bookingRevenue,
+  bookingCount,
+  bookingCancelled,
+  bookingPeople,
+  boatCapacity
+} = initMetrics()
 
 export function recordRateLimitEvent(bucket: string, allowed: boolean) {
   const label: Record<'bucket', string> = { bucket }
@@ -50,6 +125,27 @@ export function recordRateLimitEvent(bucket: string, allowed: boolean) {
   } else {
     rateLimitBlocked.inc(label)
   }
+}
+
+export function recordHttpRequest(method: string, route: string, status: number, durationMs: number) {
+  const labels = { method, route, status: status.toString() }
+  httpRequestsTotal.inc(labels)
+  httpRequestDuration.observe(labels, durationMs)
+}
+
+export function recordBooking(language: string, revenue: number, people: number) {
+  const labels = { language }
+  bookingCount.inc(labels)
+  bookingRevenue.inc(labels, revenue)
+  bookingPeople.inc(labels, people)
+}
+
+export function recordBookingCancellation(language: string) {
+  bookingCancelled.inc({ language })
+}
+
+export function setBoatCapacity(boatName: string, capacity: number) {
+  boatCapacity.set({ boat: boatName }, capacity)
 }
 
 export async function serializeMetrics() {

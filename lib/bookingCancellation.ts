@@ -3,6 +3,7 @@ import { computeBookingToken } from '@/lib/bookingToken'
 import { sendMail } from '@/lib/mailer'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import { memoInvalidateByDate } from '@/lib/memoCache'
+import { recordBookingCancellation } from '@/lib/metrics'
 
 import type { Booking, User } from '@prisma/client'
 
@@ -50,6 +51,9 @@ export async function cancelBookingWithToken(bookingId: string, token: string): 
 
   await prisma.booking.update({ where: { id: bookingId }, data: { status: 'CANCELLED' } })
   booking.status = 'CANCELLED'
+
+  // Record cancellation metric
+  recordBookingCancellation(booking.language)
 
   const dateKey = booking.date.toISOString().slice(0, 10)
   memoInvalidateByDate(dateKey)
