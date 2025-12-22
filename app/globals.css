@@ -6,6 +6,59 @@
    🎨 UX 2025 - Sweet Narcisse Design System
    ============================================ */
 
+/* ============================================
+   📜 Custom Premium Scrollbar
+   ============================================ */
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, #0d1b2a 0%, #1e3a5f 50%, #0d1b2a 100%);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #0ea5e9 0%, #38bdf8 50%, #0ea5e9 100%);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #38bdf8 0%, #7dd3fc 50%, #38bdf8 100%);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, #0284c7 0%, #0ea5e9 50%, #0284c7 100%);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: #0d1b2a;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #0ea5e9 #0d1b2a;
+}
+
+/* Selection highlight */
+::selection {
+  background: rgba(14, 165, 233, 0.3);
+  color: inherit;
+}
+
+::-moz-selection {
+  background: rgba(14, 165, 233, 0.3);
+  color: inherit;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
