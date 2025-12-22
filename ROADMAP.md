@@ -332,13 +332,36 @@
 ### 18. Database Indexing
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 1h
-- **Action**: Analyser slow queries Postgres
-  ```sql
-  SELECT query, mean_exec_time 
-  FROM pg_stat_statements 
-  ORDER BY mean_exec_time DESC LIMIT 10;
-  ```
-- **Ajouter index** si nécessaire
+### 18. ✅ Indexation DB
+- **Priorité**: 🔴 Critique
+- **Effort**: 1h
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Migration**: `20251222171639_add_performance_indexes`
+- **Index créés** (15 total):
+  - **Booking** (8 index):
+    * `Booking_date_idx` - Recherches par date
+    * `Booking_startTime_idx` - Recherches par heure
+    * `Booking_status_idx` - Filtres par statut
+    * `Booking_userId_idx` - Réservations par utilisateur
+    * `Booking_boatId_idx` - Réservations par bateau
+    * `Booking_status_date_idx` - Combo status+date (filtre admin)
+    * `Booking_startTime_status_idx` - Disponibilité (requête critique)
+    * `Booking_createdAt_idx` - Tri chronologique
+  - **BlockedInterval** (3 index):
+    * `BlockedInterval_start_idx` - Début période bloquée
+    * `BlockedInterval_end_idx` - Fin période bloquée
+    * `BlockedInterval_start_end_idx` - Combo start+end (overlap check)
+  - **Boat** (1 index):
+    * `Boat_status_idx` - Bateaux actifs
+  - **WorkShift** (3 index):
+    * `WorkShift_userId_idx` - Shifts par employé
+    * `WorkShift_startTime_idx` - Shifts par date
+    * `WorkShift_userId_startTime_idx` - Combo user+date
+- **Impact estimé**:
+  - `/api/availability` : -50% temps de réponse
+  - `/api/admin/reservations` : -40% temps de réponse
+  - Recherches par date/status : O(n) → O(log n)
+- **Application**: `npx prisma migrate deploy` sur serveur
 
 ### 19. Pagination API
 - **Priorité**: 🟡 Moyenne

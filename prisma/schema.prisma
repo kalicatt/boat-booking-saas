@@ -10,174 +10,198 @@ datasource db {
 // --- LES TABLES ---
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  password  String?   // Optionnel car peut-être pas de mot de passe si "Guest"
-  firstName String
-  address   String?   
-  city      String?
-  postalCode String?
-  country   String?
-  image     String?
-  lastName  String
-  phone     String?
-  role      Role      @default(CLIENT)
-  createdAt DateTime  @default(now())
-  dateOfBirth DateTime?
-  gender      String? // 'Homme' | 'Femme' | 'Autre'
-  employeeNumber String?
-  hireDate   DateTime?
-  department String?
-  jobTitle   String?
-  managerId  String?
-  employmentStatus EmploymentStatus? @default(PERMANENT)
-  isFullTime  Boolean? @default(true)
-  hourlyRate  Float?
-  annualSalary Float?
-  employmentEndDate DateTime?
-  archiveReason String?
-  isActive   Boolean   @default(true)
-  sessionVersion Int    @default(0)
-  emergencyContactName String?
-  emergencyContactPhone String?
-  notes      String?
-  adminPermissions Json? @default("{}")
-  bookings  Booking[]
-  workShifts WorkShift[]
-  employeeDocuments EmployeeDocument[] @relation("EmployeeDocumentOwner")
-  uploadedEmployeeDocuments EmployeeDocument[] @relation("EmployeeDocumentUploader")
-  archivedEmployeeDocuments EmployeeDocument[] @relation("EmployeeDocumentArchiver")
-  documentAuditEntries EmployeeDocumentLog[] @relation("EmployeeDocumentLogActor")
-  log Log[] 
-  createdBlocks BlockedInterval[] @relation("UserCreatedBlocks")
-  createdSessions PaymentSession[] @relation("PaymentSessionCreatedBy")
+  id                        String                @id @default(uuid())
+  email                     String                @unique
+  password                  String? // Optionnel car peut-être pas de mot de passe si "Guest"
+  firstName                 String
+  address                   String?
+  city                      String?
+  postalCode                String?
+  country                   String?
+  image                     String?
+  lastName                  String
+  phone                     String?
+  role                      Role                  @default(CLIENT)
+  createdAt                 DateTime              @default(now())
+  dateOfBirth               DateTime?
+  gender                    String? // 'Homme' | 'Femme' | 'Autre'
+  employeeNumber            String?
+  hireDate                  DateTime?
+  department                String?
+  jobTitle                  String?
+  managerId                 String?
+  employmentStatus          EmploymentStatus?     @default(PERMANENT)
+  isFullTime                Boolean?              @default(true)
+  hourlyRate                Float?
+  annualSalary              Float?
+  employmentEndDate         DateTime?
+  archiveReason             String?
+  isActive                  Boolean               @default(true)
+  sessionVersion            Int                   @default(0)
+  emergencyContactName      String?
+  emergencyContactPhone     String?
+  notes                     String?
+  adminPermissions          Json?                 @default("{}")
+  bookings                  Booking[]
+  workShifts                WorkShift[]
+  employeeDocuments         EmployeeDocument[]    @relation("EmployeeDocumentOwner")
+  uploadedEmployeeDocuments EmployeeDocument[]    @relation("EmployeeDocumentUploader")
+  archivedEmployeeDocuments EmployeeDocument[]    @relation("EmployeeDocumentArchiver")
+  documentAuditEntries      EmployeeDocumentLog[] @relation("EmployeeDocumentLogActor")
+  log                       Log[]
+  createdBlocks             BlockedInterval[]     @relation("UserCreatedBlocks")
+  createdSessions           PaymentSession[]      @relation("PaymentSessionCreatedBy")
 }
 
 model Boat {
-  id          Int       @id @default(autoincrement())
-  name        String    // Ex: "Barque 1"
-  capacity    Int       @default(12)
-  status      BoatStatus @default(ACTIVE)
-  batteryCycleDays  Int       @default(4)
-  lastChargeDate    DateTime  @default(now())
-  totalTrips        Int       @default(0)
-  tripsSinceService Int       @default(0)
-  hoursSinceService Float     @default(0.0)
+  id                Int              @id @default(autoincrement())
+  name              String // Ex: "Barque 1"
+  capacity          Int              @default(12)
+  status            BoatStatus       @default(ACTIVE)
+  batteryCycleDays  Int              @default(4)
+  lastChargeDate    DateTime         @default(now())
+  totalTrips        Int              @default(0)
+  tripsSinceService Int              @default(0)
+  hoursSinceService Float            @default(0.0)
   manifest          String?
   fleetLabel        String?
-  bookings    Booking[]
+  bookings          Booking[]
   maintenanceLogs   MaintenanceLog[]
+
+  // Index pour status (recherches fréquentes de bateaux actifs)
+  @@index([status])
 }
 
 model MaintenanceLog {
-  id          String   @id @default(cuid())
+  id          String          @id @default(cuid())
   boatId      Int
-  boat        Boat     @relation(fields: [boatId], references: [id])
+  boat        Boat            @relation(fields: [boatId], references: [id])
   type        MaintenanceType
   description String?
   performedBy String?
   cost        Float?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime        @default(now())
 }
 
 model Booking {
-  id          String    @id @default(uuid())
-  createdAt   DateTime  @default(now())
-  publicReference String? @unique
-  
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  publicReference String?  @unique
+
   // ... (champs date, user, etc. inchangés) ...
-  date        DateTime
-  startTime   DateTime
-  endTime     DateTime
+  date      DateTime
+  startTime DateTime
+  endTime   DateTime
 
   // DÉTAIL DES PASSAGERS
-  numberOfPeople Int      // Total (pour la capacité)
-  adults         Int      @default(0) // <--- NOUVEAU
-  children       Int      @default(0) // <--- NOUVEAU (4-10 ans)
-  babies         Int      @default(0) // <--- NOUVEAU (0-3 ans)
-  message String?
-  invoiceEmail String?
+  numberOfPeople Int // Total (pour la capacité)
+  adults         Int     @default(0) // <--- NOUVEAU
+  children       Int     @default(0) // <--- NOUVEAU (4-10 ans)
+  babies         Int     @default(0) // <--- NOUVEAU (0-3 ans)
+  message        String?
+  invoiceEmail   String?
 
-  language    String
-  totalPrice  Float
-  status      BookingStatus @default(PENDING)
-  checkinStatus   CheckinStatus   @default(CONFIRMED) 
-  isPaid          Boolean         @default(true)
+  language                String
+  totalPrice              Float
+  status                  BookingStatus @default(PENDING)
+  checkinStatus           CheckinStatus @default(CONFIRMED)
+  isPaid                  Boolean       @default(true)
   confirmationEmailSentAt DateTime?
-  reviewMailSent  Boolean         @default(false)
+  reviewMailSent          Boolean       @default(false)
 
   // ... (relations inchangées) ...
-  user        User      @relation(fields: [userId], references: [id])
-  userId      String
-  boat        Boat?     @relation(fields: [boatId], references: [id])
-  boatId      Int?
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+  boat   Boat?  @relation(fields: [boatId], references: [id])
+  boatId Int?
 
-  payments    Payment[]
+  payments        Payment[]
   paymentSessions PaymentSession[]
+
+  // Index pour optimiser les requêtes fréquentes
+  @@index([date])
+  @@index([startTime])
+  @@index([status])
+  @@index([userId])
+  @@index([boatId])
+  @@index([status, date])
+  @@index([startTime, status])
+  @@index([createdAt])
 }
 
 model BlockedInterval {
-  id           String   @id @default(cuid())
-  createdAt    DateTime @default(now())
-  start        DateTime
-  end          DateTime
-  scope        String   // 'day' | 'morning' | 'afternoon' | 'specific'
-  reason       String?
-  createdById  String?
-  createdBy    User?    @relation("UserCreatedBlocks", fields: [createdById], references: [id])
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  start       DateTime
+  end         DateTime
+  scope       String // 'day' | 'morning' | 'afternoon' | 'specific'
+  reason      String?
+  createdById String?
+  createdBy   User?    @relation("UserCreatedBlocks", fields: [createdById], references: [id])
+
+  // Index pour recherches par date
+  @@index([start])
+  @@index([end])
+  @@index([start, end])
 }
 
 model WorkShift {
-  id           String   @id @default(uuid())
-  startTime    DateTime
-  endTime      DateTime
-  breakMinutes Int      @default(0) // <--- NOUVEAU : Temps de pause en minutes
-  note         String?
-  clockLatitude Float?
+  id             String   @id @default(uuid())
+  startTime      DateTime
+  endTime        DateTime
+  breakMinutes   Int      @default(0) // <--- NOUVEAU : Temps de pause en minutes
+  note           String?
+  clockLatitude  Float?
   clockLongitude Float?
-  clockAccuracy Float?
-  
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  createdAt    DateTime @default(now())
+  clockAccuracy  Float?
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+
+  // Index pour requêtes par user et date
+  @@index([userId])
+  @@index([startTime])
+  @@index([userId, startTime])
 }
 
 model EmployeeDocument {
-  id           String   @id @default(cuid())
+  id           String                 @id @default(cuid())
   userId       String
-  user         User     @relation("EmployeeDocumentOwner", fields: [userId], references: [id])
+  user         User                   @relation("EmployeeDocumentOwner", fields: [userId], references: [id])
   uploadedById String?
-  uploadedBy   User?    @relation("EmployeeDocumentUploader", fields: [uploadedById], references: [id])
+  uploadedBy   User?                  @relation("EmployeeDocumentUploader", fields: [uploadedById], references: [id])
   archivedById String?
-  archivedBy   User?    @relation("EmployeeDocumentArchiver", fields: [archivedById], references: [id])
+  archivedBy   User?                  @relation("EmployeeDocumentArchiver", fields: [archivedById], references: [id])
   category     String
   fileName     String
   mimeType     String
   size         Int
-  storageKey   String   @unique
-  version      Int      @default(1)
+  storageKey   String                 @unique
+  version      Int                    @default(1)
   status       EmployeeDocumentStatus @default(PENDING)
   uploadedAt   DateTime?
   archivedAt   DateTime?
   expiresAt    DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
   @@index([userId])
   @@index([status])
   @@index([expiresAt])
 }
 
 model EmployeeDocumentLog {
-  id         String                  @id @default(cuid())
-  documentId String
+  id           String                 @id @default(cuid())
+  documentId   String
   targetUserId String?
-  actorId    String?
-  actor      User?                   @relation("EmployeeDocumentLogActor", fields: [actorId], references: [id])
-  action     EmployeeDocumentAction
-  ipAddress  String?
-  userAgent  String?
-  details    String?
-  createdAt  DateTime                @default(now())
+  actorId      String?
+  actor        User?                  @relation("EmployeeDocumentLogActor", fields: [actorId], references: [id])
+  action       EmployeeDocumentAction
+  ipAddress    String?
+  userAgent    String?
+  details      String?
+  createdAt    DateTime               @default(now())
 
   @@index([documentId])
   @@index([actorId])
@@ -185,13 +209,13 @@ model EmployeeDocumentLog {
 }
 
 model Log {
-  id        String   @id @default(uuid())
-  action    String   // Ex: "DELETE_BOOKING", "ADD_SHIFT"
-  details   String?  // Ex: "Réservation de Dupont supprimée"
-  
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  
+  id      String  @id @default(uuid())
+  action  String // Ex: "DELETE_BOOKING", "ADD_SHIFT"
+  details String? // Ex: "Réservation de Dupont supprimée"
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
   createdAt DateTime @default(now())
 }
 
@@ -231,9 +255,9 @@ enum Language {
 }
 
 enum CheckinStatus {
-  CONFIRMED  // Réservation normale (par défaut)
-  EMBARQUED  // Personnes arrivées
-  NO_SHOW    // Personnes non présentées
+  CONFIRMED // Réservation normale (par défaut)
+  EMBARQUED // Personnes arrivées
+  NO_SHOW // Personnes non présentées
 }
 
 // Employment status enum
@@ -258,53 +282,53 @@ enum EmployeeDocumentAction {
 }
 
 model Payment {
-  id           String   @id @default(cuid())
-  provider     String   // 'stripe' | 'paypal'
-  bookingId    String
-  booking      Booking  @relation(fields: [bookingId], references: [id])
-  intentId     String?  // Stripe PaymentIntent id
-  orderId      String?  // PayPal order id
-  amount       Int      // minor units (e.g., cents)
-  currency     String   // e.g., 'EUR'
-  status       String   // created | requires_action | succeeded | failed | cancelled | refunded
-  methodType   String?
-  rawPayload   Json?
+  id               String          @id @default(cuid())
+  provider         String // 'stripe' | 'paypal'
+  bookingId        String
+  booking          Booking         @relation(fields: [bookingId], references: [id])
+  intentId         String? // Stripe PaymentIntent id
+  orderId          String? // PayPal order id
+  amount           Int // minor units (e.g., cents)
+  currency         String // e.g., 'EUR'
+  status           String // created | requires_action | succeeded | failed | cancelled | refunded
+  methodType       String?
+  rawPayload       Json?
   paymentSessionId String?
-  paymentSession PaymentSession? @relation("PaymentSessionPayments", fields: [paymentSessionId], references: [id])
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  paymentSession   PaymentSession? @relation("PaymentSessionPayments", fields: [paymentSessionId], references: [id])
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
+  @@unique([paymentSessionId])
   @@index([bookingId])
   @@index([intentId])
   @@index([orderId])
-  @@unique([paymentSessionId])
 }
 
 model PaymentSession {
-  id                String                @id @default(cuid())
-  bookingId         String?
-  booking           Booking?              @relation(fields: [bookingId], references: [id])
-  provider          String                @default("stripe_terminal")
-  methodType        String?               // card | wallet | voucher
-  status            PaymentSessionStatus  @default(PENDING)
-  amount            Int                   // cents
-  currency          String                @default("EUR")
-  expiresAt         DateTime
-  targetDeviceId    String?
-  claimedByDeviceId String?
-  claimedAt         DateTime?
-  processingAt      DateTime?
-  completedAt       DateTime?
-  intentId          String?
+  id                 String               @id @default(cuid())
+  bookingId          String?
+  booking            Booking?             @relation(fields: [bookingId], references: [id])
+  provider           String               @default("stripe_terminal")
+  methodType         String? // card | wallet | voucher
+  status             PaymentSessionStatus @default(PENDING)
+  amount             Int // cents
+  currency           String               @default("EUR")
+  expiresAt          DateTime
+  targetDeviceId     String?
+  claimedByDeviceId  String?
+  claimedAt          DateTime?
+  processingAt       DateTime?
+  completedAt        DateTime?
+  intentId           String?
   intentClientSecret String?
-  metadata          Json?
-  lastError         String?
-  createdById       String?
-  createdBy         User?               @relation("PaymentSessionCreatedBy", fields: [createdById], references: [id])
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @default(now()) @updatedAt
+  metadata           Json?
+  lastError          String?
+  createdById        String?
+  createdBy          User?                @relation("PaymentSessionCreatedBy", fields: [createdById], references: [id])
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @default(now()) @updatedAt
 
-  payments          Payment[]             @relation("PaymentSessionPayments")
+  payments Payment[] @relation("PaymentSessionPayments")
 
   @@index([bookingId])
   @@index([status, expiresAt])
@@ -313,14 +337,14 @@ model PaymentSession {
 }
 
 model SiteConfig {
-  key            String   @id
-  label          String
-  type           String
-  group          String
+  key             String   @id
+  label           String
+  type            String
+  group           String
   publishedValues Json
-  draftValues    Json?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  draftValues     Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model HeroSlide {
@@ -351,82 +375,82 @@ model Partner {
 // Immutable accounting ledger: append-only events for audit
 model PaymentLedger {
   id          String   @id @default(cuid())
-  eventType   String   // SALE, PAID, REFUND, VOID, ADJUSTMENT
+  eventType   String // SALE, PAID, REFUND, VOID, ADJUSTMENT
   bookingId   String?
   paymentId   String?
-  provider    String   // cash, card, paypal, applepay, googlepay, voucher
-  methodType  String?  // ANCV, CityPass for voucher
-  amount      Int      // cents (gross)
-  currency    String   // EUR
-  actorId     String?  // admin user performing action
+  provider    String // cash, card, paypal, applepay, googlepay, voucher
+  methodType  String? // ANCV, CityPass for voucher
+  amount      Int // cents (gross)
+  currency    String // EUR
+  actorId     String? // admin user performing action
   occurredAt  DateTime @default(now())
-  receiptNo   Int?     // sequential receipt number
+  receiptNo   Int? // sequential receipt number
   // VAT breakdown (optional for voucher/cash when no VAT)
   vatRate     Float?
-  netAmount   Int?     // cents
-  vatAmount   Int?     // cents
-  grossAmount Int?     // cents
+  netAmount   Int? // cents
+  vatAmount   Int? // cents
+  grossAmount Int? // cents
   note        String?
 }
 
 // Cash management: track opening float and movements
 model CashSession {
-  id           String   @id @default(cuid())
-  openedAt     DateTime @default(now())
-  openedById   String?
-  openingFloat Int      // cents
-  closedAt     DateTime?
-  closedById   String?
-  closingCount Int?     // cents counted at close
+  id               String         @id @default(cuid())
+  openedAt         DateTime       @default(now())
+  openedById       String?
+  openingFloat     Int // cents
+  closedAt         DateTime?
+  closedById       String?
+  closingCount     Int? // cents counted at close
   closingBreakdown Json?
-  movements    CashMovement[]
+  movements        CashMovement[]
 }
 
 model CashMovement {
-  id           String   @id @default(cuid())
-  session      CashSession @relation(fields: [sessionId], references: [id])
-  sessionId    String
-  kind         String   // SALE, PAID_IN, PAID_OUT, CORRECTION
-  amount       Int      // cents (+/-)
-  note         String?
-  occurredAt   DateTime @default(now())
+  id         String      @id @default(cuid())
+  session    CashSession @relation(fields: [sessionId], references: [id])
+  sessionId  String
+  kind       String // SALE, PAID_IN, PAID_OUT, CORRECTION
+  amount     Int // cents (+/-)
+  note       String?
+  occurredAt DateTime    @default(now())
 }
 
 // Daily closure snapshot for Z-report
 model DailyClosure {
-  id          String   @id @default(cuid())
-  day         DateTime // date-only normalized at midnight UTC
-  closedAt    DateTime @default(now())
-  closedById  String?
-  totalsJson  String   // snapshot totals per method/vouchers, VAT etc.
-  hash        String   // integrity hash of snapshot payload
-  locked      Boolean  @default(true) // indicates period is locked for edits
+  id         String   @id @default(cuid())
+  day        DateTime // date-only normalized at midnight UTC
+  closedAt   DateTime @default(now())
+  closedById String?
+  totalsJson String // snapshot totals per method/vouchers, VAT etc.
+  hash       String // integrity hash of snapshot payload
+  locked     Boolean  @default(true) // indicates period is locked for edits
 }
 
 model DailyBoatQuota {
-  id              String   @id @default(cuid())
-  day             DateTime @unique
-  boatsAvailable  Int
-  note            String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(cuid())
+  day            DateTime @unique
+  boatsAvailable Int
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 // Generic sequencing for receipts or other counters
 model Sequence {
-  name     String  @id
-  current  Int     @default(0)
+  name      String   @id
+  current   Int      @default(0)
   updatedAt DateTime @updatedAt
 }
 
 // Contact requests captured from public forms (private/group, etc.)
 model ContactRequest {
-  id        String        @id @default(cuid())
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  kind      String        // 'private' | 'group' | etc.
-  status    ContactStatus @default(NEW)
+  kind   String // 'private' | 'group' | etc.
+  status ContactStatus @default(NEW)
 
   firstName String
   lastName  String
@@ -435,7 +459,7 @@ model ContactRequest {
   message   String?
   people    Int?
   date      String?
-  lang      String        // 'fr' | 'en' | 'de' | ...
+  lang      String // 'fr' | 'en' | 'de' | ...
   ip        String?
   referer   String?
 }
