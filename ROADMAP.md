@@ -782,10 +782,21 @@
   - Monitoring (Uptime Kuma, Prometheus)
   - CI/CD post-deploy verification
 
-### 37. Blue-Green Deployment
+### 37. ✅ Blue-Green Deployment
 - **Priorité**: 🟢 Basse
 - **Effort**: 4h
-- **Setup**: 2 containers app, swap nginx upstream
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `docker-compose.bluegreen.yml` - Blue/Green container definitions
+  - ✅ `nginx/bluegreen-upstream.conf` - Nginx upstream configuration
+  - ✅ `scripts/blue-green-switch.sh` - Deployment script with health checks
+  - ✅ `docs/blue-green-deployment.md` - Documentation complète
+- **Features**:
+  - 2 containers (blue:3001, green:3002) avec health checks
+  - Script de switch avec rollback automatique
+  - Nginx upstream swap sans downtime
+  - État de déploiement persisté en JSON
+  - Intégration CI/CD GitHub Actions
 - **Downtime**: 0s
 
 ### 38. ✅ Monitoring Costs

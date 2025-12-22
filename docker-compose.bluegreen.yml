@@ -1,0 +1,80 @@
+# Sweet Narcisse - Blue-Green Deployment Configuration
+# Usage: 
+#   Deploy blue:  docker compose -f docker-compose.yml -f docker-compose.bluegreen.yml up -d app-blue
+#   Deploy green: docker compose -f docker-compose.yml -f docker-compose.bluegreen.yml up -d app-green
+#   Switch:       ./scripts/blue-green-switch.sh blue|green
+
+services:
+  # Blue instance (port 3001 internal)
+  app-blue:
+    image: ${DOCKER_IMAGE:-ghcr.io/kalicat/sweet-narcisse:latest}
+    container_name: sweet-narcisse-blue
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - INSTANCE_COLOR=blue
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - sweet-narcisse
+    labels:
+      - "traefik.enable=false"  # Managed by nginx upstream
+      - "com.sweet-narcisse.color=blue"
+
+  # Green instance (port 3002 internal)
+  app-green:
+    image: ${DOCKER_IMAGE:-ghcr.io/kalicat/sweet-narcisse:latest}
+    container_name: sweet-narcisse-green
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - INSTANCE_COLOR=green
+      - DATABASE_URL=${DATABASE_URL}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+      - NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      - PAYPAL_CLIENT_ID=${PAYPAL_CLIENT_ID}
+      - PAYPAL_CLIENT_SECRET=${PAYPAL_CLIENT_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - REDIS_URL=${REDIS_URL}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - RECAPTCHA_SECRET_KEY=${RECAPTCHA_SECRET_KEY}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - sweet-narcisse
+    labels:
+      - "traefik.enable=false"
+      - "com.sweet-narcisse.color=green"
+
+networks:
+  sweet-narcisse:
+    external: true
