@@ -445,11 +445,18 @@
   - `components/BookingWidget.tsx`
   - `components/ManualPaymentDetails.tsx`
 
-### 22. Internationalisation Emails
+### 22. ✅ Internationalisation Emails
 - **Priorité**: 🟢 Basse
 - **Effort**: 2h
-- **Action**: Templates React Email multilingues
-- **Utilise**: Dictionnaires existants
+- **Status**: ✅ **COMPLÉTÉ** (27/06/2025)
+- **Réalisé**:
+  - ✅ `dictionaries/emails.ts` - Dictionnaire centralisé (fr/en/de/es/it)
+  - ✅ `BookingTemplate.tsx` - Prop `lang`, 25+ clés traduites
+  - ✅ `ReviewRequestTemplate.tsx` - Prop `lang`, 11+ clés traduites
+  - ✅ Helper `getEmailText()` pour accès typé
+  - ✅ Type `EmailLang` exporté
+- **Couverture**: Confirmation, rappel embarquement, demande avis
+- **Utilise**: Dictionnaires existants, pattern des autres templates
 
 ---
 

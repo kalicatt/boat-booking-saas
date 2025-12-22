@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import * as React from 'react';
+import { emailDictionaries, type EmailLang } from '@/dictionaries/emails';
 
 interface BookingEmailProps {
     firstName: string
@@ -19,6 +20,7 @@ interface BookingEmailProps {
     logoUrl?: string | null
     logoCid?: string | null
     reviewUrl?: string | null
+    lang?: EmailLang
 }
 
 const brand = {
@@ -51,8 +53,10 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     cancelUrl,
     logoUrl,
     logoCid,
-    reviewUrl
+    reviewUrl,
+    lang = 'fr'
 }) => {
+    const t = emailDictionaries.booking
     const referenceLabel = publicReference || bookingId
     const qrSrc = (qrCodeCid ? `cid:${qrCodeCid}` : (qrCodeDataUrl || qrCodeUrl || ''))
     const resolvedLogoSrc = logoCid ? `cid:${logoCid}` : (logoUrl || defaultLogoUrl)
@@ -60,13 +64,13 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
     const reviewLink = reviewUrl || null
 
     if (adults > 0) {
-        ageBreakdownParts.push(`${adults} adulte${adults > 1 ? 's' : ''}`)
+        ageBreakdownParts.push(t.adults[lang](adults))
     }
     if (childrenCount > 0) {
-        ageBreakdownParts.push(`${childrenCount} enfant${childrenCount > 1 ? 's' : ''}`)
+        ageBreakdownParts.push(t.children[lang](childrenCount))
     }
     if (babies > 0) {
-        ageBreakdownParts.push(`${babies} bébé${babies > 1 ? 's' : ''}`)
+        ageBreakdownParts.push(t.babies[lang](babies))
     }
 
     const ageBreakdown = ageBreakdownParts.join(' · ')
@@ -85,31 +89,31 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                         ) : (
                                             <span style={{ display: 'block', fontSize: 28, fontWeight: 700, color: brand.gold }}>Sweet Narcisse</span>
                                         )}
-                                        <p style={{ margin: 0, color: '#e2e8f0', fontSize: 16, letterSpacing: 0.4 }}>Confirmation de votre balade</p>
+                                        <p style={{ margin: 0, color: '#e2e8f0', fontSize: 16, letterSpacing: 0.4 }}>{t.confirmationTitle[lang]}</p>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td style={{ padding: '32px 32px 16px' }}>
-                                        <p style={{ margin: '0 0 16px', fontSize: 18 }}>Bonjour {firstName},</p>
+                                        <p style={{ margin: '0 0 16px', fontSize: 18 }}>{t.hello[lang](firstName)}</p>
                                         <p style={{ margin: '0 0 24px', fontSize: 15, color: brand.muted }}>
-                                            Nous avons hâte de vous accueillir à bord. Voici un récapitulatif de votre réservation.
+                                            {t.welcomeMessage[lang]}
                                         </p>
 
                                         <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ backgroundColor: brand.surface, borderRadius: 20, padding: 0 }}>
                                             <tbody>
                                                 <tr>
                                                     <td style={{ padding: '24px 28px' }}>
-                                                        <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>Détails de la sortie</p>
+                                                        <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>{t.tripDetails[lang]}</p>
                                                         <p style={{ margin: '0 0 6px', fontSize: 15 }}>📅 <strong>{date}</strong></p>
                                                         <p style={{ margin: '0 0 6px', fontSize: 15 }}>⏰ <strong>{time}</strong></p>
-                                                        <p style={{ margin: '0 0 12px', fontSize: 15 }}>👥 {people} passagers</p>
+                                                        <p style={{ margin: '0 0 12px', fontSize: 15 }}>👥 {t.passengers[lang](people)}</p>
                                                         {ageBreakdown && (
                                                             <p style={{ margin: '0 0 12px', fontSize: 13, color: brand.muted }}>
-                                                                Répartition&nbsp;: {ageBreakdown}
+                                                                {t.breakdown[lang]}&nbsp;: {ageBreakdown}
                                                             </p>
                                                         )}
                                                         <p style={{ margin: 0, fontSize: 13, color: brand.muted }}>
-                                                            Référence : <span style={{ fontWeight: 600 }}>{referenceLabel}</span>
+                                                            {t.reference[lang]} : <span style={{ fontWeight: 600 }}>{referenceLabel}</span>
                                                         </p>
                                                     </td>
                                                 </tr>
@@ -126,17 +130,17 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                     <tr>
                                                         <td style={{ padding: '24px', textAlign: 'center' }}>
                                                             <p style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 600, color: '#c2410c' }}>
-                                                                Présentez ce QR Code à l&apos;embarquement
+                                                                {t.qrCodePresent[lang]}
                                                             </p>
                                                             <img
                                                                 src={qrSrc}
-                                                                alt={`QR Code réservation ${referenceLabel}`}
+                                                                alt={`QR Code ${referenceLabel}`}
                                                                 width={200}
                                                                 height={200}
                                                                 style={{ display: 'block', margin: '0 auto', borderRadius: 16, backgroundColor: '#ffffff', padding: 12, border: '1px solid #fcd34d' }}
                                                             />
                                                             <p style={{ margin: '16px 0 0', fontSize: 13, color: '#c2410c', lineHeight: 1.5 }}>
-                                                                Si l&apos;image ne s&apos;affiche pas, conservez ce mail : l&apos;équipage pourra retrouver votre réservation grâce à la référence.
+                                                                {t.qrCodeFallback[lang]}
                                                             </p>
                                                         </td>
                                                     </tr>
@@ -152,10 +156,10 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                             <tbody>
                                                 <tr>
                                                     <td style={{ padding: '24px' }}>
-                                                        <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>Montant de votre croisière</p>
+                                                        <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>{t.cruiseAmount[lang]}</p>
                                                         <p style={{ margin: '0 0 16px', fontSize: 28, fontWeight: 700, color: '#92400e' }}>{priceFormatter.format(totalPrice)}</p>
                                                         <p style={{ margin: 0, fontSize: 13, color: '#92400e', lineHeight: 1.6 }}>
-                                                            Le détail complet du tarif est disponible dans la facture PDF jointe à ce message. Conservez-la pour votre comptabilité.
+                                                            {t.invoiceNote[lang]}
                                                         </p>
                                                     </td>
                                                 </tr>
@@ -170,18 +174,18 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                             <tbody>
                                                 <tr>
                                                     <td style={{ padding: '24px 24px 12px' }}>
-                                                        <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#1d4ed8' }}>Important avant votre arrivée</p>
+                                                        <p style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#1d4ed8' }}>{t.importantBefore[lang]}</p>
                                                         <p style={{ margin: '0 0 12px', fontSize: 14, color: '#1e3a8a', lineHeight: 1.6 }}>
-                                                            Merci de vous présenter au ponton <strong>10 minutes avant l&apos;heure de départ</strong> afin de faciliter l&apos;embarquement de votre équipage.
+                                                            {t.arriveEarly[lang]}
                                                         </p>
                                                         <p style={{ margin: '0 0 16px', fontSize: 13, color: '#1e3a8a', lineHeight: 1.6 }}>
-                                                            Point d&apos;embarquement&nbsp;: Pont Saint-Pierre, 10 Rue de la Herse, 68000 Colmar.
+                                                            {t.boardingPoint[lang]}
                                                         </p>
                                                         <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid #bfdbfe' }}>
                                                             <tbody>
                                                                 <tr>
                                                                     <td style={{ padding: 0, textAlign: 'center', backgroundColor: '#ffffff' }}>
-                                                                        <p style={{ margin: '16px 16px 0', fontSize: 13, color: '#1e3a8a' }}>Consultez l&apos;itinéraire :
+                                                                        <p style={{ margin: '16px 16px 0', fontSize: 13, color: '#1e3a8a' }}>{t.viewRoute[lang]}
                                                                         </p>
                                                                         <a
                                                                             href={mapLink}
@@ -197,10 +201,10 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                                                 fontSize: 13
                                                                             }}
                                                                         >
-                                                                            Ouvrir dans Google Maps
+                                                                            {t.openMaps[lang]}
                                                                         </a>
                                                                         <p style={{ margin: '0 16px 16px', fontSize: 11, color: '#1e3a8a', lineHeight: 1.5 }}>
-                                                                            Si l&apos;ouverture échoue, copiez-collez ce lien dans votre navigateur&nbsp;:<br />
+                                                                            {t.mapFallback[lang]}<br />
                                                                             <a href={mapLink} style={{ color: '#1d4ed8', textDecoration: 'none', fontWeight: 600 }}>{mapLink}</a>
                                                                         </p>
                                                                     </td>
@@ -221,9 +225,9 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                 <tbody>
                                                     <tr>
                                                         <td style={{ padding: '24px', textAlign: 'center' }}>
-                                                            <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>Votre avis compte</p>
+                                                            <p style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, color: '#b45309' }}>{t.reviewMatters[lang]}</p>
                                                             <p style={{ margin: '0 0 16px', fontSize: 14, color: '#92400e', lineHeight: 1.6 }}>
-                                                                Partagez votre expérience à bord pour aider les prochains voyageurs et soutenir l&apos;équipage.
+                                                                {t.reviewHelp[lang]}
                                                             </p>
                                                             <a
                                                                 href={reviewLink}
@@ -240,7 +244,7 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                                     fontSize: 14
                                                                 }}
                                                             >
-                                                                Laisser un avis Google
+                                                                {t.leaveGoogleReview[lang]}
                                                             </a>
                                                         </td>
                                                     </tr>
@@ -257,7 +261,7 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                 <tr>
                                                     <td style={{ padding: '24px', textAlign: 'center' }}>
                                                         <p style={{ margin: '0 0 12px', color: '#e2e8f0', fontSize: 16, fontWeight: 600 }}>
-                                                            Besoin de modifier ou d&apos;annuler ?
+                                                            {t.needToCancel[lang]}
                                                         </p>
                                                         <a
                                                             href={cancelUrl}
@@ -272,10 +276,10 @@ export const BookingTemplate: React.FC<Readonly<BookingEmailProps>> = ({
                                                                 fontSize: 15
                                                             }}
                                                         >
-                                                            Gérer ma réservation
+                                                            {t.manageBooking[lang]}
                                                         </a>
                                                         <p style={{ margin: '16px 0 0', fontSize: 12, color: '#cbd5f5' }}>
-                                                            Politique : &gt;48h = 100% · 48–24h = 50% · &lt;24h/no-show = 0%. Alerte météo orange/rouge : remboursement intégral.
+                                                            {t.cancelPolicyShort[lang]}
                                                         </p>
                                                     </td>
                                                 </tr>

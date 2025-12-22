@@ -1,5 +1,6 @@
 /* eslint-disable @next/next/no-img-element */
 import * as React from 'react'
+import { emailDictionaries, type EmailLang } from '@/dictionaries/emails'
 
 export interface ReviewRequestTemplateProps {
   firstName: string
@@ -7,6 +8,7 @@ export interface ReviewRequestTemplateProps {
   googleReviewUrl: string
   tripadvisorReviewUrl?: string | null
   logoUrl?: string | null
+  lang?: EmailLang
 }
 
 const palette = {
@@ -24,8 +26,10 @@ export const ReviewRequestTemplate: React.FC<Readonly<ReviewRequestTemplateProps
   experienceDate,
   googleReviewUrl,
   tripadvisorReviewUrl,
-  logoUrl
+  logoUrl,
+  lang = 'fr'
 }) => {
+  const t = emailDictionaries.review
   const resolvedLogo = logoUrl ?? fallbackLogo
   return (
     <table width="100%" cellPadding={0} cellSpacing={0} role="presentation" style={{ backgroundColor: '#f1f5f9', padding: '24px 0', fontFamily: 'Arial, Helvetica, sans-serif', color: palette.night }}>
@@ -41,16 +45,16 @@ export const ReviewRequestTemplate: React.FC<Readonly<ReviewRequestTemplateProps
                     ) : (
                       <span style={{ color: palette.sky, fontSize: 26, fontWeight: 700 }}>Sweet Narcisse</span>
                     )}
-                    <p style={{ margin: 0, color: '#e2e8f0', letterSpacing: 0.4 }}>Service Experience Client</p>
+                    <p style={{ margin: 0, color: '#e2e8f0', letterSpacing: 0.4 }}>{t.serviceTitle[lang]}</p>
                   </td>
                 </tr>
                 <tr>
                   <td style={{ padding: '32px 32px 16px' }}>
-                    <p style={{ margin: '0 0 16px', fontSize: 18 }}>Bonjour {firstName},</p>
+                    <p style={{ margin: '0 0 16px', fontSize: 18 }}>{t.hello[lang](firstName)}</p>
                     <p style={{ margin: '0 0 16px', fontSize: 15, color: palette.slate }}>
-                      Merci d&apos;avoir navigue avec nous le {experienceDate}. Votre retour nous aide a faire vivre des moments encore plus memorables a bord.
+                      {t.thankYou[lang](experienceDate)}
                     </p>
-                    <p style={{ margin: 0, fontSize: 15 }}>Auriez-vous 1 minute pour partager votre experience ?</p>
+                    <p style={{ margin: 0, fontSize: 15 }}>{t.askReview[lang]}</p>
                   </td>
                 </tr>
                 <tr>
@@ -72,11 +76,11 @@ export const ReviewRequestTemplate: React.FC<Readonly<ReviewRequestTemplateProps
                                 fontSize: 15
                               }}
                             >
-                              Donner mon avis sur Google
+                              {t.googleButton[lang]}
                             </a>
                             {tripadvisorReviewUrl && (
                               <p style={{ margin: '18px 0 0', fontSize: 13, color: palette.slate }}>
-                                Ou bien sur <a href={tripadvisorReviewUrl} style={{ color: palette.night, fontWeight: 600, textDecoration: 'none' }}>TripAdvisor</a>
+                                {t.orTripadvisor[lang]} <a href={tripadvisorReviewUrl} style={{ color: palette.night, fontWeight: 600, textDecoration: 'none' }}>TripAdvisor</a>
                               </p>
                             )}
                           </td>
@@ -91,11 +95,11 @@ export const ReviewRequestTemplate: React.FC<Readonly<ReviewRequestTemplateProps
                       <tbody>
                         <tr>
                           <td style={{ padding: '20px' }}>
-                            <p style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 600, color: '#92400e' }}>Pourquoi votre avis compte :</p>
+                            <p style={{ margin: '0 0 8px', fontSize: 15, fontWeight: 600, color: '#92400e' }}>{t.whyMattersTitle[lang]}</p>
                             <ul style={{ margin: 0, paddingLeft: 20, color: '#b45309', fontSize: 13, lineHeight: 1.6 }}>
-                              <li>Il guide les voyageurs qui cherchent une balade douce sur la Lauch.</li>
-                              <li>Il nous permet de celebrer l&apos;equipe qui etait a vos cotes.</li>
-                              <li>Il nous indique comment rendre la prochaine sortie encore meilleure.</li>
+                              <li>{t.whyMattersPoint1[lang]}</li>
+                              <li>{t.whyMattersPoint2[lang]}</li>
+                              <li>{t.whyMattersPoint3[lang]}</li>
                             </ul>
                           </td>
                         </tr>
@@ -105,7 +109,7 @@ export const ReviewRequestTemplate: React.FC<Readonly<ReviewRequestTemplateProps
                 </tr>
                 <tr>
                   <td style={{ padding: '0 32px 32px', textAlign: 'center', fontSize: 12, color: palette.slate }}>
-                    <p style={{ margin: '0 0 8px' }}>Envoye par experience@sweet-narcisse.fr</p>
+                    <p style={{ margin: '0 0 8px' }}>experience@sweet-narcisse.fr</p>
                     <p style={{ margin: 0 }}>Pont Saint-Pierre · 10 Rue de la Herse · 68000 Colmar</p>
                   </td>
                 </tr>
