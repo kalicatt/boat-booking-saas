@@ -10,5 +10,5 @@ sed -e "s|\${SMTP_HOST}|${SMTP_HOST}|g" \
     -e "s|\${DISCORD_WEBHOOK_URL}|${DISCORD_WEBHOOK_URL}|g" \
     /etc/alertmanager/alertmanager.yml.template > /etc/alertmanager/alertmanager.yml
 
-# Start alertmanager
-exec /bin/alertmanager --config.file=/etc/alertmanager/alertmanager.yml "$@"
+# Start alertmanager (no need for --config.file as it's in docker-compose entrypoint)
+exec /bin/alertmanager "$@"
