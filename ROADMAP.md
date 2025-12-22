@@ -714,11 +714,33 @@
 
 ## 🔧 DevOps Avancé (Semaine 15+)
 
-### 36. Health Checks Avancés
+### 36. ✅ Health Checks Avancés
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 1h
-- **Route**: `/api/health`
-- **Checks**: DB, Redis, MinIO, external APIs
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `app/api/health/route.ts` - Endpoint health check complet
+- **Route**: `GET /api/health`
+- **Checks**:
+  - Database (PostgreSQL) - Query simple avec timeout 5s
+  - Redis cache - PING avec timeout 2s
+  - MinIO storage - HTTP health endpoint
+- **Réponses**:
+  - Simple: `GET /api/health` → `{ status, timestamp, version }`
+  - Verbose: `GET /api/health?verbose=true` → Détails par service
+  - HEAD: Check rapide pour load balancers
+- **Statuts**:
+  - `healthy`: Tous services OK
+  - `degraded`: Redis/MinIO down (fallback disponible)
+  - `unhealthy`: Database down (HTTP 503)
+- **Headers**:
+  - `X-Health-Status`: Status global
+  - `X-Database-Latency`: Latence DB (HEAD)
+- **Usage**:
+  - Load balancers (nginx upstream check)
+  - Kubernetes probes (liveness/readiness)
+  - Monitoring (Uptime Kuma, Prometheus)
+  - CI/CD post-deploy verification
 
 ### 37. Blue-Green Deployment
 - **Priorité**: 🟢 Basse
