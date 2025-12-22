@@ -54,10 +54,11 @@
     "libphonenumber-js": "^1.11.11",
     "lucide-react": "^0.556.0",
     "negotiator": "^1.0.0",
-    "next": "16.0.3",
+    "next": "^16.1.0",
     "next-auth": "^5.0.0-beta.30",
     "nodemailer": "^7.0.11",
     "pdfkit": "^0.17.2",
+    "prisma": "^5.17.0",
     "prom-client": "^15.1.2",
     "qrcode": "^1.5.3",
     "react": "19.2.0",
@@ -70,8 +71,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss-safe-area": "^1.2.0",
     "zod": "^3.23.8",
-    "zxcvbn": "^4.4.2",
-    "prisma": "^5.17.0"
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "@capacitor/android": "^7.4.4",
@@ -90,7 +90,7 @@
     "@types/react-big-calendar": "^1.16.3",
     "@types/react-dom": "^19",
     "@types/zxcvbn": "^4.4.1",
-    "baseline-browser-mapping": "^2.8.32",
+    "baseline-browser-mapping": "^2.9.11",
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.3",
