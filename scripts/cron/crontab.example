@@ -28,6 +28,12 @@
 0 2 * * 0 root /opt/sweet-narcisse/scripts/rotate-logs.sh >> /var/log/sweet-narcisse/cron.log 2>&1
 
 # ============================================================================
+# Restore Test - Monthly (15th at 4 AM)
+# ============================================================================
+# Validates backup integrity by restoring to temp database
+0 4 15 * * root /opt/sweet-narcisse/scripts/test-restore.sh >> /var/log/sweet-narcisse/cron.log 2>&1
+
+# ============================================================================
 # Health Check - Every 5 minutes
 # ============================================================================
 # Monitors application health and restarts if needed

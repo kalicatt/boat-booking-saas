@@ -552,11 +552,22 @@
   - Fréquence: toutes les 6h (0h, 6h, 12h, 18h)
 - **RTO**: < 4h | **RPO**: < 6h
 
-### 27. Test Restore Mensuel
+### 27. ✅ Test Restore Mensuel
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 1h/mois
-- **Action**: Cron automatique
-- **Alerte**: Si échec restore
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `scripts/test-restore.sh` - Script Bash Linux/macOS
+  - ✅ `scripts/test-restore.ps1` - Script PowerShell Windows
+  - ✅ `systemd/restore-test.timer` - Timer mensuel (15 du mois)
+  - ✅ `systemd/restore-test.service` - Service systemd
+  - ✅ Crontab mis à jour
+- **Validations**:
+  - Compte de tables (>= 5)
+  - Tables critiques (User, Booking, Boat, Schedule)
+  - Intégrité des clés étrangères
+  - Compte des réservations
+- **Alertes**: Email/Slack en cas d'échec
 
 ### 28. Disaster Recovery Plan
 - **Priorité**: 🟢 Basse
