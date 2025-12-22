@@ -1,4 +1,5 @@
 import Image from "next/image"
+import OptimizedImage from '@/components/OptimizedImage'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -268,8 +269,9 @@ export default async function CGVPage({ params }: { params: Promise<{ lang?: str
       <div className="max-w-4xl mx-auto px-6">
         <header className="text-center text-slate-100 mb-12">
           <div className="inline-flex items-center gap-3 rounded-full border border-white/20 bg-white/10 px-5 py-2 backdrop-blur">
-            <Image
-              src="/images/logo.jpg"
+            <OptimizedImage
+              src="/images/logo.webp"
+              fallback="/images/logo.jpg"
               alt="Sweet Narcisse"
               width={128}
               height={32}

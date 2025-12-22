@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import OptimizedImage from '@/components/OptimizedImage'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
@@ -18,8 +19,9 @@ function DesktopAdminLayout({ children }: { children: ReactNode }) {
       <header className="sn-admin-header border-b border-slate-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <Link href="/admin" aria-label="Admin Sweet Narcisse" className="flex items-center gap-3">
-            <Image
-              src="/images/logo.jpg"
+            <OptimizedImage
+              src="/images/logo.webp"
+              fallback="/images/logo.jpg"
               alt="Sweet Narcisse"
               width={136}
               height={40}

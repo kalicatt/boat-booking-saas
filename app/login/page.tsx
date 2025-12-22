@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import OptimizedImage from '@/components/OptimizedImage'
 import { authenticate } from '@/lib/actions'
 import { FormEvent, useEffect, useState, startTransition } from 'react'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
@@ -141,7 +142,7 @@ export default function LoginPage() {
           }`}
         >
           <div className="mb-6 flex flex-col items-center text-center">
-            <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={40} className="h-10 w-auto rounded-md" priority />
+            <OptimizedImage src="/images/logo.webp" fallback="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={40} className="h-10 w-auto rounded-md" priority />
             <p className="mt-2 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Interface Admin</p>
             <p className="mt-1 text-sm text-slate-500">Authentifiez-vous pour accéder aux outils mobiles.</p>
           </div>

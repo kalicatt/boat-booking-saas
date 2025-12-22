@@ -1,5 +1,6 @@
 "use client"
 import Image from 'next/image'
+import OptimizedImage from '@/components/OptimizedImage'
 import BookingWidget from '@/components/BookingWidget'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import TripReviews from '@/components/TripReviews'
@@ -146,7 +147,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   const heroSubtitle = heroSlide
     ? pickCmsTranslation(heroSlide.subtitle, activeCmsLocale) || liveDict.hero?.subtitle || ''
     : liveDict.hero?.subtitle || ''
-  const heroDesktopImage = heroSlide?.imageDesktop ?? '/images/hero-bg.jpg'
+  const heroDesktopImage = heroSlide?.imageDesktop ?? '/images/hero-bg.webp'
   const heroMobileImage = heroSlide?.imageMobile ?? heroDesktopImage
   const storyParagraph = storyParagraphOverride || (liveDict.presentation?.text as string || '')
   useEffect(()=>{
@@ -308,7 +309,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               aria-label={liveDict?.nav?.home || 'Accueil'}
               className="flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-sm"
             >
-              <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={48} className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} priority />
+              <OptimizedImage src="/images/logo.webp" fallback="/images/logo.jpg" alt="Sweet Narcisse" width={160} height={48} className={`${scrolled ? 'h-10' : 'h-12'} w-auto rounded-sm shadow-sm transition-all`} priority />
             </Link>
           </div>
           {/* All navigation links removed from header; accessible only via offcanvas menu */}
@@ -505,7 +506,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           </div>
           <div className="relative group fade-in">
             <div className="absolute -inset-4 bg-[#0ea5e9]/20 rounded-2xl rotate-3 group-hover:rotate-6 transition duration-500"></div>
-            <Image src="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
+            <OptimizedImage src="/images/presentation.webp" fallback="/images/presentation.jpg" alt="Barque Colmar" width={800} height={500} className="relative rounded-2xl shadow-2xl w-full h-[500px] object-cover" />
           </div>
         </div>
       </section>
@@ -564,14 +565,14 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               const title = /friction/i.test(originalTitle) ? (currentLang === 'fr' ? 'Simplicité' : 'Simplicity') : originalTitle;
               // Use normalized display title for matching so "Frictionless" remap is honored
               const t = title.toLowerCase();
-              // Map images by semantic title across locales
-              let bg = '/images/presentation.jpg';
-              if (/(perfect|longueur|perfetto|perfecto)/i.test(t)) bg = '/images/perfectlength.jpg';
-              else if (/(impact|empreinte|impatto)/i.test(t)) bg = '/images/low-impact.jpg';
-              else if (/(guide|humain|guida|humano)/i.test(t)) bg = '/images/human-guide.jpg';
-              else if (/(group|groupe|gruppo|grupo|privat)/i.test(t)) bg = '/images/group-private.jpg';
-              else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
-              else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.jpg';
+              // Map images by semantic title across locales (WebP for better compression)
+              let bg = '/images/presentation.webp';
+              if (/(perfect|longueur|perfetto|perfecto)/i.test(t)) bg = '/images/perfectlength.webp';
+              else if (/(impact|empreinte|impatto)/i.test(t)) bg = '/images/low-impact.jpg'; // Keep JPG (WebP worse)
+              else if (/(guide|humain|guida|humano)/i.test(t)) bg = '/images/human-guide.webp';
+              else if (/(group|groupe|gruppo|grupo|privat)/i.test(t)) bg = '/images/group-private.webp';
+              else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg'; // Keep JPG (WebP worse)
+              else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.webp';
               const text = typeof c.text === 'string' ? c.text : String(c.text ?? '');
                 return (
                   <div
@@ -643,7 +644,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-10 text-sm">
           <div className="md:col-span-1 fade-in">
             <h5 className="text-white font-serif font-bold text-lg mb-4 flex items-center gap-2">
-              <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={110} height={34} className="h-6 w-auto rounded-sm" priority />
+              <OptimizedImage src="/images/logo.webp" fallback="/images/logo.jpg" alt="Sweet Narcisse" width={110} height={34} className="h-6 w-auto rounded-sm" priority />
               <span>Sweet <span className="text-[#0ea5e9]">Narcisse</span></span>
             </h5>
             <p className="leading-relaxed font-bold text-white mb-2">{liveDict.footer?.departure_label ?? 'Departures'}</p>

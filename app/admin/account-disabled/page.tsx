@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import OptimizedImage from '@/components/OptimizedImage'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
@@ -44,7 +45,7 @@ export default async function AccountDisabledPage() {
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <div className="rounded-3xl border border-white/10 bg-slate-900/70 p-8 shadow-2xl backdrop-blur">
           <div className="flex flex-col items-center text-center">
-            <Image src="/images/logo.jpg" alt="Sweet Narcisse" width={120} height={32} className="h-8 w-auto rounded-md" priority />
+            <OptimizedImage src="/images/logo.webp" fallback="/images/logo.jpg" alt="Sweet Narcisse" width={120} height={32} className="h-8 w-auto rounded-md" priority />
             <p className="mt-2 text-xs font-semibold uppercase tracking-[0.4em] text-slate-400">Compte désactivé</p>
             <h1 className="mt-4 text-3xl font-serif font-semibold text-white">Accès administrateur suspendu</h1>
             <p className="mt-2 max-w-xl text-sm text-slate-300">
