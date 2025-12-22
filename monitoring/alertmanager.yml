@@ -1,13 +1,5 @@
 global:
   resolve_timeout: 5m
-  smtp_from: 'alerts@sweetnarcisse.fr'
-  smtp_smarthost: '${SMTP_HOST}:${SMTP_PORT}'
-  smtp_auth_username: '${SMTP_USER}'
-  smtp_auth_password: '${SMTP_PASS}'
-  smtp_require_tls: true
-
-templates:
-  - '/etc/alertmanager/templates/*.tmpl'
 
 route:
   receiver: default
@@ -23,7 +15,7 @@ route:
         severity: critical
       repeat_interval: 1h
     
-    # Alerts warnings -> email + ntfy seulement
+    # Alerts warnings -> ntfy seulement
     - receiver: warning
       match:
         severity: warning
@@ -36,25 +28,8 @@ receivers:
       - url: '${ALERT_WEBHOOK_URL}'
         send_resolved: true
 
-  # Alertes critiques: email + ntfy + webhook
+  # Alertes critiques: ntfy + webhook
   - name: critical
-    email_configs:
-      - to: 'admin@sweetnarcisse.fr'
-        headers:
-          Subject: '[🚨 CRITIQUE] {{ .GroupLabels.alertname }}'
-        html: |
-          <h2>🚨 Alerte Critique - Sweet Narcisse</h2>
-          <p><strong>{{ .GroupLabels.alertname }}</strong></p>
-          {{ range .Alerts }}
-          <ul>
-            <li><strong>Résumé:</strong> {{ .Annotations.summary }}</li>
-            <li><strong>Description:</strong> {{ .Annotations.description }}</li>
-            <li><strong>Démarré:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05" }}</li>
-            <li><strong>Labels:</strong> {{ .Labels }}</li>
-          </ul>
-          {{ end }}
-        send_resolved: true
-    
     webhook_configs:
       # Ntfy.sh pour push notifications mobiles (gratuit)
       - url: 'https://ntfy.sh/sweetnarcisse-alerts'
@@ -72,24 +47,8 @@ receivers:
           headers:
             Content-Type: 'application/json'
 
-  # Alertes warning: email + ntfy
+  # Alertes warning: ntfy
   - name: warning
-    email_configs:
-      - to: 'admin@sweetnarcisse.fr'
-        headers:
-          Subject: '[⚠️ Warning] {{ .GroupLabels.alertname }}'
-        html: |
-          <h2>⚠️ Avertissement - Sweet Narcisse</h2>
-          <p><strong>{{ .GroupLabels.alertname }}</strong></p>
-          {{ range .Alerts }}
-          <ul>
-            <li><strong>Résumé:</strong> {{ .Annotations.summary }}</li>
-            <li><strong>Description:</strong> {{ .Annotations.description }}</li>
-            <li><strong>Démarré:</strong> {{ .StartsAt.Format "2006-01-02 15:04:05" }}</li>
-          </ul>
-          {{ end }}
-        send_resolved: true
-    
     webhook_configs:
       - url: 'https://ntfy.sh/sweetnarcisse-alerts'
         send_resolved: true
