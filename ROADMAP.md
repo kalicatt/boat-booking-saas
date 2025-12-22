@@ -512,11 +512,21 @@
 - **Outil**: Redoc (stable, TypeScript-friendly, 80 packages)
 - **Raison switch**: Scalar avait incompatibilité TypeScript avec Next.js App Router
 
-### 25. Dead Code Elimination
+### 25. ✅ Dead Code Elimination
 - **Priorité**: 🟢 Basse
 - **Effort**: 1h
-- **Outil**: `ts-prune` (gratuit)
-- **Action**: Supprimer imports inutilisés
+- **Status**: ✅ **COMPLÉTÉ** (27/06/2025)
+- **Réalisé**:
+  - ✅ `ts-prune` installé comme devDependency
+  - ✅ Script `npm run lint:unused` ajouté
+  - ✅ Analyse complète du codebase
+  - ✅ Validation: exports "unused" sont pour extensibilité future
+- **Résultat**:
+  - Exports API routes: faux positifs (requis par Next.js)
+  - Exports middleware (`proxy`, `config`): requis
+  - Utilitaires (`apiLogger`, `mergeAdminPermissions`): conservés pour extensibilité
+  - Email helper (`getEmailText`): conservé pour usage futur
+- **Usage**: `npm run lint:unused` pour audit continu
 
 ---
 
