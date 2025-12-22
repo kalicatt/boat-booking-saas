@@ -624,11 +624,19 @@
 
 ## 📱 Mobile (Semaine 12)
 
-### 29. Offline Mode Basique
+### 29. ✅ Offline Mode Basique
 - **Priorité**: 🟢 Basse
 - **Effort**: 3h
-- **Action**: Capacitor Preferences + IDB
-- **Cache**: Dernière réservation en cours
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `lib/offlineMode.tsx` - Provider React, hooks, utilitaires caching
+  - ✅ `components/OfflineSyncButton.tsx` - UI synchronisation
+- **Features**:
+  - `OfflineProvider` context avec détection connectivité
+  - `useOffline()` hook pour état offline/online
+  - Cache IndexedDB (idb-keyval): disponibilités, horaires, brouillons
+  - Gestion réservations en attente avec sync automatique
+  - Indicateur visuel connexion, liste pending bookings
 
 ### 30. ✅ PWA Optimisations
 - **Priorité**: 🟢 Basse
@@ -780,11 +788,16 @@
 - **Setup**: 2 containers app, swap nginx upstream
 - **Downtime**: 0s
 
-### 38. Monitoring Costs
+### 38. ✅ Monitoring Costs
 - **Priorité**: 🟢 Basse
 - **Effort**: 2h
-- **Track**: Bandwidth, storage, API calls
-- **Dashboard**: Grafana panel dédié
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ Métriques Prometheus: bandwidth, storage, API calls, emails, DB queries
+  - ✅ Dashboard Grafana `monitoring/grafana/dashboards/costs.json`
+  - ✅ Fonctions: `recordBandwidth()`, `recordExternalApiCall()`, `recordEmailSent()`, `recordDbQuery()`
+- **Track**: Bandwidth, storage, API calls externes, emails, queries DB
+- **Dashboard**: Grafana panel dédié avec estimation coûts mensuels
 
 ---
 
