@@ -26,7 +26,8 @@ $ProjectRoot = Split-Path -Parent $ScriptDir
 $EnvFile = if ($env:ENV_FILE) { $env:ENV_FILE } else { Join-Path $ProjectRoot ".env.production.local" }
 $BackupDir = if ($env:BACKUP_DIR) { $env:BACKUP_DIR } else { Join-Path $ProjectRoot "backups\secrets" }
 $LogFile = if ($env:LOG_FILE) { $env:LOG_FILE } else { Join-Path $ProjectRoot "logs\secret-rotation.log" }
-$NotifyEmail = $env:NOTIFY_EMAIL
+# Notifications (reserved for future email alerts)
+# $NotifyEmail = $env:NOTIFY_EMAIL
 
 # ============================================================================
 # Logging
@@ -176,7 +177,7 @@ function Restart-Application {
 # Main rotation logic
 # ============================================================================
 
-function Rotate-NextAuthSecret {
+function Update-NextAuthSecret {
     Write-LogInfo "=== Rotating NEXTAUTH_SECRET ==="
     
     $newSecret = New-Secret
@@ -240,17 +241,17 @@ function Main {
     }
     
     $rotationStatus = "SUCCESS"
-    $errors = @()
+    $rotationErrors = @()
     
     # Rotate NEXTAUTH_SECRET
     try {
-        if (!(Rotate-NextAuthSecret)) {
+        if (!(Update-NextAuthSecret)) {
             $rotationStatus = "FAILED"
-            $errors += "NEXTAUTH_SECRET rotation failed"
+            $rotationErrors += "NEXTAUTH_SECRET rotation failed"
         }
     } catch {
         $rotationStatus = "FAILED"
-        $errors += "NEXTAUTH_SECRET rotation error: $_"
+        $rotationErrors += "NEXTAUTH_SECRET rotation error: $_"
     }
     
     # Update marker
@@ -261,7 +262,7 @@ function Main {
     # Restart application
     if (!$DryRun -and $rotationStatus -eq "SUCCESS") {
         if (!(Restart-Application)) {
-            $errors += "Application restart failed - manual restart required"
+            $rotationErrors += "Application restart failed - manual restart required"
         }
     }
     
@@ -270,10 +271,10 @@ function Main {
     Write-LogInfo "Secret Rotation Complete: $rotationStatus"
     Write-LogInfo "========================================"
     
-    if ($errors.Count -gt 0) {
+    if ($rotationErrors.Count -gt 0) {
         Write-LogWarn "Errors encountered:"
-        foreach ($error in $errors) {
-            Write-LogWarn "  - $error"
+        foreach ($err in $rotationErrors) {
+            Write-LogWarn "  - $err"
         }
     }
     

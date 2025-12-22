@@ -37,9 +37,9 @@ $LogFile = if ($env:LOG_FILE) { $env:LOG_FILE } else { Join-Path $ProjectRoot "l
 # Test database name
 $TestDbName = "sweet_narcisse_restore_test_$(Get-Date -Format 'yyyyMMddHHmmss')"
 
-# Notifications
-$NotifyEmail = $env:NOTIFY_EMAIL
-$SlackWebhook = $env:SLACK_WEBHOOK
+# Notifications (reserved for future alerts)
+# $NotifyEmail = $env:NOTIFY_EMAIL
+# $SlackWebhook = $env:SLACK_WEBHOOK
 
 # ============================================================================
 # Logging
@@ -68,7 +68,7 @@ function Write-LogError { param([string]$Message) Write-Log "ERROR" $Message }
 # Utilities
 # ============================================================================
 
-function Parse-DatabaseUrl {
+function ConvertFrom-DatabaseUrl {
     param([string]$Url)
     
     Add-Type -AssemblyName System.Web
@@ -133,7 +133,7 @@ function Invoke-Psql {
     $env:PGPASSWORD = $script:DbPassword
     
     try {
-        $args = @(
+        $psqlArgs = @(
             "--host=$($script:DbHost)",
             "--port=$($script:DbPort)",
             "--username=$($script:DbUser)",
@@ -142,7 +142,7 @@ function Invoke-Psql {
             "--command=$Command"
         )
         
-        $result = & psql @args 2>$null
+        $result = & psql @psqlArgs 2>$null
         return ($result -join "`n").Trim()
     } finally {
         $env:PGPASSWORD = $null
@@ -160,14 +160,14 @@ function New-TestDatabase {
     $env:PGPASSWORD = $script:DbPassword
     
     try {
-        $args = @(
+        $createdbArgs = @(
             "--host=$($script:DbHost)",
             "--port=$($script:DbPort)",
             "--username=$($script:DbUser)",
             $TestDbName
         )
         
-        & createdb @args 2>$null
+        & createdb @createdbArgs 2>$null
         if ($LASTEXITCODE -ne 0) {
             throw "Failed to create test database"
         }
@@ -184,7 +184,7 @@ function Remove-TestDatabase {
     $env:PGPASSWORD = $script:DbPassword
     
     try {
-        $args = @(
+        $dropdbArgs = @(
             "--host=$($script:DbHost)",
             "--port=$($script:DbPort)",
             "--username=$($script:DbUser)",
@@ -192,7 +192,7 @@ function Remove-TestDatabase {
             $TestDbName
         )
         
-        & dropdb @args 2>$null
+        & dropdb @dropdbArgs 2>$null
     } finally {
         $env:PGPASSWORD = $null
     }
@@ -211,7 +211,7 @@ function Restore-Backup {
     $env:PGPASSWORD = $script:DbPassword
     
     try {
-        $args = @(
+        $restoreArgs = @(
             "--host=$($script:DbHost)",
             "--port=$($script:DbPort)",
             "--username=$($script:DbUser)",
@@ -221,7 +221,7 @@ function Restore-Backup {
             $BackupPath
         )
         
-        & pg_restore @args 2>$null
+        & pg_restore @restoreArgs 2>$null
         # pg_restore may return non-zero for warnings, check if data exists
         
         Write-LogInfo "Restore completed"
@@ -278,8 +278,9 @@ function Test-RestoredData {
 function Send-Alert {
     param([string]$Status, [string]$Message)
     
-    $subject = "[Sweet Narcisse] Restore Test: $Status"
-    $body = @"
+    # Alert details for future email/Slack integration
+    $alertSubject = "[Sweet Narcisse] Restore Test: $Status"
+    $alertBody = @"
 Restore test completed on $env:COMPUTERNAME at $(Get-Date).
 
 Status: $Status
@@ -290,8 +291,9 @@ Backup tested: $(Split-Path -Leaf $script:BackupFile)
 Test database: $TestDbName
 "@
 
-    # Could add email/Slack notifications here
-    Write-LogInfo "Alert: $Status - $Message"
+    # Log alert (email/Slack can be added here)
+    Write-LogInfo "Alert: $alertSubject"
+    Write-LogInfo $alertBody
 }
 
 # ============================================================================
@@ -314,7 +316,7 @@ function Main {
         $env:PATH = "$pgBin;$env:PATH"
     }
     
-    Parse-DatabaseUrl -Url $DatabaseUrl
+    ConvertFrom-DatabaseUrl -Url $DatabaseUrl
     
     $status = "SUCCESS"
     $message = ""

@@ -46,8 +46,8 @@ $LogFile = if ($env:LOG_FILE) { $env:LOG_FILE } else { Join-Path $ProjectRoot "l
 # Retention
 $RetentionDays = if ($env:RETENTION_DAYS) { [int]$env:RETENTION_DAYS } else { 30 }
 
-# Notifications
-$NotifyEmail = $env:NOTIFY_EMAIL
+# Notifications (reserved for future email alerts)
+# $NotifyEmail = $env:NOTIFY_EMAIL
 
 # ============================================================================
 # Logging
@@ -80,7 +80,7 @@ function Write-LogError { param([string]$Message) Write-Log "ERROR" $Message }
 # Utilities
 # ============================================================================
 
-function Parse-DatabaseUrl {
+function ConvertFrom-DatabaseUrl {
     param([string]$Url)
     
     # Format: postgresql://user:password@host:port/database
@@ -113,7 +113,7 @@ function New-Backup {
     }
     
     # Parse database URL
-    Parse-DatabaseUrl -Url $DatabaseUrl
+    ConvertFrom-DatabaseUrl -Url $DatabaseUrl
     
     # Set environment for pg_dump
     $env:PGPASSWORD = $script:DbPassword
@@ -143,7 +143,7 @@ function New-Backup {
         $pgDumpPath = if ($pgDump -is [string]) { $pgDump } else { $pgDump.Source }
         
         # Run pg_dump
-        $args = @(
+        $pgArgs = @(
             "--host=$($script:DbHost)",
             "--port=$($script:DbPort)",
             "--username=$($script:DbUser)",
@@ -153,7 +153,7 @@ function New-Backup {
             "--file=$OutputFile"
         )
         
-        $process = Start-Process -FilePath $pgDumpPath -ArgumentList $args -Wait -PassThru -NoNewWindow
+        $process = Start-Process -FilePath $pgDumpPath -ArgumentList $pgArgs -Wait -PassThru -NoNewWindow
         
         if ($process.ExitCode -ne 0) {
             throw "pg_dump failed with exit code: $($process.ExitCode)"
@@ -171,7 +171,7 @@ function New-Backup {
     }
 }
 
-function Encrypt-File {
+function Protect-BackupFile {
     param(
         [string]$InputFile,
         [string]$OutputFile
@@ -198,7 +198,7 @@ function Encrypt-File {
         return $true
     }
     
-    $args = @(
+    $gpgArgs = @(
         "--encrypt",
         "--recipient", $GpgRecipient,
         "--output", $OutputFile,
@@ -206,7 +206,7 @@ function Encrypt-File {
         $InputFile
     )
     
-    $process = Start-Process -FilePath gpg -ArgumentList $args -Wait -PassThru -NoNewWindow
+    $process = Start-Process -FilePath gpg -ArgumentList $gpgArgs -Wait -PassThru -NoNewWindow
     
     if ($process.ExitCode -ne 0) {
         throw "GPG encryption failed"
@@ -216,7 +216,7 @@ function Encrypt-File {
     return $true
 }
 
-function Upload-ToMinio {
+function Send-ToMinio {
     param(
         [string]$FilePath,
         [string]$ObjectKey
@@ -244,14 +244,14 @@ function Upload-ToMinio {
     $env:AWS_SECRET_ACCESS_KEY = $StorageSecretKey
     
     try {
-        $args = @(
+        $awsArgs = @(
             "s3", "cp",
             $FilePath,
             "s3://$StorageBucket/$ObjectKey",
             "--endpoint-url", $StorageEndpoint
         )
         
-        $process = Start-Process -FilePath aws -ArgumentList $args -Wait -PassThru -NoNewWindow
+        $process = Start-Process -FilePath aws -ArgumentList $awsArgs -Wait -PassThru -NoNewWindow
         
         if ($process.ExitCode -ne 0) {
             throw "S3 upload failed"
@@ -338,7 +338,7 @@ function Main {
                 $finalFile = $tempFile
             } else {
                 $encryptedFile = "$tempFile.gpg"
-                if (!(Encrypt-File -InputFile $tempFile -OutputFile $encryptedFile)) {
+                if (!(Protect-BackupFile -InputFile $tempFile -OutputFile $encryptedFile)) {
                     $status = "FAILED"
                     $errors += "Encryption failed"
                 } else {
@@ -351,7 +351,7 @@ function Main {
         # Step 3: Upload to MinIO
         if ($status -eq "SUCCESS" -and $finalFile -and (Test-Path $finalFile)) {
             $objectKey = "backups/$(Split-Path -Leaf $finalFile)"
-            if (!(Upload-ToMinio -FilePath $finalFile -ObjectKey $objectKey)) {
+            if (!(Send-ToMinio -FilePath $finalFile -ObjectKey $objectKey)) {
                 $status = "PARTIAL"
                 $errors += "Upload failed (local backup preserved)"
             }
@@ -377,8 +377,8 @@ function Main {
     
     if ($errors.Count -gt 0) {
         Write-LogWarn "Errors encountered:"
-        foreach ($error in $errors) {
-            Write-LogWarn "  - $error"
+        foreach ($err in $errors) {
+            Write-LogWarn "  - $err"
         }
     }
     
