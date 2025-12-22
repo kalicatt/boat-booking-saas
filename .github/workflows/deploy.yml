@@ -1,0 +1,49 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  deploy:
+    name: Deploy to VPS
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+      
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          port: ${{ secrets.VPS_PORT }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /opt/sweetnarcisse
+            git fetch --all --tags
+            git checkout tags/v${{ steps.version.outputs.VERSION }}
+            docker compose --env-file .env.production.local up -d --build app
+            docker compose --env-file .env.production.local exec app node_modules/.bin/prisma migrate deploy || \
+            docker run --rm --network sweetnarcisse-net \
+              -v /opt/sweetnarcisse/prisma:/app/prisma \
+              -w /app \
+              -e DATABASE_URL='postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@sweetnarcisse-db:5432/${{ secrets.DB_NAME }}' \
+              node:22-bookworm npx prisma@5.17.0 migrate deploy
+      
+      - name: Health check
+        run: |
+          sleep 15
+          curl -f https://www.sweet-narcisse.com/api/health || exit 1
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Deployment failed! Manual intervention required."
