@@ -214,11 +214,40 @@
   - ✅ Business: Pas de réservations après 14h, Taux annulation >20%
 - **Features**: Grouping, inhibition rules, résolution auto, repeat intervals intelligents
 
-### 12. Logs Structurés
-- **Priorité**: 🟡 Moyenne
+### 12. ✅ Logs Structurés (Pino)
+- **Priorité**: 🟠 Haute
 - **Effort**: 2h
-- **Remplacer**: `console.error` → **Pino** (gratuit, très rapide)
-- **Format**: JSON avec context (userId, requestId)
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Implémentation**:
+  - ✅ Pino installé avec pino-pretty pour développement
+  - ✅ Logger centralisé: `lib/logger.ts` avec niveaux (trace, debug, info, warn, error, fatal)
+  - ✅ API Logger helper: `lib/apiLogger.ts` pour routes API
+  - ✅ Remplacement console.* dans tous les fichiers `lib/`:
+    * cache.ts (4 remplacements)
+    * initMetrics.ts (2 remplacements)
+    * documentAudit.ts (1 remplacement)
+    * bookingConfirmationEmail.ts (4 remplacements)
+    * bookingCancellation.ts (1 remplacement)
+    * mobileCache.ts (2 remplacements)
+    * rateLimit.ts (1 remplacement)
+  - ✅ Configuration: Logs JSON en production, pretty-print en développement
+  - ✅ Double logging: Pino (stdout) + Base de données (audit)
+  - ✅ Documentation complète: `docs/logging-guide.md`
+- **Features**:
+  - Format JSON structuré pour parsing automatique
+  - Contexte automatique: pid, hostname, timestamp, node_env
+  - Performance: ~30x plus rapide que Winston
+  - Pretty printing colorisé en dev avec pino-pretty
+  - Compatible ELK Stack, CloudWatch, Datadog
+- **Utilisation**:
+  ```typescript
+  import { logger } from '@/lib/logger'
+  logger.error({ error, bookingId: 123 }, 'Payment failed')
+  
+  import { apiLogger } from '@/lib/apiLogger'
+  apiLogger.error('/api/bookings', error, { userId: 456 })
+  ```
+- **Prochaines étapes**: Rotation logs (pino-roll), HTTP logging (pino-http), Stream vers Elasticsearch
 
 ---
 

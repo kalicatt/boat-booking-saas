@@ -4,6 +4,7 @@ import { sendMail } from '@/lib/mailer'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import { memoInvalidateByDate } from '@/lib/memoCache'
 import { recordBookingCancellation } from '@/lib/metrics'
+import { logger } from '@/lib/logger'
 
 import type { Booking, User } from '@prisma/client'
 
@@ -79,7 +80,7 @@ export async function cancelBookingWithToken(bookingId: string, token: string): 
       })
     ])
   } catch (error) {
-    console.error('Erreur envoi emails annulation:', error)
+    logger.error({ error, bookingId }, 'Failed to send cancellation emails')
   }
 
   return { alreadyCancelled: false, booking }

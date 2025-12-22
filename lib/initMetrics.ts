@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { setBoatCapacity } from '@/lib/metrics'
+import { logger } from '@/lib/logger'
 
 /**
  * Initialize boat capacity metrics from database
@@ -15,8 +16,8 @@ export async function initBoatMetrics() {
       setBoatCapacity(boat.name, boat.capacity)
     }
     
-    console.log(`[Metrics] Initialized ${boats.length} boat capacity metrics`)
+    logger.info({ boatCount: boats.length }, 'Initialized boat capacity metrics')
   } catch (error) {
-    console.error('[Metrics] Failed to initialize boat capacities:', error)
+    logger.error({ error }, 'Failed to initialize boat capacities')
   }
 }

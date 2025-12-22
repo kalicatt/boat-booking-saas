@@ -1,5 +1,6 @@
 import { getRedisClient } from './redis'
 import { recordRateLimitEvent } from './metrics'
+import { logger } from './logger'
 
 type Bucket = { tokens: number; updated: number }
 const memoryBuckets = new Map<string, Bucket>()
@@ -119,7 +120,7 @@ export async function rateLimit(opts: RateLimitOptions): Promise<RateLimitResult
       retryAfter: allowed ? undefined : Math.max(0, Math.ceil(retryAfterRaw))
     }
   } catch (error) {
-    console.error('Rate limit redis fallback', error)
+    logger.error({ error, key: opts.key }, 'Rate limit redis fallback to memory')
     return memoryRateLimit(opts)
   }
 }

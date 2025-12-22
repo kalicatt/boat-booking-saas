@@ -1,4 +1,5 @@
 import { createStore, get, set, type UseStore } from 'idb-keyval'
+import { logger } from '@/lib/logger'
 
 const STORE_NAME = 'sn-mobile-cache'
 const STORE_TABLE = 'resources'
@@ -26,7 +27,7 @@ export async function writeCache<T>(key: string, payload: T): Promise<void> {
   try {
     await set(key, { payload, timestamp: Date.now() } as CacheEnvelope<T>, target)
   } catch (error) {
-    console.warn('[mobile-cache] failed to write cache', error)
+    logger.warn({ error, key }, 'Mobile cache write failed')
   }
 }
 

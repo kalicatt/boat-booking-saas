@@ -1,6 +1,7 @@
 import type { EmployeeDocumentAction } from '@prisma/client'
 import type { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { logger } from '@/lib/logger'
 
 export type DocumentAuditContext = {
   ipAddress?: string | null
@@ -41,6 +42,11 @@ export async function logDocumentAction(payload: DocumentAuditPayload): Promise<
       }
     })
   } catch (error) {
-    console.error('Document audit log failed', error)
+    logger.error({
+      error,
+      action: payload.action,
+      documentId: payload.documentId,
+      details: payload.details,
+    }, 'Document audit log failed')
   }
 }

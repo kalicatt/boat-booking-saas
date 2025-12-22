@@ -8,6 +8,7 @@
  * - Metrics for cache hit/miss rates
  * - Automatic serialization/deserialization
  */
+import { logger } from '@/lib/logger'
 
 import { getRedisClient } from '@/lib/redis'
 
@@ -65,7 +66,7 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
     return null
   } catch (error) {
     metrics.errors++
-    console.error('[cache] GET error:', error)
+    logger.error({ error, key, operation: 'GET' }, 'Cache GET error')
     
     // Try memory cache on Redis error
     const entry = memoryCache.get(key)

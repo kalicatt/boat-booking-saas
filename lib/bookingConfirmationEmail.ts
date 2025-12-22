@@ -7,7 +7,7 @@ import { BookingTemplate } from '@/components/emails/BookingTemplate'
 import { renderBookingHtml } from '@/lib/emailRender'
 import { sendMail } from '@/lib/mailer'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
-import { createLog } from '@/lib/logger'
+import { createLog, logger } from '@/lib/logger'
 import { computeBookingToken } from '@/lib/bookingToken'
 import { generateBookingQrCodeDataUrl, generateBookingQrCodeBuffer } from '@/lib/qr'
 import { generateBookingInvoicePdf } from '@/lib/invoicePdf'
@@ -95,7 +95,7 @@ export async function sendBookingConfirmationEmail(
       const logoPath = path.join(process.cwd(), 'public', 'images', 'logo.jpg')
       logoBuffer = await readFile(logoPath)
     } catch (error) {
-      console.warn('Logo asset unavailable for inline usage:', error)
+      logger.warn({ error }, 'Logo asset unavailable for inline usage')
     }
   }
 
@@ -161,7 +161,7 @@ export async function sendBookingConfirmationEmail(
     invoiceAttachment = { filename: `Facture-${sanitizedLabel}.pdf`, buffer: invoiceBuffer }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error('Invoice generation failed:', message)
+    logger.error({ error, bookingId: booking.id }, 'Invoice generation failed')
     await createLog('INVOICE_ERROR', `Échec génération facture ${booking.id}: ${message}`)
   }
 
@@ -238,7 +238,7 @@ export async function sendBookingConfirmationEmail(
     await createLog('EMAIL_SENT', `Confirmation envoyée à ${userEmail} pour réservation ${booking.id}`)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    console.error('Email send failed:', message)
+    logger.error({ error, bookingId: booking.id, to: userEmail }, 'Email send failed')
     await createLog('EMAIL_ERROR', `Échec envoi confirmation ${userEmail}: ${message}`)
     return { ok: false, reason: 'SEND_FAILED' }
   }
@@ -274,7 +274,7 @@ export async function sendBookingConfirmationEmail(
       await createLog('EMAIL_SENT', `Facture envoyée à ${invoiceRecipient} pour réservation ${booking.id}`)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error('Invoice email failed:', message)
+      logger.error({ error, bookingId: booking.id, to: invoiceRecipient }, 'Invoice email failed')
       await createLog('EMAIL_ERROR', `Échec envoi facture ${invoiceRecipient}: ${message}`)
     }
   }
