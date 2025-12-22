@@ -6,18 +6,46 @@ on:
       - 'v*.*.*'
 
 jobs:
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
+      tag: ${{ steps.version.outputs.TAG }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Extract version
+        id: version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "📦 Preparing release for version: $VERSION"
+      
+      - name: Validate version format
+        run: |
+          if ! [[ "${{ steps.version.outputs.VERSION }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version format: ${{ steps.version.outputs.VERSION }}"
+            echo "Expected format: X.Y.Z (e.g., 1.0.0)"
+            exit 1
+          fi
+          echo "✅ Version format valid: ${{ steps.version.outputs.VERSION }}"
+
   deploy:
     name: Deploy to VPS
     runs-on: ubuntu-latest
+    needs: prepare
     environment: production
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Extract version
-        id: version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
       
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.0
@@ -27,23 +55,118 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            echo "🚀 Starting deployment of version ${{ needs.prepare.outputs.version }}"
             cd /opt/sweetnarcisse
+            
+            # Fetch latest tags
+            echo "📥 Fetching latest tags..."
             git fetch --all --tags
-            git checkout tags/v${{ steps.version.outputs.VERSION }}
+            
+            # Checkout specific tag
+            echo "📌 Checking out tag ${{ needs.prepare.outputs.tag }}"
+            git checkout tags/${{ needs.prepare.outputs.tag }}
+            
+            # Build and deploy with Docker Compose
+            echo "🏗️ Building and deploying containers..."
             docker compose --env-file .env.production.local up -d --build app
+            
+            # Run database migrations
+            echo "🗄️ Running database migrations..."
             docker compose --env-file .env.production.local exec app node_modules/.bin/prisma migrate deploy || \
             docker run --rm --network sweetnarcisse-net \
               -v /opt/sweetnarcisse/prisma:/app/prisma \
               -w /app \
               -e DATABASE_URL='postgresql://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@sweetnarcisse-db:5432/${{ secrets.DB_NAME }}' \
               node:22-bookworm npx prisma@5.17.0 migrate deploy
+            
+            # Clean up old images
+            echo "🧹 Cleaning up old Docker images..."
+            docker image prune -f
+            
+            echo "✅ Deployment completed successfully"
       
       - name: Health check
         run: |
-          sleep 15
-          curl -f https://www.sweet-narcisse.com/api/health || exit 1
+          echo "🏥 Waiting for application to start..."
+          sleep 20
+          
+          echo "🔍 Checking application health..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" https://www.sweet-narcisse.com/api/health)
+          
+          if [ "$RESPONSE" = "200" ]; then
+            echo "✅ Health check passed (HTTP $RESPONSE)"
+          else
+            echo "❌ Health check failed (HTTP $RESPONSE)"
+            exit 1
+          fi
       
       - name: Notify on failure
         if: failure()
         run: |
-          echo "Deployment failed! Manual intervention required."
+          echo "❌ Deployment failed! Manual intervention required."
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy]
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "📝 Generating changelog..."
+          
+          # Get previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          # Generate changelog
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "First release - including all commits"
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            echo "Changes since $PREVIOUS_TAG"
+            CHANGELOG=$(git log $PREVIOUS_TAG..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Save to file
+          echo "$CHANGELOG" > changelog.txt
+          echo "📄 Changelog generated"
+      
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ needs.prepare.outputs.tag }}
+          name: Release ${{ needs.prepare.outputs.version }}
+          bodyFile: changelog.txt
+          draft: false
+          prerelease: false
+          generateReleaseNotes: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Announce release
+        run: |
+          echo "🎉 Release ${{ needs.prepare.outputs.version }} created successfully!"
+          echo "🔗 https://github.com/${{ github.repository }}/releases/tag/${{ needs.prepare.outputs.tag }}"
+
+  notify:
+    name: Notify Success
+    runs-on: ubuntu-latest
+    needs: [prepare, deploy, create-release]
+    if: success()
+    
+    steps:
+      - name: Success notification
+        run: |
+          echo "✅ Deployment pipeline completed successfully!"
+          echo "Version: ${{ needs.prepare.outputs.version }}"
+          echo "Environment: Production"
+          echo "URL: https://www.sweet-narcisse.com"
+          # Ici on peut ajouter des notifications Slack/Discord/Email

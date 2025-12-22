@@ -142,11 +142,42 @@
   - Environnement production protégé (reviewers requis)
 - **Coût**: 🆓 2000 min/mois gratuit GitHub (utilisation estimée: ~400 min/mois)
 
-### 9. Auto-Deploy sur Tag
-- **Priorité**: 🟡 Moyenne
+### 9. ✅ Auto-Deploy sur Tag
+- **Priorité**: 🔴 Critique
 - **Effort**: 1h
-- **Trigger**: `git push origin v1.0.x`
-- **Action**: Build + push + SSH deploy VPS
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `.github/workflows/deploy.yml` - Workflow de déploiement automatique
+  - ✅ Déclenchement sur tag `v*.*.*` (Semantic Versioning)
+  - ✅ Validation du format SemVer (X.Y.Z)
+  - ✅ Déploiement SSH sur VPS avec Docker Compose
+  - ✅ Migrations Prisma automatiques
+  - ✅ Health check post-déploiement
+  - ✅ Création automatique de GitHub Release
+  - ✅ Génération automatique du changelog
+  - ✅ Nettoyage des anciennes images Docker
+  - ✅ Documentation complète: `docs/release-process.md`
+- **Pipeline**:
+  ```yaml
+  Jobs: prepare → deploy → create-release → notify
+  Validation: format SemVer (1.0.0, 1.2.3, etc.)
+  Health check: https://www.sweet-narcisse.com/api/health
+  Rollback: manuel (documenté)
+  ```
+- **Utilisation**:
+  ```bash
+  # Créer et pousser un tag
+  git tag -a v1.1.0 -m "Release 1.1.0 - Description"
+  git push origin v1.1.0
+  
+  # Déploiement automatique démarre (~3-4 minutes)
+  # GitHub Release créée automatiquement
+  ```
+- **Sécurité**:
+  - Secrets: VPS_HOST, VPS_PORT, VPS_USER, VPS_SSH_KEY
+  - Environnement production avec protection
+  - Clés SSH pour authentification sécurisée
+- **Documentation**: Processus complet dans `docs/release-process.md`
 
 ---
 

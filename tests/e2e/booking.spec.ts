@@ -44,8 +44,16 @@ test.describe('Complete Booking Flow', () => {
     // 4. Select time (10:00)
     const timeSelect = page.locator('select[name="time"], input[name="time"]').first()
     if (await timeSelect.isVisible()) {
-      if (await timeSelect.evaluate(el => el.tagName) === 'SELECT') {
-        await timeSelect.selectOption({ label: /10:00/i })
+      const tagName = await timeSelect.evaluate(el => el.tagName)
+      if (tagName === 'SELECT') {
+        // Try to find option with "10:00" in the text
+        const options = await timeSelect.locator('option').allTextContents()
+        const matchingOption = options.find(opt => opt.includes('10:00'))
+        if (matchingOption) {
+          await timeSelect.selectOption({ label: matchingOption })
+        } else {
+          await timeSelect.selectOption({ index: 1 }) // Fallback to first available time
+        }
       } else {
         await timeSelect.fill('10:00')
       }
