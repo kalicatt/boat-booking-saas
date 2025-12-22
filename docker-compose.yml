@@ -25,9 +25,11 @@ services:
   app:
     build: .
     restart: unless-stopped
+    init: true
     environment:
       AUTH_TRUST_HOST: "true"
       NODE_ENV: production
+      PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       
@@ -63,8 +65,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "3000:3000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/.next/cache:rw,noexec,nosuid,size=128m
+    pids_limit: 150
+    mem_limit: 1g
     networks:
       - default
       - sweetnarcisse-net
