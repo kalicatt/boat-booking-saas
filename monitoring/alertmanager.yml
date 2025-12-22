@@ -22,13 +22,17 @@ route:
       repeat_interval: 6h
 
 receivers:
-  # Fallback par défaut
+  # Fallback par défaut  
   - name: default
     webhook_configs:
-      - url: '${ALERT_WEBHOOK_URL}'
+      - url: 'https://ntfy.sh/sweetnarcisse-alerts'
         send_resolved: true
+        http_config:
+          headers:
+            Title: 'Alerte Sweet Narcisse'
+            Priority: 'default'
 
-  # Alertes critiques: ntfy + webhook
+  # Alertes critiques: ntfy uniquement
   - name: critical
     webhook_configs:
       # Ntfy.sh pour push notifications mobiles (gratuit)
@@ -39,13 +43,6 @@ receivers:
             Title: '🚨 Alerte Critique'
             Priority: 'urgent'
             Tags: 'rotating_light,warning'
-      
-      # Discord webhook (si configuré)
-      - url: '${DISCORD_WEBHOOK_URL}'
-        send_resolved: true
-        http_config:
-          headers:
-            Content-Type: 'application/json'
 
   # Alertes warning: ntfy
   - name: warning
