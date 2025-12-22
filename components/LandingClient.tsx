@@ -153,20 +153,82 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   useEffect(()=>{
     const onScroll = () => setScrolled(window.scrollY > 40)
     window.addEventListener('scroll', onScroll)
-    const reveal = () => {
+    
+    // Legacy fade-in support
+    const revealFadeIn = () => {
       document.querySelectorAll('.fade-in').forEach(el => {
         const r = el.getBoundingClientRect();
         if(r.top < window.innerHeight - 60) el.classList.add('fade-in-visible')
       })
     }
-    window.addEventListener('scroll', reveal)
-    reveal()
+    window.addEventListener('scroll', revealFadeIn)
+    revealFadeIn()
+    
+    // Scroll-driven animations fallback using Intersection Observer
+    // Only activate if browser doesn't support scroll-driven animations
+    const supportsScrollDriven = CSS.supports('animation-timeline', 'view()')
+    
+    if (!supportsScrollDriven) {
+      const scrollAnimationClasses = [
+        'scroll-reveal',
+        'scroll-fade-in', 
+        'scroll-slide-left',
+        'scroll-slide-right',
+        'scroll-scale',
+        'scroll-rotate',
+        'scroll-text-reveal',
+        'scroll-zoom-in',
+        'scroll-from-left',
+        'scroll-from-right',
+        'scroll-split-reveal'
+      ]
+      
+      const observerOptions = {
+        root: null,
+        rootMargin: '0px 0px -10% 0px',
+        threshold: 0.1
+      }
+      
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible')
+            // Don't unobserve - let it stay visible
+          }
+        })
+      }, observerOptions)
+      
+      // Observe all scroll animation elements
+      scrollAnimationClasses.forEach(className => {
+        document.querySelectorAll(`.${className}`).forEach(el => {
+          observer.observe(el)
+        })
+      })
+      
+      // Also handle stagger children
+      document.querySelectorAll('.scroll-stagger').forEach(parent => {
+        const staggerObserver = new IntersectionObserver((entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              // Add is-visible to all children with delays
+              Array.from(entry.target.children).forEach((child, index) => {
+                setTimeout(() => {
+                  child.classList.add('is-visible')
+                }, index * 100)
+              })
+            }
+          })
+        }, { threshold: 0.2 })
+        staggerObserver.observe(parent)
+      })
+    }
+    
     const onHash = () => setCurrentHash(window.location.hash || '')
     const onSearch = () => setCurrentSearch(window.location.search || '')
     window.addEventListener('hashchange', onHash)
     onHash()
     onSearch()
-    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', reveal); window.removeEventListener('hashchange', onHash) }
+    return ()=> { window.removeEventListener('scroll', onScroll); window.removeEventListener('scroll', revealFadeIn); window.removeEventListener('hashchange', onHash) }
   },[])
 
   useEffect(()=>{

@@ -319,27 +319,121 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
   }
 }
 
-/* Fallback for browsers without scroll-driven animations */
-@supports not (animation-timeline: scroll()) {
+/* ============================================
+   🔄 Fallback Animations (JavaScript-triggered)
+   For browsers without scroll-driven animations
+   ============================================ */
+
+/* Initial hidden state for all scroll animations */
+.scroll-reveal,
+.scroll-fade-in,
+.scroll-slide-left,
+.scroll-slide-right,
+.scroll-scale,
+.scroll-rotate,
+.scroll-text-reveal,
+.scroll-zoom-in,
+.scroll-from-left,
+.scroll-from-right,
+.scroll-split-reveal {
+  opacity: 0;
+}
+
+/* Override initial state only if scroll-driven animations NOT supported */
+@supports not (animation-timeline: view()) {
+  .scroll-reveal,
+  .scroll-fade-in {
+    transform: translateY(40px);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .scroll-slide-left,
+  .scroll-from-left {
+    transform: translateX(-60px);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .scroll-slide-right,
+  .scroll-from-right {
+    transform: translateX(60px);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .scroll-scale,
+  .scroll-zoom-in {
+    transform: scale(0.85);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                filter 0.8s ease;
+  }
+  
+  .scroll-rotate {
+    transform: rotate(-5deg) scale(0.95);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .scroll-text-reveal {
+    transform: translateY(20px);
+    filter: blur(4px);
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                filter 0.6s ease;
+  }
+  
+  .scroll-split-reveal {
+    transform: scale(1.1);
+    clip-path: inset(20% 20% 20% 20%);
+    transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.8s cubic-bezier(0.4, 0, 0.2, 1),
+                clip-path 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Visible state when JavaScript adds .is-visible class */
+  .scroll-reveal.is-visible,
+  .scroll-fade-in.is-visible,
+  .scroll-slide-left.is-visible,
+  .scroll-slide-right.is-visible,
+  .scroll-scale.is-visible,
+  .scroll-rotate.is-visible,
+  .scroll-text-reveal.is-visible,
+  .scroll-zoom-in.is-visible,
+  .scroll-from-left.is-visible,
+  .scroll-from-right.is-visible,
+  .scroll-split-reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0) translateX(0) scale(1) rotate(0);
+    filter: blur(0);
+    clip-path: inset(0% 0% 0% 0%);
+  }
+  
+  /* Stagger delays for children */
+  .scroll-stagger > *:nth-child(1) { transition-delay: 0ms; }
+  .scroll-stagger > *:nth-child(2) { transition-delay: 100ms; }
+  .scroll-stagger > *:nth-child(3) { transition-delay: 200ms; }
+  .scroll-stagger > *:nth-child(4) { transition-delay: 300ms; }
+  .scroll-stagger > *:nth-child(5) { transition-delay: 400ms; }
+  .scroll-stagger > *:nth-child(6) { transition-delay: 500ms; }
+}
+
+/* For browsers WITH scroll-driven animation support, ensure opacity is 1 
+   (the animation handles the actual reveal) */
+@supports (animation-timeline: view()) {
   .scroll-reveal,
   .scroll-fade-in,
   .scroll-slide-left,
   .scroll-slide-right,
   .scroll-scale,
-  .scroll-rotate {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: opacity 0.8s ease, transform 0.8s ease;
-  }
-  
-  .scroll-reveal.fade-in-visible,
-  .scroll-fade-in.fade-in-visible,
-  .scroll-slide-left.fade-in-visible,
-  .scroll-slide-right.fade-in-visible,
-  .scroll-scale.fade-in-visible,
-  .scroll-rotate.fade-in-visible {
-    opacity: 1;
-    transform: translateY(0);
+  .scroll-rotate,
+  .scroll-text-reveal,
+  .scroll-zoom-in,
+  .scroll-from-left,
+  .scroll-from-right,
+  .scroll-split-reveal {
+    opacity: 1; /* Let animation control this */
   }
 }
 
