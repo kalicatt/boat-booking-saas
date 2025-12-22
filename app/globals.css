@@ -228,13 +228,20 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 .bento-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 640px) {
   .bento-grid {
-    grid-template-columns: repeat(12, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .bento-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
   }
 }
 
@@ -259,18 +266,26 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 }
 
 /* Bento card sizes */
-.bento-sm { grid-column: span 12; }
-.bento-md { grid-column: span 12; }
-.bento-lg { grid-column: span 12; }
-.bento-wide { grid-column: span 12; }
-.bento-tall { grid-row: span 1; }
+.bento-sm { grid-column: span 1; }
+.bento-md { grid-column: span 1; }
+.bento-lg { grid-column: span 1; }
+.bento-wide { grid-column: span 1; }
+.bento-tall { grid-row: span 1; min-height: 280px; }
 
-@media (min-width: 768px) {
-  .bento-sm { grid-column: span 4; }
-  .bento-md { grid-column: span 6; }
-  .bento-lg { grid-column: span 8; }
-  .bento-wide { grid-column: span 12; }
-  .bento-tall { grid-row: span 2; }
+@media (min-width: 640px) {
+  .bento-sm { grid-column: span 1; }
+  .bento-md { grid-column: span 1; }
+  .bento-lg { grid-column: span 2; }
+  .bento-wide { grid-column: span 2; }
+  .bento-tall { grid-row: span 2; min-height: 400px; }
+}
+
+@media (min-width: 1024px) {
+  .bento-sm { grid-column: span 1; }
+  .bento-md { grid-column: span 1; }
+  .bento-lg { grid-column: span 2; }
+  .bento-wide { grid-column: span 3; }
+  .bento-tall { grid-row: span 2; min-height: 450px; }
 }
 
 /* Container Query responsive content */
@@ -615,13 +630,163 @@ body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 /* Parallax helper */
 .parallax-layer { will-change: transform; }
 
-/* Offcanvas menu animations */
-@keyframes menuPanelIn { 0% { transform: translateX(-100%); } 100% { transform: translateX(0); } }
-@keyframes menuPanelOut { 0% { transform: translateX(0); } 100% { transform: translateX(-100%); } }
-@keyframes menuLinkIn { 0% { opacity:0; transform:translateX(-12px); } 100% { opacity:1; transform:translateX(0); } }
-.menu-panel { animation: menuPanelIn .35s cubic-bezier(.25,.8,.25,1) forwards; }
-.menu-panel-closing { animation: menuPanelOut .3s ease-in forwards; }
-.menu-link-animate { opacity:0; animation: menuLinkIn .5s cubic-bezier(.25,.8,.25,1) forwards; }
+/* ============================================
+   🍔 Premium Menu Hamburger Animation
+   ============================================ */
+.hamburger-btn {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  padding: 0;
+  z-index: 60;
+}
+
+.hamburger-line {
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 2px;
+  transition: all 0.4s cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  transform-origin: center;
+}
+
+.hamburger-line:nth-child(1) { margin-bottom: 5px; }
+.hamburger-line:nth-child(2) { margin-bottom: 5px; width: 16px; margin-left: 6px; }
+.hamburger-line:nth-child(3) { width: 22px; }
+
+.hamburger-btn:hover .hamburger-line:nth-child(2) {
+  width: 22px;
+  margin-left: 0;
+}
+
+/* Hamburger active state */
+.hamburger-btn.is-active .hamburger-line:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+.hamburger-btn.is-active .hamburger-line:nth-child(2) {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+.hamburger-btn.is-active .hamburger-line:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Offcanvas Premium Menu */
+@keyframes menuPanelIn { 
+  0% { transform: translateX(-100%); opacity: 0.8; } 
+  100% { transform: translateX(0); opacity: 1; } 
+}
+@keyframes menuPanelOut { 
+  0% { transform: translateX(0); opacity: 1; } 
+  100% { transform: translateX(-100%); opacity: 0.8; } 
+}
+@keyframes menuLinkIn { 
+  0% { opacity: 0; transform: translateX(-20px) scale(0.95); } 
+  100% { opacity: 1; transform: translateX(0) scale(1); } 
+}
+@keyframes menuBackdropIn {
+  0% { opacity: 0; backdrop-filter: blur(0); }
+  100% { opacity: 1; backdrop-filter: blur(8px); }
+}
+
+.menu-panel { 
+  animation: menuPanelIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+  will-change: transform;
+}
+.menu-panel-closing { 
+  animation: menuPanelOut 0.35s cubic-bezier(0.7, 0, 0.84, 0) forwards; 
+}
+.menu-link-animate { 
+  opacity: 0; 
+  animation: menuLinkIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; 
+}
+.menu-backdrop {
+  animation: menuBackdropIn 0.4s ease forwards;
+}
+
+/* Premium menu link hover effect */
+.menu-link {
+  position: relative;
+  display: block;
+  padding: 12px 16px;
+  border-radius: 12px;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.menu-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(14, 165, 233, 0.02));
+  border-radius: 12px;
+  transform: translateX(-100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%) scaleY(0);
+  width: 3px;
+  height: 24px;
+  background: linear-gradient(180deg, #0ea5e9, #38bdf8);
+  border-radius: 0 4px 4px 0;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.menu-link:hover {
+  color: #0ea5e9;
+  padding-left: 24px;
+}
+
+.menu-link:hover::before {
+  transform: translateX(0);
+}
+
+.menu-link:hover::after {
+  transform: translateY(-50%) scaleY(1);
+}
+
+/* Menu icon animation */
+.menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(14, 165, 233, 0.05));
+  margin-right: 12px;
+  transition: all 0.3s ease;
+}
+
+.menu-link:hover .menu-icon {
+  background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+  color: white;
+  transform: scale(1.1) rotate(-5deg);
+  box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3);
+}
+
+/* Menu section divider */
+.menu-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.3), transparent);
+  margin: 16px 0;
+}
+
 body.lock-scroll { overflow:hidden; }
 
 /* Admin modal + form refresh */

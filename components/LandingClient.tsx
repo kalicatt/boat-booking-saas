@@ -299,10 +299,15 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       <nav className={`fixed w-full z-40 transition-all ${scrolled ? 'backdrop-blur-md bg-white/90 shadow-sm border-b border-slate-200 h-16' : 'bg-transparent h-20'} `}>
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <button ref={menuButtonRef} aria-label="Menu" onClick={()=>{ setMenuOpen(true); }} className="p-2 rounded-md bg-transparent hover:bg-white/10 active:scale-95 transition flex flex-col justify-center gap-[5px] focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
-              <span className={`block w-6 h-0.5 transition-colors ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
-              <span className={`block w-6 h-0.5 transition-colors ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
-              <span className={`block w-6 h-0.5 transition-colors ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+            <button 
+              ref={menuButtonRef} 
+              aria-label="Menu" 
+              onClick={()=>{ setMenuOpen(true); }} 
+              className="hamburger-btn p-2 rounded-lg hover:bg-white/10 active:scale-95 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            >
+              <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+              <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
+              <span className={`hamburger-line ${scrolled ? 'bg-slate-700' : 'bg-white'}`} />
             </button>
             <Link
               href={`/${currentLang}`}
@@ -319,60 +324,111 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
       {/* Offcanvas outside nav so fixed covers viewport */}
       { (menuOpen || menuClosing) && (
         <div className={`fixed inset-0 z-50`} role="dialog" aria-modal="true">
-          <div onClick={closeMenu} className={`absolute inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity duration-300 ${menuOpen && !menuClosing ? 'opacity-100' : 'opacity-0'}`}></div>
-          <div ref={panelRef} className={`absolute top-0 left-0 h-full w-[300px] bg-white shadow-2xl border-r border-slate-200 flex flex-col ${menuClosing ? 'menu-panel-closing' : 'menu-panel'}`}>
-            <div className="flex items-center justify-between px-5 h-16 border-b border-slate-100">
-              <span className="font-serif font-bold text-lg text-[#0f172a]">Menu</span>
-              <button aria-label="Fermer" onClick={closeMenu} className="p-2 rounded-md hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
-                <span className="block w-5 h-0.5 bg-slate-700 rotate-45 translate-y-[3px]" />
-                <span className="block w-5 h-0.5 bg-slate-700 -rotate-45 -translate-y-[3px]" />
+          <div onClick={closeMenu} className={`menu-backdrop absolute inset-0 bg-slate-900/60 transition-opacity duration-300 ${menuOpen && !menuClosing ? 'opacity-100' : 'opacity-0'}`}></div>
+          <div ref={panelRef} className={`absolute top-0 left-0 h-full w-[320px] bg-gradient-to-b from-white to-slate-50 shadow-2xl flex flex-col ${menuClosing ? 'menu-panel-closing' : 'menu-panel'}`}>
+            <div className="flex items-center justify-between px-6 h-20 border-b border-slate-100/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#0284c7] flex items-center justify-center shadow-lg shadow-sky-500/20">
+                  <span className="text-white text-lg">🚤</span>
+                </div>
+                <span className="font-serif font-bold text-xl bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">Menu</span>
+              </div>
+              <button 
+                aria-label="Fermer" 
+                onClick={closeMenu} 
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center transition-all hover:rotate-90 duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+              >
+                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
-            <nav className="flex-1 overflow-y-auto py-4">
-              <ul className="px-4 text-sm font-semibold space-y-1">
-                <li className="menu-link-animate" style={{ animationDelay: '40ms' }}>
-                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav?.experience ?? 'Experience'}</a>
+            <nav className="flex-1 overflow-y-auto py-6 px-4">
+              <ul className="space-y-2">
+                <li className="menu-link-animate" style={{ animationDelay: '50ms' }}>
+                  <a ref={firstLinkRef} onClick={closeMenu} href="#presentation" className="menu-link flex items-center">
+                    <span className="menu-icon">🌊</span>
+                    {liveDict.nav?.experience ?? 'Experience'}
+                  </a>
                 </li>
-                <li className="menu-link-animate" style={{ animationDelay: '80ms' }}>
-                  <Link onClick={closeMenu} href={`/${currentLang}/partners`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9] uppercase">{liveDict.partners?.nav || 'Partners'}</Link>
+                <li className="menu-link-animate" style={{ animationDelay: '100ms' }}>
+                  <Link onClick={closeMenu} href={`/${currentLang}/partners`} className="menu-link flex items-center">
+                    <span className="menu-icon">🤝</span>
+                    {liveDict.partners?.nav || 'Partners'}
+                  </Link>
                 </li>
-                <li className="menu-link-animate" style={{ animationDelay: '120ms' }}>
-                  <a onClick={closeMenu} href="#contact" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav?.contact ?? 'Contact'}</a>
+                <li className="menu-link-animate" style={{ animationDelay: '150ms' }}>
+                  <a onClick={closeMenu} href="#contact" className="menu-link flex items-center">
+                    <span className="menu-icon">✉️</span>
+                    {liveDict.nav?.contact ?? 'Contact'}
+                  </a>
                 </li>
-                <li className="menu-link-animate" style={{ animationDelay: '160ms' }}>
-                  <a onClick={closeMenu} href="#reservation" className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.nav?.book ?? 'Book'}</a>
+                <li className="menu-link-animate" style={{ animationDelay: '200ms' }}>
+                  <a onClick={closeMenu} href="#reservation" className="menu-link flex items-center">
+                    <span className="menu-icon">📅</span>
+                    {liveDict.nav?.book ?? 'Book'}
+                  </a>
                 </li>
-                <li className="menu-link-animate border-t border-slate-200 mt-3 pt-3" style={{ animationDelay: '200ms' }}>
-                  <span className="block px-3 pb-1 text-[11px] uppercase tracking-[0.22em] text-slate-400">{liveDict.footer?.infos ?? 'Infos'}</span>
-                  <div className="space-y-1">
-                    <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer?.legal ?? 'Legal'}</Link>
-                    <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer?.cgv ?? 'Terms'}</Link>
-                    <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="block px-3 py-2 rounded-md hover:bg-slate-50 text-slate-700 hover:text-[#0ea5e9]">{liveDict.footer?.privacy ?? 'Privacy'}</Link>
-                  </div>
+                
+                <li className="menu-link-animate" style={{ animationDelay: '250ms' }}>
+                  <div className="menu-divider"></div>
+                  <span className="block px-4 py-2 text-[11px] uppercase tracking-[0.2em] text-slate-400 font-bold">{liveDict.footer?.infos ?? 'Infos'}</span>
                 </li>
-                <li className="pt-2 border-t border-slate-200 menu-link-animate" style={{ animationDelay: '320ms' }}>
-                  <div ref={dropdownRef} className="relative">
-                    <button onClick={()=>setLangOpen(o=>!o)} aria-haspopup="listbox" aria-expanded={langOpen} className="w-full text-left px-3 py-2 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-between text-xs font-bold">
-                      <span className="flex items-center gap-2">
-                        <span aria-hidden="true" className="text-base leading-none">{currentLangOption.flag}</span>
-                        <span>{currentLangOption.label}</span>
+                <li className="menu-link-animate" style={{ animationDelay: '300ms' }}>
+                  <Link onClick={closeMenu} href={`/${currentLang}/legal`} className="menu-link flex items-center text-sm">
+                    <span className="menu-icon text-sm">📜</span>
+                    {liveDict.footer?.legal ?? 'Legal'}
+                  </Link>
+                </li>
+                <li className="menu-link-animate" style={{ animationDelay: '350ms' }}>
+                  <Link onClick={closeMenu} href={`/${currentLang}/cgv`} className="menu-link flex items-center text-sm">
+                    <span className="menu-icon text-sm">📋</span>
+                    {liveDict.footer?.cgv ?? 'Terms'}
+                  </Link>
+                </li>
+                <li className="menu-link-animate" style={{ animationDelay: '400ms' }}>
+                  <Link onClick={closeMenu} href={`/${currentLang}/privacy`} className="menu-link flex items-center text-sm">
+                    <span className="menu-icon text-sm">🔒</span>
+                    {liveDict.footer?.privacy ?? 'Privacy'}
+                  </Link>
+                </li>
+                
+                <li className="menu-link-animate pt-4" style={{ animationDelay: '450ms' }}>
+                  <div className="menu-divider"></div>
+                  <div ref={dropdownRef} className="mt-4">
+                    <button 
+                      onClick={()=>setLangOpen(o=>!o)} 
+                      aria-haspopup="listbox" 
+                      aria-expanded={langOpen} 
+                      className="w-full text-left px-4 py-3 rounded-xl bg-gradient-to-r from-slate-100 to-slate-50 hover:from-slate-200 hover:to-slate-100 border border-slate-200/80 text-slate-700 flex items-center justify-between transition-all duration-300 shadow-sm hover:shadow"
+                    >
+                      <span className="flex items-center gap-3">
+                        <span aria-hidden="true" className="text-xl">{currentLangOption.flag}</span>
+                        <span className="font-semibold">{currentLangOption.label}</span>
                       </span>
-                      <span className="text-[10px]">▾</span>
+                      <svg className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${langOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
                     </button>
                     {langOpen && (
-                      <ul role="listbox" className="mt-2 w-full bg-white border border-slate-200 rounded-md shadow-lg z-50 text-xs divide-y divide-slate-100">
-                        {LANGUAGE_OPTIONS.map(option => (
-                          <li key={option.code}>
+                      <ul role="listbox" className="mt-2 w-full bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden divide-y divide-slate-100">
+                        {LANGUAGE_OPTIONS.map((option, idx) => (
+                          <li key={option.code} className="menu-link-animate" style={{ animationDelay: `${idx * 50}ms` }}>
                             <Link
                               prefetch={false}
                               href={`/${option.code}${currentSearch}${currentHash}`}
                               role="option"
                               aria-selected={currentLang===option.code}
-                              className={`flex items-center gap-2 px-3 py-2 hover:bg-slate-50 ${currentLang===option.code ? 'font-bold text-[#0f172a]' : 'text-slate-600'}`}
+                              className={`flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-sky-50 hover:to-transparent transition-all ${currentLang===option.code ? 'font-bold text-[#0ea5e9] bg-sky-50/50' : 'text-slate-600'}`}
                               onClick={()=>{setLangOpen(false); closeMenu()}}
                             >
-                              <span aria-hidden="true" className="text-base leading-none">{option.flag}</span>
+                              <span aria-hidden="true" className="text-xl">{option.flag}</span>
                               <span>{option.label}</span>
+                              {currentLang===option.code && (
+                                <svg className="w-5 h-5 ml-auto text-[#0ea5e9]" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
                             </Link>
                           </li>
                         ))}
@@ -382,6 +438,10 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
                 </li>
               </ul>
             </nav>
+            {/* Menu footer */}
+            <div className="px-6 py-4 border-t border-slate-100/80 bg-slate-50/50">
+              <p className="text-xs text-slate-400 text-center">Sweet Narcisse © {new Date().getFullYear()}</p>
+            </div>
           </div>
         </div>
       ) }
@@ -576,13 +636,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               else if (/(central|centre|centrale|centrado|departure|départ)/i.test(t)) bg = '/images/central-departure.jpg';
               else if (/(simplicité|simplicity|simple|facile)/i.test(t)) bg = '/images/simplicity.webp';
               const text = typeof c.text === 'string' ? c.text : String(c.text ?? '');
-              // Bento sizes: first and 4th are large
-              const bentoSize = idx === 0 || idx === 3 ? 'bento-md bento-tall' : 'bento-sm';
               const scrollClass = idx % 2 === 0 ? 'scroll-slide-left' : 'scroll-slide-right';
               return (
                 <div
                   key={idx}
-                  className={`bento-card ${bentoSize} ${scrollClass} group`}
+                  className={`bento-card ${scrollClass} group min-h-[280px]`}
                   style={{
                     backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.35), rgba(0,0,0,0.15)), url(${bg})`,
                     backgroundSize: 'cover',
@@ -596,7 +654,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
                     e.currentTarget.style.setProperty('--mouse-y', `${y}%`);
                   }}
                 >
-                  <div className="bento-content h-full flex flex-col justify-end">
+                  <div className="bento-content h-full flex flex-col justify-end p-5">
                     <div className="bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-lg transform transition-all duration-300 group-hover:bg-white group-hover:shadow-xl group-hover:-translate-y-1">
                       <h3 className="font-serif text-fluid-lg font-bold text-[#0f172a] group-hover:text-[#0ea5e9] transition-colors mb-1">
                         {title}
