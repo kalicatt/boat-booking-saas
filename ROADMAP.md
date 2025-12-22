@@ -532,17 +532,25 @@
 
 ## 🔄 Backup & DR (Semaine 11)
 
-### 26. Backup Automatisé
+### 26. ✅ Backup Automatisé
 - **Priorité**: 🟠 Haute
 - **Effort**: 2h
-- **Fréquence**: Toutes les 6h
-- **Script**:
-  ```bash
-  # Snapshot Postgres
-  # Upload MinIO chiffré
-  # Purge > 30 jours
-  ```
-- **Stockage**: MinIO local (gratuit)
+- **Status**: ✅ **COMPLÉTÉ** (27/06/2025)
+- **Réalisé**:
+  - ✅ `scripts/backup-db.sh` - Script Bash complet
+  - ✅ `scripts/backup-db.ps1` - Script PowerShell Windows
+  - ✅ `systemd/db-backup.timer` - Timer systemd
+  - ✅ `systemd/db-backup.service` - Service systemd
+  - ✅ `scripts/cron/crontab.example` - Configuration cron
+  - ✅ `docs/backup-guide.md` - Documentation complète
+- **Fonctionnalités**:
+  - pg_dump avec compression niveau 9
+  - Chiffrement GPG optionnel
+  - Upload vers MinIO (S3-compatible)
+  - Retention automatique 30 jours
+  - Mode dry-run pour tests
+  - Fréquence: toutes les 6h (0h, 6h, 12h, 18h)
+- **RTO**: < 4h | **RPO**: < 6h
 
 ### 27. Test Restore Mensuel
 - **Priorité**: 🟡 Moyenne

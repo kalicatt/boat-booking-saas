@@ -1,0 +1,30 @@
+[Unit]
+Description=Sweet Narcisse Database Backup Service
+Documentation=https://github.com/sweet-narcisse/docs/backup-guide.md
+After=network.target postgresql.service
+
+[Service]
+Type=oneshot
+User=sweet-narcisse
+Group=sweet-narcisse
+WorkingDirectory=/opt/sweet-narcisse
+EnvironmentFile=/opt/sweet-narcisse/.env.production.local
+ExecStart=/opt/sweet-narcisse/scripts/backup-db.sh
+StandardOutput=journal
+StandardError=journal
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/sweet-narcisse/backups /opt/sweet-narcisse/logs
+
+# Timeouts
+TimeoutStartSec=1800
+
+# Security hardening
+NoNewPrivileges=true
+ProtectHome=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictRealtime=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,15 @@
+[Unit]
+Description=Sweet Narcisse Database Backup Timer
+Documentation=https://github.com/sweet-narcisse/docs/backup-guide.md
+
+[Timer]
+# Run every 6 hours at 0, 6, 12, 18
+OnCalendar=*-*-* 00,06,12,18:00:00
+# Add randomized delay of 0-15 minutes
+RandomizedDelaySec=900
+# Persist timer across reboots
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

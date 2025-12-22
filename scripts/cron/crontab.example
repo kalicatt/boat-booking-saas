@@ -10,10 +10,10 @@
 0 3 1 * * root /opt/sweet-narcisse/scripts/rotate-secrets.sh >> /var/log/sweet-narcisse/cron.log 2>&1
 
 # ============================================================================
-# Database Backup - Every 6 hours
+# Database Backup - Every 6 hours (0, 6, 12, 18)
 # ============================================================================
-# Creates encrypted PostgreSQL snapshots
-0 */6 * * * root /opt/sweet-narcisse/scripts/backup-db.sh >> /var/log/sweet-narcisse/cron.log 2>&1
+# Creates compressed PostgreSQL snapshots, uploads to MinIO
+0 0,6,12,18 * * * root /opt/sweet-narcisse/scripts/backup-db.sh >> /var/log/sweet-narcisse/cron.log 2>&1
 
 # ============================================================================
 # Document Purge - Daily at 4 AM
