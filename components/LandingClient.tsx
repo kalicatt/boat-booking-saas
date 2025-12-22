@@ -168,6 +168,11 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   const { scrollY, windowHeight, getParallaxStyle, isInView } = useParallax()
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
   const sectionRefs = useRef<Map<string, HTMLElement>>(new Map())
+  
+  // Scroll progress for floating indicator
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false)
+  
   const closeMenu = () => {
     if(menuOpen){
       setMenuClosing(true)
@@ -238,6 +243,29 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   const registerSection = useCallback((id: string) => (el: HTMLElement | null) => {
     if (el) sectionRefs.current.set(id, el)
     else sectionRefs.current.delete(id)
+  }, [])
+  
+  // Floating scroll indicator
+  useEffect(() => {
+    let hideTimeout: NodeJS.Timeout
+    
+    const updateScrollProgress = () => {
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      const progress = Math.min(window.scrollY / docHeight, 1)
+      setScrollProgress(progress)
+      setShowScrollIndicator(true)
+      
+      clearTimeout(hideTimeout)
+      hideTimeout = setTimeout(() => {
+        setShowScrollIndicator(false)
+      }, 1500)
+    }
+    
+    window.addEventListener('scroll', updateScrollProgress, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', updateScrollProgress)
+      clearTimeout(hideTimeout)
+    }
   }, [])
   
   useEffect(()=>{
@@ -389,6 +417,26 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 scroll-smooth">
+      {/* Floating scroll bubble indicator */}
+      <div 
+        className={`fixed right-3 z-50 transition-all duration-300 pointer-events-none ${showScrollIndicator ? 'opacity-100' : 'opacity-0'}`}
+        style={{
+          top: `calc(10% + ${scrollProgress * 80}%)`,
+        }}
+      >
+        <div className="relative">
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-sky-400 rounded-full blur-md opacity-50" />
+          {/* Main bubble */}
+          <div 
+            className="relative w-3 h-8 bg-gradient-to-b from-sky-400 via-sky-500 to-sky-600 rounded-full shadow-lg"
+            style={{
+              boxShadow: '0 0 20px rgba(14, 165, 233, 0.5), 0 0 40px rgba(14, 165, 233, 0.2)',
+            }}
+          />
+        </div>
+      </div>
+      
       <nav className={`fixed w-full z-40 transition-all ${scrolled ? 'backdrop-blur-md bg-white/90 shadow-sm border-b border-slate-200 h-16' : 'bg-transparent h-20'} `}>
         <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between">
           <button 
