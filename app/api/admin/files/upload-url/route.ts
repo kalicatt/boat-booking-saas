@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { EmployeeDocumentAction } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { buildEmployeeDocumentKey, createUploadUrl } from '@/lib/storage'
+import { buildEmployeeDocumentKey } from '@/lib/storage'
 import { cleanString, stripScriptTags, EmployeeDocumentUploadSchema } from '@/lib/validation'
 import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../_access'
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
 
-    const { userId, category, fileName, mimeType, size, checksum, expiresAt } = parsed.data
+    const { userId, category, fileName, mimeType, size, expiresAt } = parsed.data
 
     const employee = await prisma.user.findUnique({
       where: { id: userId },
@@ -67,8 +67,6 @@ export async function POST(req: Request) {
       })
     })
 
-    const signed = await createUploadUrl({ key: document.storageKey, contentType: mimeType, checksumSha256: checksum })
-
     await createLog('EMPLOYEE_DOC_UPLOAD_URL', `Préparation document ${document.id} pour utilisateur ${document.userId}`)
     const context = extractRequestContext(req)
     await logDocumentAction({
@@ -81,8 +79,7 @@ export async function POST(req: Request) {
     })
 
     return NextResponse.json({
-      uploadUrl: signed.url,
-      expiresIn: signed.expiresIn,
+      uploadUrl: `/api/admin/files/upload/${document.id}`,
       document: {
         id: document.id,
         userId: document.userId,

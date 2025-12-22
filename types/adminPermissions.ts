@@ -189,6 +189,50 @@ export type PartialAdminPermissions = {
   [K in AdminPermissionKey]?: Partial<PagePermission<K>>
 }
 
+export type SerializedAdminPermissions = PartialAdminPermissions | null
+
+export function compressAdminPermissions(input?: unknown): SerializedAdminPermissions {
+  if (!input || typeof input !== 'object') {
+    return null
+  }
+
+  const compact: PartialAdminPermissions = {}
+  let hasData = false
+
+  for (const key of Object.keys(ADMIN_PERMISSION_CONFIG) as AdminPermissionKey[]) {
+    const raw = (input as Record<string, unknown>)[key]
+    if (!raw || typeof raw !== 'object') {
+      continue
+    }
+
+    const packed = {} as Partial<PagePermission<typeof key>>
+
+    if (Object.prototype.hasOwnProperty.call(raw, 'enabled')) {
+      const enabled = Boolean((raw as { enabled?: unknown }).enabled)
+      if (enabled) {
+        packed.enabled = true
+      }
+    }
+
+    for (const action of ADMIN_PERMISSION_CONFIG[key].actions) {
+      if (!Object.prototype.hasOwnProperty.call(raw, action.key)) {
+        continue
+      }
+      const value = (raw as Record<string, unknown>)[action.key]
+      if (value) {
+        packed[action.key as AdminPermissionAction<typeof key>] = true
+      }
+    }
+
+    if (Object.keys(packed).length > 0) {
+      compact[key] = packed
+      hasData = true
+    }
+  }
+
+  return hasData ? compact : null
+}
+
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value))
 
 export const createEmptyAdminPermissions = (): AdminPermissions => clone(DEFAULT_ADMIN_PERMISSIONS)

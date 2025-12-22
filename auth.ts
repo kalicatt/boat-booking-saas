@@ -4,7 +4,12 @@ import { prisma } from "@/lib/prisma"
 import Credentials from "next-auth/providers/credentials"
 import { compare } from "bcryptjs"
 import { z } from "zod"
-import { resolveAdminPermissions, type AdminPermissions } from '@/types/adminPermissions'
+import {
+  resolveAdminPermissions,
+  type AdminPermissions,
+  compressAdminPermissions,
+  type SerializedAdminPermissions
+} from '@/types/adminPermissions'
 
 // --- 1. CONFIGURATION TYPES (Pour éviter les @ts-ignore) ---
 declare module "next-auth" {
@@ -34,7 +39,7 @@ type ExtendedToken = {
   lastName?: string
   id?: string
   image?: string | null
-  adminPermissions?: AdminPermissions
+  adminPermissions?: SerializedAdminPermissions
   sessionVersion?: number
   isActive?: boolean
 }
@@ -109,7 +114,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         extended.lastName = enriched.lastName
         extended.id = enriched.id
         extended.image = enriched.image
-        extended.adminPermissions = resolveAdminPermissions(enriched.adminPermissions)
+        extended.adminPermissions = compressAdminPermissions(enriched.adminPermissions)
         extended.sessionVersion = enriched.sessionVersion ?? 0
         extended.isActive = enriched.isActive !== false
         return extended
@@ -145,7 +150,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       extended.lastName = dbUser.lastName
       extended.id = dbUser.id
       extended.image = dbUser.image
-      extended.adminPermissions = resolveAdminPermissions(dbUser.adminPermissions)
+      extended.adminPermissions = compressAdminPermissions(dbUser.adminPermissions)
       extended.sessionVersion = dbUser.sessionVersion ?? 0
       return extended
     },
@@ -160,7 +165,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.lastName = extended.lastName as string | undefined
       session.user.id = extended.id
       session.user.image = (extended.image as string | null | undefined) ?? null
-      session.user.adminPermissions = extended.adminPermissions ?? resolveAdminPermissions()
+      session.user.adminPermissions = resolveAdminPermissions(extended.adminPermissions)
       session.user.isActive = extended.isActive !== false
       if (session.user.isActive === false) {
         session.user.role = undefined

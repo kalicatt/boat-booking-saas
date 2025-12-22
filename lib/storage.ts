@@ -47,6 +47,13 @@ export type SignedUrlParams = {
   checksumSha256?: string
 }
 
+export type UploadObjectParams = {
+  key: string
+  body: Buffer | Uint8Array | string
+  contentType?: string
+  checksumSha256?: string
+}
+
 const buildUploadCommand = ({ key, contentType, checksumSha256 }: SignedUrlParams) =>
   new PutObjectCommand({
     Bucket: getBucket(),
@@ -83,6 +90,18 @@ export async function createUploadUrl({ key, contentType, expiresIn = STORAGE_UP
   const client = getS3Client()
   const url = await getSignedUrl(client, command, { expiresIn })
   return { url, expiresIn }
+}
+
+export async function uploadObject({ key, body, contentType, checksumSha256 }: UploadObjectParams) {
+  const client = getS3Client()
+  const command = new PutObjectCommand({
+    Bucket: getBucket(),
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    ChecksumSHA256: checksumSha256
+  })
+  await client.send(command)
 }
 
 export async function createDownloadUrl({ key, expiresIn = STORAGE_DOWNLOAD_URL_TTL }: SignedUrlParams) {
