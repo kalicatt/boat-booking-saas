@@ -764,14 +764,20 @@
 - **Outil**: **Docusaurus** (gratuit)
 - **Contenu**: Endpoints, exemples, codes erreur
 
-### 40. Runbooks Ops
+### 40. ✅ Runbooks Ops
 - **Priorité**: 🟡 Moyenne
 - **Effort**: 2h
-- **Docs**:
-  - Incident response
-  - Deploy rollback
-  - Database restore
-  - Scaling guide
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `docs/runbooks.md` - Documentation opérationnelle complète
+- **Contenu**:
+  - **Incident Response**: Classification SEV1-4, checklist, contacts
+  - **Deployment & Rollback**: Via tags, manuel, rollback DB
+  - **Database Operations**: Backup/restore, requêtes utiles
+  - **Cache Management**: Redis flush, invalidation, métriques
+  - **Scaling Guide**: Vertical, horizontal, seuils
+  - **Maintenance**: Dépendances, disque, secrets, test restore
+- **Annexes**: Variables critiques, ports, chemins
 
 ---
 
