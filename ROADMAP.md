@@ -630,13 +630,21 @@
 - **Action**: Capacitor Preferences + IDB
 - **Cache**: Dernière réservation en cours
 
-### 30. PWA Optimisations
+### 30. ✅ PWA Optimisations
 - **Priorité**: 🟢 Basse
 - **Effort**: 2h
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `public/sw.js` - Service Worker avec stratégies de cache
+  - ✅ `components/PWAInstallPrompt.tsx` - Prompt d'installation natif
+  - ✅ `components/ServiceWorkerRegistration.tsx` - Enregistrement SW
 - **Features**:
-  - Service Worker cache assets
-  - Install prompt natif
-  - Splash screen
+  - Cache-first pour assets statiques (images, fonts)
+  - Network-first pour API avec fallback offline
+  - Stale-while-revalidate pour JS/CSS bundles
+  - Install prompt personnalisé avec animations
+  - Hook `usePWAInstall()` pour contrôle programmatique
+  - Push notifications (préparé)
 
 ---
 
@@ -695,20 +703,44 @@
 
 ## 📈 Analytics Gratuit (Semaine 14)
 
-### 34. Plausible Analytics
+### 34. ✅ Plausible Analytics
 - **Priorité**: 🟢 Basse
 - **Effort**: 1h
-- **Pourquoi**: Privacy-friendly, RGPD OK
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `docker-compose.analytics.yml` - Stack Plausible self-hosted
+  - ✅ `components/PlausibleAnalytics.tsx` - Composant intégration
+  - ✅ `plausible/clickhouse-*.xml` - Configuration optimisée
+- **Features**:
+  - Privacy-friendly, RGPD compliant
+  - Self-hosted (PostgreSQL + ClickHouse)
+  - Tracking pageviews, événements custom, revenue
+  - Extensions: outbound-links, file-downloads, 404, revenue
+  - Helper `trackEvent()` pour événements personnalisés
+- **Variables env**:
+  - `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` - Domaine à tracker
+  - `NEXT_PUBLIC_PLAUSIBLE_SRC` - URL script (self-hosted)
 - **Coût**: 🆓 Self-hosted (Docker)
 
-### 35. Funnels Conversion
+### 35. ✅ Funnels Conversion
 - **Priorité**: 🟢 Basse
 - **Effort**: 2h
-- **Tracking**:
-  - Page réservation vue
-  - Formulaire soumis
-  - Paiement initié
-  - Confirmation
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `lib/funnelTracking.ts` - Hook et utilitaires tracking
+  - ✅ Intégration `BookingWidget.tsx` - 6 points de tracking
+- **Événements trackés**:
+  - `Slot Selected` - Sélection créneau horaire
+  - `Booking Form Filled` - Formulaire contact complété
+  - `Payment Method Selected` - Choix Stripe/PayPal
+  - `Booking Confirmed` - Réservation finalisée (avec revenue)
+- **Features**:
+  - Hook `useFunnelTracking()` pour composants React
+  - Export `funnelTracking` pour usage hors composants
+  - Revenue tracking automatique sur confirmation
+  - Props sanitizés (string/number/boolean only)
+- **Funnel complet**:
+  1. Page Vue → 2. Slot Selected → 3. Form Filled → 4. Payment → 5. Confirmed
 
 ---
 

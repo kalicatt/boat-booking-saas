@@ -7,6 +7,7 @@ import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MIN
 import ReCAPTCHA from 'react-google-recaptcha'
 import dynamic from 'next/dynamic'
 import type { Lang } from '@/lib/contactClient'
+import { useFunnelTracking } from '@/lib/funnelTracking'
 const ContactModal = dynamic(() => import('@/components/ContactModal'), { ssr: false })
 import PaymentElementWrapper from '@/components/PaymentElementWrapper'
 import StripeWalletButton from '@/components/StripeWalletButton'
@@ -98,6 +99,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         const template = widgetCopy.payment_countdown_helper || 'Vos places sont bloquées pendant {minutes} min à partir de cette étape.'
         return template.replace('{minutes}', String(PAYMENT_TIMEOUT_MINUTES))
     }, [widgetCopy])
+  
+  // Analytics funnel tracking
+  const funnel = useFunnelTracking()
   
   // Données de réservation
     // Date locale (YYYY-MM-DD) pour éviter tout décalage de fuseau
@@ -486,6 +490,18 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         if (!selectedSlot) { setGlobalErrors([widgetCopy.slot_required || 'Veuillez sélectionner un créneau.']); return }
         if (phoneError || phoneCodeError) { setGlobalErrors(['Veuillez corriger le numéro de téléphone.']); return }
 
+        // Track form completion
+        funnel.formFilled({
+            language,
+            date,
+            timeSlot: selectedSlot,
+            passengers: adults + children + babies,
+            adults,
+            children,
+            babies,
+            isPrivate
+        })
+
         setIsSubmitting(true)
         try {
             await ensurePendingBooking()
@@ -546,6 +562,20 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 setIsSubmitting(false)
                 return
             }
+            // Track booking confirmation (Stripe)
+            funnel.bookingConfirmed({
+                language,
+                date,
+                timeSlot: selectedSlot || undefined,
+                passengers: adults + children + babies,
+                adults,
+                children,
+                babies,
+                totalPrice,
+                isPrivate,
+                method: 'stripe',
+                bookingId: pendingBookingId || undefined
+            })
             setGlobalErrors([])
             setPendingBookingId(null)
             setPendingSignature(null)
@@ -561,6 +591,20 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
         // If PayPal flow with pending booking already captured, just finish
         if (paymentProvider === 'paypal' && pendingBookingId && paymentSucceeded) {
+            // Track booking confirmation (PayPal)
+            funnel.bookingConfirmed({
+                language,
+                date,
+                timeSlot: selectedSlot || undefined,
+                passengers: adults + children + babies,
+                adults,
+                children,
+                babies,
+                totalPrice,
+                isPrivate,
+                method: 'paypal',
+                bookingId: pendingBookingId || undefined
+            })
             setGlobalErrors([])
             setPendingBookingId(null)
             setPendingSignature(null)
@@ -836,7 +880,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         {availableSlots.length > 0 ? (
                             <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 overflow-y-auto pr-2 custom-scrollbar">
                                 {availableSlots.map(slot => (
-                                    <button key={slot} onClick={() => setSelectedSlot(slot)}
+                                    <button key={slot} onClick={() => {
+                                        setSelectedSlot(slot)
+                                        funnel.slotSelected({ language, date, timeSlot: slot })
+                                    }}
                                         className={`py-3 rounded-lg border font-bold transition-all ${selectedSlot === slot ? 'border-[#0f172a] bg-[#0f172a] text-[#38bdf8] shadow-md transform scale-105' : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-[#0ea5e9] hover:bg-white'}`}>
                                         {slot}
                                     </button>
@@ -1078,6 +1125,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                     setStripeIntentId(intentId)
                                                     setPaymentSucceeded(true)
                                                     setPaymentProvider('stripe')
+                                                    funnel.paymentMethodSelected('stripe')
                                                 }}
                                             />
                                         ) : (
@@ -1101,6 +1149,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 try {
                                                     setPaypalOrderId(oid)
                                                     setPaymentProvider('paypal')
+                                                    funnel.paymentMethodSelected('paypal')
                                                     const bookingId = await ensurePendingBooking()
                                                     const cap = await fetch('/api/payments/paypal/capture-order', {
                                                         method: 'POST',
@@ -1139,6 +1188,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 setStripeIntentId(intentId)
                                                 setPaymentSucceeded(true)
                                                 setPaymentProvider('stripe')
+                                                funnel.paymentMethodSelected('stripe')
                                             }}
                                             onError={(msg) => setGlobalErrors([msg])}
                                         />
