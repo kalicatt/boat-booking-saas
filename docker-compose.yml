@@ -36,6 +36,18 @@ services:
     networks:
       - default
 
+  minio-bucket-seed:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MC_HOST_minio: http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000
+      STORAGE_BUCKET: ${STORAGE_BUCKET}
+    entrypoint: ["/bin/sh", "-c", "until mc ls minio >/dev/null 2>&1; do echo 'Waiting for MinIO...'; sleep 2; done && mc mb --ignore-existing minio/${STORAGE_BUCKET}"]
+    networks:
+      - default
+
   # --- APPLICATION ---
   app:
     build: .
@@ -96,8 +108,9 @@ services:
       - ALL
     read_only: true
     tmpfs:
-      - /tmp:rw,noexec,nosuid,size=64m
-      - /app/.next/cache:rw,noexec,nosuid,size=128m
+      - /tmp:rw,noexec,nosuid,size=64m,uid=999,gid=999,mode=1777
+      - /app/.next/cache:rw,noexec,nosuid,size=128m,uid=999,gid=999,mode=755
+      - /app/.npm:rw,noexec,nosuid,size=512m,uid=999,gid=999,mode=755
     pids_limit: 150
     mem_limit: 1g
     networks:
