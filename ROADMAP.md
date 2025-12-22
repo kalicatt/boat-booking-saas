@@ -814,11 +814,19 @@
 
 ## 🎓 Documentation (Ongoing)
 
-### 39. API Reference
+### 39. ✅ API Reference
 - **Priorité**: 🟢 Basse
 - **Effort**: 3h
-- **Outil**: **Docusaurus** (gratuit)
-- **Contenu**: Endpoints, exemples, codes erreur
+- **Status**: ✅ **COMPLÉTÉ** (22/12/2025)
+- **Réalisé**:
+  - ✅ `docs/api-reference.md` - Documentation Markdown complète
+  - ✅ `docs/openapi.yaml` - Spécification OpenAPI 3.0 (Swagger)
+- **Contenu**:
+  - Tous les endpoints documentés (Availability, Bookings, Payments, Contact, Admin, System)
+  - Schémas de requêtes/réponses avec exemples
+  - Codes d'erreur et rate limiting
+  - Authentication (NextAuth sessions, tokens)
+  - Compatible Swagger UI / Redoc pour documentation interactive
 
 ### 40. ✅ Runbooks Ops
 - **Priorité**: 🟡 Moyenne

@@ -1,0 +1,704 @@
+openapi: 3.0.3
+info:
+  title: Sweet Narcisse Booking API
+  description: |
+    API for the Sweet Narcisse boat tour booking system.
+    
+    ## Authentication
+    Most endpoints require authentication via NextAuth.js session cookies.
+    Admin endpoints require `role: ADMIN` in session.
+    
+    ## Rate Limiting
+    - Booking creation: 5 requests per 15 minutes
+    - Contact form: 3 requests per 15 minutes
+    - Availability: 60 requests per minute
+  version: 1.3.0
+  contact:
+    name: Sweet Narcisse Support
+    email: contact@sweet-narcisse.com
+  license:
+    name: Proprietary
+servers:
+  - url: https://sweet-narcisse.com/api
+    description: Production
+  - url: http://localhost:3000/api
+    description: Development
+
+tags:
+  - name: Availability
+    description: Check tour availability
+  - name: Bookings
+    description: Create and manage bookings
+  - name: Payments
+    description: Payment processing
+  - name: Contact
+    description: Contact form
+  - name: Admin
+    description: Admin operations
+  - name: System
+    description: System endpoints
+
+paths:
+  /availability:
+    get:
+      tags:
+        - Availability
+      summary: Get availability for a month
+      description: Returns availability slots for each day of the specified month
+      operationId: getAvailability
+      parameters:
+        - name: month
+          in: query
+          required: true
+          description: Month in YYYY-MM format
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+            example: '2025-01'
+        - name: boat
+          in: query
+          required: false
+          description: Filter by specific boat
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Availability data
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/DayAvailability'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /bookings:
+    post:
+      tags:
+        - Bookings
+      summary: Create a new booking
+      description: Creates a booking and returns payment intent details
+      operationId: createBooking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateBookingResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: No availability
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /bookings/{id}:
+    get:
+      tags:
+        - Bookings
+      summary: Get booking details
+      operationId: getBooking
+      security:
+        - sessionAuth: []
+        - tokenAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - Bookings
+      summary: Cancel a booking
+      operationId: cancelBooking
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reason
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  refundAmount:
+                    type: number
+                  refundStatus:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /contact:
+    post:
+      tags:
+        - Contact
+      summary: Send contact message
+      operationId: sendContact
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactRequest'
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  messageId:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /stripe/webhook:
+    post:
+      tags:
+        - Payments
+      summary: Stripe webhook
+      description: Handles Stripe payment events
+      operationId: stripeWebhook
+      parameters:
+        - name: stripe-signature
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Webhook processed
+        '400':
+          description: Invalid signature
+
+  /paypal/create-order:
+    post:
+      tags:
+        - Payments
+      summary: Create PayPal order
+      operationId: createPayPalOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - bookingId
+              properties:
+                bookingId:
+                  type: string
+      responses:
+        '200':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+
+  /paypal/capture-order:
+    post:
+      tags:
+        - Payments
+      summary: Capture PayPal payment
+      operationId: capturePayPalOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+                - bookingId
+              properties:
+                orderId:
+                  type: string
+                bookingId:
+                  type: string
+      responses:
+        '200':
+          description: Payment captured
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  transactionId:
+                    type: string
+
+  /admin/bookings:
+    get:
+      tags:
+        - Admin
+      summary: List all bookings
+      operationId: listBookings
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, CONFIRMED, CANCELLED]
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Bookings list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookings:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Booking'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  pages:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/stats:
+    get:
+      tags:
+        - Admin
+      summary: Get dashboard statistics
+      operationId: getStats
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: Statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stats'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /admin/bookings/{id}:
+    patch:
+      tags:
+        - Admin
+      summary: Update booking
+      operationId: updateBooking
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: [PENDING, CONFIRMED, CANCELLED]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Booking updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /health:
+    get:
+      tags:
+        - System
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        '200':
+          description: System healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                  version:
+                    type: string
+                  uptime:
+                    type: integer
+                  database:
+                    type: string
+                  redis:
+                    type: string
+
+  /metrics:
+    get:
+      tags:
+        - System
+      summary: Prometheus metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Prometheus format metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+    tokenAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    CreateBookingRequest:
+      type: object
+      required:
+        - date
+        - tripType
+        - adults
+        - firstName
+        - lastName
+        - email
+        - phone
+        - language
+        - paymentMethod
+        - captchaToken
+      properties:
+        date:
+          type: string
+          format: date
+          example: '2025-01-15'
+        tripType:
+          type: string
+          enum: [morning, afternoon, sunset, fullday]
+        adults:
+          type: integer
+          minimum: 1
+          maximum: 12
+        children:
+          type: integer
+          minimum: 0
+          default: 0
+        firstName:
+          type: string
+          minLength: 2
+        lastName:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          pattern: '^\+[1-9]\d{6,14}$'
+        language:
+          type: string
+          enum: [en, fr, de, es, it]
+        paymentMethod:
+          type: string
+          enum: [stripe, paypal]
+        specialRequests:
+          type: string
+        captchaToken:
+          type: string
+
+    CreateBookingResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        bookingId:
+          type: string
+        reference:
+          type: string
+          pattern: '^SN-\d{4}-\d{6}$'
+        clientSecret:
+          type: string
+          description: Stripe payment intent client secret
+        amount:
+          type: integer
+          description: Amount in cents
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+        reference:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, CONFIRMED, CANCELLED]
+        date:
+          type: string
+          format: date
+        tripType:
+          type: string
+        adults:
+          type: integer
+        children:
+          type: integer
+        totalPrice:
+          type: number
+        customer:
+          type: object
+          properties:
+            firstName:
+              type: string
+            lastName:
+              type: string
+            email:
+              type: string
+            phone:
+              type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    DayAvailability:
+      type: object
+      properties:
+        morning:
+          $ref: '#/components/schemas/SlotAvailability'
+        afternoon:
+          $ref: '#/components/schemas/SlotAvailability'
+        sunset:
+          $ref: '#/components/schemas/SlotAvailability'
+
+    SlotAvailability:
+      type: object
+      properties:
+        available:
+          type: boolean
+        spots:
+          type: integer
+
+    ContactRequest:
+      type: object
+      required:
+        - name
+        - email
+        - subject
+        - message
+        - captchaToken
+      properties:
+        name:
+          type: string
+          minLength: 2
+        email:
+          type: string
+          format: email
+        subject:
+          type: string
+          minLength: 5
+        message:
+          type: string
+          minLength: 10
+        captchaToken:
+          type: string
+
+    Stats:
+      type: object
+      properties:
+        today:
+          type: object
+          properties:
+            bookings:
+              type: integer
+            revenue:
+              type: number
+            passengers:
+              type: integer
+        month:
+          type: object
+          properties:
+            bookings:
+              type: integer
+            revenue:
+              type: number
+            passengers:
+              type: integer
+        occupancy:
+          type: object
+          properties:
+            morning:
+              type: number
+              format: float
+            afternoon:
+              type: number
+              format: float
+            sunset:
+              type: number
+              format: float
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimited:
+      description: Too many requests
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
