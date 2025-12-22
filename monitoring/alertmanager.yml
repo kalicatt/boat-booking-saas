@@ -27,33 +27,18 @@ receivers:
     webhook_configs:
       - url: 'https://ntfy.sh/sweetnarcisse-alerts'
         send_resolved: true
-        http_config:
-          headers:
-            Title: 'Alerte Sweet Narcisse'
-            Priority: 'default'
 
   # Alertes critiques: ntfy uniquement
   - name: critical
     webhook_configs:
-      # Ntfy.sh pour push notifications mobiles (gratuit)
-      - url: 'https://ntfy.sh/sweetnarcisse-alerts'
+      - url: 'https://ntfy.sh/sweetnarcisse-alerts?title=🚨%20Alerte%20Critique&priority=urgent&tags=rotating_light,warning'
         send_resolved: true
-        http_config:
-          headers:
-            Title: '🚨 Alerte Critique'
-            Priority: 'urgent'
-            Tags: 'rotating_light,warning'
 
   # Alertes warning: ntfy
   - name: warning
     webhook_configs:
-      - url: 'https://ntfy.sh/sweetnarcisse-alerts'
+      - url: 'https://ntfy.sh/sweetnarcisse-alerts?title=⚠️%20Avertissement&priority=default&tags=warning'
         send_resolved: true
-        http_config:
-          headers:
-            Title: '⚠️ Avertissement'
-            Priority: 'default'
-            Tags: 'warning'
 
 inhibit_rules:
   # Si l'app est down, ne pas alerter sur les erreurs HTTP
