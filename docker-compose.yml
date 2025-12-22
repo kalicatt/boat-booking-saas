@@ -180,13 +180,12 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
     ports:
       - "3001:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml:ro
-      - ./monitoring/grafana/dashboard-provider.yml:/etc/grafana/provisioning/dashboards/dashboard-provider.yml:ro
-      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana:/etc/grafana/provisioning:ro
     networks:
       - default
 
