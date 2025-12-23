@@ -153,6 +153,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const widgetRef = useRef<HTMLDivElement | null>(null)
     const initialStepRender = useRef(true)
     const expirationHandledRef = useRef(false)
+    const initializingStripeRef = useRef(false)
 
     const validateLocalPhone = (digits: string) => {
         if (!digits) return 'Numéro requis'
@@ -243,7 +244,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     }, [adults, babies, buildE164, captchaToken, children, date, formData, language, pendingBookingId, pendingExpiresAt, releasePendingBooking, selectedSlot, widgetCopy])
 
     const initializeStripeIntent = useCallback(async () => {
-        if (initializingStripe) return
+        if (initializingStripeRef.current) return
+        initializingStripeRef.current = true
         setStripeError(null)
         setInitializingStripe(true)
         try {
@@ -266,8 +268,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             setStripeError(msg || fallback)
         } finally {
             setInitializingStripe(false)
+            initializingStripeRef.current = false
         }
-    }, [ensurePendingBooking, initializingStripe, widgetCopy])
+    }, [ensurePendingBooking, widgetCopy])
 
     const handlePendingExpiration = useCallback(async () => {
         if (!pendingBookingId) return

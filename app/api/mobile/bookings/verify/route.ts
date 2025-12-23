@@ -3,6 +3,7 @@ import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import { verifyBookingToken } from '@/lib/bookingToken'
 import { createLog } from '@/lib/logger'
+import { notifyPlanningUpdate } from '@/lib/planningNotify'
 
 type VerifyPayload = {
   bookingId: string
@@ -116,12 +117,15 @@ export async function POST(request: NextRequest) {
     // Log l'embarquement
     await createLog(
       'MOBILE_QR_CHECKIN',
-      `Check-in automatique via QR pour ${booking.publicReference} - ${booking.user?.firstName} ${booking.user?.lastName} par ${user.userId}`
+      `Check-in automatique via QR pour ${booking.publicReference} - ${booking.user?.firstName} ${booking.user?.lastName} par ${user?.userId}`
     )
+
+    // Notifier le planning pour rafraîchissement temps réel
+    await notifyPlanningUpdate()
   } else if (alreadyCheckedIn) {
     await createLog(
       'MOBILE_QR_SCAN_ALREADY_CHECKIN',
-      `QR scanné pour ${booking.publicReference} - Déjà embarqué par ${user.userId}`
+      `QR scanné pour ${booking.publicReference} - Déjà embarqué par ${user?.userId}`
     )
   }
 

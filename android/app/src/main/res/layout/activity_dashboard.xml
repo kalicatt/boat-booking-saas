@@ -1,80 +1,130 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/md_theme_light_surface">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:layout_height="match_parent"
+        android:fillViewport="true"
+        android:clipToPadding="false">
 
-        <!-- En-tête avec gradient subtil -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="20dp"
-            android:background="@drawable/dashboard_header_bg"
-            android:layout_marginBottom="24dp">
+            android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- En-tête avec gradient - étend jusqu'en haut -->
+            <LinearLayout
+                android:id="@+id/headerContainer"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Sweet Narcisse"
-                android:textSize="16sp"
-                android:textColor="@color/md_theme_light_primary"
-                android:textStyle="bold"
-                android:letterSpacing="0.1"
-                android:layout_marginBottom="4dp" />
+                android:orientation="vertical"
+                android:background="@drawable/dashboard_header_bg">
 
-            <!-- Message de bienvenue stylisé -->
-            <TextView
-                android:id="@+id/welcomeText"
-                android:layout_width="wrap_content"
+                <!-- Spacer pour status bar + display cutout -->
+                <View
+                    android:id="@+id/statusBarSpacer"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp" />
+
+                <!-- Row: Titre + Bouton Settings -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:paddingHorizontal="24dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Sweet Narcisse"
+                            android:textSize="13sp"
+                            android:textColor="#FFFFFFCC"
+                            android:fontFamily="sans-serif-medium"
+                            android:letterSpacing="0.08"
+                            android:layout_marginBottom="4dp" />
+
+                        <!-- Message de bienvenue stylisé -->
+                        <TextView
+                            android:id="@+id/welcomeText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:textSize="26sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/white"
+                            android:letterSpacing="0.01"
+                            tools:text="Bonjour, Lucas" />
+                    </LinearLayout>
+
+                    <!-- Bouton Déconnexion -->
+                    <ImageButton
+                        android:id="@+id/logoutButton"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:src="@drawable/ic_logout"
+                        android:contentDescription="Déconnexion"
+                        android:tint="@android:color/white"
+                        android:padding="12dp" />
+                </LinearLayout>
+
+                <!-- Espace en bas du header -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="24dp" />
+
+            </LinearLayout>
+
+            <!-- Contenu avec padding -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="28sp"
-                android:textStyle="bold"
-                android:textColor="@color/md_theme_light_onSurface"
-                android:letterSpacing="0.01"
-                tools:text="Bonjour, Lucas" />
-        </LinearLayout>
+                android:orientation="vertical"
+                android:padding="20dp">
 
-        <!-- Card Statistiques avec couleur plus claire -->
+        <!-- Card Statistiques - Design Premium -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
-            app:cardElevation="4dp"
-            app:cardCornerRadius="20dp"
+            android:layout_marginBottom="24dp"
+            app:cardElevation="2dp"
+            app:cardCornerRadius="16dp"
             app:strokeWidth="0dp"
-            app:cardBackgroundColor="@color/stats_card_bg">
+            app:cardBackgroundColor="@android:color/white">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="24dp">
+                android:padding="20dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📊 Statistiques du jour"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/md_theme_light_primary"
-                    android:layout_marginBottom="24dp"
-                    android:layout_gravity="center_horizontal" />
+                    android:text="Statistiques du jour"
+                    android:textSize="13sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:textColor="@color/md_theme_light_onSurfaceVariant"
+                    android:letterSpacing="0.04"
+                    android:textAllCaps="true"
+                    android:layout_marginBottom="16dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
-                    android:baselineAligned="false"
-                    android:gravity="center">
+                    android:baselineAligned="false">
 
                     <!-- Embarquements -->
                     <LinearLayout
@@ -82,33 +132,33 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="vertical"
-                        android:gravity="center"
-                        android:padding="16dp">
+                        android:paddingEnd="12dp">
 
                         <TextView
                             android:id="@+id/todayCheckinsText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textSize="36sp"
-                            android:textStyle="bold"
+                            android:textSize="32sp"
+                            android:fontFamily="sans-serif-medium"
                             android:textColor="@color/md_theme_light_primary"
-                            android:layout_marginBottom="8dp"
-                            tools:text="12" />
+                            android:layout_marginBottom="4dp"
+                            tools:text="0" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="⛵ Embarquements"
+                            android:text="Embarquements"
                             android:textSize="13sp"
-                            android:textColor="@color/md_theme_light_onSurfaceVariant"
-                            android:gravity="center" />
+                            android:textColor="@color/md_theme_light_onSurfaceVariant" />
                     </LinearLayout>
 
                     <!-- Séparateur vertical -->
                     <View
                         android:layout_width="1dp"
-                        android:layout_height="80dp"
-                        android:background="@color/md_theme_light_outlineVariant" />
+                        android:layout_height="56dp"
+                        android:layout_gravity="center_vertical"
+                        android:background="@color/md_theme_light_outlineVariant"
+                        android:layout_marginHorizontal="8dp" />
 
                     <!-- Paiements -->
                     <LinearLayout
@@ -116,26 +166,24 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:orientation="vertical"
-                        android:gravity="center"
-                        android:padding="16dp">
+                        android:paddingStart="12dp">
 
                         <TextView
                             android:id="@+id/todayPaymentsText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:textSize="36sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/md_theme_light_secondary"
-                            android:layout_marginBottom="8dp"
-                            tools:text="450€" />
+                            android:textSize="32sp"
+                            android:fontFamily="sans-serif-medium"
+                            android:textColor="@color/stats_success"
+                            android:layout_marginBottom="4dp"
+                            tools:text="0 €" />
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="💰 Encaissés"
+                            android:text="Encaissés"
                             android:textSize="13sp"
-                            android:textColor="@color/md_theme_light_onSurfaceVariant"
-                            android:gravity="center" />
+                            android:textColor="@color/md_theme_light_onSurfaceVariant" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -196,8 +244,10 @@
             app:iconSize="24dp"
             app:iconGravity="textStart"
             app:iconPadding="12dp"
-            app:cornerRadius="16dp"
+            app:cornerRadius="12dp"
             style="@style/Widget.Material3.Button.OutlinedButton" />
 
-    </LinearLayout>
-</ScrollView>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

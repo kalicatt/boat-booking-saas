@@ -1,12 +1,9 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
-import { getRedisClient } from '@/lib/redis'
+import { getLastPlanningUpdate, notifyPlanningUpdate } from '@/lib/planningNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-
-// Clé Redis pour stocker le timestamp de la dernière mise à jour
-const PLANNING_UPDATE_KEY = 'planning:last_update'
 
 export async function GET(req: NextRequest) {
   // Vérifier l'authentification
@@ -32,24 +29,20 @@ export async function GET(req: NextRequest) {
       // Envoyer un ping initial
       controller.enqueue(encoder.encode(`event: connected\ndata: ${JSON.stringify({ status: 'connected' })}\n\n`))
 
-      const redis = getRedisClient()
-      
-      // Polling Redis pour détecter les changements
+      // Polling pour détecter les changements
       const checkForUpdates = async () => {
         if (!isActive) return
         
         try {
-          if (redis) {
-            const latestUpdate = await redis.get<string>(PLANNING_UPDATE_KEY)
-            if (latestUpdate && latestUpdate !== lastKnownUpdate) {
-              lastKnownUpdate = latestUpdate
-              controller.enqueue(
-                encoder.encode(`event: update\ndata: ${JSON.stringify({ timestamp: latestUpdate })}\n\n`)
-              )
-            }
+          const latestUpdate = await getLastPlanningUpdate()
+          if (latestUpdate && latestUpdate !== lastKnownUpdate) {
+            lastKnownUpdate = latestUpdate
+            controller.enqueue(
+              encoder.encode(`event: update\ndata: ${JSON.stringify({ timestamp: latestUpdate })}\n\n`)
+            )
           }
         } catch (error) {
-          console.error('SSE Redis check error:', error)
+          console.error('SSE check error:', error)
         }
 
         // Envoyer un heartbeat pour maintenir la connexion
@@ -76,10 +69,5 @@ export async function GET(req: NextRequest) {
   return new Response(stream, { headers })
 }
 
-// Fonction utilitaire pour notifier une mise à jour (à appeler depuis les autres routes)
-export async function notifyPlanningUpdate() {
-  const redis = getRedisClient()
-  if (redis) {
-    await redis.set(PLANNING_UPDATE_KEY, Date.now().toString())
-  }
-}
+// Re-export pour compatibilité avec les imports existants
+export { notifyPlanningUpdate }

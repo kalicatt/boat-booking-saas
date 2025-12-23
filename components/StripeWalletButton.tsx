@@ -1,8 +1,25 @@
 "use client"
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { loadStripe } from '@stripe/stripe-js'
 import type { Stripe } from '@stripe/stripe-js'
 import { Elements, PaymentRequestButtonElement, useStripe } from '@stripe/react-stripe-js'
+
+// Cache global pour l'instance Stripe - partagé avec PaymentElementWrapper
+let stripePromiseCache: Promise<Stripe | null> | null = null
+let stripeInstanceCache: Stripe | null = null
+
+function getStripeInstance(pk: string): Promise<Stripe | null> {
+  if (stripeInstanceCache) {
+    return Promise.resolve(stripeInstanceCache)
+  }
+  if (!stripePromiseCache) {
+    stripePromiseCache = loadStripe(pk).then((stripe) => {
+      stripeInstanceCache = stripe
+      return stripe
+    })
+  }
+  return stripePromiseCache
+}
 
 type Props = {
   amount: number // in minor units (cents)
@@ -16,12 +33,27 @@ type Props = {
 
 function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', ensurePendingBooking, onSuccess, onError }: Props) {
   const stripe = useStripe()
-    const [paymentRequest, setPaymentRequest] = useState<ReturnType<Stripe['paymentRequest']> | null>(null)
+  const [paymentRequest, setPaymentRequest] = useState<ReturnType<Stripe['paymentRequest']> | null>(null)
+  const setupDoneRef = useRef(false)
+  
+  // Refs stables pour les callbacks
+  const onSuccessRef = useRef(onSuccess)
+  const onErrorRef = useRef(onError)
+  const ensurePendingBookingRef = useRef(ensurePendingBooking)
+  
+  // Mettre à jour les refs sans déclencher de re-render
+  useEffect(() => {
+    onSuccessRef.current = onSuccess
+    onErrorRef.current = onError
+    ensurePendingBookingRef.current = ensurePendingBooking
+  })
 
   useEffect(() => {
+    // Ne configurer qu'une seule fois
+    if (setupDoneRef.current || !stripe) return
+    
     let mounted = true
     const setup = async () => {
-      if (!stripe) return
       const pr = stripe.paymentRequest({
         country,
         currency,
@@ -29,15 +61,20 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
         requestPayerName: true,
         requestPayerEmail: true,
       })
+      
       const result = await pr.canMakePayment()
-      if (mounted && result) {
+      if (!mounted) return
+      
+      if (result) {
+        setupDoneRef.current = true
         setPaymentRequest(pr)
+        
         pr.on('paymentmethod', async (ev) => {
           try {
-            const bookingId = await ensurePendingBooking()
+            const bookingId = await ensurePendingBookingRef.current()
             if (!bookingId) {
               ev.complete('fail')
-              onError?.('Réservation introuvable')
+              onErrorRef.current?.('Réservation introuvable')
               return
             }
             const res = await fetch('/api/payments/create-intent', {
@@ -47,7 +84,7 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
             const data = await res.json()
             if (!res.ok || !data.clientSecret) {
               ev.complete('fail')
-              onError?.(data?.error || 'Erreur paiement')
+              onErrorRef.current?.(data?.error || 'Erreur paiement')
               return
             }
             // First confirmation using the wallet-provided payment method
@@ -58,7 +95,7 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
             )
             if (confirm1.error) {
               ev.complete('fail')
-              onError?.(confirm1.error.message || 'Erreur de confirmation')
+              onErrorRef.current?.(confirm1.error.message || 'Erreur de confirmation')
               return
             }
             let intent = confirm1.paymentIntent
@@ -66,14 +103,14 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
               const confirm2 = await stripe.confirmCardPayment(data.clientSecret)
               if (confirm2.error) {
                 ev.complete('fail')
-                onError?.(confirm2.error.message || 'Action de paiement requise non réalisée')
+                onErrorRef.current?.(confirm2.error.message || 'Action de paiement requise non réalisée')
                 return
               }
               intent = confirm2.paymentIntent
             }
             if (!intent || !intent.id) {
               ev.complete('fail')
-              onError?.('Confirmation de paiement incomplète')
+              onErrorRef.current?.('Confirmation de paiement incomplète')
               return
             }
             // Verify server-side before success
@@ -85,29 +122,29 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
               const verify = await verifyRes.json()
               if (!verifyRes.ok || verify.status !== 'succeeded') {
                 ev.complete('fail')
-                onError?.(`Paiement Stripe non confirmé. Statut: ${String(verify?.status || 'inconnu')}`)
+                onErrorRef.current?.(`Paiement Stripe non confirmé. Statut: ${String(verify?.status || 'inconnu')}`)
                 return
               }
             } catch (e: unknown) {
               const msg = e instanceof Error ? e.message : String(e)
               ev.complete('fail')
-              onError?.(`Impossible de vérifier le paiement Stripe: ${msg || 'erreur inconnue'}`)
+              onErrorRef.current?.(`Impossible de vérifier le paiement Stripe: ${msg || 'erreur inconnue'}`)
               return
             }
 
             ev.complete('success')
-            onSuccess(intent.id)
+            onSuccessRef.current(intent.id)
           } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : String(e)
             ev.complete('fail')
-            onError?.(msg || 'Erreur réseau pendant le paiement')
+            onErrorRef.current?.(msg || 'Erreur réseau pendant le paiement')
           }
         })
       }
     }
     setup()
     return () => { mounted = false }
-  }, [stripe, amount, currency, country, label, ensurePendingBooking, onSuccess, onError])
+  }, [stripe, amount, currency, country, label]) // Dépendances stables uniquement
 
   if (!paymentRequest) return null
   return (
@@ -122,10 +159,22 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
 
 export default function StripeWalletButton(props: Props) {
   const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
-  const stripePromise = useMemo(() => (pk ? loadStripe(pk) : null), [pk])
-  if (!stripePromise) return null
+  const [stripeInstance, setStripeInstance] = useState<Stripe | null>(null)
+  const loadingRef = useRef(false)
+  
+  useEffect(() => {
+    if (!pk || loadingRef.current) return
+    loadingRef.current = true
+    
+    getStripeInstance(pk).then(setStripeInstance).catch(() => {
+      loadingRef.current = false
+    })
+  }, [pk])
+  
+  if (!stripeInstance) return null
+  
   return (
-    <Elements stripe={stripePromise}>
+    <Elements stripe={stripeInstance}>
       <InnerPRB {...props} />
     </Elements>
   )

@@ -13,8 +13,9 @@
     <color name="md_theme_light_onPrimaryContainer">#001E30</color>
     
     <!-- Dashboard Custom Colors -->
-    <color name="stats_card_bg">#E3F2FD</color>
-    <color name="stats_divider">#90CAF9</color>
+    <color name="stats_card_bg">#FFFFFF</color>
+    <color name="stats_divider">#E0E0E0</color>
+    <color name="stats_success">#2E7D32</color>
     
     <!-- Secondary - Turquoise -->
     <color name="md_theme_light_secondary">#006A6A</color>

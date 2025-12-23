@@ -10,10 +10,18 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -46,6 +54,7 @@ public class DashboardActivity extends AppCompatActivity {
     private MaterialButton scanQrButton;
     private MaterialButton newPaymentButton;
     private MaterialButton historyButton;
+    private ImageButton logoutButton;
     
     private AuthService authService;
     private StatsService statsService;
@@ -54,7 +63,14 @@ public class DashboardActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Activer edge-to-edge pour que l'app s'étende sous la barre d'état
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        
         setContentView(R.layout.activity_dashboard);
+        
+        // Gérer les insets système (barre d'état, notch, etc.)
+        setupEdgeToEdge();
         
         // Initialiser l'API service
         authService = new AuthService(ApiClient.getInstance());
@@ -73,6 +89,7 @@ public class DashboardActivity extends AppCompatActivity {
         scanQrButton = findViewById(R.id.scanQrButton);
         newPaymentButton = findViewById(R.id.newPaymentButton);
         historyButton = findViewById(R.id.historyButton);
+        logoutButton = findViewById(R.id.logoutButton);
         
         // Charger les infos utilisateur
         loadUserInfo();
@@ -84,6 +101,7 @@ public class DashboardActivity extends AppCompatActivity {
         scanQrButton.setOnClickListener(v -> openScanner());
         newPaymentButton.setOnClickListener(v -> openPayment());
         historyButton.setOnClickListener(v -> openHistory());
+        logoutButton.setOnClickListener(v -> confirmLogout());
         
         // Démarrer le service de polling des paiements
         startPaymentPollingService();
@@ -145,8 +163,8 @@ public class DashboardActivity extends AppCompatActivity {
             public void onFailure(Call call, IOException e) {
                 Log.e(TAG, "Erreur lors du chargement des stats", e);
                 runOnUiThread(() -> {
-                    todayCheckinsText.setText("0 embarquements");
-                    todayPaymentsText.setText("0 € encaissés");
+                    todayCheckinsText.setText("0");
+                    todayPaymentsText.setText("0 €");
                 });
             }
             
@@ -163,8 +181,9 @@ public class DashboardActivity extends AppCompatActivity {
                         double totalAmount = today.getDouble("totalAmount");
                         
                         runOnUiThread(() -> {
-                            todayCheckinsText.setText(checkinsCount + " embarquement" + (checkinsCount > 1 ? "s" : ""));
-                            todayPaymentsText.setText(String.format(Locale.FRENCH, "%.2f € encaissés (%d)", totalAmount, paymentsCount));
+                            todayCheckinsText.setText(String.valueOf(checkinsCount));
+                            // Format compact: "150 €" ou "1 250 €"
+                            todayPaymentsText.setText(String.format(Locale.FRENCH, "%,.0f €", totalAmount));
                         });
                         
                         Log.d(TAG, "Stats chargées: " + checkinsCount + " check-ins, " + paymentsCount + " paiements, " + totalAmount + " €");
@@ -172,15 +191,15 @@ public class DashboardActivity extends AppCompatActivity {
                     } catch (Exception e) {
                         Log.e(TAG, "Erreur parsing stats", e);
                         runOnUiThread(() -> {
-                            todayCheckinsText.setText("0 embarquements");
-                            todayPaymentsText.setText("0 € encaissés");
+                            todayCheckinsText.setText("0");
+                            todayPaymentsText.setText("0 €");
                         });
                     }
                 } else {
                     Log.w(TAG, "Réponse stats non-200: " + response.code());
                     runOnUiThread(() -> {
-                        todayCheckinsText.setText("0 embarquements");
-                        todayPaymentsText.setText("0 € encaissés");
+                        todayCheckinsText.setText("0");
+                        todayPaymentsText.setText("0 €");
                     });
                 }
             }
@@ -226,6 +245,15 @@ public class DashboardActivity extends AppCompatActivity {
     private void openSettings() {
         Intent intent = new Intent(this, SettingsActivity.class);
         startActivity(intent);
+    }
+    
+    private void confirmLogout() {
+        new AlertDialog.Builder(this)
+            .setTitle("Déconnexion")
+            .setMessage("Êtes-vous sûr de vouloir vous déconnecter ?")
+            .setPositiveButton("Déconnexion", (dialog, which) -> logout())
+            .setNegativeButton("Annuler", null)
+            .show();
     }
     
     private void logout() {
@@ -291,6 +319,39 @@ public class DashboardActivity extends AppCompatActivity {
             paymentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             
             startActivity(paymentIntent);
+        }
+    }
+    
+    /**
+     * Configure l'affichage edge-to-edge pour que l'app s'étende
+     * sous la barre d'état et contourne le notch/punch hole
+     */
+    private void setupEdgeToEdge() {
+        View statusBarSpacer = findViewById(R.id.statusBarSpacer);
+        View headerContainer = findViewById(R.id.headerContainer);
+        View rootView = findViewById(android.R.id.content);
+        
+        // Appliquer les insets sur le root view
+        ViewCompat.setOnApplyWindowInsetsListener(rootView, (view, windowInsets) -> {
+            Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets displayCutout = windowInsets.getInsets(WindowInsetsCompat.Type.displayCutout());
+            
+            // Prendre le max entre status bar et display cutout
+            int topInset = Math.max(systemBars.top, displayCutout.top);
+            
+            // Ajuster le spacer pour la hauteur de la barre d'état + cutout
+            if (statusBarSpacer != null) {
+                ViewGroup.LayoutParams params = statusBarSpacer.getLayoutParams();
+                params.height = topInset + 8; // +8dp pour un peu d'espace
+                statusBarSpacer.setLayoutParams(params);
+            }
+            
+            return windowInsets;
+        });
+        
+        // Forcer la demande d'insets
+        if (rootView != null) {
+            rootView.requestApplyInsets();
         }
     }
 }

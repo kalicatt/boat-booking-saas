@@ -27,6 +27,12 @@ export default function RootLayout({
     <html lang="fr" className={`${display.variable} ${inter.variable}`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        {/* Preconnect to payment providers for faster loading */}
+        <link rel="preconnect" href="https://js.stripe.com" />
+        <link rel="preconnect" href="https://api.stripe.com" />
+        <link rel="preconnect" href="https://m.stripe.network" />
+        <link rel="dns-prefetch" href="https://js.stripe.com" />
+        <link rel="dns-prefetch" href="https://www.paypal.com" />
       </head>
       <body className="font-[var(--font-body)] bg-slate-50 text-slate-900">
         {/* Dark mode removed */}

@@ -104,50 +104,48 @@ public class HistoryActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     try {
                         String responseBody = response.body().string();
+                        Log.d(TAG, "Response: " + responseBody.substring(0, Math.min(500, responseBody.length())));
+                        
                         JSONObject json = new JSONObject(responseBody);
                         JSONArray bookingsArray = json.getJSONArray("bookings");
                         
                         List<BookingHistory> newBookings = new ArrayList<>();
                         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.FRENCH);
-                        SimpleDateFormat timeFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.FRENCH);
-                        SimpleDateFormat displayFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.FRENCH);
+                        SimpleDateFormat displayDateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.FRENCH);
                         
                         for (int i = 0; i < bookingsArray.length(); i++) {
                             JSONObject booking = bookingsArray.getJSONObject(i);
                             
                             BookingHistory item = new BookingHistory();
-                            item.id = booking.getString("id");
-                            item.reference = booking.getString("publicReference");
-                            item.customerName = booking.getString("customerName");
-                            item.customerEmail = booking.getString("customerEmail");
-                            item.boat = booking.getString("boat");
-                            item.slot = booking.getString("slot");
-                            item.checkinStatus = booking.getString("checkinStatus");
-                            item.paymentStatus = booking.getString("paymentStatus");
-                            item.totalPrice = booking.getDouble("totalPrice");
+                            item.id = booking.optString("id", "");
+                            item.reference = booking.optString("publicReference", "N/A");
+                            item.customerName = booking.optString("customerName", "Inconnu");
+                            item.customerEmail = booking.optString("customerEmail", "");
+                            item.boat = booking.optString("boat", "Non assigné");
+                            item.slot = booking.optString("slot", "");
+                            item.checkinStatus = booking.optString("checkinStatus", "PENDING");
                             
-                            // Parse dates
-                            String dateStr = booking.getString("date");
-                            String checkinAtStr = booking.optString("checkinAt", null);
+                            // L'API retourne isPaid (boolean) au lieu de paymentStatus
+                            boolean isPaid = booking.optBoolean("isPaid", false);
+                            item.paymentStatus = isPaid ? "PAID" : "PENDING";
                             
-                            try {
-                                Date date = dateFormat.parse(dateStr);
-                                item.date = displayFormat.format(date);
-                            } catch (ParseException e) {
-                                item.date = dateStr;
-                            }
+                            item.totalPrice = booking.optDouble("totalPrice", 0);
                             
-                            if (checkinAtStr != null && !checkinAtStr.equals("null")) {
+                            // Parse date
+                            String dateStr = booking.optString("date", "");
+                            if (!dateStr.isEmpty()) {
                                 try {
-                                    // Format ISO avec timezone: enlever le Z et millisecondes
-                                    String cleanDate = checkinAtStr.substring(0, 19);
-                                    Date checkinDate = timeFormat.parse(cleanDate);
-                                    item.checkinAt = displayFormat.format(checkinDate);
-                                } catch (Exception e) {
-                                    item.checkinAt = checkinAtStr;
+                                    Date date = dateFormat.parse(dateStr);
+                                    item.date = displayDateFormat.format(date);
+                                } catch (ParseException e) {
+                                    item.date = dateStr;
                                 }
+                            } else {
+                                item.date = "N/A";
                             }
                             
+                            // checkinAt n'est pas retourné par l'API actuelle
+                            item.checkinAt = null;
                             item.paymentMethod = booking.optString("paymentMethod", null);
                             
                             newBookings.add(item);
@@ -167,18 +165,22 @@ public class HistoryActivity extends AppCompatActivity {
                         });
                         
                     } catch (Exception e) {
-                        Log.e(TAG, "Erreur parsing historique", e);
+                        Log.e(TAG, "Erreur parsing historique: " + e.getMessage(), e);
                         runOnUiThread(() -> {
                             swipeRefresh.setRefreshing(false);
                             Toast.makeText(HistoryActivity.this, 
-                                "Erreur de traitement", 
-                                Toast.LENGTH_SHORT).show();
+                                "Erreur: " + e.getMessage(), 
+                                Toast.LENGTH_LONG).show();
                         });
                     }
                 } else {
-                    Log.w(TAG, "Réponse historique non-200: " + response.code());
+                    String errorBody = response.body() != null ? response.body().string() : "No body";
+                    Log.w(TAG, "Réponse historique non-200: " + response.code() + " - " + errorBody);
                     runOnUiThread(() -> {
                         swipeRefresh.setRefreshing(false);
+                        Toast.makeText(HistoryActivity.this,
+                            "Erreur serveur: " + response.code(),
+                            Toast.LENGTH_SHORT).show();
                     });
                 }
             }

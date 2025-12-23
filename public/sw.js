@@ -5,8 +5,8 @@
  * Provides offline caching and PWA functionality
  */
 
-const CACHE_NAME = 'sweet-narcisse-v1'
-const STATIC_CACHE_NAME = 'sweet-narcisse-static-v1'
+const CACHE_NAME = 'sweet-narcisse-v2'
+const STATIC_CACHE_NAME = 'sweet-narcisse-static-v2'
 
 // Assets to cache immediately on install
 const STATIC_ASSETS = [
@@ -71,6 +71,24 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+// External domains to skip (let browser handle directly)
+const EXTERNAL_SKIP_DOMAINS = [
+  'js.stripe.com',
+  'api.stripe.com',
+  'm.stripe.network',
+  'q.stripe.com',
+  'www.paypal.com',
+  'www.sandbox.paypal.com',
+  'www.paypalobjects.com',
+  'pay.google.com',
+  'payments.google.com',
+  'www.google.com',
+  'www.gstatic.com',
+  'apple-pay-gateway.apple.com',
+  'fonts.googleapis.com',
+  'fonts.gstatic.com'
+]
+
 // Fetch event - handle requests with appropriate strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event
@@ -81,6 +99,16 @@ self.addEventListener('fetch', (event) => {
   
   // Skip chrome-extension and other non-http(s) requests
   if (!url.protocol.startsWith('http')) return
+  
+  // Skip external payment/third-party domains entirely - let browser handle them
+  if (EXTERNAL_SKIP_DOMAINS.some(domain => url.hostname.includes(domain))) {
+    return
+  }
+  
+  // Skip cross-origin requests (not from our domain)
+  if (url.origin !== self.location.origin) {
+    return
+  }
   
   // Skip API requests that need fresh data (payments, bookings)
   if (url.pathname.includes('/api/payments') || 
