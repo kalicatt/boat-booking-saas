@@ -204,40 +204,76 @@ public class ScannerActivity extends AppCompatActivity {
         Log.d(TAG, "QR Code détecté: " + qrData);
         
         try {
-            // Parser l'URL du QR code
-            // Format attendu: https://sweet-narcisse.fr/booking/{bookingId}?token={token}
+            // Parser le JSON du QR code
+            // Format attendu: {"type":"booking","bookingId":"...","reference":"..."}
             
-            if (!qrData.contains("/booking/")) {
+            org.json.JSONObject json = new org.json.JSONObject(qrData);
+            
+            if (!"booking".equals(json.optString("type"))) {
                 runOnUiThread(() -> {
-                    Toast.makeText(this, "QR Code invalide", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "QR Code invalide (type incorrect)", Toast.LENGTH_SHORT).show();
                     isProcessing = false;
                 });
                 return;
             }
             
-            // Extraire bookingId et token
-            String[] parts = qrData.split("/booking/");
-            if (parts.length < 2) {
-                throw new IllegalArgumentException("Format QR invalide");
+            String bookingId = json.optString("bookingId");
+            if (bookingId == null || bookingId.isEmpty()) {
+                throw new IllegalArgumentException("bookingId manquant");
             }
             
-            String[] idAndToken = parts[1].split("\\?token=");
-            if (idAndToken.length < 2) {
-                throw new IllegalArgumentException("Token manquant");
-            }
+            // Générer le token HMAC-SHA256 (16 premiers caractères)
+            String token = computeBookingToken(bookingId);
             
-            String bookingId = idAndToken[0];
-            String token = URLDecoder.decode(idAndToken[1], "UTF-8");
+            Log.d(TAG, "bookingId: " + bookingId + ", token généré: " + token);
             
             // Appel API pour vérifier et check-in
             verifyAndCheckin(bookingId, token);
             
+        } catch (org.json.JSONException e) {
+            Log.e(TAG, "Erreur lors du parsing JSON du QR", e);
+            runOnUiThread(() -> {
+                Toast.makeText(this, "QR Code invalide (format JSON incorrect)", Toast.LENGTH_SHORT).show();
+                isProcessing = false;
+            });
         } catch (Exception e) {
-            Log.e(TAG, "Erreur lors du parsing du QR", e);
+            Log.e(TAG, "Erreur lors du traitement du QR", e);
             runOnUiThread(() -> {
                 Toast.makeText(this, "QR Code invalide", Toast.LENGTH_SHORT).show();
                 isProcessing = false;
             });
+        }
+    }
+    
+    /**
+     * Génère le token HMAC-SHA256 pour un bookingId
+     * Correspond à computeBookingToken() du backend
+     */
+    private String computeBookingToken(String bookingId) {
+        try {
+            // Secret identique au backend (NEXTAUTH_SECRET)
+            String secret = "tu58x4oG9F3N4YmEKHq0eBl3YVx8kDLR1CKtGqwJlmk=";
+            
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(
+                secret.getBytes("UTF-8"), "HmacSHA256");
+            mac.init(secretKey);
+            
+            byte[] hmacBytes = mac.doFinal(bookingId.getBytes("UTF-8"));
+            
+            // Convertir en hex et prendre les 16 premiers caractères
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hmacBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            
+            return hexString.substring(0, 16);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Erreur génération token", e);
+            return "";
         }
     }
     
