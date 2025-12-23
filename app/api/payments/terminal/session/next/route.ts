@@ -9,21 +9,28 @@ export const runtime = 'nodejs'
 const DEVICE_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 export async function GET(request: Request) {
+  console.log('[session/next] GET called')
   const user = await getMobileUser(request)
   const role = user?.role || 'GUEST'
+  console.log('[session/next] user:', user?.email, 'role:', role)
   if (!user || !DEVICE_ROLES.includes(role)) {
+    console.log('[session/next] Forbidden - user not authorized')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const url = new URL(request.url)
   const deviceId = url.searchParams.get('deviceId')
+  console.log('[session/next] deviceId:', deviceId)
   if (!deviceId) {
     return NextResponse.json({ error: 'deviceId is required' }, { status: 400 })
   }
 
   try {
+    console.log('[session/next] calling claimNextSession...')
     const claimed = await claimNextSession(deviceId)
+    console.log('[session/next] claimed result:', claimed ? claimed.id : 'null')
     if (!claimed) {
+      console.log('[session/next] no session found, returning 204')
       return new Response(null, { status: 204 })
     }
 

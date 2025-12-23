@@ -8,14 +8,17 @@ export const runtime = 'nodejs'
 const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 export async function POST(request: Request) {
+  console.log('[terminal/session] POST called')
   const user = await getMobileUser(request)
   const role = user?.role || 'GUEST'
+  console.log('[terminal/session] user:', user?.email, 'role:', role)
   if (!user || !STAFF_ROLES.includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   try {
     const payload = await request.json()
+    console.log('[terminal/session] payload:', JSON.stringify(payload))
     const bookingId = typeof payload?.bookingId === 'string' ? payload.bookingId : null
     if (!bookingId) {
       return NextResponse.json({ error: 'bookingId is required' }, { status: 400 })
@@ -50,6 +53,7 @@ export async function POST(request: Request) {
       metadata
     })
 
+    console.log('[terminal/session] created session:', created.id, 'status:', created.status, 'targetDevice:', targetDeviceId)
     return NextResponse.json({ session: created })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'

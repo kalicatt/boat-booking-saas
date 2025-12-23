@@ -54,8 +54,16 @@ export async function expireStaleSessions(reference = new Date()) {
 }
 
 export async function claimNextSession(deviceId: string) {
+  console.log('[claimNextSession] searching for sessions, deviceId:', deviceId)
   const now = new Date()
   const session = await prisma.$transaction(async (tx) => {
+    // Debug: count all sessions
+    const allSessions = await tx.paymentSession.findMany({
+      where: { status: 'PENDING' },
+      select: { id: true, targetDeviceId: true, expiresAt: true, createdAt: true }
+    })
+    console.log('[claimNextSession] all PENDING sessions:', JSON.stringify(allSessions))
+    
     const candidate = await tx.paymentSession.findFirst({
       where: {
         status: 'PENDING',
@@ -67,6 +75,7 @@ export async function claimNextSession(deviceId: string) {
       },
       orderBy: { createdAt: 'asc' }
     })
+    console.log('[claimNextSession] candidate:', candidate?.id || 'none')
     if (!candidate) return null
     const updated = await tx.paymentSession.update({
       where: { id: candidate.id },
