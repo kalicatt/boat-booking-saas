@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
+import { useDeviceType } from '@/lib/useDeviceType'
 
 const TABS = [
   { href: '/admin/today', label: "Aujourd'hui", icon: 'calendar' },
@@ -24,6 +25,7 @@ const iconMap: Record<string, string> = {
 export default function MobileAdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const deviceType = useDeviceType()
   const [networkOnline, setNetworkOnline] = useState(() => (typeof navigator !== 'undefined' ? navigator.onLine : true))
   const [lastSync, setLastSync] = useState(() => new Date())
 
@@ -48,18 +50,21 @@ export default function MobileAdminLayout({ children }: { children: ReactNode })
     }
   }, [])
 
+  // Only redirect mobile phones from planning to today
+  // Tablets should be able to access both views
   useEffect(() => {
-    if (pathname?.startsWith('/admin/planning')) {
+    if (deviceType === 'mobile' && pathname?.startsWith('/admin/planning')) {
       router.replace('/admin/today')
     }
-  }, [pathname, router])
+  }, [pathname, router, deviceType])
 
   const isActive = (href: string) => {
     if (href === '/admin/today') return pathname === '/admin' || pathname?.startsWith('/admin/today')
     return Boolean(pathname?.startsWith(href))
   }
 
-  const navigationTabs = TABS.filter((tab) => tab.href !== '/admin/planning')
+  // On tablets, show planning tab. On mobile, hide it.
+  const navigationTabs = deviceType === 'tablet' ? TABS : TABS.filter((tab) => tab.href !== '/admin/planning')
   const lastSyncLabel = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(lastSync)
 
   const handleManualSync = () => {

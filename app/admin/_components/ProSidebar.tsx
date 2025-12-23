@@ -2,7 +2,8 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react'
+import { useDeviceType } from '@/lib/useDeviceType'
 
 type SidebarContextType = {
   collapsed: boolean
@@ -20,7 +21,17 @@ export function useSidebar() {
 }
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
+  const deviceType = useDeviceType()
+  // Start collapsed on tablet for more screen space
   const [collapsed, setCollapsed] = useState(false)
+  
+  // Auto-collapse on tablet
+  useEffect(() => {
+    if (deviceType === 'tablet') {
+      setCollapsed(true)
+    }
+  }, [deviceType])
+  
   return (
     <SidebarContext.Provider value={{ collapsed, setCollapsed }}>
       {children}

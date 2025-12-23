@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Capacitor } from '@capacitor/core'
+import { useCanAccessMobileView } from '@/lib/useDeviceType'
 
 type DashboardTileData = {
   key: string
@@ -20,44 +19,11 @@ type DashboardTilesProps = {
   pageAccess: Record<string, boolean>
 }
 
-// Strict mobile detection - only true for actual mobile devices, not small desktop windows
-function useIsMobileDevice(): boolean | null {
-  const [isMobile, setIsMobile] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    // Check if running in Capacitor native app
-    try {
-      if (Capacitor?.isNativePlatform?.()) {
-        setIsMobile(true)
-        return
-      }
-    } catch {
-      // ignore
-    }
-
-    // Check user agent for mobile devices
-    if (typeof navigator !== 'undefined') {
-      const ua = navigator.userAgent || ''
-      // Match actual mobile devices, not just small screens
-      const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Tablet/i
-      if (mobileRegex.test(ua)) {
-        setIsMobile(true)
-        return
-      }
-    }
-
-    // Not a mobile device
-    setIsMobile(false)
-  }, [])
-
-  return isMobile
-}
-
 export function DashboardTiles({ tiles, pageAccess }: DashboardTilesProps) {
-  const isMobile = useIsMobileDevice()
+  const canAccessMobile = useCanAccessMobileView()
 
-  // Don't render until we know if it's mobile or not (prevents flash)
-  if (isMobile === null) {
+  // Don't render until device type is detected (prevents hydration mismatch)
+  if (canAccessMobile === null) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {/* Loading skeleton */}
@@ -68,14 +34,15 @@ export function DashboardTiles({ tiles, pageAccess }: DashboardTilesProps) {
     )
   }
 
-  // Filter tiles based on platform - hide "today" on desktop
+  // Filter tiles based on permissions and device type
+  // "Ops du jour" (today) is hidden on desktop, shown on mobile and tablet
   const filteredTiles = tiles.filter((tile) => {
     // Check permission first
     if (!pageAccess[tile.key]) {
       return false
     }
-    // Hide "Ops du jour" (today) on desktop - only show on mobile devices
-    if (tile.key === 'today' && !isMobile) {
+    // Hide "Ops du jour" on desktop - only show on mobile and tablet
+    if (tile.key === 'today' && !canAccessMobile) {
       return false
     }
     return true

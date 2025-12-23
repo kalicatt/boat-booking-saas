@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { createPortal } from 'react-dom'
@@ -442,7 +442,156 @@ export function DayView({
     })
   }
 
-  // Drag handlers
+  // Auto-scroll during drag
+  const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  
+  const startAutoScroll = useCallback((clientY: number) => {
+    const scrollThreshold = 100 // pixels from edge to start scrolling
+    const scrollSpeed = 15 // pixels per interval
+    
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current)
+    }
+    
+    scrollIntervalRef.current = setInterval(() => {
+      const windowHeight = window.innerHeight
+      
+      if (clientY < scrollThreshold) {
+        // Scroll up
+        window.scrollBy(0, -scrollSpeed)
+      } else if (clientY > windowHeight - scrollThreshold) {
+        // Scroll down
+        window.scrollBy(0, scrollSpeed)
+      }
+    }, 16) // ~60fps
+  }, [])
+  
+  const stopAutoScroll = useCallback(() => {
+    if (scrollIntervalRef.current) {
+      clearInterval(scrollIntervalRef.current)
+      scrollIntervalRef.current = null
+    }
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollIntervalRef.current) {
+        clearInterval(scrollIntervalRef.current)
+      }
+    }
+  }, [])
+
+  // Enable wheel scroll during drag
+  useEffect(() => {
+    if (!draggedBooking) return
+    
+    const handleWheel = (e: WheelEvent) => {
+      // Allow wheel scrolling during drag
+      window.scrollBy(0, e.deltaY)
+    }
+    
+    // Add listener with passive: false to ensure we can scroll
+    document.addEventListener('wheel', handleWheel, { passive: true })
+    
+    return () => {
+      document.removeEventListener('wheel', handleWheel)
+    }
+  }, [draggedBooking])
+
+  // Touch drag state for tablets
+  const touchDragRef = useRef<{
+    booking: Booking
+    startY: number
+    currentY: number
+    element: HTMLElement | null
+  } | null>(null)
+  const [touchDragBooking, setTouchDragBooking] = useState<Booking | null>(null)
+  const [touchDropTarget, setTouchDropTarget] = useState<TimeSlot | null>(null)
+
+  // Touch drag handlers for tablet support
+  const handleTouchDragStart = useCallback((e: React.TouchEvent, booking: Booking) => {
+    const touch = e.touches[0]
+    const target = e.currentTarget as HTMLElement
+    
+    touchDragRef.current = {
+      booking,
+      startY: touch.clientY,
+      currentY: touch.clientY,
+      element: target
+    }
+    
+    // Long press to initiate drag
+    const longPressTimer = setTimeout(() => {
+      if (touchDragRef.current) {
+        setTouchDragBooking(booking)
+        setDraggedBooking(booking)
+        // Add visual feedback
+        target.style.opacity = '0.5'
+        target.style.transform = 'scale(1.05)'
+      }
+    }, 300) // 300ms long press
+    
+    // Store timer to cancel if touch ends early
+    ;(touchDragRef.current as typeof touchDragRef.current & { timer?: NodeJS.Timeout }).timer = longPressTimer
+  }, [])
+
+  const handleTouchDragMove = useCallback((e: React.TouchEvent) => {
+    if (!touchDragRef.current || !touchDragBooking) return
+    
+    const touch = e.touches[0]
+    touchDragRef.current.currentY = touch.clientY
+    
+    // Find the time slot under the touch point
+    const elements = document.elementsFromPoint(touch.clientX, touch.clientY)
+    for (const el of elements) {
+      const slotData = (el as HTMLElement).dataset?.timeslot
+      if (slotData) {
+        try {
+          const slot = JSON.parse(slotData) as TimeSlot
+          setTouchDropTarget(slot)
+          setDropTarget(slot)
+        } catch {
+          // ignore parse errors
+        }
+        break
+      }
+    }
+    
+    // Auto-scroll while dragging
+    startAutoScroll(touch.clientY)
+    
+    e.preventDefault() // Prevent scrolling while dragging
+  }, [touchDragBooking, startAutoScroll])
+
+  const handleTouchDragEnd = useCallback((e: React.TouchEvent) => {
+    // Clear long press timer
+    if (touchDragRef.current && (touchDragRef.current as typeof touchDragRef.current & { timer?: NodeJS.Timeout }).timer) {
+      clearTimeout((touchDragRef.current as typeof touchDragRef.current & { timer?: NodeJS.Timeout }).timer)
+    }
+    
+    // Reset visual feedback
+    if (touchDragRef.current?.element) {
+      touchDragRef.current.element.style.opacity = ''
+      touchDragRef.current.element.style.transform = ''
+    }
+    
+    // If we have a valid drop target and dragged booking, show move modal
+    if (touchDragBooking && touchDropTarget) {
+      setPendingMove({ booking: touchDragBooking, newSlot: touchDropTarget })
+      setShowMoveModal(true)
+    }
+    
+    // Clean up
+    stopAutoScroll()
+    setTouchDragBooking(null)
+    setTouchDropTarget(null)
+    setDraggedBooking(null)
+    setDropTarget(null)
+    touchDragRef.current = null
+  }, [touchDragBooking, touchDropTarget, stopAutoScroll])
+
+  // Drag handlers (mouse/desktop)
   const handleDragStart = (e: React.DragEvent, booking: Booking) => {
     setDraggedBooking(booking)
     e.dataTransfer.effectAllowed = 'move'
@@ -452,20 +601,27 @@ export function DayView({
   const handleDragEnd = () => {
     setDraggedBooking(null)
     setDropTarget(null)
+    stopAutoScroll()
   }
 
   const handleDragOver = (e: React.DragEvent, timeSlot: TimeSlot) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDropTarget(timeSlot)
+    // Enable auto-scroll while dragging
+    if (draggedBooking) {
+      startAutoScroll(e.clientY)
+    }
   }
 
   const handleDragLeave = () => {
     setDropTarget(null)
+    // Don't stop auto-scroll here - let it continue while dragging
   }
 
   const handleDrop = (e: React.DragEvent, timeSlot: TimeSlot) => {
     e.preventDefault()
+    stopAutoScroll()
     if (draggedBooking) {
       setPendingMove({ booking: draggedBooking, newSlot: timeSlot })
       setShowMoveModal(true)
@@ -572,11 +728,61 @@ export function DayView({
 
   const isToday = isSameDay(date, new Date())
 
+  // Pinch-to-zoom state
+  const [scale, setScale] = useState(1)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const lastTouchDistance = useRef<number | null>(null)
+
+  // Handle pinch-to-zoom
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        lastTouchDistance.current = Math.hypot(dx, dy)
+      }
+    }
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX
+        const dy = e.touches[0].clientY - e.touches[1].clientY
+        const distance = Math.hypot(dx, dy)
+        const delta = distance / lastTouchDistance.current
+        
+        setScale(prev => {
+          const newScale = prev * delta
+          return Math.min(Math.max(newScale, 0.5), 2) // Limit between 0.5x and 2x
+        })
+        
+        lastTouchDistance.current = distance
+        e.preventDefault() // Prevent default zoom behavior
+      }
+    }
+
+    const handleTouchEnd = () => {
+      lastTouchDistance.current = null
+    }
+
+    container.addEventListener('touchstart', handleTouchStart, { passive: false })
+    container.addEventListener('touchmove', handleTouchMove, { passive: false })
+    container.addEventListener('touchend', handleTouchEnd)
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart)
+      container.removeEventListener('touchmove', handleTouchMove)
+      container.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [])
+
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden w-full">
       {/* Header */}
       <div className="p-4 border-b border-slate-200 bg-slate-50">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h3 className={`text-lg font-semibold ${isToday ? 'text-sky-600' : 'text-slate-900'}`}>
               {format(date, 'EEEE d MMMM yyyy', { locale: fr })}
@@ -585,25 +791,59 @@ export function DayView({
               Cliquez sur l'heure pour bloquer • Glissez une réservation pour la déplacer
             </p>
           </div>
-          {isToday && (
-            <span className="px-3 py-1 bg-sky-100 text-sky-800 text-sm font-semibold rounded-full">
-              Aujourd'hui
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Zoom controls */}
+            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setScale(s => Math.max(0.5, s - 0.1))}
+                className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded"
+                title="Zoom arrière"
+              >
+                −
+              </button>
+              <span className="text-xs text-slate-600 min-w-[3rem] text-center">
+                {Math.round(scale * 100)}%
+              </span>
+              <button
+                onClick={() => setScale(s => Math.min(2, s + 0.1))}
+                className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded"
+                title="Zoom avant"
+              >
+                +
+              </button>
+              <button
+                onClick={() => setScale(1)}
+                className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded text-xs"
+                title="Réinitialiser le zoom"
+              >
+                1:1
+              </button>
+            </div>
+            {isToday && (
+              <span className="px-3 py-1 bg-sky-100 text-sky-800 text-sm font-semibold rounded-full">
+                Aujourd'hui
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Grille planning */}
-      <div className="overflow-auto max-h-[70vh]">
-        <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-slate-50 z-10">
-            <tr>
-              <th className="w-20 p-3 border-b border-r border-slate-200 text-left bg-slate-100">
-                <span className="text-xs font-semibold text-slate-600 uppercase">Heure</span>
-              </th>
-              <th className="w-40 p-3 border-b border-r border-slate-200 text-left bg-slate-100">
-                <span className="text-xs font-semibold text-slate-600 uppercase">Bateau</span>
-              </th>
+      {/* Grille planning avec scroll horizontal et vertical */}
+      <div 
+        ref={containerRef}
+        className="overflow-auto max-h-[80vh]"
+        style={{ touchAction: 'pan-x pan-y' }}
+      >
+        <div style={{ transform: `scale(${scale})`, transformOrigin: 'top left', minWidth: 'max-content' }}>
+          <table className="w-full border-collapse" style={{ minWidth: '800px' }}>
+            <thead className="sticky top-0 bg-slate-50 z-10">
+              <tr>
+                <th className="w-20 p-3 border-b border-r border-slate-200 text-left bg-slate-100">
+                  <span className="text-xs font-semibold text-slate-600 uppercase">Heure</span>
+                </th>
+                <th className="w-40 p-3 border-b border-r border-slate-200 text-left bg-slate-100">
+                  <span className="text-xs font-semibold text-slate-600 uppercase">Bateau</span>
+                </th>
               <th className="p-3 border-b border-slate-200 text-left bg-slate-100">
                 <span className="text-xs font-semibold text-slate-600 uppercase">Réservations</span>
               </th>
@@ -712,6 +952,7 @@ export function DayView({
                       isBlocked ? 'bg-rose-50' :
                       isDropZone ? 'bg-sky-100 ring-2 ring-sky-400 ring-inset' : ''
                     }`}
+                    data-timeslot={JSON.stringify(timeSlot)}
                     onDragOver={(e) => !isLunch && handleDragOver(e, timeSlot)}
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => !isLunch && handleDrop(e, timeSlot)}
@@ -737,8 +978,11 @@ export function DayView({
                               draggable
                               onDragStart={(e) => handleDragStart(e, booking)}
                               onDragEnd={handleDragEnd}
+                              onTouchStart={(e) => handleTouchDragStart(e, booking)}
+                              onTouchMove={handleTouchDragMove}
+                              onTouchEnd={handleTouchDragEnd}
                               onClick={() => onBookingClick(booking)}
-                              className={`inline-flex flex-col p-2 rounded border-l-4 text-left transition cursor-grab active:cursor-grabbing hover:shadow-md ${
+                              className={`inline-flex flex-col p-2 rounded border-l-4 text-left transition cursor-grab active:cursor-grabbing hover:shadow-md touch-none ${
                                 getStatusColor(booking.status)
                               } ${draggedBooking?.id === booking.id ? 'opacity-50' : ''} min-w-[180px]`}
                             >
@@ -804,6 +1048,7 @@ export function DayView({
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Footer légende */}

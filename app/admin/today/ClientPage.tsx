@@ -24,6 +24,7 @@ import { Capacitor } from '@capacitor/core'
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning'
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
 import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
+import { useCanAccessMobileView } from '@/lib/useDeviceType'
 import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileTimeline'
 import { getBoatTheme } from '../_components/boatThemes'
 import { BookingDetailsModal } from '../_components/BookingDetailsModal'
@@ -269,13 +270,14 @@ export default function ClientPage() {
   const detailsGroupRef = useRef<BookingDetails[]>([])
   const detailsGroupIndexRef = useRef(0)
   const isNative = useIsNativePlatform()
+  const canAccessMobile = useCanAccessMobileView()
 
-  // Redirect desktop users to planning page - /admin/today is mobile/tablet only
+  // Redirect desktop users to planning page - /admin/today is for mobile and tablet only
   useEffect(() => {
-    if (isNative === false) {
+    if (canAccessMobile === false) {
       router.replace('/admin/planning')
     }
-  }, [isNative, router])
+  }, [canAccessMobile, router])
 
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'submitting' | 'success' | 'error'>('idle')
   const [scanMessage, setScanMessage] = useState('')

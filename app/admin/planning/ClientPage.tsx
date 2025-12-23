@@ -13,7 +13,7 @@ import useSWR from 'swr'
 import { AdminPageShell } from '../_components/AdminPageShell'
 import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileTimeline'
 import { getBoatTheme } from '../_components/boatThemes'
-import { useIsNativePlatform } from '@/lib/useIsNativePlatform'
+import { useIsMobileOnly } from '@/lib/useDeviceType'
 import { BookingDetailsModal } from '../_components/BookingDetailsModal'
 import { parseParisWallDate } from '@/lib/time'
 import {
@@ -301,7 +301,8 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
   const [selectedSlotDetails, setSelectedSlotDetails] = useState<{ start: Date; boatId: number } | null>(null)
   const [showQuickBookModal, setShowQuickBookModal] = useState(false)
   const [boatPlanModal, setBoatPlanModal] = useState<BoatPlanModalState | null>(null)
-  const isNative = useIsNativePlatform()
+  // Use mobile-only detection - tablets should see desktop view on planning page
+  const isMobileOnly = useIsMobileOnly()
 
   const calendarMin = useMemo(() => {
     if (preset === 'morning') return new Date(0, 0, 0, 9, 30, 0)
@@ -1525,7 +1526,8 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
     </>
   )
 
-  if (isNative) {
+  // Show mobile view only on mobile phones, tablets get desktop view
+  if (isMobileOnly) {
     const dayTitle = format(currentDate, 'EEEE d MMMM', { locale: fr })
     const daySubtitle = format(currentDate, 'yyyy', { locale: fr })
 
