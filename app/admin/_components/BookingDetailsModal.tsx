@@ -147,7 +147,7 @@ export function BookingDetailsModal({
             ▶
           </button>
         )}
-        <div className="flex h-full w-full max-w-4xl max-h-[92vh] flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+        <div className="flex h-full w-full max-w-5xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
           <div className="relative shrink-0">
             <div
               className="absolute inset-0 opacity-95"

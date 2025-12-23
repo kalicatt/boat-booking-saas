@@ -485,7 +485,7 @@ export default function AccountingAdminPage() {
           <button
             type="button"
             onClick={refreshAll}
-            className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:bg-slate-50"
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400"
           >
             Actualiser
           </button>
@@ -493,14 +493,14 @@ export default function AccountingAdminPage() {
             type="button"
             onClick={handleQuickExport}
             disabled={isQuickExporting}
-            className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Export rapide CSV
           </button>
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:bg-slate-50"
+            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-400"
           >
             Imprimer la page
           </button>
@@ -509,7 +509,7 @@ export default function AccountingAdminPage() {
     >
       {toast && (
         <div
-          className={`fixed right-4 top-4 z-50 rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-lg ${
+          className={`fixed right-4 top-4 z-50 animate-in slide-in-from-top-5 fade-in rounded-2xl px-5 py-3 text-sm font-semibold text-white shadow-2xl ${
             toast.type === 'success' ? 'bg-emerald-600' : 'bg-rose-600'
           }`}
         >
@@ -521,9 +521,9 @@ export default function AccountingAdminPage() {
         <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
           <div className="space-y-6">
             <div className="sn-card space-y-6">
-              <header className="flex items-start justify-between gap-4">
+              <header className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
-                  <h2 className="text-lg font-semibold text-slate-900">Gestion de caisse</h2>
+                  <h2 className="text-xl font-bold text-slate-900">Gestion de caisse</h2>
                   <p className="text-sm text-slate-500">
                     Ouvrez ou clôturez la caisse, puis archivez les écarts avec un détail par billet et pièce.
                   </p>
@@ -561,13 +561,13 @@ export default function AccountingAdminPage() {
                       value={openingFloatEuros}
                       onChange={(event) => setOpeningFloatEuros(event.target.value)}
                       placeholder="Ex : 150.00"
-                      className="mt-2 w-full rounded border border-slate-200 px-2 py-1.5 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                      className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm shadow-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                     />
                     <button
                       type="button"
                       onClick={handleOpenCash}
                       disabled={isOpening}
-                      className="mt-3 w-full rounded bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                      className="mt-3 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow disabled:cursor-not-allowed disabled:bg-blue-300"
                     >
                       Ouvrir la caisse
                     </button>
@@ -619,7 +619,7 @@ export default function AccountingAdminPage() {
                       : 'bg-rose-100 text-rose-700'
 
                     return (
-                      <div key={session.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                      <div key={session.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md">
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-semibold text-slate-900">
@@ -636,7 +636,7 @@ export default function AccountingAdminPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             {variance !== null && (
-                              <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}`}>
+                              <span className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs font-bold shadow-sm ${badgeClass}`}>
                                 Écart {centsToEuro(variance)}
                               </span>
                             )}
@@ -813,11 +813,11 @@ export default function AccountingAdminPage() {
 
             <div className="max-h-72 overflow-auto rounded border border-dashed border-slate-200">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <thead className="bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
                   <tr>
-                    <th className="px-3 py-2 text-left">Date</th>
-                    <th className="px-3 py-2 text-left">Hash</th>
-                    <th className="px-3 py-2 text-left">Totaux</th>
+                    <th className="px-4 py-3 text-left">Date</th>
+                    <th className="px-4 py-3 text-left">Hash</th>
+                    <th className="px-4 py-3 text-left">Totaux</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -831,7 +831,7 @@ export default function AccountingAdminPage() {
                     return (
                       <tr
                         key={closure.id}
-                        className="border-t border-slate-100 hover:bg-slate-50 cursor-pointer"
+                        className="border-t border-slate-100 transition hover:bg-slate-50 cursor-pointer"
                         onClick={() => {
                           const dayStr = format(new Date(closure.day), 'yyyy-MM-dd')
                           window.location.href = `/admin/accounting/${dayStr}`
@@ -1001,9 +1001,9 @@ export default function AccountingAdminPage() {
                     const key = String(value)
                     const count = closingBreakdown.bills[key] ?? 0
                     return (
-                      <div key={key} className="flex items-center justify-between rounded border border-slate-200 bg-white px-3 py-2 shadow-sm">
-                        <span className="font-medium text-slate-800">{value} €</span>
-                        <div className="flex items-center gap-2">
+                      <div key={key} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-slate-300">
+                        <span className="font-semibold text-slate-800">{value} €</span>
+                        <div className="flex items-center gap-3">
                           <input
                             type="number"
                             min="0"
@@ -1017,9 +1017,9 @@ export default function AccountingAdminPage() {
                                 }
                               }))
                             }
-                            className="w-20 rounded border border-slate-200 px-2 py-1 text-right text-sm focus:border-blue-500 focus:outline-none"
+                            className="w-20 rounded-lg border border-slate-300 px-3 py-2 text-right text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                           />
-                          <span className="text-xs text-slate-500">{(value * count).toFixed(2)} €</span>
+                          <span className="min-w-[4rem] text-right text-sm font-medium text-slate-600">{(value * count).toFixed(2)} €</span>
                         </div>
                       </div>
                     )
@@ -1062,8 +1062,8 @@ export default function AccountingAdminPage() {
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded border border-slate-200 bg-white p-4 shadow-sm">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-600">
                   Montant total des chèques
                 </label>
                 <input
@@ -1071,12 +1071,12 @@ export default function AccountingAdminPage() {
                   value={checksAmountInput}
                   onChange={(event) => setChecksAmountInput(event.target.value)}
                   placeholder="Ex : 135.00"
-                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                 />
                 <p className="mt-1 text-xs text-slate-500">Somme des chèques remis en caisse.</p>
               </div>
-              <div className="rounded border border-slate-200 bg-white p-4 shadow-sm">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-600">
                   Montant total vouchers / ANCV
                 </label>
                 <input
@@ -1084,7 +1084,7 @@ export default function AccountingAdminPage() {
                   value={vouchersAmountInput}
                   onChange={(event) => setVouchersAmountInput(event.target.value)}
                   placeholder="Ex : 80.00"
-                  className="mt-2 w-full rounded border border-slate-200 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                 />
                 <p className="mt-1 text-xs text-slate-500">Incluez les chèques vacances, CityPass, etc.</p>
               </div>
@@ -1165,23 +1165,27 @@ export default function AccountingAdminPage() {
       )}
 
       {selectedSession && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-xl font-semibold text-slate-900">Détail de la clôture</h3>
-                <p className="text-sm text-slate-500">
-                  Session ouverte le {format(new Date(selectedSession.openedAt), 'dd/MM/yyyy HH:mm')}.
-                </p>
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm px-4 py-6">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="border-b border-slate-200 px-6 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Détail de la clôture</h3>
+                  <p className="text-sm text-slate-500">
+                    Session ouverte le {format(new Date(selectedSession.openedAt), 'dd/MM/yyyy HH:mm')}.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSession(null)}
+                  className="rounded-full border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  Fermer
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedSession(null)}
-                className="rounded border border-slate-200 px-3 py-1 text-sm text-slate-500 hover:bg-slate-100"
-              >
-                Fermer
-              </button>
             </div>
+
+            <div className="p-6">
 
             {(() => {
               const breakdown = parseBreakdownPayload(selectedSession.closingBreakdown)
@@ -1290,6 +1294,7 @@ export default function AccountingAdminPage() {
                 </div>
               )
             })()}
+            </div>
           </div>
         </div>
       )}

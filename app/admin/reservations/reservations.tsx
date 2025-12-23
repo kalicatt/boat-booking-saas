@@ -656,17 +656,33 @@ export default function ReservationsAdminPage() {
 			actions={actions}
 		>
 			<div className="space-y-6">
-				<section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-					<div className="flex flex-wrap items-center gap-4">
+				<section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+					<div className="flex flex-wrap items-center justify-between gap-4 mb-4">
 						<div>
-							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Période</p>
-							<p className="text-sm text-slate-700">{rangeLabel}</p>
+							<p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Période sélectionnée</p>
+							<p className="text-lg font-semibold text-slate-900 mt-0.5">{rangeLabel}</p>
 						</div>
 						<div className="flex flex-wrap gap-3">
-							<StatCard label="Total" value={stats.total} tone="bg-white text-slate-900 border border-slate-200" />
-							<StatCard label="Payées" value={stats.paid} tone="bg-emerald-50 text-emerald-700 border border-emerald-200" />
-							<StatCard label="En attente" value={stats.pending} tone="bg-amber-50 text-amber-700 border border-amber-200" />
-							<StatCard label="À venir" value={stats.upcoming} tone="bg-sky-50 text-sky-700 border border-sky-200" />
+							<StatCard 
+								label="Total" 
+								value={stats.total} 
+								tone="bg-slate-50 text-slate-900 border-l-4 border-l-slate-800" 
+							/>
+							<StatCard 
+								label="Payées" 
+								value={stats.paid} 
+								tone="bg-emerald-50 text-emerald-700 border-l-4 border-l-emerald-600" 
+							/>
+							<StatCard 
+								label="En attente" 
+								value={stats.pending} 
+								tone="bg-amber-50 text-amber-700 border-l-4 border-l-amber-600" 
+							/>
+							<StatCard 
+								label="À venir" 
+								value={stats.upcoming} 
+								tone="bg-sky-50 text-sky-700 border-l-4 border-l-sky-600" 
+							/>
 						</div>
 					</div>
 					{/* Only render status pills after mount to avoid hydration mismatch */}
@@ -721,23 +737,28 @@ export default function ReservationsAdminPage() {
 					</ul>
 				</section>
 
-				<section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Plage</span>
-						{RANGE_OPTIONS.map((option) => (
-							<button
-								key={option.key}
-								type="button"
-								onClick={() => setRange(option.key)}
-								className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-									range === option.key
-										? 'border-blue-500 bg-blue-50 text-blue-600 shadow'
-										: 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600'
-								}`}
-							>
-								{option.label}
-							</button>
-						))}
+				<section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<span className="text-sm font-semibold text-slate-700">Période de filtrage</span>
+						<div className="flex flex-wrap items-center gap-2">
+							{RANGE_OPTIONS.map((option) => {
+								const isActive = range === option.key
+								return (
+									<button
+										key={option.key}
+										type="button"
+										onClick={() => setRange(option.key)}
+										className={`inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+											isActive
+												? 'border-slate-800 bg-slate-800 text-white shadow-sm'
+												: 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+										}`}
+									>
+										{option.label}
+									</button>
+								)
+							})}
+						</div>
 					</div>
 
 					<div className="flex flex-wrap items-end gap-3">
@@ -834,45 +855,88 @@ export default function ReservationsAdminPage() {
 							</button>
 						</div>
 						{isLoading && (
-							<div className="px-4 py-10 text-center text-sm text-slate-500">
-								Chargement des réservations…
+							<div className="rounded-xl border border-slate-200 bg-white p-8">
+								<div className="flex flex-col items-center justify-center gap-4">
+									<div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800"></div>
+									<p className="text-sm font-medium text-slate-600">Chargement des réservations…</p>
+									<div className="space-y-3 w-full max-w-2xl">
+										<div className="h-4 bg-slate-100 rounded animate-pulse"></div>
+										<div className="h-4 bg-slate-100 rounded animate-pulse w-5/6"></div>
+										<div className="h-4 bg-slate-100 rounded animate-pulse w-4/6"></div>
+									</div>
+								</div>
 							</div>
 						)}
 						{error && !isLoading && (
-							<div className="px-4 py-10 text-center text-sm text-rose-600">
-								Impossible de charger les réservations.
+							<div className="rounded-xl border border-rose-200 bg-rose-50 p-8">
+								<div className="flex flex-col items-center justify-center gap-4">
+									<div className="text-4xl">⚠️</div>
+									<div className="text-center">
+										<p className="text-sm font-semibold text-rose-900">Impossible de charger les réservations</p>
+										<p className="text-xs text-rose-700 mt-1">Vérifiez votre connexion et réessayez</p>
+									</div>
+									<button
+										type="button"
+										onClick={handleForceRefresh}
+										disabled={refreshing}
+										className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-semibold transition disabled:opacity-50"
+									>
+										{refreshing ? 'Réessai...' : 'Réessayer'}
+									</button>
+								</div>
 							</div>
 						)}
 						{!isLoading && !error && bookings.length === 0 && (
-							<div className="px-4 py-10 text-center text-sm text-slate-400">
-								Aucun résultat pour les filtres sélectionnés.
+							<div className="rounded-xl border border-slate-200 bg-slate-50 p-12">
+								<div className="flex flex-col items-center justify-center gap-4">
+									<div className="text-6xl opacity-50">📍</div>
+									<div className="text-center">
+										<p className="text-base font-semibold text-slate-700">Aucune réservation trouvée</p>
+										<p className="text-sm text-slate-500 mt-1">Modifiez vos filtres ou sélectionnez une autre période</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => {
+											setQuery('')
+											setPaymentFilter('')
+										}}
+										className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-semibold transition text-sm"
+									>
+										Réinitialiser les filtres
+									</button>
+								</div>
 							</div>
 						)}
 						{!isLoading && !error && bookings.length > 0 && (
-							<div className="overflow-x-auto">
+							<div className="overflow-x-auto rounded-lg border border-slate-200">
 								<table className="min-w-full table-fixed text-sm">
-									<thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-										<tr>
-											<th className="w-28 px-4 py-3">Date</th>
-											<th className="w-28 px-4 py-3">Réf.</th>
-											<th className="w-20 px-4 py-3">Heure</th>
-											<th className="w-48 px-4 py-3">Client</th>
-											<th className="w-40 px-4 py-3">Détails</th>
-											<th className="w-40 px-4 py-3">Paiement</th>
-											<th className="px-4 py-3">Actions</th>
+									<thead className="bg-slate-50 text-left">
+										<tr className="border-b border-slate-200">
+											<th className="w-28 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Date</th>
+											<th className="w-28 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Réf.</th>
+											<th className="w-20 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Heure</th>
+											<th className="w-48 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Client</th>
+											<th className="w-40 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Détails</th>
+											<th className="w-40 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Paiement</th>
+											<th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">Actions</th>
 										</tr>
 									</thead>
-									<tbody className="divide-y divide-slate-100">
-										{bookings.map((booking) => {
+									<tbody className="divide-y divide-slate-100 bg-white">
+										{bookings.map((booking, index) => {
 											const isSelected = selectedId === booking.id
 											const paymentStatus = getPaymentStatusInfo(booking)
+											const isEven = index % 2 === 0
 
 											return (
 												<tr
 													key={booking.id}
 													onClick={() => handleRowSelect(booking.id)}
-													className={`cursor-pointer bg-white transition hover:bg-slate-50 ${
-														isSelected ? 'bg-blue-50/70' : ''
+													className={`cursor-pointer transition-colors ${
+														isSelected 
+															? 'bg-slate-100 hover:bg-slate-100' 
+															: isEven
+															? 'bg-white hover:bg-slate-50'
+															: 'bg-slate-50/30 hover:bg-slate-50'
 													}`}
 												>
 													<td className="px-4 py-4 align-top font-mono text-xs text-slate-500">
@@ -918,9 +982,10 @@ export default function ReservationsAdminPage() {
 																	setShowView(booking)
 																	setViewMarkPaid(null)
 																}}
-																className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+																className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:border-slate-300"
+																title="Voir les détails"
 															>
-																Voir
+																👁️ Voir
 															</button>
 															<button
 																type="button"
@@ -928,9 +993,10 @@ export default function ReservationsAdminPage() {
 																	event.stopPropagation()
 																	setShowEdit(booking)
 																}}
-																className="rounded border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+																className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 hover:border-slate-300"
+																title="Modifier"
 															>
-																Modifier
+																✏️ Modifier
 															</button>
 															<button
 																type="button"
@@ -938,9 +1004,10 @@ export default function ReservationsAdminPage() {
 																	event.stopPropagation()
 																	handleDelete(booking)
 																}}
-																className="rounded border border-rose-200 bg-white px-3 py-1 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+																className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 hover:border-rose-300"
+																title="Supprimer"
 															>
-																Supprimer
+																🗑️ Supprimer
 															</button>
 														</div>
 													</td>

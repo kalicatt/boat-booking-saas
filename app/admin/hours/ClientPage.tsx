@@ -471,7 +471,7 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
       <div className="grid grid-cols-1 gap-8 print:block lg:grid-cols-3">
         <div className="lg:col-span-1 print:hidden">
           <div className="sn-card sticky top-8">
-            <h3 className="mb-4 border-b pb-2 text-lg font-bold text-slate-800">Saisir une journée</h3>
+            <h3 className="mb-4 border-b border-slate-200 pb-3 text-lg font-bold text-slate-900">Saisir une journée</h3>
             {!canManage && (
               <div className="mb-4 rounded border border-sky-200 bg-sky-50 p-3 text-sm text-sky-700">
                 Vous pointez uniquement pour vous-même. La localisation GPS sera enregistrée avec votre pointage.
@@ -493,9 +493,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
             )}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-bold text-slate-500">Employé</label>
+                <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Employé</label>
                 <select
-                  className="w-full rounded border bg-slate-50 p-2 font-medium"
+                  className="w-full rounded-xl border border-slate-300 bg-white p-2.5 font-medium transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                   value={form.userId}
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, userId: event.target.value }))
@@ -598,13 +598,13 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
               <div className="flex gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="text-xs font-bold bg-white border px-3 py-1 rounded hover:bg-slate-100 print:hidden"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 print:hidden"
                 >
                   🖨️ Imprimer
                 </button>
                 <button
                   onClick={exportCSV}
-                  className="text-xs font-bold bg-white border px-3 py-1 rounded hover:bg-slate-100 print:hidden"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 print:hidden"
                 >
                   ⬇️ Export CSV
                 </button>
@@ -621,9 +621,9 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   return (
                     <div
                       key={entry.user.id}
-                      className="mb-6 break-inside-avoid overflow-hidden rounded-lg border print:border-black"
+                      className="mb-6 break-inside-avoid overflow-hidden rounded-2xl border border-slate-200 shadow-sm print:border-black"
                     >
-                      <div className="flex items-center justify-between bg-slate-100 p-3 print:bg-slate-200">
+                      <div className="flex items-center justify-between bg-gradient-to-r from-slate-50 to-slate-100 p-4 print:bg-slate-200">
                         <button
                           onClick={() => toggleUser(entry.user.id)}
                           className="flex items-center gap-2 font-bold text-slate-900"
@@ -634,8 +634,8 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                           {entry.user.firstName} {lastName}
                         </button>
                         <div className="text-sm">
-                          <span className="mr-2 text-slate-500">{entry.shiftsCount} jours</span>
-                          <span className="rounded bg-blue-600 px-2 py-1 font-bold text-white print:border print:border-black print:bg-white print:text-black">
+                          <span className="mr-3 text-slate-500">{entry.shiftsCount} jours</span>
+                          <span className="rounded-full bg-blue-600 px-3 py-1.5 font-bold text-white shadow-sm print:border print:border-black print:bg-white print:text-black">
                             Total : {entry.totalHours} h
                           </span>
                         </div>
@@ -643,13 +643,13 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
 
                       {isOpen && (
                         <table className="w-full text-left text-sm">
-                          <thead className="border-b bg-slate-50 text-xs font-normal uppercase text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
                             <tr>
-                              <th className="p-2 pl-4">Date</th>
-                              <th className="p-2">Horaires</th>
-                              <th className="p-2">Pause</th>
-                              <th className="p-2 pr-4 text-right">Total Net</th>
-                              {canManage && <th className="p-2 pr-4 text-right">Actions</th>}
+                              <th className="p-3 pl-4 text-left">Date</th>
+                              <th className="p-3 text-left">Horaires</th>
+                              <th className="p-3 text-left">Pause</th>
+                              <th className="p-3 pr-4 text-right">Total Net</th>
+                              {canManage && <th className="p-3 pr-4 text-right">Actions</th>}
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -765,15 +765,18 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
       </div>
 
       {editingShift && canManage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-bold">Modifier le shift</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs font-bold text-slate-500">Date</label>
-                <input
-                  type="date"
-                  className="w-full rounded border p-2"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+            <header className="border-b border-slate-200 px-6 py-4">
+              <h3 className="text-xl font-bold text-slate-900">Modifier le shift</h3>
+            </header>
+            <div className="p-6">
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-slate-500">Date</label>
+                  <input
+                    type="date"
+                    className="w-full rounded-xl border border-slate-300 p-2.5 transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                   value={editingShift.date}
                   onChange={(event) =>
                     setEditingShift((prev) => (prev ? { ...prev, date: event.target.value } : prev))
@@ -826,23 +829,24 @@ export default function ClientHoursPage({ canManage = false, ownOnly = false }: 
                   }
                 />
               </div>
+              </div>
             </div>
-            <div className="mt-6 flex justify-between gap-2">
+            <footer className="flex justify-between gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
               <button
                 onClick={() => deleteShift(editingShift)}
-                className="rounded border border-red-300 px-3 py-2 text-red-700 hover:bg-red-50"
+                className="rounded-full border border-rose-300 px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50"
               >
                 Supprimer
               </button>
-              <div className="flex gap-2">
-                <button onClick={cancelEdit} className="rounded border px-3 py-2">
+              <div className="flex gap-3">
+                <button onClick={cancelEdit} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white">
                   Annuler
                 </button>
-                <button onClick={submitEdit} className="rounded bg-blue-600 px-3 py-2 text-white">
+                <button onClick={submitEdit} className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 hover:shadow">
                   Enregistrer
                 </button>
               </div>
-            </div>
+            </footer>
           </div>
         </div>
       )}

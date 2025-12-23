@@ -601,32 +601,32 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
     const modalContent = (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="qb-title"
             ref={dialogRef}
         >
-            <div className="sn-card w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" role="document">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" role="document">
                 {isLocked && (
-                    <div className="bg-red-600 text-center text-sm font-semibold uppercase tracking-wide text-white">
+                    <div className="bg-red-600 text-center text-sm font-semibold uppercase tracking-wide text-white py-2">
                         Période verrouillée — modifications interdites
                     </div>
                 )}
 
-                <div className="bg-slate-800 px-6 pb-6 pt-5 text-white shadow-lg shrink-0">
+                <div className="bg-white border-b border-slate-200 px-6 pb-6 pt-5 shrink-0">
                     <div className="flex items-start justify-between mb-4">
                         <div>
-                            <h3 id="qb-title" className="text-xl font-bold">
+                            <h3 id="qb-title" className="text-xl font-bold text-slate-900">
                                 Nouvelle réservation
                             </h3>
-                            <p className="text-sm text-slate-300 mt-1">
+                            <p className="text-sm text-slate-600 mt-1">
                                 {targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`} • {formattedDate}
                             </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-2xl font-bold text-white/70 hover:text-white transition"
+                            className="text-2xl font-bold text-slate-400 hover:text-slate-600 transition"
                             aria-label="Fermer"
                         >
                             ×
@@ -643,32 +643,32 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                         <div
                                             className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
                                                 completed
-                                                    ? 'bg-white text-slate-800'
+                                                    ? 'bg-slate-800 text-white'
                                                     : active
-                                                    ? 'bg-white text-slate-800 ring-2 ring-white/30'
-                                                    : 'bg-white/20 text-white/50'
+                                                    ? 'bg-slate-800 text-white ring-2 ring-slate-300'
+                                                    : 'bg-slate-100 text-slate-400'
                                             }`}
                                         >
                                             {completed ? '✓' : index + 1}
                                         </div>
                                         <span className={`text-[10px] font-semibold uppercase tracking-wider transition ${
-                                            active ? 'text-white' : completed ? 'text-white/80' : 'text-white/50'
+                                            active ? 'text-slate-900' : completed ? 'text-slate-600' : 'text-slate-400'
                                         }`}>
                                             {step.label}
                                         </span>
                                     </div>
                                     {index < BOOKING_STEPS.length - 1 && (
                                         <div className={`h-0.5 mt-5 transition ${
-                                            completed ? 'bg-white/40' : 'bg-white/20'
+                                            completed ? 'bg-slate-300' : 'bg-slate-100'
                                         }`} />
                                     )}
                                 </li>
                             )
                         })}
                     </ol>
-                    <div className="mt-5 h-1.5 rounded-full bg-white/20 overflow-hidden">
+                    <div className="mt-5 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                         <div
-                            className="h-full rounded-full bg-white transition-all duration-500"
+                            className="h-full rounded-full bg-slate-800 transition-all duration-500"
                             style={{ width: `${progress}%` }}
                         />
                     </div>

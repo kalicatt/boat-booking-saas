@@ -95,39 +95,50 @@ function MoveBookingModal({
 
   const content = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4"
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">Déplacer la réservation</h3>
-        <p className="text-sm text-slate-600 mb-4">
-          Voulez-vous déplacer la réservation de <strong>{booking.customerName}</strong> vers <strong>{newTime}</strong> ?
-        </p>
-        
-        <label className="flex items-center gap-2 mb-6 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={sendEmail}
-            onChange={(e) => setSendEmail(e.target.checked)}
-            className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-          />
-          <span className="text-sm text-slate-700">
-            Envoyer un email de notification au client
-          </span>
-        </label>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-semibold text-slate-900">Déplacer la réservation</h3>
+          <p className="text-sm text-slate-600 mt-0.5">
+            Confirmation de déplacement
+          </p>
+        </div>
 
-        <div className="flex justify-end gap-3">
+        {/* Body */}
+        <div className="p-6 bg-slate-50">
+          <p className="text-sm text-slate-700 mb-4">
+            Voulez-vous déplacer la réservation de <strong className="text-slate-900">{booking.customerName}</strong> vers <strong className="text-slate-900">{newTime}</strong> ?
+          </p>
+          
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={sendEmail}
+              onChange={(e) => setSendEmail(e.target.checked)}
+              className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+            />
+            <span className="text-sm text-slate-700">
+              Envoyer un email de notification au client
+            </span>
+          </label>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
+            className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg font-semibold transition disabled:opacity-50"
           >
             Annuler
           </button>
           <button
             onClick={() => onConfirm(sendEmail)}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-white bg-slate-800 rounded-lg hover:bg-slate-900 transition disabled:opacity-50"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoading ? 'Déplacement...' : 'Confirmer'}
           </button>
@@ -171,60 +182,67 @@ function BlockSlotModal({
 
   const content = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4"
       onClick={(e) => e.target === e.currentTarget && onCancel()}
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
-          {isBlocked ? 'Débloquer cet horaire' : 'Bloquer cet horaire'}
-        </h3>
-        <p className="text-sm text-slate-600 mb-4">
-          {isBlocked 
-            ? `Voulez-vous retirer le blocage sur ${slot.displayTime} le ${formattedDate} ?`
-            : `Voulez-vous bloquer le créneau de ${slot.displayTime} le ${formattedDate} ?`
-          }
-        </p>
-        
-        {isBlocked && blockInfo?.reason && (
-          <div className="mb-4 p-3 bg-slate-50 rounded-lg">
-            <span className="text-xs text-slate-500">Raison actuelle:</span>
-            <p className="text-sm text-slate-700">{blockInfo.reason}</p>
-          </div>
-        )}
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b border-slate-200 px-6 py-4">
+          <h3 className="text-lg font-semibold text-slate-900">
+            {isBlocked ? 'Débloquer cet horaire' : 'Bloquer cet horaire'}
+          </h3>
+          <p className="text-sm text-slate-600 mt-0.5">
+            {isBlocked 
+              ? `Retirer le blocage sur ${slot.displayTime}`
+              : `Bloquer ${slot.displayTime}`
+            } • {formattedDate}
+          </p>
+        </div>
 
-        {!isBlocked && (
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              Raison (optionnel)
-            </label>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Ex: Maintenance, météo..."
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
-            />
-          </div>
-        )}
+        {/* Body */}
+        <div className="p-6 bg-slate-50 space-y-4">
+          {isBlocked && blockInfo?.reason && (
+            <div className="p-3 bg-white rounded-lg border border-slate-200">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Raison actuelle</span>
+              <p className="text-sm text-slate-700 mt-1">{blockInfo.reason}</p>
+            </div>
+          )}
 
-        <p className="text-xs text-slate-500 mb-4">
-          {isBlocked 
-            ? 'Ce créneau redeviendra disponible à la réservation.'
-            : 'Ce créneau sera indisponible à la vente sur le site.'}
-        </p>
+          {!isBlocked && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Raison (optionnel)
+              </label>
+              <input
+                type="text"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Ex: Maintenance, météo..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
+              />
+            </div>
+          )}
 
-        <div className="flex justify-end gap-3">
+          <p className="text-xs text-slate-600">
+            {isBlocked 
+              ? '✓ Ce créneau redeviendra disponible à la réservation.'
+              : '⚠ Ce créneau sera indisponible à la vente sur le site.'}
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="bg-white border-t border-slate-200 px-6 py-4 flex items-center justify-end gap-3">
           <button
             onClick={onCancel}
             disabled={isLoading}
-            className="px-4 py-2 text-sm font-medium text-slate-700 border border-slate-300 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
+            className="px-4 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg font-semibold transition disabled:opacity-50"
           >
             Annuler
           </button>
           <button
             onClick={() => onConfirm(reason || undefined)}
             disabled={isLoading}
-            className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition disabled:opacity-50 ${
+            className={`px-4 py-2 text-white rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed ${
               isBlocked 
                 ? 'bg-emerald-600 hover:bg-emerald-700' 
                 : 'bg-rose-600 hover:bg-rose-700'

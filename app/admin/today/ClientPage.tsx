@@ -1631,11 +1631,6 @@ export default function ClientPage() {
     <div className={containerClass}>
       <div className={innerClass}>
         <div className={headerWrapperClass}>
-          {!isNative && (
-            <Link href="/admin" className="mb-4 inline-block text-sm text-slate-500 transition hover:text-sky-600">
-              ← Retour Tableau de bord
-            </Link>
-          )}
           <div className={`flex flex-col gap-4 ${isNative ? '' : 'md:flex-row md:items-center md:justify-between'}`}>
             <div>
               <h1 className={`${isNative ? 'text-2xl' : 'text-3xl'} font-bold capitalize text-slate-900`}>{getPeriodTitle()} <span aria-hidden="true">🗓️</span></h1>

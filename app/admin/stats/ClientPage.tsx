@@ -408,12 +408,6 @@ export default function ClientStatsPage() {
       <div className="space-y-8">
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-2">
-            <Link
-              href="/admin"
-              className="text-xs font-semibold uppercase tracking-wide text-slate-500 hover:text-blue-600"
-            >
-              {'<- Retour tableau de bord'}
-            </Link>
             <p className="text-sm text-slate-500">{rangeLabel}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -422,10 +416,10 @@ export default function ClientStatsPage() {
                 key={option.key}
                 type="button"
                 onClick={() => handleRangeChange(option.key)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-wide transition-all ${
                   range === option.key
-                    ? 'border-blue-500 bg-blue-50 text-blue-600 shadow'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-600'
+                    ? 'scale-105 border-blue-500 bg-blue-600 text-white shadow-md'
+                    : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50'
                 }`}
               >
                 {option.label}
@@ -491,7 +485,7 @@ export default function ClientStatsPage() {
                 type="button"
                 onClick={fetchStats}
                 disabled={isCustomRangeInvalid}
-                className="h-10 rounded bg-blue-600 px-6 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="h-10 rounded-xl bg-blue-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 hover:shadow disabled:cursor-not-allowed disabled:bg-blue-300"
               >
                 Appliquer
               </button>

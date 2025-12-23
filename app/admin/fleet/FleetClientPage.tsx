@@ -285,20 +285,20 @@ export default function FleetClientPage() {
           const batteryClass = badgeVariants[boat.batteryAlert]
           const statusClass = statusBadge[boat.status] ?? 'bg-slate-100 text-slate-700'
           return (
-            <article key={boat.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <article key={boat.id} className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
               <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-xl font-semibold text-slate-900">{boat.name}</h3>
-                  <p className="text-sm text-slate-500">Capacité {boat.capacity} pers.</p>
+                  <h3 className="text-xl font-bold text-slate-900 transition-colors group-hover:text-slate-700">{boat.name}</h3>
+                  <p className="text-sm font-medium text-slate-500">Capacité {boat.capacity} pers.</p>
                   <p className="text-xs text-slate-400">Nom planning : {boat.planningName}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-wide">
-                  <span className={`rounded-full px-3 py-1 ${statusClass}`}>{boat.status}</span>
-                  <span className={`rounded-full px-3 py-1 ${batteryClass}`}>
+                  <span className={`rounded-full px-3 py-1 shadow-sm ${statusClass}`}>{boat.status}</span>
+                  <span className={`rounded-full px-3 py-1 shadow-sm ${batteryClass}`}>
                     Batterie · {boat.batteryAlert}
                   </span>
                   {boat.mechanicalAlert ? (
-                    <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-800">
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-amber-800 shadow-sm">
                       Révision
                     </span>
                   ) : null}
@@ -306,16 +306,16 @@ export default function FleetClientPage() {
               </header>
 
               <dl className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
-                <div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
                   <dt className="text-xs font-semibold uppercase tracking-widest text-slate-400">Cycle</dt>
-                  <dd className="text-base text-slate-900">
+                  <dd className="text-lg font-bold text-slate-900">
                     J+{boat.daysSinceCharge} / J+{boat.batteryCycleDays}
                   </dd>
                   <p className="text-xs text-slate-400">Dernière charge : {formatDateTime(boat.lastChargeDate)}</p>
                 </div>
-                <div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
                   <dt className="text-xs font-semibold uppercase tracking-widest text-slate-400">Mécanique</dt>
-                  <dd className="text-base text-slate-900">{boat.tripsSinceService} sorties</dd>
+                  <dd className="text-lg font-bold text-slate-900">{boat.tripsSinceService} sorties</dd>
                   <p className="text-xs text-slate-400">{boat.hoursSinceService.toFixed(1)} h depuis révision</p>
                 </div>
               </dl>
@@ -329,7 +329,7 @@ export default function FleetClientPage() {
                         type="button"
                         onClick={() => void handleResetManifest(boat.id)}
                         disabled={pendingBoatId === boat.id}
-                        className="rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:border-slate-400 disabled:opacity-50"
+                        className="rounded-full border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-white disabled:opacity-50"
                       >
                         ♻️ Réinitialiser
                       </button>
@@ -343,7 +343,7 @@ export default function FleetClientPage() {
                 <button
                   type="button"
                   onClick={() => setEditTarget(boat)}
-                  className="inline-flex flex-1 items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 shadow hover:border-slate-500 hover:text-slate-900"
+                  className="inline-flex flex-1 items-center justify-center rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-500 hover:bg-slate-50 hover:text-slate-900"
                 >
                   ✏️ Renommer / Manifeste
                 </button>
@@ -351,14 +351,14 @@ export default function FleetClientPage() {
                   type="button"
                   onClick={() => handleCharge(boat.id)}
                   disabled={pendingBoatId === boat.id}
-                  className="inline-flex flex-1 items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-700 disabled:opacity-50"
+                  className="inline-flex flex-1 items-center justify-center rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow disabled:opacity-50"
                 >
                   ⚡ Marquer chargée
                 </button>
                 <button
                   type="button"
                   onClick={() => setIncidentTarget(boat)}
-                  className="inline-flex flex-1 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                  className="inline-flex flex-1 items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 shadow-sm transition hover:bg-rose-100"
                 >
                   🛠️ Signaler incident
                 </button>
@@ -369,19 +369,19 @@ export default function FleetClientPage() {
                 <ul className="mt-2 space-y-2">
                   {boat.maintenanceLogs.length ? (
                     boat.maintenanceLogs.slice(0, 3).map((entry) => (
-                      <li key={entry.id} className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      <li key={entry.id} className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2 text-xs text-slate-600 transition hover:bg-slate-100/50">
                         <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-400">
                           <span>{entry.type}</span>
                           <span>{formatDateTime(entry.createdAt)}</span>
                         </div>
-                        <p className="mt-1 text-sm text-slate-700">{entry.description || '—'}</p>
+                        <p className="mt-1 text-sm font-medium text-slate-700">{entry.description || '—'}</p>
                         {entry.performedBy ? (
                           <p className="text-[11px] text-slate-400">Par {entry.performedBy}</p>
                         ) : null}
                       </li>
                     ))
                   ) : (
-                    <li className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">Aucune intervention récente.</li>
+                    <li className="rounded-lg border border-slate-100 bg-slate-50/50 px-3 py-2 text-xs text-slate-500">Aucune intervention récente.</li>
                   )}
                 </ul>
               </section>
@@ -427,14 +427,14 @@ export default function FleetClientPage() {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
                 onClick={() => setSelectedQuotaDay(toDateInputValue(new Date()))}
               >
                 Aujourd&apos;hui
               </button>
               <button
                 type="button"
-                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
                 onClick={() => {
                   const tomorrow = new Date()
                   tomorrow.setDate(tomorrow.getDate() + 1)
@@ -451,7 +451,7 @@ export default function FleetClientPage() {
               Date
               <input
                 type="date"
-                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                 value={selectedQuotaDay}
                 onChange={(event) => setSelectedQuotaDay(event.target.value)}
               />
@@ -468,8 +468,8 @@ export default function FleetClientPage() {
                         key={value}
                         type="button"
                         onClick={() => setQuotaValue(value)}
-                        className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition ${
-                          isActive ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                        className={`rounded-full px-4 py-2 text-sm font-semibold shadow-sm transition-all ${
+                          isActive ? 'scale-105 bg-slate-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         }`}
                       >
                         {value} barque{value > 1 ? 's' : ''}
@@ -481,7 +481,7 @@ export default function FleetClientPage() {
               <label className="block text-sm font-semibold text-slate-700">
                 Note interne (facultative)
                 <textarea
-                  className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
                   rows={2}
                   value={quotaNote}
                   onChange={(event) => setQuotaNote(event.target.value)}
@@ -497,8 +497,8 @@ export default function FleetClientPage() {
                   type="button"
                   onClick={handleQuotaSave}
                   disabled={quotaSubmitting || !selectedQuotaDay}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold text-white shadow ${
-                    quotaSubmitting ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700'
+                  className={`rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition ${
+                    quotaSubmitting ? 'bg-slate-400' : 'bg-emerald-600 hover:bg-emerald-700 hover:shadow'
                   }`}
                 >
                   {quotaSubmitting ? 'Enregistrement…' : 'Appliquer'}
@@ -506,7 +506,7 @@ export default function FleetClientPage() {
                 <button
                   type="button"
                   onClick={() => mutateQuota()}
-                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+                  className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50"
                 >
                   Rafraîchir
                 </button>
@@ -562,14 +562,14 @@ type StatCardProps = {
 
 function StatCard({ label, value, helper, tone = 'default' }: StatCardProps) {
   const palette = {
-    default: 'bg-white border-slate-200 text-slate-900',
-    warning: 'bg-amber-50 border-amber-200 text-amber-900',
-    danger: 'bg-rose-50 border-rose-200 text-rose-900'
+    default: 'bg-white border-slate-200 text-slate-900 border-l-emerald-500',
+    warning: 'bg-amber-50 border-amber-200 text-amber-900 border-l-amber-500',
+    danger: 'bg-rose-50 border-rose-200 text-rose-900 border-l-rose-500'
   }[tone]
   return (
-    <article className={`rounded-2xl border p-4 shadow-sm ${palette}`}>
+    <article className={`group rounded-2xl border border-l-4 p-4 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md ${palette}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">{label}</p>
-      <p className="mt-2 text-3xl font-semibold">{value}</p>
+      <p className="mt-2 text-3xl font-bold transition-transform group-hover:scale-105">{value}</p>
       {helper ? <p className="text-sm text-slate-500">{helper}</p> : null}
     </article>
   )
@@ -591,37 +591,43 @@ function IncidentModal({ boat, onClose, onSubmit, pending }: IncidentModalProps)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold text-slate-900">Signaler un incident</h2>
-        <p className="text-sm text-slate-500">{boat.name}</p>
-        <label className="mt-4 block text-sm font-medium text-slate-700">
-          Détails
-          <textarea
-            className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm"
-            rows={4}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Rame cassée, fuite, batterie faible..."
-            required
-          />
-        </label>
-        <div className="mt-6 flex flex-wrap gap-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
+        <header className="border-b border-slate-200 px-6 py-4">
+          <h2 className="text-xl font-bold text-slate-900">Signaler un incident</h2>
+          <p className="text-sm text-slate-500">{boat.name}</p>
+        </header>
+        
+        <div className="p-6">
+          <label className="block text-sm font-medium text-slate-700">
+            Détails
+            <textarea
+              className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              rows={4}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Rame cassée, fuite, batterie faible..."
+              required
+            />
+          </label>
+        </div>
+        
+        <footer className="flex flex-wrap gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600"
+            className="flex-1 rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white"
           >
             Annuler
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="flex-1 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-rose-700 disabled:opacity-60"
+            className="flex-1 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-rose-700 hover:shadow disabled:opacity-60"
           >
             Valider
           </button>
-        </div>
+        </footer>
       </form>
     </div>
   )
@@ -698,16 +704,18 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl">
-        <h2 className="text-2xl font-semibold text-slate-900">Paramètres de la barque</h2>
-        <p className="text-sm text-slate-500">Appliquer un nouveau nom, manifeste ou date de dernière charge.</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl">
+        <header className="border-b border-slate-200 px-6 py-4">
+          <h2 className="text-2xl font-bold text-slate-900">Paramètres de la barque</h2>
+          <p className="text-sm text-slate-500">Appliquer un nouveau nom, manifeste ou date de dernière charge.</p>
+        </header>
 
-        <div className="mt-6 space-y-4">
+        <div className="space-y-4 p-6">
           <label className="block text-sm font-semibold text-slate-700">
             Nom Fleet & maintenance
             <input
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
               value={fleetLabel}
               onChange={(event) => setFleetLabel(event.target.value)}
               placeholder={boat.planningName}
@@ -723,7 +731,7 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
           <label className="block text-sm font-semibold text-slate-700">
             Manifeste / Notes techniques
             <textarea
-              className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm"
+              className="mt-1 w-full rounded-xl border border-slate-300 p-3 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
               rows={4}
               value={manifest}
               onChange={(event) => setManifest(event.target.value)}
@@ -734,7 +742,7 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
                 type="button"
                 onClick={handleModalManifestReset}
                 disabled={manifestResetting || pending}
-                className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-400 disabled:opacity-50"
+                className="mt-2 inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-white disabled:opacity-50"
               >
                 ♻️ Purger le manifeste
               </button>
@@ -745,7 +753,7 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
             Dernière charge (manuel)
             <input
               type="datetime-local"
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
               value={lastChargeValue}
               onChange={(event) => setLastChargeValue(event.target.value)}
             />
@@ -760,7 +768,7 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
               type="number"
               min={1}
               max={14}
-              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm transition focus:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-200"
               value={cycleDays}
               onChange={(event) =>
                 setCycleDays(Math.max(1, Math.min(14, Math.round(Number(event.target.value) || 1))))}
@@ -769,14 +777,14 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
           </label>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-3">
+        <footer className="flex flex-wrap gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
           <button
             type="button"
             onClick={() => {
               setManifest('')
               setLastChargeValue('')
             }}
-            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600"
+            className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white"
           >
             Réinitialiser notes + date
           </button>
@@ -784,18 +792,18 @@ function EditBoatModal({ boat, pending, onClose, onSubmit, canResetManifest, onR
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600"
+            className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-white"
           >
             Annuler
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-slate-800 disabled:opacity-60"
+            className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 hover:shadow disabled:opacity-60"
           >
             {pending ? 'Enregistrement…' : 'Enregistrer' }
           </button>
-        </div>
+        </footer>
       </form>
     </div>
   )

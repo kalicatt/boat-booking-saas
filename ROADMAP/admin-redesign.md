@@ -6,468 +6,532 @@
 
 ---
 
+## ⚠️ RÈGLES D'INTERVENTION
+
+### Principe fondamental
+**Améliorer l'UI/UX SANS toucher à la logique métier existante.**
+
+### Ce qu'on peut modifier librement :
+- ✅ Styles CSS/Tailwind (couleurs, espacements, typographie, animations)
+- ✅ Layout et disposition des éléments
+- ✅ Icônes et éléments visuels
+- ✅ Responsive design
+- ✅ Micro-interactions (hover, focus, transitions)
+- ✅ Textes et labels (sans changer les clés i18n)
+- ✅ États visuels (loading, empty, error)
+
+### Ce qui nécessite une validation préalable :
+- ⚠️ Modification des props de composants
+- ⚠️ Ajout de nouveaux hooks ou états
+- ⚠️ Modification des appels API
+- ⚠️ Changement de structure de données
+- ⚠️ Modification des handlers d'événements
+
+### Procédure pour changements de logique :
+1. Lister TOUS les changements prévus
+2. Identifier les fichiers impactés
+3. Vérifier la compatibilité avec le système existant
+4. Obtenir validation avant implémentation
+5. Tester sur tous les appareils (desktop/tablet/mobile)
+
+---
+
+## 🎨 Phase 0: Amélioration des Modals (PRIORITÉ IMMÉDIATE)
+
+### Modals existants à améliorer (UI only)
+```
+🎯 Objectif: Uniformiser et professionnaliser tous les modals
+
+1. QuickBookingModal
+   - [UI] Header avec icône + titre cohérent
+   - [UI] Meilleur espacement des champs
+   - [UI] Boutons avec états loading/disabled clairs
+   - [UI] Animation d'entrée/sortie fluide
+   - [UI] Ombre portée et backdrop blur
+
+2. QuickEditModal
+   - [UI] Même style que QuickBookingModal
+   - [UI] Indicateur visuel des champs modifiés
+   - [UI] Bouton "Annuler" vs "Sauvegarder" bien différenciés
+
+3. BookingDetailsModal
+   - [UI] Layout en sections visuelles claires
+   - [UI] Timeline des événements stylisée
+   - [UI] Actions groupées par catégorie
+   - [UI] Badge statut plus visible
+
+4. MoveBookingModal
+   - [UI] Icône de confirmation claire
+   - [UI] Checkbox "Envoyer email" bien visible
+   - [UI] États loading avec spinner
+
+5. BlockSlotModal
+   - [UI] Icône ⛔ cohérente
+   - [UI] Champ raison avec placeholder utile
+
+TEMPLATE MODAL UNIFIÉ:
+┌─────────────────────────────────────┐
+│ 🎯 Titre du Modal              [X] │
+├─────────────────────────────────────┤
+│                                     │
+│   [Contenu du formulaire]           │
+│                                     │
+├─────────────────────────────────────┤
+│         [Annuler] [Action principale]│
+└─────────────────────────────────────┘
+```
+
+**Priorité**: 🔴 CRITIQUE
+**Durée estimée**: 2-3 heures
+**Fichiers**: Composants modals existants (UI SEULEMENT)
+
+---
+
 ## 📊 Phase 1: Dashboard (Aujourd'hui) - PRIORITÉ HAUTE
 
 ### État actuel
 - ✅ KPIs basiques (bookings/revenue/boats/occupancy)
-- ⚠️ Manque de données actionnables
-- ⚠️ Pas de vue temps réel
-- ⚠️ Pas de quick actions contextuelles
+- ✅ Structure de base fonctionnelle
+- ⚠️ UI peut être améliorée
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Vue d'ensemble → Action en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. KPIs Enrichis
-   - Revenus du jour vs objectif (barre de progression)
-   - Prochains départs (dans les 2h) avec alertes
-   - Check-ins en attente (badge rouge si > 0)
-   - Météo du jour intégrée (icône + temp + vent)
-   - Taux de remplissage par créneau
+1. KPIs Cards [UI ONLY]
+   - Meilleure typographie (taille, weight)
+   - Icônes plus visibles
+   - Couleurs de fond subtiles par type
+   - Micro-animation au chargement (fade-in)
+   - Border-left colorée selon type
 
-2. Actions Rapides (Hero Section)
-   - Bouton "Check-in rapide" → scanner QR ou saisir ref
-   - Bouton "Nouvelle résa express" → formulaire minimal (nom, phone, slot, boat)
-   - Bouton "Signaler incident" → formulaire rapide
+2. Quick Actions [UI ONLY]
+   - Boutons plus grands et tactiles
+   - Icônes explicites
+   - Hover states professionnels
+   - Spacing cohérent
 
-3. Timeline Aujourd'hui
-   - Ligne de temps visuelle (08:00 → 20:00)
-   - Départs/retours sur timeline interactive
-   - Statuts en couleur (À venir/En cours/Terminé/En retard)
-   - Click → détails + actions (check-in, contact, modifier)
+3. Timeline/Liste [UI ONLY]
+   - Séparateurs visuels entre items
+   - Badges statut avec couleurs vives
+   - Hover highlight sur les rows
+   - Scroll fluide
 
-4. Alertes & Notifications
-   - Section sticky en haut: alertes critiques
-   - "3 bateaux doivent rentrer dans 15min"
-   - "2 clients en attente de check-in"
-   - "Météo: alerte vent > 25km/h à 14h"
-
-5. Statistiques Flash
-   - Mini graphiques sparkline (revenus 7 derniers jours)
-   - Comparaison vs semaine dernière (↑ +15% ou ↓ -5%)
+4. Alertes [UI ONLY]
+   - Bannière sticky colorée selon urgence
+   - Icône animée pour critique
+   - Texte clair et concis
 ```
 
-**Priorité**: 🔴 CRITIQUE
-**Durée estimée**: 4-6 heures
-**Fichiers**: `app/admin/page-pro.tsx`, `ProDashboardClient.tsx`, nouveaux composants `Timeline.tsx`, `QuickActions.tsx`
+**Ce qu'on NE TOUCHE PAS**: Logique de calcul KPIs, appels API, structure données
+
+**Priorité**: 🟠 HAUTE
+**Durée estimée**: 2-3 heures
+**Fichiers**: Styles des composants dashboard existants
 
 ---
 
-## 📅 Phase 2: Planning - PRIORITÉ HAUTE
+## 📅 Phase 2: Planning - ✅ COMPLÉTÉ
 
 ### État actuel
-- ❌ Pas encore implémenté (ancienne version)
+- ✅ Vue jour avec grille horaire
+- ✅ Drag & drop réservations (desktop + tactile tablette)
+- ✅ Navigation date avec picker manuel
+- ✅ Zoom pinch + boutons
+- ✅ Auto-scroll pendant drag
+- ✅ Modals de déplacement et blocage
+- ✅ Support tablette complet
 
-### Améliorations
+### Améliorations UI restantes (optionnel)
 ```
-🎯 Effet Tunnel: Vue planning → Créer/modifier résa en 2 clics
+[UI ONLY] - Pas de changement de logique
 
-1. Vue Calendar Pro
-   - Grille hebdomadaire avec slots horaires
-   - Bateaux en colonnes, heures en lignes
-   - Drag & drop pour déplacer réservations
-   - Color coding: Confirmé/En attente/Annulé/Bloqué
-   - Click cellule vide → formulaire express inline
+1. Grille horaire
+   - [UI] Alternance couleur subtile pair/impair
+   - [UI] Highlight heure courante
+   - [UI] Meilleur contraste texte
 
-2. Formulaire Express Inline
-   - Overlay rapide sans quitter la page
-   - Champs: Client (autocomplete), Durée, Nb personnes
-   - Validation temps réel
-   - Bouton "Enregistrer & Suivante" pour enchaîner
+2. Cards réservations
+   - [UI] Ombre portée au drag
+   - [UI] Animation smooth au drop
+   - [UI] Badge statut plus visible
 
-3. Filtres Intelligents
-   - Dropdown rapide: Aujourd'hui / Cette semaine / Mois
-   - Toggle: Afficher bloqués / Afficher annulés
-   - Search bar: chercher par nom client ou bateau
-
-4. Actions Bulk
-   - Checkbox sur réservations
-   - Actions groupées: Confirmer tout / Envoyer rappels / Exporter
-
-5. Sidebar Info
-   - Stats du jour sélectionné
-   - Disponibilités en temps réel
-   - Suggestions: "Créneau 14h vide,"
+3. Header
+   - [UI] Date picker plus élégant
+   - [UI] Boutons zoom avec tooltips
 ```
 
-**Priorité**: 🔴 CRITIQUE
-**Durée estimée**: 8-10 heures
-**Fichiers**: `app/admin/planning/page.tsx`, composants `WeekCalendar.tsx`, `BookingFormInline.tsx`, `SlotCell.tsx`
+**Priorité**: 🟢 BASSE (déjà fonctionnel)
+**Fichiers concernés**: `DayView.tsx` (styles only)
 
 ---
 
 ## 📋 Phase 3: Réservations (Liste) - PRIORITÉ HAUTE
 
 ### État actuel
-- ⚠️ DataTable basique créé
+- ✅ DataTable fonctionnel avec pagination
+- ✅ Filtres basiques
+- ✅ Actions par row
+- ⚠️ UI peut être améliorée
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Recherche → Action client en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. Filtres Avancés Sticky
-   - Barre de filtres toujours visible
-   - Statut (multi-select chips)
-   - Date range picker
-   - Bateau (multi-select)
-   - Search: nom, email, phone, booking ref
-   - Bouton "Reset filtres"
+1. Barre de Filtres [UI ONLY]
+   - Chips colorés pour filtres actifs
+   - Bouton reset visible
+   - Espacement cohérent
+   - Icônes dans les selects
 
-2. Table Enrichie
-   - Colonnes: Ref / Client / Date / Heure / Bateau / Personnes / Statut / Montant / Actions
-   - Tri sur toutes colonnes
-   - Row hover → highlight + actions rapides apparaissent
-   - Click row → slide panel latéral (détails complets)
+2. Table [UI ONLY]
+   - Headers avec icône tri visible
+   - Alternance couleur rows (zebra)
+   - Hover highlight plus visible
+   - Colonnes alignées proprement
+   - Badges statut avec couleurs vives
+   - Montants en font-mono
 
-3. Actions Rapides par Row
-   - Icône Email: envoyer confirmation
-   - Icône Phone: copier numéro
-   - Icône Edit: modifier inline ou modal
-   - Icône Trash: annuler avec motif
-   - Icône Print: générer facture PDF
+3. Actions Row [UI ONLY]
+   - Icônes plus grandes (touch-friendly)
+   - Tooltips explicites
+   - Hover state avec background
+   - Groupement visuel des actions
 
-4. Slide Panel Détails
-   - S'ouvre à droite (400px)
-   - Toutes infos client + résa
-   - Timeline des événements (créé, confirmé, modifié)
-   - Boutons actions: Modifier / Annuler / Contacter / Facture
-   - Fermeture: click outside ou ESC
+4. Pagination [UI ONLY]
+   - Style cohérent avec le reste
+   - Indication "X sur Y résultats"
+   - Boutons plus tactiles
 
-5. Actions Bulk
-   - Select all / select page
-   - Envoyer rappels groupés
-   - Exporter CSV sélection
-   - Changer statut en masse
+5. États [UI ONLY]
+   - Loading skeleton élégant
+   - Empty state avec illustration
+   - Error state avec retry button
 ```
 
-**Priorité**: 🟠 HAUTE
-**Durée estimée**: 6-8 heures
-**Fichiers**: `app/admin/reservations/page.tsx`, `BookingTable.tsx`, `BookingSlidePanel.tsx`, `FilterBar.tsx`
+**Ce qu'on NE TOUCHE PAS**: Logique de filtrage, pagination, appels API, tri
+
+**Priorité**: 🔴 CRITIQUE
+**Durée estimée**: 2-3 heures
+**Fichiers**: `reservations.tsx` (styles only)
 
 ---
 
 ## 🚤 Phase 4: Flotte (Gestion Bateaux)
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Vue flotte → Maintenance/calendrier en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. Vue Cartes Bateaux
-   - Grid de cards: photo, nom, capacité, statut
-   - Statut visuel: Disponible (vert) / En mer (bleu) / Maintenance (orange) / Hors service (rouge)
-   - Badge: "Rentre dans 45min"
-   - Click card → détails + calendrier maintenance
+1. Cards Bateaux [UI ONLY]
+   - Photo avec ratio cohérent
+   - Badge statut bien visible (coin supérieur)
+   - Capacité avec icône
+   - Hover shadow élégant
+   - Border-left colorée selon statut
 
-2. Calendrier Maintenance
-   - Vue annuelle avec maintenances planifiées
-   - Drag & drop pour planifier
-   - Alertes: "Maintenance obligatoire dans 10 jours"
+2. Liste/Grille Toggle [UI ONLY]
+   - Boutons toggle stylisés
+   - Transition fluide entre modes
+   - Sauvegarde préférence locale
 
-3. Historique Bateau
-   - Nb sorties ce mois
-   - Dernier entretien
-   - Prochaine révision
-   - Incidents signalés
+3. Détails Bateau [UI ONLY]
+   - Layout en sections claires
+   - Timeline maintenance stylisée
+   - Stats avec icônes
 
-4. Quick Actions
-   - Marquer "En maintenance"
-   - Planifier entretien
-   - Signaler incident
+4. Actions [UI ONLY]
+   - Boutons avec icônes explicites
+   - États disabled clairs
+   - Confirmation dialogs uniformes
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Logique CRUD, appels API, validations
 
 **Priorité**: 🟡 MOYENNE
-**Durée estimée**: 5-6 heures
-**Fichiers**: `app/admin/fleet/page.tsx`, `BoatCard.tsx`, `MaintenanceCalendar.tsx`
+**Durée estimée**: 2-3 heures
+**Fichiers**: Composants fleet (styles only)
 
 ---
 
 ## 🕒 Phase 5: Heures & Paie
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Saisie heures → Export paie en 3 clics
+🎯 Amélioration visuelle sans changement de logique
 
-1. Tableau Heures Hebdomadaire
-   - Grille: Employés en lignes, jours en colonnes
-   - Saisie inline: click cellule → input heures
-   - Calcul auto: total heures, heures sup, montant
-   - Validation: highlight si anomalie (>12h/jour)
+1. Grille Heures [UI ONLY]
+   - Cells avec hover state
+   - Totaux en font-bold
+   - Couleur différente heures sup
+   - Header sticky
 
-2. Quick Entry
-   - Formulaire rapide: employé, date, heures, type (normal/sup/nuit)
-   - Bouton "Enregistrer & Suivant"
-   - Templates: "Journée standard 8h" en 1 clic
+2. Formulaire Saisie [UI ONLY]
+   - Inputs plus grands (touch)
+   - Labels clairs
+   - Validation visuelle
 
-3. Export Paie
-   - Sélectionner période (semaine/mois)
-   - Preview total par employé
-   - Export CSV formaté pour logiciel paie
-   - Historique exports
-
-4. Stats
-   - Coût main d'œuvre du mois
-   - Heures par employé (graphique)
-   - Comparaison vs mois précédent
+3. Export [UI ONLY]
+   - Boutons avec icônes
+   - Preview stylisé
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Calculs heures/paie, logique export
 
 **Priorité**: 🟡 MOYENNE
-**Durée estimée**: 6-7 heures
-**Fichiers**: `app/admin/hours/page.tsx`, `HoursGrid.tsx`, `QuickEntryForm.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: Composants hours (styles only)
 
 ---
 
 ## 💶 Phase 6: Comptabilité & Caisse
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Voir transactions → Clôture caisse en 2 clics
+🎯 Amélioration visuelle sans changement de logique
 
-1. Tableau de Bord Compta
-   - Revenus du jour (encaissés vs à encaisser)
-   - Moyens de paiement: CB / Espèces / Virement / PayPal
-   - Barre de progression vs objectif mensuel
+1. KPIs Compta [UI ONLY]
+   - Cards avec icônes argent
+   - Couleurs revenus/dépenses
+   - Barre progression objectif
 
-2. Liste Transactions
-   - Filtres: date, type paiement, statut
-   - Colonnes: Date / Réf résa / Client / Montant / Méthode / Statut
-   - Actions: Marquer encaissé, générer facture
+2. Liste Transactions [UI ONLY]
+   - Montants en vert (crédit) / rouge (débit)
+   - Icône méthode paiement
+   - Zebra striping
 
-3. Clôture Caisse
-   - Formulaire rapide: saisir espèces comptées
-   - Calcul écart vs attendu
-   - Alerte si écart > 5%
-   - Export rapport PDF
-
-4. Rapports
-   - Revenus quotidiens (graphique ligne 30 jours)
-   - Répartition moyens paiement (pie chart)
-   - Export comptable CSV
+3. Clôture Caisse [UI ONLY]
+   - Formulaire clair
+   - Highlight écart si > seuil
+   - Bouton confirmation visible
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Calculs comptables, logique clôture
 
 **Priorité**: 🟡 MOYENNE
-**Durée estimée**: 5-6 heures
-**Fichiers**: `app/admin/accounting/page.tsx`, `TransactionsList.tsx`, `CashClosing.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: Composants accounting (styles only)
 
 ---
 
 ## 👥 Phase 7: Équipe & Comptes
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Voir équipe → Créer/modifier utilisateur en 2 clics
+🎯 Amélioration visuelle sans changement de logique
 
-1. Liste Employés
-   - Cards avec photo, nom, rôle, statut
-   - Filtres: Actifs / Inactifs / Par rôle
-   - Click → détails + permissions
+1. Liste Employés [UI ONLY]
+   - Avatar avec initiales si pas de photo
+   - Badge rôle coloré
+   - Statut actif/inactif visible
 
-2. Formulaire Express
-   - Modal avec tabs: Infos / Permissions / Horaires
-   - Infos: nom, email, phone, rôle, date embauche
-   - Permissions: checkboxes par module
-   - Validation temps réel
+2. Formulaire Employé [UI ONLY]
+   - Tabs bien stylisés
+   - Checkboxes permissions groupées
+   - Validation visuelle temps réel
 
-3. Gestion Permissions
-   - Matrix: Utilisateur × Modules
-   - Quick toggles
-   - Rôles prédéfinis: Admin / Manager / Staff
-
-4. Activité Récente
-   - Dernière connexion
-   - Actions récentes (créé résa, modifié bateau, etc.)
+3. Matrix Permissions [UI ONLY]
+   - Grid claire
+   - Toggles avec couleur
+   - Légende visible
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Logique permissions, CRUD utilisateurs
 
 **Priorité**: 🟢 BASSE
-**Durée estimée**: 4-5 heures
-**Fichiers**: `app/admin/employees/page.tsx`, `EmployeeCard.tsx`, `PermissionsMatrix.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: Composants employees (styles only)
 
 ---
 
 ## 📊 Phase 8: Statistiques
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Vue stats → Insights actionnables
+🎯 Amélioration visuelle sans changement de logique
 
-1. Dashboard Analytics
-   - Period selector: Aujourd'hui / 7j / 30j / Année / Custom
-   - KPIs clés: Revenus / Nb réservations / Taux remplissage / Panier moyen
+1. Period Selector [UI ONLY]
+   - Boutons toggle stylisés
+   - Date picker élégant
+   - État actif visible
 
-2. Graphiques Interactifs
-   - Revenus dans le temps (line chart)
-   - Répartition par bateau (bar chart)
-   - Heures populaires (heat map)
-   - Taux annulation (KPI avec trend)
+2. KPIs Cards [UI ONLY]
+   - Trend indicator (↑↓) coloré
+   - Sparkline intégrée
+   - Tooltips informatifs
 
-3. Insights Auto
-   - "Lundi est votre jour le moins rentable (-35% vs moyenne)"
-   - "14h-16h a 95% de remplissage, augmentez les prix?"
-   - "Bateau Narcisse est le plus demandé (+42%)"
+3. Charts [UI ONLY]
+   - Couleurs cohérentes
+   - Tooltips au hover
+   - Légendes claires
+   - Responsive
 
-4. Export Rapports
-   - PDF rapport mensuel
-   - CSV données brutes
-   - Partage par email
+4. Export [UI ONLY]
+   - Boutons avec icônes
+   - Dropdown formats
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Calculs statistiques, logique agrégation
 
 **Priorité**: 🟢 BASSE
-**Durée estimée**: 6-8 heures
-**Fichiers**: `app/admin/stats/page.tsx`, composants charts (recharts)
+**Durée estimée**: 2-3 heures
+**Fichiers**: Composants stats (styles only)
 
 ---
 
 ## 🕵️ Phase 9: Logs & Audit
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Rechercher événement → Détails en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. Timeline Événements
-   - Liste chronologique reverse (plus récent en haut)
-   - Filtres: Type / Utilisateur / Date / Module
+1. Timeline [UI ONLY]
+   - Icônes par type d'action
+   - Couleurs par gravité
+   - Timestamps relatifs ("il y a 5 min")
+   - Hover pour détails
 
-2. Carte Événement
-   - Icône selon type (create/update/delete)
-   - Utilisateur + timestamp
-   - Détails: "John a modifié la résa #1234"
-   - Click → détails complets (avant/après)
+2. Filtres [UI ONLY]
+   - Chips multiselect
+   - Date range picker
+   - Search avec autocomplete
 
-3. Search Avancé
-   - Par booking ref
-   - Par utilisateur
-   - Par IP
-   - Par date range
-
-4. Export Audit
-   - CSV pour compliance
-   - Filtrage avancé
+3. Détails Event [UI ONLY]
+   - Modal avec diff avant/après
+   - JSON formatter pour données
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Logique audit, requêtes logs
 
 **Priorité**: 🟢 BASSE
-**Durée estimée**: 3-4 heures
-**Fichiers**: `app/admin/logs/page.tsx`, `LogTimeline.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: Composants logs (styles only)
 
 ---
 
 ## 🌤️ Phase 10: Météo
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Vue météo → Décision annulation en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. Météo Temps Réel
-   - Widget aujourd'hui: temp, vent, vagues, visibilité
-   - Alertes si conditions dangereuses
+1. Widget Actuel [UI ONLY]
+   - Icône météo grande et claire
+   - Température bien visible
+   - Vent avec direction
+   - Couleur fond selon conditions
 
-2. Prévisions 7 Jours
+2. Prévisions [UI ONLY]
    - Cards par jour
-   - Highlight si conditions limites
+   - Scroll horizontal sur mobile
+   - Highlight jours problématiques
 
-3. Actions Rapides
-   - Si alerte: bouton "Annuler créneaux à risque"
-   - Liste réservations concernées
-   - Envoi email automatique clients
-
-4. Historique Météo
-   - Corrélation météo × annulations
-   - Stats: "Pluie = -60% réservations"
+3. Alertes [UI ONLY]
+   - Bannière rouge si dangereux
+   - Icône animée pour urgence
+   - Texte actionnable
 ```
+
+**Ce qu'on NE TOUCHE PAS**: API météo, logique alertes
 
 **Priorité**: 🟡 MOYENNE
-**Durée estimée**: 3-4 heures
-**Fichiers**: `app/admin/weather/page.tsx`, `WeatherWidget.tsx`, `WeatherAlerts.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: `WeatherWidget.tsx` (styles only)
 
 ---
 
 ## ⛔ Phase 11: Blocages Réservation
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Voir calendrier → Bloquer créneau en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. Calendrier Blocages
-   - Vue mensuelle
-   - Blocages existants en rouge
-   - Click date → créer blocage
+1. Calendrier [UI ONLY]
+   - Jours bloqués en rouge clair
+   - Hover preview raison
+   - Click feedback
 
-2. Formulaire Rapide
-   - Date + heure / Durée / Bateau (ou tous) / Motif
-   - Templates: "Maintenance", "Météo", "Événement privé"
+2. Formulaire Blocage [UI ONLY]
+   - Inputs bien espacés
+   - Select bateau stylisé
+   - Textarea raison avec placeholder
 
-3. Liste Blocages
-   - Filtres: Actifs / Passés / Par bateau
-   - Actions: Modifier / Supprimer / Dupliquer
-
-4. Impact Preview
-   - "Ce blocage affecte 3 créneaux disponibles"
-   - "Revenus potentiels perdus: 450€"
+3. Liste Blocages [UI ONLY]
+   - Table avec filtres
+   - Actions row visibles
+   - Badge actif/expiré
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Logique blocage, validation dates
 
 **Priorité**: 🟡 MOYENNE
-**Durée estimée**: 4-5 heures
-**Fichiers**: `app/admin/blocks/page.tsx`, `BlockCalendar.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: Composants blocks (styles only)
 
 ---
 
 ## 📰 Phase 12: CMS & Site
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Modifier contenu → Publier en 2 clics
+🎯 Amélioration visuelle sans changement de logique
 
-1. Éditeur de Contenu
-   - Sections éditables: Hero / À propos / Tarifs / FAQ
-   - WYSIWYG simple
-   - Preview avant publication
+1. Liste Sections [UI ONLY]
+   - Cards avec preview
+   - Status publié/brouillon
+   - Drag handle pour réordonnancer
 
-2. Galerie Photos
-   - Upload drag & drop
-   - Crop/resize inline
-   - Réorganiser ordre
+2. Éditeur [UI ONLY]
+   - Toolbar claire
+   - Preview side-by-side
+   - Boutons save/publish bien visibles
 
-3. Avis Clients
-   - Modération avis
-   - Approuver / Rejeter / Répondre
-   - Publication automatique si 4-5★
-
-4. Quick Publish
-   - Bouton "Publier modifications"
-   - Preview mobile/desktop
-   - Rollback si besoin
+3. Galerie [UI ONLY]
+   - Grid responsive
+   - Lightbox au click
+   - Upload zone stylisée
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Logique CMS, upload, publication
 
 **Priorité**: 🟢 BASSE
-**Durée estimée**: 6-7 heures
-**Fichiers**: `app/admin/cms/page.tsx`, `ContentEditor.tsx`, `ImageGallery.tsx`
+**Durée estimée**: 2-3 heures
+**Fichiers**: Composants CMS (styles only)
 
 ---
 
 ## ⚙️ Phase 13: Paramètres & Configuration
 
-### Améliorations
+### Améliorations UI SEULEMENT
 ```
-🎯 Effet Tunnel: Modifier config → Sauvegarder en 1 clic
+🎯 Amélioration visuelle sans changement de logique
 
-1. Tabs Organisation
-   - Général / Réservations / Paiements / Notifications / Sécurité
+1. Tabs [UI ONLY]
+   - Style cohérent
+   - Icônes par section
+   - Active state clair
 
-2. Settings avec Validation
-   - Inputs avec validation temps réel
-   - Toggle switches pour booléens
-   - Color pickers pour branding
+2. Formulaires [UI ONLY]
+   - Groupement logique
+   - Labels descriptifs
+   - Validation inline
 
-3. Preview Impact
-   - "Cette modification affectera 12 réservations futures"
-   - Confirmation si changement critique
+3. Toggles [UI ONLY]
+   - Switch stylisés
+   - État on/off visible
+   - Description sous chaque option
 
-4. Historique Changements
-   - Qui a modifié quoi et quand
-   - Rollback possible
+4. Actions [UI ONLY]
+   - Bouton save sticky en bas
+   - Confirmation changements critiques
+   - Toast feedback
 ```
+
+**Ce qu'on NE TOUCHE PAS**: Logique sauvegarde, validation config
 
 **Priorité**: 🟢 BASSE
-**Durée estimée**: 4-5 heures
-**Fichiers**: `app/admin/settings/page.tsx`, `SettingsTabs.tsx`
+**Durée estimée**: 1-2 heures
+**Fichiers**: Composants settings (styles only)
 
 ---
 
@@ -570,68 +634,62 @@ focus:outline-none: Reset default
 
 ---
 
-## 🚀 Plan d'Implémentation Suggéré
+## 🚀 Plan d'Implémentation (UI ONLY)
 
-### Sprint 1 (Semaine 1)
-1. ✅ Phase 1: Dashboard - FAIT
-2. 🔴 Améliorer Dashboard (retirer btn nouvelle résa, enrichir KPIs)
-3. 📅 Phase 2: Planning (vue calendar + formulaire express)
+### Sprint 1 - Fondations (1-2 jours)
+1. 🎨 Phase 0: Modals uniformisés (template commun)
+2. 📋 Phase 3: Réservations (styles table + filtres)
 
-### Sprint 2 (Semaine 2)
-4. 📋 Phase 3: Réservations (filtres avancés + slide panel)
-5. 🚤 Phase 4: Flotte (cards + maintenance)
+### Sprint 2 - Pages Critiques (1-2 jours)
+3. 📊 Phase 1: Dashboard (KPIs cards + alertes)
+4. 🚤 Phase 4: Flotte (cards bateaux)
 
-### Sprint 3 (Semaine 3)
-6. 🕒 Phase 5: Heures & Paie
-7. 💶 Phase 6: Comptabilité
+### Sprint 3 - Opérations (1 jour)
+5. 🌤️ Phase 10: Météo (widget)
+6. ⛔ Phase 11: Blocages (calendrier)
 
-### Sprint 4 (Semaine 4)
-8. 🌤️ Phase 10: Météo (priorité car impact direct activité)
-9. ⛔ Phase 11: Blocages
+### Sprint 4 - Gestion (1 jour)
+7. 🕒 Phase 5: Heures (grille)
+8. 💶 Phase 6: Comptabilité (transactions)
 
-### Sprint 5 (Semaine 5)
-10. 👥 Phase 7: Équipe
-11. 📊 Phase 8: Statistiques
+### Sprint 5 - Admin (1 jour)
+9. 👥 Phase 7: Équipe (cards + permissions)
+10. ⚙️ Phase 13: Paramètres (forms)
 
-### Sprint 6 (Semaine 6 - Polish)
-12. 🕵️ Phase 9: Logs
-13. 📰 Phase 12: CMS
-14. ⚙️ Phase 13: Paramètres
+### Sprint 6 - Analytics & Outils (1 jour)
+11. 📊 Phase 8: Statistiques (charts)
+12. 🕵️ Phase 9: Logs (timeline)
+13. 📰 Phase 12: CMS (éditeur)
+
+### Durée totale estimée: 6-8 jours (UI only, pas de debug logique)
 
 ---
 
-## ✅ Checklist Qualité par Phase
+## ✅ Checklist Qualité par Phase (UI ONLY)
 
 Pour chaque phase, valider:
-- [ ] TypeScript: 0 erreurs compilation
-- [ ] UI: Responsive mobile/tablet/desktop
-- [ ] UX: Maximum 2 clics pour actions courantes
-- [ ] Performance: Chargement < 1s
-- [ ] Accessibilité: Keyboard navigation + ARIA labels
-- [ ] États: Loading/Empty/Error gérés
-- [ ] Validation: Formulaires avec feedback temps réel
-- [ ] Confirmation: Actions critiques confirmées
-- [ ] Feedback: Toasts succès/erreur
-- [ ] Tests: Scénarios principaux testés manuellement
+- [ ] Styles: Cohérent avec le design system
+- [ ] Responsive: Mobile/Tablet/Desktop OK
+- [ ] Touch: Éléments tactiles ≥ 44px
+- [ ] Contraste: Texte lisible (WCAG AA)
+- [ ] Hover/Focus: États visibles
+- [ ] Loading: Skeleton ou spinner
+- [ ] Empty: Message clair + suggestion
+- [ ] Error: Feedback visuel (couleur + texte)
+- [ ] Transitions: Smooth (200-300ms)
+- [ ] Icons: Cohérents et explicites
+
+### ⚠️ AVANT de modifier la logique
+
+Si un changement de logique est nécessaire:
+1. [ ] Lister les fichiers impactés
+2. [ ] Documenter les props/états modifiés
+3. [ ] Vérifier les dépendances (usages du composant)
+4. [ ] Tester sur tous les appareils
+5. [ ] Obtenir validation utilisateur
 
 ---
 
-## 🎯 Objectifs de Performance
-
-### Temps d'Exécution Cibles
-- Créer réservation: < 30 secondes (vs 2-3 min actuellement)
-- Check-in client: < 10 secondes
-- Clôture caisse: < 1 minute
-- Rechercher réservation: < 3 secondes
-- Modifier planning: < 20 secondes
-
-### Métriques UX
-- Taux complétion formulaires: > 95%
-- Taux erreur saisie: < 5%
-- Temps formation nouveau staff: < 2 heures
-- Satisfaction utilisateurs: > 4.5/5
-
----
-
-**Dernière mise à jour**: 22 décembre 2025
-**Statut global**: 🟡 Phase 1 complétée, Phase 2 en cours
+**Dernière mise à jour**: 23 décembre 2025
+**Statut global**: 🟢 Phase 2 (Planning) complétée, Phase 0 (Modals) en attente
+**Approche**: UI/UX ONLY - Pas de modification de logique sans validation

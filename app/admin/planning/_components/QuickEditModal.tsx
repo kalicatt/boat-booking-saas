@@ -98,7 +98,7 @@ export function QuickEditModal({ booking, onClose, onUpdate, onDelete }: QuickEd
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
@@ -107,17 +107,17 @@ export function QuickEditModal({ booking, onClose, onUpdate, onDelete }: QuickEd
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="relative shrink-0 bg-slate-800 text-white">
-          <div className="flex items-start justify-between gap-4 px-6 py-5">
-            <div className="flex-1 space-y-2">
-              <span className="text-xs font-semibold tracking-wide uppercase text-slate-300">
+        <div className="relative shrink-0 bg-white border-b border-slate-200">
+          <div className="flex items-start justify-between gap-4 px-6 py-4">
+            <div className="flex-1 space-y-1">
+              <span className="text-xs font-semibold tracking-wide uppercase text-slate-500">
                 Réservation {booking.publicReference || `#${booking.id.slice(0, 8)}`}
               </span>
               <div className="flex items-baseline gap-3">
-                <span className="text-2xl font-bold">
+                <span className="text-2xl font-bold text-slate-900">
                   {format(new Date(booking.startTime), 'HH:mm', { locale: fr })}
                 </span>
-                <span className="text-sm font-medium text-slate-300">
+                <span className="text-sm font-medium text-slate-600">
                   {format(new Date(booking.startTime), 'EEEE d MMMM', { locale: fr })}
                 </span>
               </div>
@@ -125,10 +125,10 @@ export function QuickEditModal({ booking, onClose, onUpdate, onDelete }: QuickEd
             <button
               onClick={onClose}
               disabled={isLoading}
-              className="w-8 h-8 rounded-lg hover:bg-white/10 transition flex items-center justify-center disabled:opacity-50"
+              className="w-8 h-8 rounded-lg hover:bg-slate-100 transition flex items-center justify-center disabled:opacity-50"
               aria-label="Fermer"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

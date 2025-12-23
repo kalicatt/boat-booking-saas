@@ -27,13 +27,6 @@ export function AdminPageShell({
     <div className="flex min-h-full flex-col gap-6">
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
         <div className="space-y-2">
-          <Link
-            href={backHref}
-            className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 transition hover:text-slate-700"
-          >
-            <span aria-hidden="true">←</span>
-            {backLabel}
-          </Link>
           <h1 className="text-3xl font-serif font-bold text-slate-900">{title}</h1>
           {description ? (
             <p className="max-w-2xl text-sm text-slate-500">{description}</p>
