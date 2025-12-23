@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { compare } from 'bcryptjs'
-import { sign } from 'jsonwebtoken'
+import crypto from 'crypto'
 
 export const runtime = 'nodejs'
 
-const JWT_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret'
+const AUTH_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'fallback-secret'
 
 /**
  * API mobile: Authentification employé
@@ -15,6 +15,15 @@ const JWT_SECRET = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || 'fa
  * 
  * Returns: { success: true, user: {...}, token: string } ou { error: string }
  */
+
+function createToken(payload: object): string {
+  // Créer un token simple signé avec HMAC-SHA256
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')
+  const payloadWithExp = { ...payload, exp: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60) } // 30 jours
+  const body = Buffer.from(JSON.stringify(payloadWithExp)).toString('base64url')
+  const signature = crypto.createHmac('sha256', AUTH_SECRET).update(`${header}.${body}`).digest('base64url')
+  return `${header}.${body}.${signature}`
+}
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -56,17 +65,13 @@ export async function POST(request: Request) {
     }
 
     // Créer un token JWT pour l'app mobile
-    const token = sign(
-      {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        firstName: user.firstName,
-        lastName: user.lastName
-      },
-      JWT_SECRET,
-      { expiresIn: '30d' }
-    )
+    const token = createToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName
+    })
 
     // Retourner les infos utilisateur et le token
     return NextResponse.json({
