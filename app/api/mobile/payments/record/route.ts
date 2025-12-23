@@ -32,39 +32,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'paymentIntentId and amountCents are required' }, { status: 400 })
     }
 
-    // Vérifier si ce paiement existe déjà
-    const existing = await prisma.payment.findFirst({
-      where: { intentId: paymentIntentId }
+    // Vérifier si ce paiement existe déjà dans le ledger
+    const existing = await prisma.ledgerEntry.findFirst({
+      where: { 
+        metadata: {
+          path: ['paymentIntentId'],
+          equals: paymentIntentId
+        }
+      }
     })
 
     if (existing) {
       return NextResponse.json({ 
         success: true, 
         message: 'Payment already recorded',
-        payment: existing 
+        ledgerEntry: existing 
       })
     }
 
-    // Créer le record de paiement
-    const payment = await prisma.payment.create({
-      data: {
-        provider: 'stripe_terminal',
-        methodType: 'card_present',
-        intentId: paymentIntentId,
-        amount: amountCents,
-        currency: currency.toUpperCase(),
-        status: 'succeeded',
-        rawPayload: {
-          type: 'manual_terminal',
-          description: description || 'Paiement manuel Tap to Pay',
-          recordedBy: userId,
-          recordedAt: new Date().toISOString()
-        }
-      }
-    })
-
-    // Enregistrer dans le ledger pour la compta
-    await prisma.ledgerEntry.create({
+    // Enregistrer dans le ledger pour la compta (paiement manuel sans réservation)
+    const ledgerEntry = await prisma.ledgerEntry.create({
       data: {
         date: new Date(),
         type: 'CARD',
@@ -74,9 +61,10 @@ export async function POST(request: Request) {
         category: 'RECETTE',
         userId: userId || undefined,
         metadata: {
-          paymentId: payment.id,
           paymentIntentId,
-          source: 'mobile_terminal'
+          source: 'mobile_terminal',
+          type: 'manual_tap_to_pay',
+          recordedAt: new Date().toISOString()
         }
       }
     })
@@ -90,11 +78,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      payment: {
-        id: payment.id,
-        amount: payment.amount,
-        currency: payment.currency,
-        status: payment.status
+      ledgerEntry: {
+        id: ledgerEntry.id,
+        amount: ledgerEntry.amount,
+        currency: ledgerEntry.currency,
+        description: ledgerEntry.description
       }
     })
   } catch (error) {
