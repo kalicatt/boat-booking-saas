@@ -27,6 +27,7 @@ import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
 import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.common.InputImage;
+import com.sweetnarcisse.admin.api.ApiClient;
 import com.sweetnarcisse.admin.api.BookingService;
 
 import java.util.List;
@@ -81,7 +82,7 @@ public class ScannerActivity extends AppCompatActivity {
         barcodeScanner = BarcodeScanning.getClient(options);
         
         // Setup API service
-        bookingService = new BookingService();
+        bookingService = new BookingService(ApiClient.getInstance());
         
         // Setup buttons
         cancelButton.setOnClickListener(v -> finish());

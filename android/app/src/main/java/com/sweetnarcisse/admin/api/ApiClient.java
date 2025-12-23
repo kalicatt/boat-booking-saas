@@ -21,16 +21,37 @@ public class ApiClient {
     private static final String TAG = "ApiClient";
     
     // URL de base de l'API
-    private static final String BASE_URL = "https://sweet-narcisse.fr";
+    private static final String BASE_URL = "https://sweetnarcisse.fr";
     
     // Singleton
     private static OkHttpClient client;
+    private static Context appContext;
     
-    public static OkHttpClient getClient(Context context) {
+    /**
+     * Initialiser avec le contexte Application (appeler dans SweetNarcisseApp.onCreate)
+     */
+    public static void init(Context context) {
+        appContext = context.getApplicationContext();
+    }
+    
+    /**
+     * Obtenir l'instance singleton du client OkHttp
+     */
+    public static OkHttpClient getInstance() {
         if (client == null) {
-            client = buildClient(context);
+            if (appContext == null) {
+                throw new IllegalStateException("ApiClient not initialized. Call init() in Application.onCreate()");
+            }
+            client = buildClient(appContext);
         }
         return client;
+    }
+    
+    public static OkHttpClient getClient(Context context) {
+        if (appContext == null) {
+            appContext = context.getApplicationContext();
+        }
+        return getInstance();
     }
     
     private static OkHttpClient buildClient(Context context) {

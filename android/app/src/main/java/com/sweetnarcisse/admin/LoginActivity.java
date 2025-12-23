@@ -45,10 +45,10 @@ public class LoginActivity extends AppCompatActivity {
         setContentView(R.layout.activity_login);
         
         // Initialiser les vues
-        emailInput = findViewById(R.id.email_input);
-        passwordInput = findViewById(R.id.password_input);
-        loginButton = findViewById(R.id.login_button);
-        loadingSpinner = findViewById(R.id.loading_spinner);
+        emailInput = findViewById(R.id.emailInput);
+        passwordInput = findViewById(R.id.passwordInput);
+        loginButton = findViewById(R.id.loginButton);
+        loadingSpinner = findViewById(R.id.progressBar);
         
         // Initialiser le service API
         authService = new AuthService(ApiClient.getClient(this));

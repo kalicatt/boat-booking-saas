@@ -1,5 +1,6 @@
 package com.sweetnarcisse.admin;
 
+import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,6 +17,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.stripe.stripeterminal.Terminal;
 import com.stripe.stripeterminal.external.callable.Callback;
 import com.stripe.stripeterminal.external.callable.Cancelable;
+import com.stripe.stripeterminal.external.callable.DiscoveryListener;
 import com.stripe.stripeterminal.external.callable.PaymentIntentCallback;
 import com.stripe.stripeterminal.external.callable.ReaderCallback;
 import com.stripe.stripeterminal.external.models.CollectConfiguration;
@@ -165,16 +167,19 @@ public class PaymentActivity extends AppCompatActivity {
         updateStatus("Recherche du terminal...");
         showProgress();
         
-        DiscoveryConfiguration config = new DiscoveryConfiguration.LocalMobileDiscoveryConfiguration();
+        // Déterminer si on est en mode debug (simulated)
+        boolean isDebuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        
+        DiscoveryConfiguration config = new DiscoveryConfiguration.TapToPayDiscoveryConfiguration(isDebuggable);
         
         pendingOperation = Terminal.getInstance().discoverReaders(
             config,
-            new Terminal.DiscoveryListener() {
+            new DiscoveryListener() {
                 @Override
                 public void onUpdateDiscoveredReaders(List<Reader> readers) {
                     Log.d(TAG, "Readers discovered: " + readers.size());
                     if (!readers.isEmpty()) {
-                        // Connecter au premier reader (local mobile)
+                        // Connecter au premier reader (tap to pay)
                         connectReader(readers.get(0));
                     }
                 }
@@ -200,7 +205,14 @@ public class PaymentActivity extends AppCompatActivity {
     private void connectReader(Reader reader) {
         updateStatus("Connexion au terminal...");
         
-        ConnectionConfiguration config = new ConnectionConfiguration.LocalMobileConnectionConfiguration();
+        // Configuration de connexion Tap to Pay
+        // Note: Remplacer LOCATION_ID par l'ID réel de votre location Stripe Terminal
+        String locationId = "tml_xxx"; // TODO: Configurer dynamiquement
+        ConnectionConfiguration config = new ConnectionConfiguration.TapToPayConnectionConfiguration(
+            locationId,
+            true,  // autoReconnectOnUnexpectedDisconnect
+            null   // TapToPayReaderListener optionnel
+        );
         
         Terminal.getInstance().connectReader(reader, config, new ReaderCallback() {
             @Override
@@ -291,8 +303,8 @@ public class PaymentActivity extends AppCompatActivity {
     private void collectPaymentMethod(String clientSecret) {
         updateStatus("Présentez la carte...");
         
+        // CollectConfiguration pour Stripe Terminal 4.x
         CollectConfiguration config = new CollectConfiguration.Builder()
-            .setSkipTipping(true)
             .build();
         
         PaymentIntentCallback callback = new PaymentIntentCallback() {
@@ -300,7 +312,7 @@ public class PaymentActivity extends AppCompatActivity {
             public void onSuccess(PaymentIntent paymentIntent) {
                 Log.d(TAG, "Payment collected: " + paymentIntent.getId());
                 currentPaymentIntent = paymentIntent;
-                runOnUiThread(() -> processPayment());
+                runOnUiThread(() -> confirmPayment());
             }
             
             @Override
@@ -319,7 +331,8 @@ public class PaymentActivity extends AppCompatActivity {
                 @Override
                 public void onSuccess(PaymentIntent paymentIntent) {
                     currentPaymentIntent = paymentIntent;
-                    Terminal.getInstance().collectPaymentMethod(paymentIntent, config, callback);
+                    // Stripe Terminal 4.x: collectPaymentMethod(paymentIntent, callback, config)
+                    Terminal.getInstance().collectPaymentMethod(paymentIntent, callback, config);
                 }
                 
                 @Override
@@ -333,17 +346,18 @@ public class PaymentActivity extends AppCompatActivity {
             });
         } else {
             // Collect direct avec PaymentIntent local
-            Terminal.getInstance().collectPaymentMethod(currentPaymentIntent, config, callback);
+            Terminal.getInstance().collectPaymentMethod(currentPaymentIntent, callback, config);
         }
     }
     
-    private void processPayment() {
+    private void confirmPayment() {
         updateStatus("Traitement du paiement...");
         
-        Terminal.getInstance().processPayment(currentPaymentIntent, new PaymentIntentCallback() {
+        // Stripe Terminal 4.x: confirmPaymentIntent(paymentIntent, callback)
+        Terminal.getInstance().confirmPaymentIntent(currentPaymentIntent, new PaymentIntentCallback() {
             @Override
             public void onSuccess(PaymentIntent paymentIntent) {
-                Log.d(TAG, "Payment processed: " + paymentIntent.getId() + ", status: " + paymentIntent.getStatus());
+                Log.d(TAG, "Payment confirmed: " + paymentIntent.getId() + ", status: " + paymentIntent.getStatus());
                 currentPaymentIntent = paymentIntent;
                 
                 if ("succeeded".equals(paymentIntent.getStatus().toString().toLowerCase())) {
@@ -358,7 +372,7 @@ public class PaymentActivity extends AppCompatActivity {
             
             @Override
             public void onFailure(TerminalException e) {
-                Log.e(TAG, "Process failed", e);
+                Log.e(TAG, "Confirm failed", e);
                 runOnUiThread(() -> {
                     hideProgress();
                     handleError("Traitement échoué: " + e.getErrorMessage());

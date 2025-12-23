@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import com.sweetnarcisse.admin.api.ApiClient;
 import com.sweetnarcisse.admin.api.AuthService;
 import com.sweetnarcisse.admin.api.StatsService;
 
@@ -56,7 +57,7 @@ public class DashboardActivity extends AppCompatActivity {
         setContentView(R.layout.activity_dashboard);
         
         // Initialiser l'API service
-        authService = new AuthService();
+        authService = new AuthService(ApiClient.getInstance());
         statsService = new StatsService();
         
         // Setup toolbar
