@@ -222,8 +222,8 @@ public class PaymentActivity extends AppCompatActivity {
         updateStatus("Connexion au terminal...");
         
         // Configuration de connexion Tap to Pay
-        // Utiliser locationId de l'intent ou variable d'environnement
-        String location = locationId != null ? locationId : "tml_FzriKWyLWUCIiN"; // Default location
+        // Utiliser locationId de l'intent ou la location par défaut Sweet Narcisse
+        String location = locationId != null ? locationId : "tml_GS5EAgOYFgyW33";
         ConnectionConfiguration config = new ConnectionConfiguration.TapToPayConnectionConfiguration(
             location,
             true,  // autoReconnectOnUnexpectedDisconnect

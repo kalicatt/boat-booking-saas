@@ -6,8 +6,6 @@ import android.util.Log;
 
 import com.stripe.stripeterminal.Terminal;
 import com.stripe.stripeterminal.external.callable.TerminalListener;
-import com.stripe.stripeterminal.external.models.ConnectionStatus;
-import com.stripe.stripeterminal.external.models.PaymentStatus;
 import com.stripe.stripeterminal.external.models.Reader;
 import com.stripe.stripeterminal.external.models.TerminalException;
 import com.stripe.stripeterminal.log.LogLevel;
@@ -17,7 +15,7 @@ import com.stripe.stripeterminal.log.LogLevel;
  * 
  * Initialise le SDK une seule fois et gère les événements globaux
  */
-public class TerminalManager implements TerminalListener {
+public class TerminalManager {
     
     private static final String TAG = "TerminalManager";
     
@@ -65,11 +63,14 @@ public class TerminalManager implements TerminalListener {
         
         try {
             if (!Terminal.isInitialized()) {
+                // TerminalListener vide - SDK 4.x utilise des méthodes par défaut
+                TerminalListener listener = new TerminalListener() {};
+                
                 Terminal.initTerminal(
                     context,
                     LogLevel.VERBOSE,  // En dev, utiliser VERBOSE pour debug
                     tokenProvider,
-                    this
+                    listener
                 );
                 Log.i(TAG, "Stripe Terminal SDK initialized successfully");
             }
@@ -95,24 +96,5 @@ public class TerminalManager implements TerminalListener {
             initialize();
         }
         return Terminal.getInstance();
-    }
-    
-    // TerminalListener callbacks
-    
-    @Override
-    public void onUnexpectedReaderDisconnect(Reader reader) {
-        Log.w(TAG, "Reader unexpectedly disconnected: " + 
-            (reader != null ? reader.getSerialNumber() : "unknown"));
-        // TODO: Notifier l'utilisateur ou tenter une reconnexion
-    }
-    
-    @Override
-    public void onConnectionStatusChange(ConnectionStatus status) {
-        Log.d(TAG, "Terminal connection status changed: " + status);
-    }
-    
-    @Override
-    public void onPaymentStatusChange(PaymentStatus status) {
-        Log.d(TAG, "Terminal payment status changed: " + status);
     }
 }
