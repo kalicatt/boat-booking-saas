@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   format,
   startOfDay,
@@ -243,6 +244,7 @@ const buildBookingDetails = (booking: AdminBookingDto, loadMap: Record<string, n
 }
 
 export default function ClientPage() {
+  const router = useRouter()
   const [bookings, setBookings] = useState<TodayBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalPeople: 0, count: 0 })
@@ -266,6 +268,14 @@ export default function ClientPage() {
   const detailsGroupRef = useRef<BookingDetails[]>([])
   const detailsGroupIndexRef = useRef(0)
   const isNative = useIsNativePlatform()
+
+  // Redirect desktop users to planning page - /admin/today is mobile/tablet only
+  useEffect(() => {
+    if (isNative === false) {
+      router.replace('/admin/planning')
+    }
+  }, [isNative, router])
+
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'submitting' | 'success' | 'error'>('idle')
   const [scanMessage, setScanMessage] = useState('')
   const scanResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)

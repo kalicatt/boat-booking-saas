@@ -45,7 +45,6 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Opérations',
     items: [
-      { label: 'Aujourd\'hui', href: '/admin/today', icon: '⚓' },
       { label: 'Planning', href: '/admin/planning', icon: '📅' },
       { label: 'Réservations', href: '/admin/reservations', icon: '📋' },
       { label: 'Météo', href: '/admin/weather', icon: '🌤️' },
