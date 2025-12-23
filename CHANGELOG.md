@@ -9,6 +9,102 @@ The format is based on Keep a Changelog and adheres to Semantic Versioning (MAJO
 
 ---
 
+## [2.0.0] - 2025-01-25
+### 🚀 Android App - Refonte Native Complète
+
+**BREAKING CHANGES:**
+- Application Android reconstruite entièrement en natif Java (suppression de Capacitor)
+- Architecture MVC moderne avec CameraX, ML Kit, Stripe Terminal SDK
+- SDK minimum: Android 13 (API 33), Target SDK: Android 14 (API 35)
+
+### Added - Phase 1: Architecture & Core
+- **Activities natives** : MainActivity (splash), LoginActivity, DashboardActivity, ScannerActivity, CheckinConfirmationActivity
+- **Authentification NextAuth** : Login credentials, session persistante, auto-redirect
+- **Scanner QR avec auto check-in** : CameraX + ML Kit barcode scanning, check-in automatique (status EMBARQUED)
+- **Couche API** : ApiClient (OkHttp + CookieJar), AuthService, BookingService
+- Backend API: `POST /api/mobile/bookings/verify` - vérification QR + auto check-in
+
+### Added - Phase 2a: Infrastructure Web→Mobile
+- **PaymentPollingService** : Foreground service, polling toutes les 5s pour sessions de paiement
+- **BroadcastReceiver** : Communication DashboardActivity ↔ PaymentActivity
+- **PaymentActivity** : 2 modes (manuel / déclenché web)
+- Backend APIs:
+  - `GET /api/mobile/payments/sessions/claim` - polling, claim session PENDING
+  - `PATCH /api/mobile/payments/sessions/:id` - update status (PROCESSING, SUCCEEDED, FAILED)
+- Trigger automatique: web crée session → mobile poll → auto-open PaymentActivity avec données pré-remplies
+
+### Added - Phase 2b: Paiement NFC Tap to Pay
+- **Stripe Terminal SDK 4.7.6** : Intégration complète LocalMobile NFC
+- **Flow paiement complet** : Découverte → Connexion → Create Intent → Collect (NFC tap) → Process → Confirm
+- **PaymentActivity complet (454 lignes)** : 6 étapes avec progress indicators, error handling, cancelable operations
+- Backend APIs:
+  - `POST /api/mobile/payments/create-intent` - créer PaymentIntent Stripe avec metadata booking
+  - `POST /api/mobile/payments/confirm` - confirmer paiement, update Booking (PAID), PaymentSession (SUCCEEDED)
+  - `GET /api/mobile/stats/today` - stats check-ins et paiements du jour
+- Update booking automatique: paymentStatus='PAID', paymentMethod='card', stripePaymentIntentId
+- Logging: DocumentAuditLog action 'MOBILE_PAYMENT_SUCCESS'
+
+### Added - Phase 3: Stats & Historique
+- **StatsService** : getTodayStats() + getHistory()
+- **Dashboard stats temps réel** : charge API stats, affiche "X embarquements", "XX.XX € encaissés (Y)", refresh auto onResume()
+- **HistoryActivity** : RecyclerView + SwipeRefreshLayout, liste réservations 7 derniers jours
+- **BookingHistoryAdapter** : Cards colorées par status (EMBARQUÉ=vert, CONFIRMÉ=bleu, ANNULÉ=rouge), icons paiement (💳 card, 💰 cash, ⏳ pending)
+- Backend API: `GET /api/mobile/history` - liste bookings avec filtres (dateFrom, dateTo, status, boat, limit, offset)
+- Pull-to-refresh, empty state, dates formatées FR (dd/MM/yyyy HH:mm)
+
+### Added - Phase 4: Settings & Polish
+- **SettingsActivity** : Langue, version dynamique (PackageInfo), à propos
+- **Animations** : slide_in_bottom.xml, slide_out_bottom.xml - transitions fluides
+- Material Design 3 cohérent sur toute l'app
+
+### Documentation
+- **BUILD_GUIDE.md** (480 lignes) : Build debug/release, tests manuels complets Phase 1-4, debugging (logcat, adb), performance (APK size, memory, battery), déploiement VPS, troubleshooting
+- **android/README.md** (350 lignes) : Architecture détaillée, stack technique, configuration backend API, Stripe Terminal flow, statuts, sécurité, roadmap v2.1-v2.2
+- **REFONTE_COMPLETE.md** (525 lignes) : Récapitulatif complet 9 commits, détails phases 0→4, statistiques (40+ fichiers, ~5000 lignes), features finales, leçons apprises
+- **PHASE_5_TESTS.md** (479 lignes) : Checklist 40+ scénarios de test (fonctionnels, performance, réseau, sécurité, edge cases)
+- **PHASE_6_DEPLOYMENT.md** (XXX lignes) : Guide déploiement complet (keystore, build release, upload VPS, versioning Git, page téléchargement, rollback plan)
+
+### Changed
+- Package name: `com.sweetnarcisse.admin`
+- Version: 2.0.0 (versionCode 200)
+- Min SDK: 33 (Android 13), Target SDK: 35 (Android 14)
+- Gradle: 8.7.2, JDK: 17
+- Dépendances principales:
+  - Stripe Terminal SDK: 4.7.6
+  - CameraX: 1.3.1
+  - ML Kit barcode-scanning: 17.3.0
+  - Material Design: 1.12.0
+  - OkHttp: 4.12.0
+
+### Removed
+- Capacitor framework (3 fichiers supprimés)
+- Cordova plugins
+
+### Technical Details
+**Commits Phase 0→4:**
+- `32515c4` - Phase 0: Roadmap + API verify
+- `881a477, 0ab6a8b, 064ff96, bc1f8c1` - Phase 1: Architecture & Core
+- `f2f9a09` - Phase 2a: Web→Mobile trigger
+- `d9ad4c8` - Phase 2b: Stripe Terminal NFC
+- `bbbe1bc` - Phase 3: Stats & Historique
+- `e1b0ae4` - Phase 4: Settings & Documentation
+- `269d2cc` - Récapitulatif complet
+- `71ee01f` - Checklist tests Phase 5
+
+**Statistiques:**
+- 40+ fichiers créés
+- ~5000 lignes de code
+- 6 backend APIs créées
+- 8 Activities Android
+- 5 Services API
+- ~2000 lignes documentation
+
+### Credits
+- Developer: Kali
+- Status: Production Ready 🚀
+
+---
+
 ## [1.0.5] - 2025-12-05
 ### Added
 - Ability to promote an existing `CLIENT` to `EMPLOYEE` directly from `/api/admin/employees` and the Admin UI, including automatic employee number generation and audit logs.
