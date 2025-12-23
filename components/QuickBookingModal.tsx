@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import type { CountryCode } from 'libphonenumber-js'
 
@@ -96,6 +97,8 @@ function normalizePhoneForApi(input: string): string | undefined {
 }
 
 export default function QuickBookingModal({ slotStart, boatId, resources, onClose, onSuccess, canOverrideLockedDays = false }: QuickBookingModalProps) {
+    console.log('🎯 QuickBookingModal RENDERED', { slotStart, boatId, resourcesCount: resources.length })
+    const [mounted, setMounted] = useState(false)
     const dialogRef = useRef<HTMLDivElement | null>(null)
     const [isLocked, setIsLocked] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
@@ -151,15 +154,15 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const totalPeople = adults + children + babies
     const totalPrice = useMemo(() => adults * PRICE_ADULT + children * PRICE_CHILD, [adults, children])
     const formattedDate = useMemo(() => {
-        const y = slotStart.getUTCFullYear()
-        const m = String(slotStart.getUTCMonth() + 1).padStart(2, '0')
-        const d = String(slotStart.getUTCDate()).padStart(2, '0')
+        const y = slotStart.getFullYear()
+        const m = String(slotStart.getMonth() + 1).padStart(2, '0')
+        const d = String(slotStart.getDate()).padStart(2, '0')
         return `${d}/${m}/${y}`
     }, [slotStart])
     const dateLocal = useMemo(() => {
-        const y = slotStart.getUTCFullYear()
-        const m = String(slotStart.getUTCMonth() + 1).padStart(2, '0')
-        const d = String(slotStart.getUTCDate()).padStart(2, '0')
+        const y = slotStart.getFullYear()
+        const m = String(slotStart.getMonth() + 1).padStart(2, '0')
+        const d = String(slotStart.getDate()).padStart(2, '0')
         return `${y}-${m}-${d}`
     }, [slotStart])
 
@@ -206,10 +209,15 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
     const lacksCash = markAsPaid && paymentMethod === 'cash' && Number.isFinite(parsedCash) && parsedCash < totalPrice
 
     useEffect(() => {
-        const hh = String(slotStart.getUTCHours()).padStart(2, '0')
-        const mm = String(slotStart.getUTCMinutes()).padStart(2, '0')
+        const hh = String(slotStart.getHours()).padStart(2, '0')
+        const mm = String(slotStart.getMinutes()).padStart(2, '0')
         setTime(`${hh}:${mm}`)
     }, [slotStart])
+
+    useEffect(() => {
+        setMounted(true)
+        return () => setMounted(false)
+    }, [])
 
     useEffect(() => {
         setStepIndex(0)
@@ -242,7 +250,7 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                     new Date(current.day) > new Date(acc.day) ? current : acc
                 , data[0] as ClosureRecord)
                 const selected = new Date(
-                    Date.UTC(slotStart.getUTCFullYear(), slotStart.getUTCMonth(), slotStart.getUTCDate())
+                    slotStart.getFullYear(), slotStart.getMonth(), slotStart.getDate()
                 )
                 const latestDay = new Date(latest.day)
                 if (selected <= latestDay) setIsLocked(true)
@@ -589,66 +597,78 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         return ''
     }, [showStepErrors, stepIndex, time, totalPeople, markAsPaid, paymentMethod, manualPayment, lacksCash])
 
-    return (
+    if (!mounted) return null
+
+    const modalContent = (
         <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="qb-title"
             ref={dialogRef}
         >
-            <div className="sn-card w-full max-w-2xl overflow-hidden" role="document">
+            <div className="sn-card w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden" role="document">
                 {isLocked && (
                     <div className="bg-red-600 text-center text-sm font-semibold uppercase tracking-wide text-white">
                         Période verrouillée — modifications interdites
                     </div>
                 )}
 
-                <div className="bg-[#0f172a] px-5 pb-5 pt-4 text-white">
-                    <div className="flex items-start justify-between">
+                <div className="bg-slate-800 px-6 pb-6 pt-5 text-white shadow-lg shrink-0">
+                    <div className="flex items-start justify-between mb-4">
                         <div>
-                            <h3 id="qb-title" className="text-lg font-bold">
-                                Nouvelle réservation rapide
+                            <h3 id="qb-title" className="text-xl font-bold">
+                                Nouvelle réservation
                             </h3>
-                            <p className="text-xs text-blue-200">
+                            <p className="text-sm text-slate-300 mt-1">
                                 {targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`} • {formattedDate}
                             </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-2xl font-bold text-white/70 transition hover:text-white"
+                            className="text-2xl font-bold text-white/70 hover:text-white transition"
+                            aria-label="Fermer"
                         >
                             ×
                         </button>
                     </div>
 
-                    <ol className="mt-4 flex items-center gap-3 text-xs font-semibold uppercase tracking-wide">
+                    <ol className="flex items-center justify-between gap-2">
                         {BOOKING_STEPS.map((step, index) => {
                             const completed = index < stepIndex
                             const active = index === stepIndex
                             return (
-                                <li key={step.id} className="flex flex-col items-center gap-1">
-                                    <span
-                                        className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-sm ${
-                                            completed
-                                                ? 'border-emerald-400 bg-emerald-400 text-slate-900'
-                                                : active
-                                                ? 'border-white text-white'
-                                                : 'border-white/30 text-white/60'
-                                        }`}
-                                    >
-                                        {index + 1}
-                                    </span>
-                                    <span className={`text-[10px] ${active ? 'text-white' : 'text-white/60'}`}>
-                                        {step.label}
-                                    </span>
+                                <li key={step.id} className="flex-1">
+                                    <div className="flex flex-col items-center gap-1.5">
+                                        <div
+                                            className={`flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition ${
+                                                completed
+                                                    ? 'bg-white text-slate-800'
+                                                    : active
+                                                    ? 'bg-white text-slate-800 ring-2 ring-white/30'
+                                                    : 'bg-white/20 text-white/50'
+                                            }`}
+                                        >
+                                            {completed ? '✓' : index + 1}
+                                        </div>
+                                        <span className={`text-[10px] font-semibold uppercase tracking-wider transition ${
+                                            active ? 'text-white' : completed ? 'text-white/80' : 'text-white/50'
+                                        }`}>
+                                            {step.label}
+                                        </span>
+                                    </div>
+                                    {index < BOOKING_STEPS.length - 1 && (
+                                        <div className={`h-0.5 mt-5 transition ${
+                                            completed ? 'bg-white/40' : 'bg-white/20'
+                                        }`} />
+                                    )}
                                 </li>
                             )
                         })}
                     </ol>
-                    <div className="mt-3 h-1 rounded-full bg-white/20">
+                    <div className="mt-5 h-1.5 rounded-full bg-white/20 overflow-hidden">
                         <div
-                            className="h-full rounded-full bg-emerald-400 transition-all"
+                            className="h-full rounded-full bg-white transition-all duration-500"
                             style={{ width: `${progress}%` }}
                         />
                     </div>
@@ -657,46 +677,45 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                 <form
                     onSubmit={(event) => event.preventDefault()}
                     onKeyDown={handleFormKeyDown}
-                    className="space-y-5 px-5 py-6 text-slate-900"
+                    className="flex-1 overflow-y-auto space-y-5 px-6 py-6 text-slate-900"
                 >
                     {stepIndex === 0 && (
                         <div className="space-y-4">
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500" id="qbm-departure-label">Départ</p>
-                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                            <div className="rounded-lg border border-slate-300 bg-white p-5 shadow-sm">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-3">Heure de départ</p>
+                                <div className="flex flex-wrap items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-3xl font-extrabold text-slate-800">{time || '--:--'}</p>
-                                        <p className="text-xs text-slate-500">{formattedDate}</p>
+                                        <p className="text-3xl font-bold text-slate-900">{time || '--:--'}</p>
+                                        <p className="text-xs text-slate-500 mt-1">{formattedDate}</p>
                                     </div>
                                     <input
                                         type="time"
                                         value={time}
                                         onChange={(event) => setTime(event.target.value)}
-                                        aria-labelledby="qbm-departure-label"
-                                        className="rounded-lg border border-slate-300 px-3 py-2 text-lg font-semibold text-blue-900 shadow-inner focus:border-blue-500 focus:outline-none"
+                                        className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-base font-semibold text-slate-900 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 focus:outline-none"
                                     />
                                 </div>
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Barque</p>
-                                    <p className="mt-2 text-sm font-semibold text-slate-700">
+                                <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Barque</p>
+                                    <p className="text-sm font-semibold text-slate-900">
                                         {targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`}
                                     </p>
-                                    <p className="text-xs text-slate-500">
+                                    <p className="text-xs text-slate-500 mt-1">
                                         Capacité {targetBoat?.capacity ?? '—'} passagers
                                     </p>
                                 </div>
-                                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                    <label htmlFor="qbm-language" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+                                    <label htmlFor="qbm-language" className="text-xs font-semibold uppercase tracking-wide text-slate-600 block mb-2">
                                         Langue du tour
                                     </label>
                                     <select
                                         id="qbm-language"
                                         value={language}
                                         onChange={(event) => setLanguage(event.target.value)}
-                                        className="mt-2 w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-inner focus:border-blue-500 focus:outline-none"
+                                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 focus:border-slate-500 focus:ring-2 focus:ring-slate-200 focus:outline-none"
                                     >
                                         {LANGUAGE_OPTIONS.map((option) => (
                                             <option key={option.value} value={option.value}>
@@ -711,26 +730,26 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
 
                     {stepIndex === 1 && (
                         <div className="space-y-4">
-                            <div className="grid gap-3 sm:grid-cols-3">
+                            <div className="grid gap-4 sm:grid-cols-3">
                                 {passengerCounters.map((counter) => (
-                                    <div key={counter.key} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                                        <p className="text-sm font-semibold text-slate-700">{counter.label}</p>
-                                        <p className="text-xs text-slate-500">
+                                    <div key={counter.key} className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+                                        <p className="text-sm font-semibold text-slate-900">{counter.label}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">
                                             {counter.subtitle} • {counter.price}
                                         </p>
-                                        <div className="mt-3 flex items-center justify-between rounded-full border border-slate-200 bg-slate-50 px-2 py-1.5">
+                                        <div className="mt-3 flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
                                             <button
                                                 type="button"
                                                 onClick={() => counter.setter((prev) => Math.max(0, prev - 1))}
-                                                className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-600 shadow hover:bg-slate-100"
+                                                className="rounded-md bg-white hover:bg-slate-100 px-3 py-1.5 text-base font-bold text-slate-700 border border-slate-200 transition"
                                             >
                                                 −
                                             </button>
-                                            <span className="text-lg font-bold text-slate-800">{counter.value}</span>
+                                            <span className="text-xl font-bold text-slate-900">{counter.value}</span>
                                             <button
                                                 type="button"
                                                 onClick={() => counter.setter((prev) => prev + 1)}
-                                                className="rounded-full bg-white px-3 py-1 text-sm font-bold text-slate-600 shadow hover:bg-slate-100"
+                                                className="rounded-md bg-slate-800 hover:bg-slate-900 px-3 py-1.5 text-base font-bold text-white transition"
                                             >
                                                 +
                                             </button>
@@ -739,14 +758,21 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 ))}
                             </div>
 
-                            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-                                <p className="font-semibold">
-                                    {totalPeople} passager{totalPeople > 1 ? 's' : ''} à embarquer
-                                </p>
-                                <p className="text-xs">
-                                    Estimation encaissement :{' '}
-                                    <span className="font-semibold text-blue-900">{totalPrice} €</span>
-                                </p>
+                            <div className="rounded-lg border border-slate-300 bg-slate-50 p-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-base font-semibold text-slate-900">
+                                            {totalPeople} passager{totalPeople > 1 ? 's' : ''}
+                                        </p>
+                                        <p className="text-xs text-slate-500 mt-0.5">
+                                            {targetBoat?.title || 'la barque'}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-slate-500">Total</p>
+                                        <p className="text-2xl font-bold text-slate-900">{totalPrice} €</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
@@ -985,43 +1011,61 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 )}
                             </div>
 
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-                                <p className="font-semibold text-slate-800">Récapitulatif</p>
-                                <ul className="mt-2 space-y-1 text-xs">
-                                    <li>
-                                        {formattedDate} • {time}
-                                    </li>
-                                    <li>
-                                        {totalPeople} passager{totalPeople > 1 ? 's' : ''} (A{adults} / E{children} / B{babies})
-                                    </li>
-                                    <li>Montant estimé : {totalPrice} €</li>
-                                    <li>Barque : {targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`}</li>
-                                    <li>Email : {email.trim() || 'par défaut guichet'}</li>
-                                    <li>Paiement : {paymentSummaryLabel}</li>
-                                </ul>
+                            <div className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+                                <p className="font-semibold text-slate-900 mb-3">Récapitulatif</p>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
+                                        <span className="text-xs text-slate-600">Date & heure</span>
+                                        <span className="text-sm font-semibold text-slate-900">{formattedDate} • {time}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
+                                        <span className="text-xs text-slate-600">Passagers</span>
+                                        <span className="text-sm font-semibold text-slate-900">{totalPeople} pers. (A{adults} / E{children} / B{babies})</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
+                                        <span className="text-xs text-slate-600">Montant</span>
+                                        <span className="text-sm font-semibold text-slate-900">{totalPrice} €</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
+                                        <span className="text-xs text-slate-600">Barque</span>
+                                        <span className="text-sm font-semibold text-slate-900">{targetBoat ? targetBoat.title : `Barque ${fallbackBoatLabel}`}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5 border-b border-slate-200">
+                                        <span className="text-xs text-slate-600">Email</span>
+                                        <span className="text-sm font-semibold text-slate-900">{email.trim() || 'guichet@sweet-narcisse.com'}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between py-1.5">
+                                        <span className="text-xs text-slate-600">Paiement</span>
+                                        <span className="text-sm font-semibold text-slate-900">{paymentSummaryLabel}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {stepErrorMessage && (
-                        <p className="text-xs font-semibold text-rose-600">{stepErrorMessage}</p>
+                        <div className="rounded-lg bg-rose-50 border border-rose-300 p-3">
+                            <p className="text-sm font-semibold text-rose-700">
+                                {stepErrorMessage}
+                            </p>
+                        </div>
                     )}
 
-                    <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                    <div className="flex items-center justify-between border-t border-slate-200 pt-4 bg-white -mx-6 px-6 -mb-6 pb-6 shrink-0">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                         >
                             Annuler
                         </button>
 
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             {stepIndex > 0 && (
                                 <button
                                     type="button"
                                     onClick={handlePrevious}
-                                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+                                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                                 >
                                     ← Retour
                                 </button>
@@ -1031,18 +1075,18 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                 <button
                                     type="button"
                                     onClick={handleNext}
-                                    className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow transition hover:bg-blue-700"
+                                    className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-900"
                                 >
-                                    Étape suivante →
+                                    Continuer →
                                 </button>
                             ) : (
                                 <button
                                     type="button"
                                     onClick={() => void handleConfirm()}
                                     disabled={isLoading || isLocked || !canProceedStep(stepIndex)}
-                                    className="rounded-full bg-emerald-600 px-5 py-2 text-xs font-semibold text-white shadow transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                                    className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-400"
                                 >
-                                    {isLocked ? 'Période verrouillée' : isLoading ? 'Enregistrement…' : 'Confirmer la réservation'}
+                                    {isLocked ? 'Période verrouillée' : isLoading ? 'Enregistrement…' : 'Confirmer'}
                                 </button>
                             )}
                         </div>
@@ -1051,4 +1095,6 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
             </div>
         </div>
     )
+
+    return createPortal(modalContent, document.body)
 }

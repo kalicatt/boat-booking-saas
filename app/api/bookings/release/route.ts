@@ -3,6 +3,7 @@ import Stripe from 'stripe'
 import { prisma } from '@/lib/prisma'
 import { cacheInvalidateDate } from '@/lib/cache'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { notifyPlanningUpdate } from '@/lib/planningNotify'
 
 export async function POST(request: Request) {
   try {
@@ -48,8 +49,11 @@ export async function POST(request: Request) {
 
     if (booking.date) {
       const bookingDate = booking.date.toISOString().slice(0, 10)
-      cacheInvalidateDate(bookingDate)
+      await cacheInvalidateDate(bookingDate)
     }
+
+    // Notifier le planning de la mise à jour
+    await notifyPlanningUpdate()
 
     return NextResponse.json({ success: true })
   } catch (error: unknown) {

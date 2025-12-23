@@ -386,8 +386,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             initialStepRender.current = false
             return
         }
-        if (typeof window !== 'undefined' && window.innerWidth < 1024) {
-            widgetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        // Scroll vers le haut du widget à chaque changement d'étape
+        if (typeof window !== 'undefined') {
+            // Petit délai pour laisser le DOM se mettre à jour
+            setTimeout(() => {
+                widgetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }, 100)
         }
     }, [step])
 
@@ -418,6 +422,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             cancelled = true
         }
     }, [adults, babies, children, date, pendingBookingId, pendingSignature, releasePendingBooking, selectedSlot])
+
+    // Auto-confirm ref (will be used in effect after handleBookingSubmit is defined)
+    const autoConfirmTriggered = useRef(false)
 
     useEffect(() => {
         return () => {
@@ -684,6 +691,37 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     }
   }
 
+  // Auto-confirm après paiement réussi
+  useEffect(() => {
+    if (
+      paymentSucceeded &&
+      pendingBookingId &&
+      !pendingExpired &&
+      !isSubmitting &&
+      !autoConfirmTriggered.current &&
+      step === STEPS.PAYMENT
+    ) {
+      autoConfirmTriggered.current = true
+      // Petit délai pour laisser l'UI se mettre à jour
+      const timer = setTimeout(() => {
+        handleBookingSubmit()
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+    // Reset le flag si on revient en arrière ou si le paiement échoue
+    if (!paymentSucceeded || pendingExpired) {
+      autoConfirmTriggered.current = false
+    }
+  }, [paymentSucceeded, pendingBookingId, pendingExpired, isSubmitting, step])
+
+  // Composant Spinner de chargement
+  const LoadingSpinner = ({ text }: { text?: string }) => (
+    <div className="flex flex-col items-center justify-center gap-3 py-8">
+      <div className="w-10 h-10 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div>
+      {text && <span className="text-sm text-slate-500 animate-pulse">{text}</span>}
+    </div>
+  )
+
   // Composant Compteur
         type CounterProps = { label?: string; value: number; setter: (n: number) => void; price?: string }
     const Counter = ({ label, value, setter, price }: CounterProps) => (
@@ -861,9 +899,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                     <div className="mt-6">
                         <button onClick={handleSearch} disabled={loading} 
-                            className="btn-interactive btn-haptic w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2">
-                            {loading ? <span className="animate-spin">⏳</span> : null}
-                            {loading ? widgetCopy.loading : isGroup ? widgetCopy.btn_continue_group : isPrivate ? widgetCopy.btn_continue_private : widgetCopy.btn_search}
+                            className="btn-interactive btn-haptic w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70">
+                            {loading && <div className="w-5 h-5 border-2 border-slate-800/30 border-t-slate-800 rounded-full animate-spin"></div>}
+                            {loading ? (widgetCopy.loading || 'Recherche...') : isGroup ? widgetCopy.btn_continue_group : isPrivate ? widgetCopy.btn_continue_private : widgetCopy.btn_search}
                         </button>
                     </div>
                 </div>
@@ -1128,10 +1166,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                     funnel.paymentMethodSelected('stripe')
                                                 }}
                                             />
+                                        ) : initializingStripe ? (
+                                            <LoadingSpinner text={widgetCopy.payment_initializing || 'Préparation du paiement en cours…'} />
                                         ) : (
-                                            initializingStripe
-                                                ? (widgetCopy.payment_initializing || 'Préparation du paiement en cours…')
-                                                : (widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement')
+                                            <p className="text-center py-4">{widgetCopy.init_payment_hint || 'Cliquez pour initier le paiement'}</p>
                                         )}
                                         {stripeError && <div className="text-red-600 mt-1">{stripeError}</div>}
                                     </div>
@@ -1209,8 +1247,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             </div>
 
                             {paymentSucceeded ? (
-                                <div className="text-xs text-green-600 mt-2">
-                                    {widgetCopy.payment_ready_to_confirm || 'Paiement validé. Cliquez sur "Confirmer la réservation" pour finaliser.'}
+                                <div className="text-xs text-green-600 mt-2 flex items-center gap-2">
+                                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                    </svg>
+                                    <span>{widgetCopy.payment_success_auto_confirm || 'Paiement validé ! Confirmation automatique en cours...'}</span>
                                 </div>
                             ) : (
                                 <div className="text-xs text-slate-500 mt-2">
@@ -1224,10 +1265,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         type="button"
                         onClick={() => handleBookingSubmit()}
                         disabled={isSubmitting || !paymentSucceeded || pendingExpired}
-                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 ${paymentSucceeded && !pendingExpired ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                        className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg mt-4 flex items-center justify-center gap-2 ${paymentSucceeded && !pendingExpired ? 'bg-[#0ea5e9] text-[#0f172a] hover:bg-sky-400' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
+                        {isSubmitting && <div className="w-5 h-5 border-2 border-slate-800/30 border-t-slate-800 rounded-full animate-spin"></div>}
                         {isSubmitting
-                            ? widgetCopy.submitting
+                            ? (widgetCopy.confirming || 'Confirmation en cours...')
                             : `${widgetCopy.confirm || 'Confirmer'} (${totalPrice}€)`}
                     </button>
                 </div>

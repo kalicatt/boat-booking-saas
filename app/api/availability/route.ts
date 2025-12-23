@@ -27,69 +27,68 @@ export async function GET(request: Request) {
   if (peopleNeeded === 0) return NextResponse.json({ date: dateParam, availableSlots: [] })
 
   try {
-    // Use Redis cache with automatic fallback to memory
-    const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
+    // TEMPORAIRE: Désactiver le cache pour debug
+    // const cacheKey = `availability:${dateParam}:${langParam}:${adults}:${children}:${babies}`
     
-    const result = await withCache<AvailabilityPayload>(
-      cacheKey,
-      async () => {
-        // Fetch boats (cached separately for better reuse)
-        const boats = await withCache(
-          'boats:active',
-          () => prisma.boat.findMany({ 
-            where: { status: 'ACTIVE' },
-            orderBy: { id: 'asc' } 
-          }),
-          CACHE_TTL.BOATS
-        )
+    // Fetch boats
+    const boats = await prisma.boat.findMany({ 
+      where: { status: 'ACTIVE' },
+      orderBy: { id: 'asc' } 
+    })
 
-        if (boats.length === 0) {
-          return { date: dateParam, availableSlots: [] }
-        }
+    if (boats.length === 0) {
+      return NextResponse.json({ date: dateParam, availableSlots: [] })
+    }
 
-        // Fenêtre du jour en UTC "flottant" (pas de décalage local)
-        const dayStartUtc = new Date(`${dateParam}T00:00:00.000Z`)
-        const dayEndUtc = new Date(`${dateParam}T23:59:59.999Z`)
-        
-        const bookings = await prisma.booking.findMany({
-          where: {
-            startTime: { gte: dayStartUtc, lte: dayEndUtc },
-            status: { not: 'CANCELLED' }
-          }
-        })
+    // Fenêtre du jour en UTC "flottant" (pas de décalage local)
+    const dayStartUtc = new Date(`${dateParam}T00:00:00.000Z`)
+    const dayEndUtc = new Date(`${dateParam}T23:59:59.999Z`)
+    
+    const bookings = await prisma.booking.findMany({
+      where: {
+        startTime: { gte: dayStartUtc, lte: dayEndUtc },
+        status: { not: 'CANCELLED' }
+      }
+    })
 
-        // Fetch any blocks overlapping the requested day once
-        const blocks = await prisma.blockedInterval.findMany({
-          where: {
-            start: { lte: dayEndUtc },
-            end: { gte: dayStartUtc },
-          }
-        })
+    // Debug logging
+    console.log(`[AVAILABILITY DEBUG] Date: ${dateParam}, Lang: ${requestedLang}`)
+    console.log(`[AVAILABILITY DEBUG] Found ${bookings.length} bookings for this day`)
+    bookings.forEach(b => {
+      console.log(`  - Booking ${b.id}: ${b.startTime.toISOString()} | Lang: ${b.language} | People: ${b.numberOfPeople}`)
+    })
 
-        // If a full-day block exists, short-circuit to no availability
-        const hasFullDayBlock = blocks.some(b => {
-          if (b.scope !== 'day') return false
-          const bStart = new Date(b.start)
-          const bEnd = new Date(b.end)
-          return bStart <= dayStartUtc && bEnd >= dayEndUtc
-        })
-        
-        if (hasFullDayBlock) {
-          const reason = blocks.find(b => b.scope === 'day')?.reason || 'Journée indisponible'
-          return { date: dateParam, availableSlots: [], blockedReason: reason }
-        }
+    // Fetch any blocks overlapping the requested day once
+    const blocks = await prisma.blockedInterval.findMany({
+      where: {
+        start: { lte: dayEndUtc },
+        end: { gte: dayStartUtc },
+      }
+    })
 
-        return computeAvailability({
-          dateParam,
-          requestedLang,
-          peopleNeeded,
-          boats,
-          bookings,
-          blocks
-        })
-      },
-      CACHE_TTL.AVAILABILITY
-    )
+    // If a full-day block exists, short-circuit to no availability
+    const hasFullDayBlock = blocks.some(b => {
+      if (b.scope !== 'day') return false
+      const bStart = new Date(b.start)
+      const bEnd = new Date(b.end)
+      return bStart <= dayStartUtc && bEnd >= dayEndUtc
+    })
+    
+    if (hasFullDayBlock) {
+      const reason = blocks.find(b => b.scope === 'day')?.reason || 'Journée indisponible'
+      return NextResponse.json({ date: dateParam, availableSlots: [], blockedReason: reason })
+    }
+
+    const result = computeAvailability({
+      dateParam,
+      requestedLang,
+      peopleNeeded,
+      boats,
+      bookings,
+      blocks
+    })
+    
+    console.log(`[AVAILABILITY DEBUG] Result: ${result.availableSlots.length} slots, includes 14:25: ${result.availableSlots.includes('14:25')}`)
     
     return NextResponse.json(result)
 

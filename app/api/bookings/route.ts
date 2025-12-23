@@ -13,6 +13,7 @@ import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
 import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
 import { recordBooking } from '@/lib/metrics'
+import { notifyPlanningUpdate } from '@/lib/planningNotify'
 
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
@@ -143,24 +144,25 @@ export async function POST(request: Request) {
     const boats = await prisma.boat.findMany({ where: { status: 'ACTIVE' }, orderBy: { id: 'asc' } })
     if (boats.length === 0) return NextResponse.json({ error: "Aucune barque active" }, { status: 500 })
     
-    // 4. CALCUL ROTATION (Basé sur 10h00)
-    const startHourRef = parseInt(OPEN_TIME.split(':')[0])
-    const startMinRef = parseInt(OPEN_TIME.split(':')[1])
-    const startTimeInMinutes = startHourRef * 60 + startMinRef
-
+    // 4. SÉLECTION DU BATEAU
+    // On ne fait plus de rotation par index - on cherche un bateau disponible
     let targetBoat = undefined as (typeof boats)[number] | undefined
+    let forcedBoatMode = false
 
     if (isStaffOverride && typeof forcedBoatId === 'number' && Number.isFinite(forcedBoatId)) {
       targetBoat = boats.find((boat) => boat.id === forcedBoatId)
+      forcedBoatMode = true
     }
 
-    if (!targetBoat) {
-      // Calcul des slots écoulés depuis 10h00
-      const slotsElapsed = (minutesTotal - startTimeInMinutes) / INTERVAL
+    // Si pas de bateau forcé, on va chercher le premier bateau disponible dans la transaction
 
-      // Rotation simple : 10h00 = Bateau 0, 10h10 = Bateau 1, etc.
-      const boatIndex = ((Math.floor(slotsElapsed) % boats.length) + boats.length) % boats.length
-      targetBoat = boats[boatIndex]
+    if (!targetBoat && !isStaffOverride) {
+      // Pour les clients normaux : on va déterminer le bateau dans la transaction
+      // mais on a besoin d'un bateau par défaut pour la logique initiale
+      targetBoat = boats[0] // Sera recalculé dans la transaction
+    } else if (!targetBoat && isStaffOverride) {
+      // Staff sans bateau forcé : prendre le premier
+      targetBoat = boats[0]
     }
 
     if (!targetBoat) return NextResponse.json({ error: "Erreur rotation barque." }, { status: 409 })
@@ -182,34 +184,78 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Adresse email manquante pour la réservation.' }, { status: 400 })
     }
 
-    type TxResultOk = { ok: true; booking: Booking; finalPrice: number }
+    type TxResultOk = { ok: true; booking: Booking; finalPrice: number; usedBoatName: string }
     type TxResultErr = { ok: false; conflict?: true }
     type TxResult = TxResultOk | TxResultErr
     let txResult: TxResult | undefined
     try {
     txResult = await prisma.$transaction(async (tx) => {
       // Advisory lock disabled for serverless compatibility; relying on conflict checks below.
+      
+      const normalizedLang = language.toUpperCase()
+      let selectedBoat = targetBoat!
+      let canBook = false
 
-      // Re-vérifier les conflits sous verrou
-      const conflicts = await tx.booking.findMany({
-        where: {
-          boatId: targetBoat.id,
-          status: { not: 'CANCELLED' },
-          AND: [ { startTime: { lt: myTotalEnd } }, { endTime: { gt: myStart } } ]
-        }
-      })
-      const realConflicts = conflicts.filter(b => {
+      // Si bateau forcé par l'admin, on vérifie juste ce bateau
+      if (forcedBoatMode) {
+        const conflicts = await tx.booking.findMany({
+          where: {
+            boatId: selectedBoat.id,
+            status: { not: 'CANCELLED' },
+            AND: [ { startTime: { lt: myTotalEnd } }, { endTime: { gt: myStart } } ]
+          }
+        })
+        const realConflicts = conflicts.filter(b => {
           const busyEnd = addMinutes(b.endTime, BUFFER_TIME)
           return areIntervalsOverlapping({ start: myStart, end: myTotalEnd }, { start: b.startTime, end: busyEnd })
-      })
+        })
 
-      let canBook = false
-      if (realConflicts.length === 0) canBook = true 
-      else {
+        if (realConflicts.length === 0) {
+          canBook = true
+        } else {
           const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
-          const isSameLang = realConflicts.every(b => b.language === language)
+          const isSameLang = realConflicts.every(b => b.language?.toUpperCase() === normalizedLang)
           const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-          if ((isExactStart && isSameLang && (totalPeople + people <= targetBoat.capacity)) || isStaffOverride === true) canBook = true
+          if ((isExactStart && isSameLang && (totalPeople + people <= selectedBoat.capacity)) || isStaffOverride === true) {
+            canBook = true
+          }
+        }
+      } else {
+        // D'abord vérifier s'il existe des réservations à cette heure EXACTE sur N'IMPORTE QUEL bateau
+        const exactStartConflicts = await tx.booking.findMany({
+          where: {
+            startTime: myStart,
+            status: { not: 'CANCELLED' }
+          }
+        })
+
+        if (exactStartConflicts.length === 0) {
+          // Aucune réservation à cette heure - prendre le premier bateau libre
+          selectedBoat = boats[0]
+          canBook = true
+        } else {
+          // Il y a des réservations à cette heure exacte
+          // Vérifier si elles sont TOUTES dans la même langue demandée
+          const isSameLang = exactStartConflicts.every(b => b.language?.toUpperCase() === normalizedLang)
+          
+          if (isSameLang) {
+            // Même langue - chercher un bateau avec de la place
+            for (const conflict of exactStartConflicts) {
+              const boat = boats.find(b => b.id === conflict.boatId)
+              if (!boat) continue
+              
+              const boatBookings = exactStartConflicts.filter(b => b.boatId === boat.id)
+              const currentPeople = boatBookings.reduce((sum, b) => sum + b.numberOfPeople, 0)
+              
+              if (currentPeople + people <= boat.capacity) {
+                selectedBoat = boat
+                canBook = true
+                break
+              }
+            }
+          }
+          // Si langue différente, canBook reste false
+        }
       }
 
       if (!canBook) {
@@ -217,7 +263,7 @@ export async function POST(request: Request) {
       }
 
       // Création (privatisation remplit la capacité pour fermer le créneau)
-      const paxAdults = isPrivate ? targetBoat.capacity : adults
+      const paxAdults = isPrivate ? selectedBoat.capacity : adults
       const paxChildren = isPrivate ? 0 : children
       const paxBabies = isPrivate ? 0 : babies
       const paxTotal = paxAdults + paxChildren + paxBabies
@@ -235,7 +281,7 @@ export async function POST(request: Request) {
           totalPrice: priceTotal,
           status: pendingOnly ? 'PENDING' : 'CONFIRMED',
           message: message || null,
-          boat: { connect: { id: targetBoat.id } },
+          boat: { connect: { id: selectedBoat.id } },
           user: {
             connectOrCreate: {
               where: { email: userEmailToUse },
@@ -253,7 +299,7 @@ export async function POST(request: Request) {
         }
       })
 
-      return { ok: true as const, booking, finalPrice: priceTotal }
+      return { ok: true as const, booking, finalPrice: priceTotal, usedBoatName: selectedBoat.name }
     })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -262,11 +308,12 @@ export async function POST(request: Request) {
     }
 
     if (!('ok' in txResult) || !txResult.ok) {
-      return NextResponse.json({ error: `Conflit sur ${targetBoat.name}` }, { status: 409 })
+      return NextResponse.json({ error: `Aucun bateau disponible pour ce créneau` }, { status: 409 })
     }
 
+    const usedBoatName = txResult.usedBoatName
     const logPrefix = isStaffOverride ? "[STAFF OVERRIDE] " : ""
-    await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${isPrivate ? targetBoat.capacity : people}p${isPrivate ? ' PRIVATISATION' : ''}) sur ${targetBoat.name}`)
+    await createLog("NEW_BOOKING", `${logPrefix}Réservation de ${userDetails.lastName} (${people}p${isPrivate ? ' PRIVATISATION' : ''}) sur ${usedBoatName}`)
 
     const createdBooking = txResult.booking
 
@@ -284,17 +331,20 @@ export async function POST(request: Request) {
     // Group chaining: chain consecutive boat slots for large groups
     const chainCreated: Array<{ index: number, boatId: string, start: string, end: string, people: number }> = []
     const overlaps: Array<{ index: number, start: string, end: string, reason: string }> = []
-    if (isStaffOverride && groupChain && groupChain > targetBoat.capacity) {
-      const chunks = Math.ceil(groupChain / targetBoat.capacity)
+    // Pour les groupes, utiliser le premier bateau comme référence de capacité
+    const referenceBoat = boats[0]
+    if (isStaffOverride && groupChain && referenceBoat && groupChain > referenceBoat.capacity) {
+      const chunks = Math.ceil(groupChain / referenceBoat.capacity)
       for (let i = 1; i < chunks; i++) {
         const startChain = addMinutes(myStart, i * INTERVAL)
         const endChain = addMinutes(startChain, TOUR_DURATION)
-        let remainingForSlot = Math.min(targetBoat.capacity, groupChain - i * targetBoat.capacity)
+        let remainingForSlot = Math.min(referenceBoat.capacity, groupChain - i * referenceBoat.capacity)
 
-        // Conflict check for each chained slot
-        const conflicting = await prisma.booking.findFirst({
+        // Conflict check for each chained slot - chercher un bateau libre
+        let chainBoat = referenceBoat
+        let conflicting = await prisma.booking.findFirst({
           where: {
-            boatId: targetBoat.id,
+            boatId: chainBoat.id,
             date: new Date(`${date}T00:00:00.000Z`),
             startTime: { lt: endChain },
             endTime: { gt: startChain },
@@ -306,7 +356,7 @@ export async function POST(request: Request) {
         if (conflicting) {
           // Try multi-boat distribution: iterate through all other boats by capacity
           const otherBoats = await prisma.boat.findMany({
-            where: { id: { not: targetBoat.id }, capacity: { gt: 0 } },
+            where: { id: { not: chainBoat.id }, capacity: { gt: 0 } },
             orderBy: { capacity: 'desc' }
           })
           // placedAny removed — not used
@@ -374,7 +424,7 @@ export async function POST(request: Request) {
 
         try {
           // Primary boat free: allocate on primary first (up to capacity)
-          const allocationPrimary = Math.min(targetBoat.capacity, remainingForSlot)
+          const allocationPrimary = Math.min(chainBoat.capacity, remainingForSlot)
           const chainedReference = await generateSeasonalBookingReference(prisma, startChain)
           const chained = await prisma.booking.create({
             data: {
@@ -386,7 +436,7 @@ export async function POST(request: Request) {
               language,
               totalPrice: allocationPrimary * PRICE_ADULT,
               status: 'CONFIRMED',
-              boat: { connect: { id: targetBoat.id } },
+              boat: { connect: { id: chainBoat.id } },
               user: {
                 connectOrCreate: {
                   where: { email: userEmailToUse },
@@ -397,7 +447,7 @@ export async function POST(request: Request) {
               publicReference: chainedReference
             }
           })
-          chainCreated.push({ index: i, boatId: String(targetBoat.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
+          chainCreated.push({ index: i, boatId: String(chainBoat.id), start: startChain.toISOString(), end: endChain.toISOString(), people: allocationPrimary })
           // Optionally inherit payment metadata to chained bookings (record intent, not actual capture)
           if (inheritPaymentForChain && (paymentMethodValue || paymentMethodDetails)) {
             await prisma.payment.create({
@@ -415,7 +465,7 @@ export async function POST(request: Request) {
           // If remaining people for this slot, iterate other boats to place them at same time
           if (remainingForSlot > 0) {
             const otherBoats = await prisma.boat.findMany({
-              where: { id: { not: targetBoat.id }, capacity: { gt: 0 } },
+              where: { id: { not: chainBoat.id }, capacity: { gt: 0 } },
               orderBy: { capacity: 'desc' }
             })
             for (const ob of otherBoats) {
@@ -568,7 +618,7 @@ export async function POST(request: Request) {
     }
 
     // Invalidate cache for this date (availability, bookings)
-    cacheInvalidateDate(date)
+    await cacheInvalidateDate(date)
 
     // Record business metrics (only for confirmed bookings)
     if (!pendingOnly) {
@@ -578,6 +628,9 @@ export async function POST(request: Request) {
         createdBooking.numberOfPeople
       )
     }
+
+    // Notifier le planning en temps réel
+    await notifyPlanningUpdate()
 
     const pendingExpiresAt = pendingOnly ? addMinutes(createdBooking.createdAt, PAYMENT_TIMEOUT_MINUTES) : null
     return NextResponse.json({

@@ -1,5 +1,5 @@
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
-import { getParisTodayISO, getParisNowMinutes } from '@/lib/time'
+import { getParisTodayISO, getParisNowMinutes, parseParisWallDate } from '@/lib/time'
 import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES, BOAT_DEPARTURE_OFFSETS_MINUTES, MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
 import type { Boat, Booking, BlockedInterval } from '@prisma/client'
 
@@ -49,10 +49,11 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
 
   const cycleMinutes = TOUR_DURATION_MINUTES + TOUR_BUFFER_MINUTES // 30
   const activeOffsets = BOAT_DEPARTURE_OFFSETS_MINUTES.slice(0, Math.max(1, Math.min(boats.length, BOAT_DEPARTURE_OFFSETS_MINUTES.length)))
+  const normalizedRequestedLang = requestedLang.toUpperCase()
 
   for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += DEPARTURE_INTERVAL_MINUTES) {
     const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
-    const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1065)
+    const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1080)
     if (!isMorning && !isAfternoon) continue
 
     if (dateParam === todayLocalISO && minutesTotal < nowLocalMinutes + MIN_BOOKING_DELAY_MINUTES) continue
@@ -61,35 +62,70 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
     const offsetIndex = activeOffsets.findIndex(off => withinCycle === off)
     if (offsetIndex === -1) continue // only generate slots exactly at configured offsets
 
+    // Le bateau assigné à ce créneau est déterminé par l'offsetIndex
     const assignedBoat = boats[offsetIndex]
     if (!assignedBoat) continue
 
     const hh = String(Math.floor(minutesTotal / 60)).padStart(2, '0')
     const mm = String(minutesTotal % 60).padStart(2, '0')
-    const slotStartUtc = new Date(`${dateParam}T${hh}:${mm}:00.000Z`)
+    
+    // IMPORTANT: Convertir l'heure locale Paris en UTC pour la comparaison
+    // Le planning affiche 14:25 heure de Paris, qui est stocké comme 13:25 UTC en hiver
+    const { instant: slotStartUtc } = parseParisWallDate(dateParam, `${hh}:${mm}`)
     const slotEndUtc = addMinutes(slotStartUtc, TOUR_DURATION_MINUTES + TOUR_BUFFER_MINUTES)
 
-    const boatBookings = bookings.filter(b => b.boatId === assignedBoat.id)
-    const conflicts = boatBookings.filter(booking => {
-      const busyEnd = addMinutes(booking.endTime, TOUR_BUFFER_MINUTES)
-      return areIntervalsOverlapping(
-        { start: slotStartUtc, end: slotEndUtc },
-        { start: booking.startTime, end: busyEnd }
-      )
+    const blocked = blocks.some(block => areIntervalsOverlapping({ start: slotStartUtc, end: slotEndUtc }, { start: block.start, end: block.end }))
+    if (blocked) continue
+
+    // Chercher les réservations qui commencent EXACTEMENT à ce créneau sur N'IMPORTE QUEL bateau
+    const exactStartConflicts = bookings.filter(booking => {
+      return isSameMinute(booking.startTime, slotStartUtc)
     })
 
-    const blocked = blocks.some(block => areIntervalsOverlapping({ start: slotStartUtc, end: slotEndUtc }, { start: block.start, end: block.end }))
-
     let isSlotAvailable = false
-    if (!blocked && conflicts.length === 0) {
+    
+    if (exactStartConflicts.length === 0) {
+      // Aucune réservation à cette heure exacte - créneau libre
       isSlotAvailable = true
-    } else if (!blocked) {
-      const isExactStart = conflicts.every(booking => isSameMinute(booking.startTime, slotStartUtc))
-      const isSameLang = conflicts.every(booking => booking.language === requestedLang)
-      const currentPeople = conflicts.reduce((sum, booking) => sum + booking.numberOfPeople, 0)
-      if (isExactStart && isSameLang && (currentPeople + peopleNeeded <= assignedBoat.capacity)) {
-        isSlotAvailable = true
+    } else {
+      // Il y a des réservations à cette heure exacte
+      // Vérifier si elles sont TOUTES dans la même langue demandée
+      const isSameLang = exactStartConflicts.every(booking => booking.language?.toUpperCase() === normalizedRequestedLang)
+      
+      // Debug pour 14:25
+      if (hh === '14' && mm === '25') {
+        console.log(`[DEBUG 14:25] SlotStartUtc: ${slotStartUtc.toISOString()}`)
+        console.log(`[DEBUG 14:25] Found ${exactStartConflicts.length} conflicts`)
+        console.log(`[DEBUG 14:25] Requested lang: ${normalizedRequestedLang}`)
+        exactStartConflicts.forEach(c => {
+          console.log(`[DEBUG 14:25] Conflict: lang=${c.language}, people=${c.numberOfPeople}, startTime=${c.startTime.toISOString()}`)
+        })
+        console.log(`[DEBUG 14:25] isSameLang: ${isSameLang}`)
       }
+      
+      if (isSameLang) {
+        // Même langue - on peut potentiellement rejoindre si capacité OK
+        // Trouver le bateau de ces réservations et vérifier sa capacité
+        const boatIds = [...new Set(exactStartConflicts.map(b => b.boatId))]
+        
+        // Pour chaque bateau utilisé, vérifier s'il reste de la place
+        let canJoin = false
+        for (const boatId of boatIds) {
+          const boat = boats.find(b => b.id === boatId)
+          if (!boat) continue
+          
+          const boatBookings = exactStartConflicts.filter(b => b.boatId === boatId)
+          const currentPeople = boatBookings.reduce((sum, b) => sum + b.numberOfPeople, 0)
+          
+          if (currentPeople + peopleNeeded <= boat.capacity) {
+            canJoin = true
+            break
+          }
+        }
+        
+        isSlotAvailable = canJoin
+      }
+      // Si langue différente, le créneau n'est PAS disponible (isSlotAvailable reste false)
     }
 
     if (isSlotAvailable) {

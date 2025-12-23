@@ -122,15 +122,34 @@ export async function cacheDelete(key: string): Promise<void> {
 
 /**
  * Delete all keys matching a pattern (e.g., "availability:*")
- * Note: Pattern matching only works with memory cache for performance
+ * Invalidates both Redis and memory cache
  */
 export async function cacheInvalidatePattern(pattern: string): Promise<void> {
   try {
-    // For Redis, we'd need SCAN which is expensive
-    // Instead, rely on TTL expiration for Redis keys
-    // Only invalidate memory cache by pattern
-    
     const prefix = pattern.replace('*', '')
+    
+    // Invalidate Redis keys matching the pattern
+    const redis = getRedisClient()
+    if (redis) {
+      try {
+        // Use SCAN to find and delete matching keys
+        let cursor: number | string = 0
+        let hasMore = true
+        while (hasMore) {
+          const result: [string | number, string[]] = await redis.scan(cursor, { match: `${prefix}*`, count: 100 })
+          cursor = result[0]
+          const keys = result[1]
+          if (keys.length > 0) {
+            await Promise.all(keys.map(key => redis.del(key)))
+          }
+          hasMore = cursor !== 0 && cursor !== '0'
+        }
+      } catch (redisError) {
+        console.error('[cache] Redis SCAN/DELETE error:', redisError)
+      }
+    }
+    
+    // Also invalidate memory cache
     for (const key of memoryCache.keys()) {
       if (key.startsWith(prefix)) {
         memoryCache.delete(key)
@@ -145,9 +164,9 @@ export async function cacheInvalidatePattern(pattern: string): Promise<void> {
 /**
  * Invalidate all caches for a specific date (bookings, availability)
  */
-export function cacheInvalidateDate(date: string): void {
-  cacheInvalidatePattern(`availability:${date}:`)
-  cacheInvalidatePattern(`bookings:${date}:`)
+export async function cacheInvalidateDate(date: string): Promise<void> {
+  await cacheInvalidatePattern(`availability:${date}:`)
+  await cacheInvalidatePattern(`bookings:${date}:`)
 }
 
 /**

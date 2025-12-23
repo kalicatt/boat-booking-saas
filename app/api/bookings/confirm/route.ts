@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { prisma } from '@/lib/prisma'
 import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
+import { notifyPlanningUpdate } from '@/lib/planningNotify'
 
 interface ConfirmBody {
   bookingId?: string
@@ -61,6 +62,9 @@ export async function POST(request: Request) {
     if (!emailResult.ok && emailResult.reason !== 'ALREADY_SENT') {
       return NextResponse.json({ error: emailResult.reason || 'EMAIL_FAILED' }, { status: 500 })
     }
+
+    // Notifier le planning de la mise à jour
+    await notifyPlanningUpdate()
 
     return NextResponse.json({ success: true, email: emailResult })
   } catch (error: unknown) {

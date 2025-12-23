@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import type { Prisma } from '@prisma/client'
 import { computeVatFromGross } from '@/lib/vat'
 import { log } from '@/lib/logger'
+import { sendBookingConfirmationEmail } from '@/lib/bookingConfirmationEmail'
+import { notifyPlanningUpdate } from '@/lib/planningNotify'
 
 export const runtime = 'nodejs'
 export const preferredRegion = 'auto'
@@ -54,6 +56,16 @@ export async function POST(req: Request){
       }})
       // Mark booking paid
       await prisma.booking.update({ where: { id: bookingId }, data: { isPaid: true, status: 'CONFIRMED' } })
+      
+      // Send confirmation email
+      try {
+        await sendBookingConfirmationEmail(bookingId)
+        await log('info','Confirmation email sent',{ route:'/api/payments/stripe/webhook', bookingId })
+      } catch (emailErr: unknown) {
+        const emailMsg = emailErr instanceof Error ? emailErr.message : String(emailErr)
+        await log('error','Failed to send confirmation email',{ route:'/api/payments/stripe/webhook', bookingId, error: emailMsg })
+      }
+      
       // VAT breakdown
       const vat = computeVatFromGross(amountTotal)
       await prisma.paymentLedger.create({ data: {
@@ -69,6 +81,10 @@ export async function POST(req: Request){
         vatAmount: vat.vat,
         grossAmount: vat.gross
       }})
+      
+      // Notifier le planning de la mise à jour
+      await notifyPlanningUpdate()
+      
       await log('info','Stripe payment recorded',{ route:'/api/payments/stripe/webhook', bookingId })
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)

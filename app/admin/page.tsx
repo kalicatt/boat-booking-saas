@@ -7,6 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { computeBatteryAlert } from '@/lib/maintenance'
 import { ensureAdminPageAccess, canAccessAdminPage } from '@/lib/adminAccess'
 import type { AdminPermissionKey } from '@/types/adminPermissions'
+import { FloatingAlerts } from './_components/FloatingAlerts'
 
 type DashboardTile = {
   key: AdminPermissionKey
@@ -272,50 +273,13 @@ export default async function AdminDashboard() {
   const hasAnyTile = Object.values(pageAccess).some(Boolean)
 
   return (
-    <div className="sn-admin">
-      <div className="mx-auto max-w-6xl p-8">
-        <div className="mb-10 flex flex-col items-end gap-6 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-800">Tableau de bord</h1>
-            <p className="mt-2 text-slate-500">Espace de gestion Sweet Narcisse</p>
-          </div>
+    <>
+      {/* Bulles flottantes d'alertes */}
+      <FloatingAlerts startAlerts={startMessages} endAlerts={endMessages} />
 
-          <div className={`sn-card flex items-center gap-4 rounded-full p-2 pr-4 ring-4 ${styles.ring}`}>
-            <div
-              className={`flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-sm font-bold tracking-wider text-white shadow-inner ${
-                user?.image ? 'bg-white' : styles.avatar
-              }`}
-            >
-              {user?.image ? (
-                <Image src={user.image} alt="Profile" width={40} height={40} className="h-full w-full rounded-full object-cover" unoptimized />
-              ) : (
-                <span>{initials}</span>
-              )}
-            </div>
-
-            <div className="mr-4 flex flex-col">
-              <span className="text-sm font-bold leading-none text-slate-800">{displayName}</span>
-              <span className={`mt-1 w-fit rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${styles.badge}`}>
-                {role ?? 'EMPLOYEE'}
-              </span>
-            </div>
-
-            <div className="mx-1 h-8 w-px bg-slate-200" />
-
-            <form action={logout}>
-              <button type="submit" className="p-2 text-slate-400 transition hover:text-red-600" title="Se déconnecter">
-                🚪
-              </button>
-            </form>
-          </div>
-        </div>
-
-        <div className="mb-8 grid gap-4 md:grid-cols-2">
-          <AlertBanner title="Début de journée" icon="🌅" tone="info" items={startMessages} />
-          <AlertBanner title="Fin de journée" icon="🌇" tone="warning" items={endMessages} />
-        </div>
-
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
+      <div className="space-y-6">
+        {/* Navigation principale - Grid modernisé */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {DASHBOARD_TILES.map((tile) => {
             if (!pageAccess[tile.key]) {
               return null
@@ -324,59 +288,39 @@ export default async function AdminDashboard() {
               <Link
                 key={tile.key}
                 href={tile.href}
-                className={`group block sn-card cursor-pointer rounded-2xl border border-transparent p-6 transition-all hover:-translate-y-0.5 hover:shadow-xl ${tile.hoverBorder}`}
+                className="group relative overflow-hidden bg-white rounded-xl border border-slate-200 p-6 transition-all hover:shadow-lg hover:border-sky-300 hover:-translate-y-0.5"
               >
-                <div className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-3xl ${tile.iconClass}`}>
+                {/* Icon */}
+                <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg text-2xl ${tile.iconClass}`}>
                   {tile.icon}
                 </div>
-                <h2 className={`mb-3 text-2xl font-bold text-slate-800 ${tile.hoverText}`}>{tile.label}</h2>
-                <p className="text-sm text-slate-500">{tile.description}</p>
-              </Link>
-            )
-          })}
-        </div>
+              
+              {/* Content */}
+              <h3 className={`text-lg font-semibold text-slate-900 mb-2 transition ${tile.hoverText}`}>
+                {tile.label}
+              </h3>
+              <p className="text-sm text-slate-600 line-clamp-2">
+                {tile.description}
+              </p>
 
-        {!hasAnyTile && (
-          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              {/* Hover indicator */}
+              <div className="absolute top-0 right-0 w-1 h-full bg-sky-600 transform translate-x-full group-hover:translate-x-0 transition-transform" />
+            </Link>
+          )
+        })}
+      </div>
+
+      {!hasAnyTile && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
+          <div className="text-4xl mb-3">🔒</div>
+          <h3 className="text-lg font-semibold text-amber-900 mb-2">Accès limité</h3>
+          <p className="text-sm text-amber-800">
             Aucune section n&apos;est active pour votre compte. Contactez un administrateur pour obtenir les accès nécessaires.
           </p>
-        )}
+        </div>
+      )}
       </div>
-    </div>
-  )
-}
-
-type AlertBannerProps = {
-  title: string
-  icon: string
-  items: string[]
-  tone: 'info' | 'warning'
-}
-
-function AlertBanner({ title, icon, items, tone }: AlertBannerProps) {
-  const palette = tone === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' : 'bg-sky-50 border-sky-200 text-slate-800'
-
-  return (
-    <div className={`rounded-xl border p-3 shadow-sm ${palette}`}>
-      <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.28em]">
-        <span>{icon}</span>
-        <span>{title}</span>
-      </div>
-      <ul className="mt-2 space-y-1 text-[12px] leading-snug">
-        {items.length ? (
-          items.map((message) => (
-            <li key={message} className="flex items-start gap-2">
-              <span className="text-sm" aria-hidden="true">
-                •
-              </span>
-              <span>{message}</span>
-            </li>
-          ))
-        ) : (
-          <li>Rien à signaler.</li>
-        )}
-      </ul>
-    </div>
+    </>
   )
 }
 

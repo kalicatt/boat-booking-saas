@@ -49,6 +49,22 @@ module.exports = {
         '.ios-backdrop': {
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)'
+        },
+        '.scrollbar-thin': {
+          scrollbarWidth: 'thin',
+        },
+        '.scrollbar-thin::-webkit-scrollbar': {
+          width: '6px',
+        },
+        '.scrollbar-track-slate-900::-webkit-scrollbar-track': {
+          backgroundColor: '#0f172a',
+        },
+        '.scrollbar-thumb-slate-700::-webkit-scrollbar-thumb': {
+          backgroundColor: '#334155',
+          borderRadius: '3px',
+        },
+        '.scrollbar-thumb-slate-700::-webkit-scrollbar-thumb:hover': {
+          backgroundColor: '#475569',
         }
       })
     })

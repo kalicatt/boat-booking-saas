@@ -4,6 +4,7 @@ import { auth } from '@/auth'
 import { createLog } from '@/lib/logger'
 import { BlockCreateSchema, BlockUpdateSchema } from '@/lib/validation'
 import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { cacheInvalidatePattern } from '@/lib/cache'
 
 export async function GET() {
   try {
@@ -115,6 +116,10 @@ export async function POST(req: Request) {
         'BLOCK_ADD',
         `Blocage récurrent ${scope} du ${start} au ${repeatUntil}${reason ? ` (${reason})` : ''}`
       )
+      
+      // Invalider le cache des disponibilités
+      cacheInvalidatePattern('availability:')
+      
       return NextResponse.json({ created: createdBlocks.length })
     }
 
@@ -129,6 +134,11 @@ export async function POST(req: Request) {
     })
 
     await createLog('BLOCK_ADD', `Blocage ${scope} du ${start} au ${end}${reason ? ` (${reason})` : ''}`)
+    
+    // Invalider le cache des disponibilités pour la date concernée
+    const blockDate = normalizedStart.toISOString().split('T')[0]
+    cacheInvalidatePattern(`availability:${blockDate}:`)
+    
     return NextResponse.json(created)
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
@@ -154,6 +164,11 @@ export async function DELETE(req: Request) {
 
     const deleted = await prisma.blockedInterval.delete({ where: { id } })
     await createLog('BLOCK_DELETE', `Suppression blocage ${deleted.scope} (${deleted.start.toISOString()} -> ${deleted.end.toISOString()})`)
+    
+    // Invalider le cache des disponibilités pour la date concernée
+    const blockDate = deleted.start.toISOString().split('T')[0]
+    cacheInvalidatePattern(`availability:${blockDate}:`)
+    
     return NextResponse.json({ success: true })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
@@ -197,6 +212,11 @@ export async function PUT(req: Request) {
       }
     })
     await createLog('BLOCK_UPDATE', `Mise à jour blocage ${updated.scope} (${updated.start.toISOString()} -> ${updated.end.toISOString()})`)
+    
+    // Invalider le cache des disponibilités pour la date concernée
+    const blockDate = updated.start.toISOString().split('T')[0]
+    cacheInvalidatePattern(`availability:${blockDate}:`)
+    
     return NextResponse.json(updated)
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)

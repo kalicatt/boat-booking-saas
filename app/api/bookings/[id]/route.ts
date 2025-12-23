@@ -4,6 +4,7 @@ import { cancelBookingWithToken, BookingCancellationError } from '@/lib/bookingC
 import { sendMail } from '@/lib/mailer'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 import { parseParisWallDate } from '@/lib/time'
+import { notifyPlanningUpdate } from '@/lib/planningNotify'
 
 import type { NextRequest } from 'next/server'
 import type { Prisma } from '@prisma/client'
@@ -151,11 +152,16 @@ export async function DELETE(
     await createLog('DELETE_BOOKING', `Réservation ${id} supprimée par ${userName}`)
 
     const recipientEmail = booking.user?.email?.trim() || ''
+    console.log('📧 DELETE - Recipient email:', recipientEmail)
+    console.log('📧 DELETE - Should notify:', shouldNotifyRecipient(recipientEmail))
+    
     if (shouldNotifyRecipient(recipientEmail)) {
       const recipient = recipientEmail
       const firstName = booking.user?.firstName || 'Client'
       const bookingLabel = booking.publicReference || booking.id
       const whenLabel = formatParisDateTime(booking.startTime)
+      console.log('📧 DELETE - Sending email to:', recipient, 'for booking:', bookingLabel)
+      
       const textLines = [
         `Bonjour ${firstName},`,
         '',
@@ -214,10 +220,17 @@ export async function DELETE(
           from: EMAIL_FROM.reservations,
           replyTo: EMAIL_ROLES.contact
         })
+        console.log('✅ DELETE - Email sent successfully to:', recipient)
       } catch (mailError) {
-        console.error('Erreur envoi email suppression réservation:', mailError)
+        console.error('❌ Erreur envoi email suppression réservation:', mailError)
+        // Ne pas bloquer la suppression si l'email échoue
       }
+    } else {
+      console.log('⏭️ DELETE - Email skipped (filtered or empty)')
     }
+
+    // Notifier le planning en temps réel
+    await notifyPlanningUpdate()
 
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -243,11 +256,13 @@ export async function PATCH(
 
   try {
     const body = await request.json()
-    const { start, date, time, newCheckinStatus, newIsPaid, adults, children, babies, language, paymentMethod } = body
+    const { start, date, time, newCheckinStatus, newIsPaid, adults, children, babies, language, paymentMethod, sendNotification } = body
 
     const dataToUpdate: Prisma.BookingUpdateInput = {}
     const userName = user.firstName || 'Admin'
     let logMessage = `Admin ${userName} met à jour réservation ${id}: `
+    // Par défaut, envoyer notification sauf si explicitement désactivé
+    const shouldSendNotification = sendNotification !== false
 
     // Time update: either explicit 'start' ISO or 'date' + 'time'
     if (start || (date && time)) {
@@ -361,7 +376,7 @@ export async function PATCH(
     await createLog('UPDATE_BOOKING_ADMIN', logMessage)
 
     const recipientEmail = updatedBooking.user?.email?.trim() || ''
-    if (shouldNotifyRecipient(recipientEmail)) {
+    if (shouldSendNotification && shouldNotifyRecipient(recipientEmail)) {
       const bookingLabel = updatedBooking.publicReference || updatedBooking.id
       const oldStart = existingBooking.startTime
       const newStart = updatedBooking.startTime
@@ -487,6 +502,9 @@ export async function PATCH(
         console.error('Erreur envoi email mise à jour réservation:', mailError)
       }
     }
+
+    // Notifier le planning en temps réel
+    await notifyPlanningUpdate()
 
     return NextResponse.json({ success: true, booking: updatedBooking })
   } catch (error: unknown) {

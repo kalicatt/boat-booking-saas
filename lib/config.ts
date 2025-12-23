@@ -14,10 +14,12 @@ export const PAYMENT_TIMEOUT_MINUTES = 5;
 export const DEPARTURE_INTERVAL_MINUTES = 5;
 
 // Per-boat departure offsets within a 30-minute cycle so that:
-// - Boat 1 departs at :00, arrives at :25, and can depart again at :30 (after 5 min buffer)
-// - Boat 4 departs at :25, exactly when Boat 1 arrives
+// - Boat 1 departs at :00/:30, arrives at :25/:55
+// - Boat 2 departs at :05/:35
+// - Boat 3 departs at :20/:50 (just before Boat 4)
+// - Boat 4 departs at :25/:55 (exactly when Boat 1 arrives)
 // Adjust length based on actual fleet size (use first N offsets)
-export const BOAT_DEPARTURE_OFFSETS_MINUTES: number[] = [0, 5, 10, 25];
+export const BOAT_DEPARTURE_OFFSETS_MINUTES: number[] = [0, 5, 20, 25];
 
 // Default capacities (fallback) – actual boat capacity from DB overrides
 export const DEFAULT_BOAT_CAPACITY = 12;
