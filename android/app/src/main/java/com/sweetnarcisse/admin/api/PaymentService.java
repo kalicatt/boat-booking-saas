@@ -167,4 +167,35 @@ public class PaymentService {
             throw new RuntimeException("Failed to build confirm request", e);
         }
     }
+    
+    /**
+     * Enregistrer un paiement manuel (sans réservation) dans le backend
+     * 
+     * POST /api/mobile/payments/record
+     * Body: { paymentIntentId: string, amountCents: number, currency: string, description?: string }
+     */
+    public void recordManualPayment(String paymentIntentId, int amountCents, String currency, String description, Callback callback) {
+        try {
+            JSONObject json = new JSONObject();
+            json.put("paymentIntentId", paymentIntentId);
+            json.put("amountCents", amountCents);
+            json.put("currency", currency != null ? currency : "EUR");
+            if (description != null) {
+                json.put("description", description);
+            }
+            
+            RequestBody body = RequestBody.create(json.toString(), JSON);
+            String url = baseUrl + "/api/mobile/payments/record";
+            
+            Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
+            
+            client.newCall(request).enqueue(callback);
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to build record payment request", e);
+        }
+    }
 }

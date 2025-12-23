@@ -206,6 +206,19 @@ public class PaymentActivity extends AppCompatActivity {
             }
         }
         
+        // Vérifier si un reader est déjà connecté
+        Reader connectedReader = terminalManager.getTerminal().getConnectedReader();
+        if (connectedReader != null) {
+            Log.d(TAG, "Reader already connected: " + connectedReader.getSerialNumber());
+            // Réutiliser le reader connecté
+            if (clientSecret != null && !clientSecret.isEmpty()) {
+                collectPaymentMethod(clientSecret);
+            } else {
+                createPaymentIntent();
+            }
+            return;
+        }
+        
         // Déterminer si on est en mode debug (simulated)
         boolean isDebuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
         Log.d(TAG, "Starting reader discovery, simulated=" + isDebuggable);
@@ -390,10 +403,13 @@ public class PaymentActivity extends AppCompatActivity {
         terminalManager.getTerminal().confirmPaymentIntent(currentPaymentIntent, new PaymentIntentCallback() {
             @Override
             public void onSuccess(PaymentIntent paymentIntent) {
-                Log.d(TAG, "Payment confirmed: " + paymentIntent.getId() + ", status: " + paymentIntent.getStatus());
+                String status = paymentIntent.getStatus().toString().toLowerCase();
+                Log.d(TAG, "Payment confirmed: " + paymentIntent.getId() + ", status: " + status);
                 currentPaymentIntent = paymentIntent;
                 
-                if ("succeeded".equals(paymentIntent.getStatus().toString().toLowerCase())) {
+                // REQUIRES_CAPTURE est normal pour Terminal - Stripe capture automatiquement
+                // SUCCEEDED signifie déjà capturé
+                if ("succeeded".equals(status) || "requires_capture".equals(status)) {
                     runOnUiThread(() -> handlePaymentSuccess());
                 } else {
                     runOnUiThread(() -> {
@@ -418,7 +434,7 @@ public class PaymentActivity extends AppCompatActivity {
         updateStatus("Paiement réussi !");
         
         if ("triggered".equals(mode) && sessionId != null) {
-            // Confirmer le paiement côté backend
+            // Confirmer le paiement côté backend (mode triggered avec réservation)
             paymentService.confirmPayment(sessionId, currentPaymentIntent.getId(), new okhttp3.Callback() {
                 @Override
                 public void onFailure(Call call, IOException e) {
@@ -448,9 +464,46 @@ public class PaymentActivity extends AppCompatActivity {
                 }
             });
         } else {
-            hideProgress();
-            Toast.makeText(this, "Paiement réussi !", Toast.LENGTH_SHORT).show();
-            finishSuccess();
+            // Mode manuel: enregistrer le paiement dans le backend
+            Log.d(TAG, "Recording manual payment: " + currentPaymentIntent.getId() + ", amount=" + amountCents);
+            paymentService.recordManualPayment(
+                currentPaymentIntent.getId(),
+                amountCents,
+                currency,
+                "Paiement Tap to Pay manuel",
+                new okhttp3.Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        Log.e(TAG, "Record payment failed", e);
+                        runOnUiThread(() -> {
+                            hideProgress();
+                            Toast.makeText(PaymentActivity.this, 
+                                "Paiement réussi mais non enregistré", 
+                                Toast.LENGTH_LONG).show();
+                            finishSuccess();
+                        });
+                    }
+                    
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String responseBody = response.body() != null ? response.body().string() : "";
+                        Log.d(TAG, "Record payment response: " + response.code() + " - " + responseBody);
+                        runOnUiThread(() -> {
+                            hideProgress();
+                            if (response.isSuccessful()) {
+                                Toast.makeText(PaymentActivity.this, 
+                                    "Paiement enregistré !", 
+                                    Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(PaymentActivity.this, 
+                                    "Paiement réussi (sync partielle)", 
+                                    Toast.LENGTH_SHORT).show();
+                            }
+                            finishSuccess();
+                        });
+                    }
+                }
+            );
         }
     }
     
