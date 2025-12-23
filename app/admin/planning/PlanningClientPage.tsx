@@ -61,8 +61,16 @@ export function PlanningClientPage({ boats, bookings }: PlanningClientPageProps)
   } | null>(null)
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'CONFIRMED' | 'PENDING'>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
-  const [lastRefresh, setLastRefresh] = useState(new Date())
+  // Initialize with null to avoid hydration mismatch, set actual date after mount
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [isLive, setIsLive] = useState(false)
+  const [hasMounted, setHasMounted] = useState(false)
+
+  // Set initial values after mount to avoid hydration mismatch
+  useEffect(() => {
+    setHasMounted(true)
+    setLastRefresh(new Date())
+  }, [])
 
   // Connexion SSE pour les mises à jour en temps réel
   useEffect(() => {
@@ -350,7 +358,7 @@ export function PlanningClientPage({ boats, bookings }: PlanningClientPageProps)
             <button
               onClick={handleManualRefresh}
               className="p-2 text-slate-600 hover:text-sky-600 hover:bg-slate-100 rounded-lg transition"
-              title={`Dernière mise à jour : ${format(lastRefresh, 'HH:mm:ss')}`}
+              title={lastRefresh ? `Dernière mise à jour : ${format(lastRefresh, 'HH:mm:ss')}` : 'Rafraîchir'}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
