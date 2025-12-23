@@ -270,9 +270,17 @@ export default function ReservationsAdminPage() {
 	}, [])
 	const [cachedBookings, setCachedBookings] = useState<Booking[] | null>(null)
 	const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null)
-	const [isOffline, setIsOffline] = useState(() =>
-		typeof navigator !== 'undefined' ? !navigator.onLine : false
-	)
+	// Start with false to match server-side rendering, then update in useEffect
+	const [isOffline, setIsOffline] = useState(false)
+	const [hasMounted, setHasMounted] = useState(false)
+
+	// Sync offline status after mount to avoid hydration mismatch
+	useEffect(() => {
+		setHasMounted(true)
+		if (typeof navigator !== 'undefined') {
+			setIsOffline(!navigator.onLine)
+		}
+	}, [])
 
 	const languageOptions = useMemo(() => {
 		const base = [...LANGUAGE_OPTIONS]
@@ -661,7 +669,8 @@ export default function ReservationsAdminPage() {
 							<StatCard label="À venir" value={stats.upcoming} tone="bg-sky-50 text-sky-700 border border-sky-200" />
 						</div>
 					</div>
-					{(isOffline || cacheTimeLabel || usingCachedData || (!!error && !data)) && (
+					{/* Only render status pills after mount to avoid hydration mismatch */}
+					{hasMounted && (isOffline || cacheTimeLabel || usingCachedData || (!!error && !data)) && (
 						<div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-wide">
 							{isOffline ? (
 								<span className="sn-pill sn-pill--amber">
