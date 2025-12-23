@@ -140,11 +140,15 @@ public class PaymentPollingService extends Service {
             
             JSONObject session = json.getJSONObject("session");
             String sessionId = session.getString("id");
-            String bookingId = session.getString("bookingId");
+            String bookingId = session.optString("bookingId", "");
             int amountCents = session.getInt("amount");
             String currency = session.optString("currency", "EUR");
             
-            Log.i(TAG, "Session claimed: " + sessionId + ", montant: " + amountCents + " " + currency);
+            // Récupérer le clientSecret depuis la session (le backend le met dans session.clientSecret)
+            String clientSecret = session.optString("clientSecret", null);
+            String locationId = json.optString("locationId", null);
+            
+            Log.i(TAG, "Session claimed: " + sessionId + ", montant: " + amountCents + " " + currency + ", hasSecret: " + (clientSecret != null));
             
             // Mettre à jour la notification
             updateNotification("Paiement de " + formatAmount(amountCents, currency) + " en attente");
@@ -155,9 +159,30 @@ public class PaymentPollingService extends Service {
             broadcast.putExtra("bookingId", bookingId);
             broadcast.putExtra("amountCents", amountCents);
             broadcast.putExtra("currency", currency);
+            broadcast.putExtra("mode", "triggered");
             
-            // Extraire metadata
-            if (session.has("metadata")) {
+            // Ajouter clientSecret et locationId si présents
+            if (clientSecret != null && !clientSecret.isEmpty()) {
+                broadcast.putExtra("clientSecret", clientSecret);
+            }
+            if (locationId != null && !locationId.isEmpty()) {
+                broadcast.putExtra("locationId", locationId);
+            }
+            
+            // Extraire infos booking
+            if (json.has("booking")) {
+                JSONObject booking = json.getJSONObject("booking");
+                String customerName = "";
+                if (booking.has("user")) {
+                    JSONObject user = booking.getJSONObject("user");
+                    String firstName = user.optString("firstName", "");
+                    String lastName = user.optString("lastName", "");
+                    customerName = (lastName + " " + firstName).trim();
+                }
+                broadcast.putExtra("customerName", customerName);
+                broadcast.putExtra("bookingReference", booking.optString("publicReference", ""));
+            } else if (session.has("metadata")) {
+                // Fallback sur metadata de session
                 JSONObject metadata = session.getJSONObject("metadata");
                 broadcast.putExtra("customerName", metadata.optString("customer", ""));
                 broadcast.putExtra("bookingReference", metadata.optString("bookingReference", ""));

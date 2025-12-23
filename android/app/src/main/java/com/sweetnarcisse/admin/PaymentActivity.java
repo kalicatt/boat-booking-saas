@@ -28,6 +28,7 @@ import com.stripe.stripeterminal.external.models.PaymentIntentParameters;
 import com.stripe.stripeterminal.external.models.Reader;
 import com.stripe.stripeterminal.external.models.TerminalException;
 import com.sweetnarcisse.admin.api.PaymentService;
+import com.sweetnarcisse.admin.terminal.TerminalManager;
 
 import org.json.JSONObject;
 
@@ -60,12 +61,15 @@ public class PaymentActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     
     private PaymentService paymentService;
+    private TerminalManager terminalManager;
     
     private String mode = "manual";
     private String sessionId;
     private String bookingId;
     private int amountCents;
     private String currency = "EUR";
+    private String clientSecret; // Pour mode triggered avec intent pré-créé
+    private String locationId;   // Location Stripe Terminal
     
     private Cancelable pendingOperation;
     private PaymentIntent currentPaymentIntent;
@@ -91,6 +95,15 @@ public class PaymentActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progressBar);
         
         paymentService = new PaymentService();
+        terminalManager = TerminalManager.getInstance(this);
+        
+        // Initialiser Stripe Terminal
+        try {
+            terminalManager.initialize();
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize Terminal", e);
+            Toast.makeText(this, "Erreur initialisation Terminal: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
         
         loadIntent();
         
@@ -106,12 +119,14 @@ public class PaymentActivity extends AppCompatActivity {
             bookingId = getIntent().getStringExtra("bookingId");
             amountCents = getIntent().getIntExtra("amountCents", 0);
             currency = getIntent().getStringExtra("currency");
+            clientSecret = getIntent().getStringExtra("clientSecret");
+            locationId = getIntent().getStringExtra("locationId");
             String customerName = getIntent().getStringExtra("customerName");
             String bookingReference = getIntent().getStringExtra("bookingReference");
             
-            Log.d(TAG, "Mode triggered: session=" + sessionId + ", montant=" + amountCents);
+            Log.d(TAG, "Mode triggered: session=" + sessionId + ", montant=" + amountCents + ", hasSecret=" + (clientSecret != null));
             
-            modeLabel.setText("🌐 Paiement déclenché depuis le web");
+            modeLabel.setText("Paiement déclenché depuis le web");
             customerNameText.setText(customerName != null && !customerName.isEmpty() 
                 ? customerName : "Client");
             bookingReferenceText.setText(bookingReference != null && !bookingReference.isEmpty()
@@ -122,7 +137,8 @@ public class PaymentActivity extends AppCompatActivity {
             amountInput.setEnabled(false);
             
         } else {
-            modeLabel.setText("💳 Paiement manuel");
+            mode = "manual";
+            modeLabel.setText("Paiement manuel");
             customerNameText.setText("Entrez le montant à encaisser");
             bookingReferenceText.setText("");
             amountInput.setEnabled(true);
@@ -172,7 +188,7 @@ public class PaymentActivity extends AppCompatActivity {
         
         DiscoveryConfiguration config = new DiscoveryConfiguration.TapToPayDiscoveryConfiguration(isDebuggable);
         
-        pendingOperation = Terminal.getInstance().discoverReaders(
+        pendingOperation = terminalManager.getTerminal().discoverReaders(
             config,
             new DiscoveryListener() {
                 @Override
@@ -206,19 +222,26 @@ public class PaymentActivity extends AppCompatActivity {
         updateStatus("Connexion au terminal...");
         
         // Configuration de connexion Tap to Pay
-        // Note: Remplacer LOCATION_ID par l'ID réel de votre location Stripe Terminal
-        String locationId = "tml_xxx"; // TODO: Configurer dynamiquement
+        // Utiliser locationId de l'intent ou variable d'environnement
+        String location = locationId != null ? locationId : "tml_FzriKWyLWUCIiN"; // Default location
         ConnectionConfiguration config = new ConnectionConfiguration.TapToPayConnectionConfiguration(
-            locationId,
+            location,
             true,  // autoReconnectOnUnexpectedDisconnect
             null   // TapToPayReaderListener optionnel
         );
         
-        Terminal.getInstance().connectReader(reader, config, new ReaderCallback() {
+        terminalManager.getTerminal().connectReader(reader, config, new ReaderCallback() {
             @Override
             public void onSuccess(Reader connectedReader) {
                 Log.d(TAG, "Reader connected: " + connectedReader.getSerialNumber());
-                runOnUiThread(() -> createPaymentIntent());
+                runOnUiThread(() -> {
+                    // Si on a déjà un clientSecret (mode triggered), on skip la création
+                    if (clientSecret != null && !clientSecret.isEmpty()) {
+                        collectPaymentMethod(clientSecret);
+                    } else {
+                        createPaymentIntent();
+                    }
+                });
             }
             
             @Override
@@ -235,69 +258,36 @@ public class PaymentActivity extends AppCompatActivity {
     private void createPaymentIntent() {
         updateStatus("Création du paiement...");
         
-        if ("triggered".equals(mode) && sessionId != null && bookingId != null) {
-            // Utiliser l'API backend pour créer le PaymentIntent
-            paymentService.createPaymentIntent(sessionId, bookingId, amountCents, new okhttp3.Callback() {
-                @Override
-                public void onFailure(Call call, IOException e) {
-                    Log.e(TAG, "Create intent API failed", e);
-                    runOnUiThread(() -> {
-                        hideProgress();
-                        handleError("Erreur réseau: " + e.getMessage());
-                    });
-                }
-                
-                @Override
-                public void onResponse(Call call, Response response) throws IOException {
-                    String body = response.body().string();
-                    
-                    if (response.isSuccessful()) {
-                        try {
-                            JSONObject json = new JSONObject(body);
-                            JSONObject paymentIntent = json.getJSONObject("paymentIntent");
-                            String clientSecret = paymentIntent.getString("clientSecret");
-                            
-                            runOnUiThread(() -> collectPaymentMethod(clientSecret));
-                        } catch (Exception e) {
-                            Log.e(TAG, "Parse intent failed", e);
-                            runOnUiThread(() -> {
-                                hideProgress();
-                                handleError("Erreur parsing réponse");
-                            });
-                        }
-                    } else {
-                        runOnUiThread(() -> {
-                            hideProgress();
-                            handleError("Erreur création paiement: " + response.code());
-                        });
-                    }
-                }
-            });
-        } else {
-            // Mode manuel: créer PaymentIntent local
-            PaymentIntentParameters params = new PaymentIntentParameters.Builder()
-                .setAmount((long) amountCents)
-                .setCurrency(currency.toLowerCase())
-                .build();
-            
-            Terminal.getInstance().createPaymentIntent(params, new PaymentIntentCallback() {
-                @Override
-                public void onSuccess(PaymentIntent paymentIntent) {
-                    Log.d(TAG, "PaymentIntent created: " + paymentIntent.getId());
-                    currentPaymentIntent = paymentIntent;
-                    runOnUiThread(() -> collectPaymentMethod(null));
-                }
-                
-                @Override
-                public void onFailure(TerminalException e) {
-                    Log.e(TAG, "Create intent failed", e);
-                    runOnUiThread(() -> {
-                        hideProgress();
-                        handleError("Création paiement échouée: " + e.getErrorMessage());
-                    });
-                }
-            });
+        // En mode triggered, le PaymentIntent est déjà créé par le backend
+        // On doit juste le collecter avec le clientSecret
+        if ("triggered".equals(mode) && clientSecret != null && !clientSecret.isEmpty()) {
+            collectPaymentMethod(clientSecret);
+            return;
         }
+        
+        // Mode manuel: créer PaymentIntent local via Terminal SDK
+        PaymentIntentParameters params = new PaymentIntentParameters.Builder()
+            .setAmount((long) amountCents)
+            .setCurrency(currency.toLowerCase())
+            .build();
+        
+        terminalManager.getTerminal().createPaymentIntent(params, new PaymentIntentCallback() {
+            @Override
+            public void onSuccess(PaymentIntent paymentIntent) {
+                Log.d(TAG, "PaymentIntent created: " + paymentIntent.getId());
+                currentPaymentIntent = paymentIntent;
+                runOnUiThread(() -> collectPaymentMethod(null));
+            }
+            
+            @Override
+            public void onFailure(TerminalException e) {
+                Log.e(TAG, "Create intent failed", e);
+                runOnUiThread(() -> {
+                    hideProgress();
+                    handleError("Création paiement échouée: " + e.getErrorMessage());
+                });
+            }
+        });
     }
     
     private void collectPaymentMethod(String clientSecret) {
@@ -325,14 +315,14 @@ public class PaymentActivity extends AppCompatActivity {
             }
         };
         
-        if (clientSecret != null) {
+        if (clientSecret != null && !clientSecret.isEmpty()) {
             // Retrieve + collect avec client secret du backend
-            Terminal.getInstance().retrievePaymentIntent(clientSecret, new PaymentIntentCallback() {
+            terminalManager.getTerminal().retrievePaymentIntent(clientSecret, new PaymentIntentCallback() {
                 @Override
                 public void onSuccess(PaymentIntent paymentIntent) {
                     currentPaymentIntent = paymentIntent;
                     // Stripe Terminal 4.x: collectPaymentMethod(paymentIntent, callback, config)
-                    Terminal.getInstance().collectPaymentMethod(paymentIntent, callback, config);
+                    terminalManager.getTerminal().collectPaymentMethod(paymentIntent, callback, config);
                 }
                 
                 @Override
@@ -346,7 +336,7 @@ public class PaymentActivity extends AppCompatActivity {
             });
         } else {
             // Collect direct avec PaymentIntent local
-            Terminal.getInstance().collectPaymentMethod(currentPaymentIntent, callback, config);
+            terminalManager.getTerminal().collectPaymentMethod(currentPaymentIntent, callback, config);
         }
     }
     
@@ -354,7 +344,7 @@ public class PaymentActivity extends AppCompatActivity {
         updateStatus("Traitement du paiement...");
         
         // Stripe Terminal 4.x: confirmPaymentIntent(paymentIntent, callback)
-        Terminal.getInstance().confirmPaymentIntent(currentPaymentIntent, new PaymentIntentCallback() {
+        terminalManager.getTerminal().confirmPaymentIntent(currentPaymentIntent, new PaymentIntentCallback() {
             @Override
             public void onSuccess(PaymentIntent paymentIntent) {
                 Log.d(TAG, "Payment confirmed: " + paymentIntent.getId() + ", status: " + paymentIntent.getStatus());
@@ -382,7 +372,7 @@ public class PaymentActivity extends AppCompatActivity {
     }
     
     private void handlePaymentSuccess() {
-        updateStatus("✅ Paiement réussi !");
+        updateStatus("Paiement réussi !");
         
         if ("triggered".equals(mode) && sessionId != null) {
             // Confirmer le paiement côté backend

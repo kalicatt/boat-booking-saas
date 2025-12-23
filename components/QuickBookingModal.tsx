@@ -40,6 +40,7 @@ const LAST_STEP_INDEX = BOOKING_STEPS.length - 1
 const PAYMENT_OPTIONS = [
     { value: 'cash', label: 'Espèces' },
     { value: 'card', label: 'Carte bancaire' },
+    { value: 'terminal', label: 'Tap to Pay (Terminal)' },
     { value: 'paypal', label: 'PayPal' },
     { value: 'applepay', label: 'Apple Pay' },
     { value: 'googlepay', label: 'Google Pay' },
@@ -410,7 +411,8 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
         }
         const finalMessage = finalMessagePieces.join('\n')
 
-        const shouldTriggerTapToPay = markAsPaid && paymentMethod === 'card'
+        // Tap to Pay uniquement si on sélectionne explicitement "terminal"
+        const shouldTriggerTapToPay = markAsPaid && paymentMethod === 'terminal'
 
         let manualPaymentPayload: Record<string, unknown> | null = null
         if (markAsPaid && paymentMethod && (paymentMethod === 'voucher' || paymentMethod === 'check')) {
@@ -979,6 +981,18 @@ export default function QuickBookingModal({ slotStart, boatId, resources, onClos
                                                             : `Manque ${Math.abs(cashDifference).toFixed(2)} €`}
                                                     </p>
                                                 )}
+                                            </div>
+                                        )}
+
+                                        {paymentMethod === 'terminal' && (
+                                            <div className="sm:col-span-2 mt-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                                <p className="text-sm text-blue-800 font-medium">
+                                                    📱 Tap to Pay
+                                                </p>
+                                                <p className="text-xs text-blue-600 mt-1">
+                                                    La demande de paiement sera envoyée au téléphone Android.
+                                                    Le client pourra taper sa carte directement sur le téléphone.
+                                                </p>
                                             </div>
                                         )}
                                         </div>

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { attachIntentToSession, claimNextSession, failSession } from '@/lib/payments/paymentSessions'
-import { createTapToPayIntent } from '@/lib/payments/stripeTerminal'
+import { createTapToPayIntent, getTerminalLocation } from '@/lib/payments/stripeTerminal'
 
 export const runtime = 'nodejs'
 
@@ -83,7 +83,8 @@ export async function GET(request: Request) {
           booking,
           intentId: paymentIntent.id,
           clientSecret: paymentIntent.client_secret
-        }
+        },
+        locationId: getTerminalLocation() || null
       })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to create Stripe intent'
