@@ -28,6 +28,7 @@ import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileT
 import { getBoatTheme } from '../_components/boatThemes'
 import { BookingDetailsModal } from '../_components/BookingDetailsModal'
 import { WeatherWidget } from '../_components/WeatherWidget'
+import { WebQrScanner } from '../_components/WebQrScanner'
 import {
   type BookingDetails,
   type PaymentMarkState,
@@ -278,6 +279,7 @@ export default function ClientPage() {
 
   const [scanState, setScanState] = useState<'idle' | 'scanning' | 'submitting' | 'success' | 'error'>('idle')
   const [scanMessage, setScanMessage] = useState('')
+  const [webScannerOpen, setWebScannerOpen] = useState(false)
   const scanResetTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const cancelScanRef = useRef<(() => Promise<void>) | null>(null)
   const cancelledByUserRef = useRef(false)
@@ -285,6 +287,15 @@ export default function ClientPage() {
   const [statusLoading, setStatusLoading] = useState<string | null>(null)
   const [completionLoading, setCompletionLoading] = useState<string | null>(null)
   const actionFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Check if we're in native Capacitor app (not just mobile web)
+  const isCapacitorNative = useMemo(() => {
+    try {
+      return Capacitor?.isNativePlatform?.() === true
+    } catch {
+      return false
+    }
+  }, [])
 
   const dateRange = useMemo(() => {
     const now = currentDate
@@ -598,13 +609,83 @@ export default function ClientPage() {
     }
   }, [])
 
+  // Handle web scanner results
+  const handleWebScanResult = useCallback(async (rawValue: string) => {
+    setWebScannerOpen(false)
+    
+    let bookingId: string | null = null
+    try {
+      const parsed = JSON.parse(rawValue) as { type?: string; bookingId?: unknown }
+      if (parsed?.type === 'booking' && typeof parsed.bookingId === 'string') {
+        bookingId = parsed.bookingId
+      }
+    } catch {
+      // ignore parsing error
+    }
+
+    if (!bookingId) {
+      setScanState('error')
+      setScanMessage('QR code non reconnu.')
+      scheduleScanReset()
+      return
+    }
+
+    try {
+      setScanState('submitting')
+      setScanMessage('Validation en cours…')
+
+      const response = await fetch(`/api/bookings/${bookingId}/checkin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'EMBARQUED' })
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(payload?.error ?? 'Validation impossible.')
+      }
+
+      await fetchBookings()
+      setScanState('success')
+      setScanMessage('Embarquement validé ✅')
+      scheduleScanReset()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Validation impossible.'
+      setScanState('error')
+      setScanMessage(message)
+      scheduleScanReset()
+    }
+  }, [fetchBookings, scheduleScanReset])
+
+  const handleWebScanError = useCallback((error: string) => {
+    setWebScannerOpen(false)
+    setScanState('error')
+    setScanMessage(error)
+    scheduleScanReset()
+  }, [scheduleScanReset])
+
+  const handleWebScanClose = useCallback(() => {
+    setWebScannerOpen(false)
+    setScanState('idle')
+    setScanMessage('')
+  }, [])
+
   const handleScanPress = useCallback(async () => {
     if (!isNative) return
 
+    // If not in native Capacitor app, use web scanner
+    if (!isCapacitorNative) {
+      setWebScannerOpen(true)
+      setScanState('scanning')
+      setScanMessage('Scannez un QR code…')
+      return
+    }
+
     if (!Capacitor.isPluginAvailable('BarcodeScanner')) {
-      setScanState('error')
-      setScanMessage('Scanner indisponible sur cet appareil.')
-      scheduleScanReset()
+      // Fallback to web scanner
+      setWebScannerOpen(true)
+      setScanState('scanning')
+      setScanMessage('Scannez un QR code…')
       return
     }
 
@@ -612,9 +693,10 @@ export default function ClientPage() {
       try {
         const { supported } = await BarcodeScanner.isSupported()
         if (!supported) {
-          setScanState('error')
-          setScanMessage('Scanner indisponible sur cet appareil.')
-          scheduleScanReset()
+          // Fallback to web scanner
+          setWebScannerOpen(true)
+          setScanState('scanning')
+          setScanMessage('Scannez un QR code…')
           return
         }
       } catch {
@@ -785,7 +867,7 @@ export default function ClientPage() {
         }
       }
     }
-  }, [isNative, ensureCameraPermission, fetchBookings, scheduleScanReset, clearScanReset])
+  }, [isNative, isCapacitorNative, ensureCameraPermission, fetchBookings, scheduleScanReset, clearScanReset])
 
   useEffect(() => {
     return () => {
@@ -1701,6 +1783,14 @@ export default function ClientPage() {
           </>
         )}
       </div>
+      
+      {/* Web QR Scanner for mobile web (not native app) */}
+      <WebQrScanner
+        isOpen={webScannerOpen}
+        onScan={handleWebScanResult}
+        onError={handleWebScanError}
+        onClose={handleWebScanClose}
+      />
     </div>
   )
 }

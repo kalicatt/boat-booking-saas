@@ -8,6 +8,7 @@ import { computeBatteryAlert } from '@/lib/maintenance'
 import { ensureAdminPageAccess, canAccessAdminPage } from '@/lib/adminAccess'
 import type { AdminPermissionKey } from '@/types/adminPermissions'
 import { FloatingAlerts } from './_components/FloatingAlerts'
+import { DashboardTiles } from './_components/DashboardTiles'
 
 type DashboardTile = {
   key: AdminPermissionKey
@@ -279,46 +280,19 @@ export default async function AdminDashboard() {
 
       <div className="space-y-6">
         {/* Navigation principale - Grid modernisé */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {DASHBOARD_TILES.map((tile) => {
-            if (!pageAccess[tile.key]) {
-              return null
-            }
-            return (
-              <Link
-                key={tile.key}
-                href={tile.href}
-                className="group relative overflow-hidden bg-white rounded-xl border border-slate-200 p-6 transition-all hover:shadow-lg hover:border-sky-300 hover:-translate-y-0.5"
-              >
-                {/* Icon */}
-                <div className={`mb-4 flex h-12 w-12 items-center justify-center rounded-lg text-2xl ${tile.iconClass}`}>
-                  {tile.icon}
-                </div>
-              
-              {/* Content */}
-              <h3 className={`text-lg font-semibold text-slate-900 mb-2 transition ${tile.hoverText}`}>
-                {tile.label}
-              </h3>
-              <p className="text-sm text-slate-600 line-clamp-2">
-                {tile.description}
-              </p>
-
-              {/* Hover indicator */}
-              <div className="absolute top-0 right-0 w-1 h-full bg-sky-600 transform translate-x-full group-hover:translate-x-0 transition-transform" />
-            </Link>
-          )
-        })}
-      </div>
-
-      {!hasAnyTile && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
-          <div className="text-4xl mb-3">🔒</div>
-          <h3 className="text-lg font-semibold text-amber-900 mb-2">Accès limité</h3>
-          <p className="text-sm text-amber-800">
-            Aucune section n&apos;est active pour votre compte. Contactez un administrateur pour obtenir les accès nécessaires.
-          </p>
-        </div>
-      )}
+        <DashboardTiles 
+          tiles={DASHBOARD_TILES.map(tile => ({
+            key: tile.key,
+            href: tile.href,
+            label: tile.label,
+            description: tile.description,
+            icon: tile.icon,
+            iconClass: tile.iconClass,
+            hoverBorder: tile.hoverBorder,
+            hoverText: tile.hoverText
+          }))} 
+          pageAccess={pageAccess} 
+        />
       </div>
     </>
   )
