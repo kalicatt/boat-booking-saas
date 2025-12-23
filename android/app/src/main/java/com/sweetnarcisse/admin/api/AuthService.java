@@ -31,7 +31,7 @@ public class AuthService {
     }
     
     /**
-     * Connexion avec email + password via NextAuth credentials provider
+     * Connexion avec email + password via API mobile dédiée
      */
     public void login(String email, String password, Callback callback) {
         try {
@@ -39,18 +39,17 @@ public class AuthService {
             JSONObject json = new JSONObject();
             json.put("email", email);
             json.put("password", password);
-            json.put("csrfToken", ""); // NextAuth peut nécessiter un CSRF token
-            json.put("callbackUrl", baseUrl + "/admin");
-            json.put("json", true);
             
             RequestBody body = RequestBody.create(json.toString(), JSON);
             
-            // Endpoint NextAuth credentials
-            String url = baseUrl + "/api/auth/callback/credentials";
+            // API mobile dédiée (retourne du JSON, pas de redirect HTML)
+            String url = baseUrl + "/api/mobile/auth/login";
             
             Request request = new Request.Builder()
                 .url(url)
                 .post(body)
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json")
                 .build();
             
             Log.d(TAG, "Envoi requête de login vers: " + url);
