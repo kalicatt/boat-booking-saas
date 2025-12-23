@@ -1,7 +1,56 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#0f172a</color>
-    <color name="colorPrimaryDark">#070c1a</color>
-    <color name="colorAccent">#38bdf8</color>
-    <color name="splashBackground">#0f172a</color>
+    <!-- Sweet Narcisse - Palette Material Design 3 -->
+    
+    <!-- Primary - Bleu océan -->
+    <color name="colorPrimary">#006494</color>
+    <color name="colorPrimaryDark">#004A6B</color>
+    <color name="colorAccent">#006A6A</color>
+    
+    <color name="md_theme_light_primary">#006494</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#C9E6FF</color>
+    <color name="md_theme_light_onPrimaryContainer">#001E30</color>
+    
+    <!-- Secondary - Turquoise -->
+    <color name="md_theme_light_secondary">#006A6A</color>
+    <color name="md_theme_light_onSecondary">#FFFFFF</color>
+    <color name="md_theme_light_secondaryContainer">#9FF1F1</color>
+    <color name="md_theme_light_onSecondaryContainer">#002020</color>
+    
+    <!-- Tertiary - Orange corail -->
+    <color name="md_theme_light_tertiary">#B8520D</color>
+    <color name="md_theme_light_onTertiary">#FFFFFF</color>
+    <color name="md_theme_light_tertiaryContainer">#FFDBCC</color>
+    <color name="md_theme_light_onTertiaryContainer">#3D1300</color>
+    
+    <!-- Surface & Background -->
+    <color name="md_theme_light_surface">#F9F9FF</color>
+    <color name="md_theme_light_onSurface">#1A1C1E</color>
+    <color name="md_theme_light_surfaceVariant">#DDE3EA</color>
+    <color name="md_theme_light_onSurfaceVariant">#41484D</color>
+    
+    <color name="md_theme_light_background">#F9F9FF</color>
+    <color name="md_theme_light_onBackground">#1A1C1E</color>
+    
+    <!-- Error -->
+    <color name="md_theme_light_error">#BA1A1A</color>
+    <color name="md_theme_light_onError">#FFFFFF</color>
+    <color name="md_theme_light_errorContainer">#FFDAD6</color>
+    <color name="md_theme_light_onErrorContainer">#410002</color>
+    
+    <!-- Outline -->
+    <color name="md_theme_light_outline">#71787E</color>
+    <color name="md_theme_light_outlineVariant">#C1C7CE</color>
+    
+    <!-- Success -->
+    <color name="success">#2E7D32</color>
+    <color name="success_container">#C8E6C9</color>
+    
+    <!-- Warning -->
+    <color name="warning">#F57C00</color>
+    <color name="warning_container">#FFE0B2</color>
+    
+    <!-- Splash -->
+    <color name="splashBackground">#006494</color>
 </resources>
