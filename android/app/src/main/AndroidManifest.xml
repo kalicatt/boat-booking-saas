@@ -52,6 +52,11 @@
             android:screenOrientation="portrait"
             android:launchMode="singleTop" />
 
+        <!-- HistoryActivity -->
+        <activity
+            android:name=".HistoryActivity"
+            android:exported="false" />
+
         <!-- PaymentPollingService - Foreground service pour polling sessions -->
         <service
             android:name=".PaymentPollingService"

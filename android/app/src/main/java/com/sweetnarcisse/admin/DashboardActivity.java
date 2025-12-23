@@ -18,12 +18,16 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
 import com.sweetnarcisse.admin.api.AuthService;
+import com.sweetnarcisse.admin.api.StatsService;
 
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Response;
 
+import org.json.JSONObject;
+
 import java.io.IOException;
+import java.util.Locale;
 
 /**
  * Dashboard principal de l'application
@@ -43,6 +47,7 @@ public class DashboardActivity extends AppCompatActivity {
     private MaterialButton historyButton;
     
     private AuthService authService;
+    private StatsService statsService;
     private PaymentSessionReceiver paymentReceiver;
     
     @Override
@@ -52,6 +57,7 @@ public class DashboardActivity extends AppCompatActivity {
         
         // Initialiser l'API service
         authService = new AuthService();
+        statsService = new StatsService();
         
         // Setup toolbar
         if (getSupportActionBar() != null) {
@@ -92,6 +98,13 @@ public class DashboardActivity extends AppCompatActivity {
     }
     
     @Override
+    protected void onResume() {
+        super.onResume();
+        // Recharger les stats au retour sur le dashboard
+        loadTodayStats();
+    }
+    
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (paymentReceiver != null) {
@@ -126,10 +139,51 @@ public class DashboardActivity extends AppCompatActivity {
     }
     
     private void loadTodayStats() {
-        // TODO: Implémenter l'appel API pour récupérer les stats du jour
-        // Pour l'instant, valeurs par défaut
-        todayCheckinsText.setText("0 embarquements");
-        todayPaymentsText.setText("0 € encaissés");
+        statsService.getTodayStats(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                Log.e(TAG, "Erreur lors du chargement des stats", e);
+                runOnUiThread(() -> {
+                    todayCheckinsText.setText("0 embarquements");
+                    todayPaymentsText.setText("0 € encaissés");
+                });
+            }
+            
+            @Override
+            public void onResponse(Call call, Response response) throws IOException {
+                if (response.isSuccessful() && response.body() != null) {
+                    try {
+                        String responseBody = response.body().string();
+                        JSONObject json = new JSONObject(responseBody);
+                        JSONObject today = json.getJSONObject("today");
+                        
+                        int checkinsCount = today.getInt("checkinsCount");
+                        int paymentsCount = today.getInt("paymentsCount");
+                        double totalAmount = today.getDouble("totalAmount");
+                        
+                        runOnUiThread(() -> {
+                            todayCheckinsText.setText(checkinsCount + " embarquement" + (checkinsCount > 1 ? "s" : ""));
+                            todayPaymentsText.setText(String.format(Locale.FRENCH, "%.2f € encaissés (%d)", totalAmount, paymentsCount));
+                        });
+                        
+                        Log.d(TAG, "Stats chargées: " + checkinsCount + " check-ins, " + paymentsCount + " paiements, " + totalAmount + " €");
+                        
+                    } catch (Exception e) {
+                        Log.e(TAG, "Erreur parsing stats", e);
+                        runOnUiThread(() -> {
+                            todayCheckinsText.setText("0 embarquements");
+                            todayPaymentsText.setText("0 € encaissés");
+                        });
+                    }
+                } else {
+                    Log.w(TAG, "Réponse stats non-200: " + response.code());
+                    runOnUiThread(() -> {
+                        todayCheckinsText.setText("0 embarquements");
+                        todayPaymentsText.setText("0 € encaissés");
+                    });
+                }
+            }
+        });
     }
     
     private void openScanner() {
@@ -143,8 +197,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
     
     private void openHistory() {
-        // TODO: Créer HistoryActivity
-        Log.d(TAG, "Historique pas encore implémenté");
+        Intent intent = new Intent(this, HistoryActivity.class);
+        startActivity(intent);
     }
     
     @Override
