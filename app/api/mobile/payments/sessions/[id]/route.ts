@@ -15,7 +15,7 @@ const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
  */
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth()
   const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
@@ -24,7 +24,7 @@ export async function PATCH(
   }
 
   try {
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const status = body?.status as PaymentSessionStatus
     

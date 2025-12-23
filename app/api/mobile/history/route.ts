@@ -97,7 +97,6 @@ export async function GET(request: NextRequest) {
         where,
         orderBy: [
           { date: 'desc' },
-          { slot: 'desc' },
           { createdAt: 'desc' }
         ],
         take: limit,
@@ -105,20 +104,27 @@ export async function GET(request: NextRequest) {
         select: {
           id: true,
           publicReference: true,
-          customerName: true,
-          customerEmail: true,
-          boat: true,
+          user: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          },
+          boat: {
+            select: {
+              name: true
+            }
+          },
           date: true,
-          slot: true,
+          startTime: true,
+          endTime: true,
           checkinStatus: true,
-          updatedAt: true, // Utilisé comme checkinAt si EMBARQUED
-          paymentStatus: true,
-          paymentMethod: true,
-          paidAt: true,
+          isPaid: true,
           totalPrice: true,
           adults: true,
           children: true,
-          infants: true,
+          babies: true,
           createdAt: true
         }
       }),
@@ -129,20 +135,17 @@ export async function GET(request: NextRequest) {
     const formattedBookings = bookings.map(booking => ({
       id: booking.id,
       publicReference: booking.publicReference,
-      customerName: booking.customerName,
-      customerEmail: booking.customerEmail,
-      boat: booking.boat,
+      customerName: `${booking.user.firstName} ${booking.user.lastName}`,
+      customerEmail: booking.user.email,
+      boat: booking.boat?.name || 'Non assigné',
       date: booking.date.toISOString().split('T')[0],
-      slot: booking.slot,
+      slot: `${booking.startTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} - ${booking.endTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`,
       checkinStatus: booking.checkinStatus,
-      checkinAt: booking.checkinStatus === 'EMBARQUED' ? booking.updatedAt.toISOString() : null,
-      paymentStatus: booking.paymentStatus,
-      paymentMethod: booking.paymentMethod,
-      paidAt: booking.paidAt?.toISOString() || null,
+      isPaid: booking.isPaid,
       totalPrice: booking.totalPrice,
       adults: booking.adults,
       children: booking.children,
-      infants: booking.infants,
+      babies: booking.babies,
       createdAt: booking.createdAt.toISOString()
     }))
 

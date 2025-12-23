@@ -123,14 +123,12 @@ export async function POST(request: NextRequest) {
     // Log l'embarquement
     await createLog(
       'MOBILE_QR_CHECKIN',
-      `Check-in automatique via QR pour ${booking.publicReference} - ${booking.user?.firstName} ${booking.user?.lastName}`,
-      session.user.id
+      `Check-in automatique via QR pour ${booking.publicReference} - ${booking.user?.firstName} ${booking.user?.lastName} par ${session.user.id}`
     )
   } else if (alreadyCheckedIn) {
     await createLog(
       'MOBILE_QR_SCAN_ALREADY_CHECKIN',
-      `QR scanné pour ${booking.publicReference} - Déjà embarqué`,
-      session.user.id
+      `QR scanné pour ${booking.publicReference} - Déjà embarqué par ${session.user.id}`
     )
   }
 
@@ -163,7 +161,6 @@ export async function POST(request: NextRequest) {
       },
       checkinStatus: updatedBooking.checkinStatus,
       status: updatedBooking.status,
-      paymentMethod: updatedBooking.paymentMethod,
       createdAt: updatedBooking.createdAt.toISOString(),
     }
   })

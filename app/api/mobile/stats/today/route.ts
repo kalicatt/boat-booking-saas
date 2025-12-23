@@ -23,22 +23,22 @@ export async function GET(request: Request) {
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
 
-    // Compter les check-ins du jour
+    // Compter les check-ins du jour (réservations avec date aujourd'hui et embarquées)
     const checkinsCount = await prisma.booking.count({
       where: {
         checkinStatus: 'EMBARQUED',
-        updatedAt: {
+        date: {
           gte: startOfDay,
           lte: endOfDay
         }
       }
     })
 
-    // Calculer le total des paiements du jour (PAID)
+    // Calculer le total des paiements du jour (isPaid = true, créés aujourd'hui)
     const paymentsResult = await prisma.booking.aggregate({
       where: {
-        paymentStatus: 'PAID',
-        paidAt: {
+        isPaid: true,
+        createdAt: {
           gte: startOfDay,
           lte: endOfDay
         }
@@ -52,17 +52,17 @@ export async function GET(request: Request) {
     const totalAmount = paymentsResult._sum.totalPrice || 0
     const paymentsCount = paymentsResult._count
 
-    // Dernière réservation embarquée
+    // Dernière réservation embarquée du jour
     const lastCheckin = await prisma.booking.findFirst({
       where: {
         checkinStatus: 'EMBARQUED',
-        updatedAt: {
+        date: {
           gte: startOfDay,
           lte: endOfDay
         }
       },
       orderBy: {
-        updatedAt: 'desc'
+        startTime: 'desc'
       },
       include: {
         user: true,
@@ -81,7 +81,7 @@ export async function GET(request: Request) {
           customerName: `${lastCheckin.user?.firstName || ''} ${lastCheckin.user?.lastName || ''}`.trim(),
           boat: lastCheckin.boat?.name,
           time: lastCheckin.startTime.toISOString(),
-          checkedInAt: lastCheckin.updatedAt.toISOString()
+          checkedInAt: lastCheckin.startTime.toISOString()
         } : null
       }
     })

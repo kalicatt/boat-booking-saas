@@ -6,9 +6,11 @@ import { createLog } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia'
-})
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2025-11-17.clover'
+  })
+}
 
 const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
@@ -44,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     // Vérifier le PaymentIntent avec Stripe
+    const stripe = getStripe()
     const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId)
 
     if (paymentIntent.status !== 'succeeded') {
@@ -55,12 +58,10 @@ export async function POST(request: Request) {
 
     // Mettre à jour la réservation comme payée
     const booking = await prisma.booking.update({
-      where: { id: paymentSession.bookingId },
+      where: { id: paymentSession.bookingId || undefined },
       data: {
-        paymentStatus: 'PAID',
-        paymentMethod: 'card',
-        paidAt: new Date(),
-        stripePaymentIntentId: paymentIntent.id
+        isPaid: true,
+        status: 'CONFIRMED'
       }
     })
 
@@ -84,8 +85,8 @@ export async function POST(request: Request) {
       booking: {
         id: booking.id,
         publicReference: booking.publicReference,
-        paymentStatus: booking.paymentStatus,
-        paidAt: booking.paidAt
+        status: booking.status,
+        isPaid: booking.isPaid
       }
     })
   } catch (error) {
