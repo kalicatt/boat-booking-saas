@@ -196,7 +196,7 @@ export const BookingRequestSchema = z.object({
   message: z.string().optional().transform(v => v ? stripScriptTags(cleanString(v,1000)!) : undefined),
   markAsPaid: z.boolean().optional(),
   paymentMethod: z.union([
-    z.enum(['cash','card','paypal','applepay','googlepay','ANCV','CityPass']),
+    z.enum(['cash','card','paypal','applepay','googlepay','ANCV','CityPass','terminal']),
     z.object({
       provider: z.string().optional(),
       methodType: z.string().optional()
