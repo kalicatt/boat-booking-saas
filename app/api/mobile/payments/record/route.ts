@@ -32,47 +32,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'paymentIntentId and amountCents are required' }, { status: 400 })
     }
 
-    // Vérifier si ce paiement existe déjà dans le ledger
-    const existing = await prisma.ledgerEntry.findFirst({
-      where: { 
-        metadata: {
-          path: ['paymentIntentId'],
-          equals: paymentIntentId
-        }
-      }
-    })
+    const amountEur = amountCents / 100
 
-    if (existing) {
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Payment already recorded',
-        ledgerEntry: existing 
-      })
-    }
-
-    // Enregistrer dans le ledger pour la compta (paiement manuel sans réservation)
-    const ledgerEntry = await prisma.ledgerEntry.create({
+    // Enregistrer dans le PaymentLedger pour la compta
+    const ledgerEntry = await prisma.paymentLedger.create({
       data: {
-        date: new Date(),
-        type: 'CARD',
-        amount: amountCents / 100,
+        eventType: 'SALE',
+        provider: 'card',
+        methodType: 'tap_to_pay',
+        amount: amountCents,
         currency: currency.toUpperCase(),
-        description: description || 'Paiement Tap to Pay manuel',
-        category: 'RECETTE',
-        userId: userId || undefined,
-        metadata: {
-          paymentIntentId,
-          source: 'mobile_terminal',
-          type: 'manual_tap_to_pay',
-          recordedAt: new Date().toISOString()
-        }
+        actorId: userId || undefined,
+        occurredAt: new Date(),
+        note: `${description || 'Paiement Tap to Pay manuel'} - Intent: ${paymentIntentId}`
       }
     })
 
     // Logger l'action
     await createLog(
       'MOBILE_MANUAL_PAYMENT',
-      `Manual Tap to Pay: ${amountCents / 100}€, intent: ${paymentIntentId}`,
+      `Manual Tap to Pay: ${amountEur}€, intent: ${paymentIntentId}`,
       userId
     )
 
@@ -80,9 +59,8 @@ export async function POST(request: Request) {
       success: true,
       ledgerEntry: {
         id: ledgerEntry.id,
-        amount: ledgerEntry.amount,
-        currency: ledgerEntry.currency,
-        description: ledgerEntry.description
+        amount: amountEur,
+        currency: ledgerEntry.currency
       }
     })
   } catch (error) {
