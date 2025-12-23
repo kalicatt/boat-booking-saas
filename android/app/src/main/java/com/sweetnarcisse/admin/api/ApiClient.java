@@ -21,7 +21,7 @@ public class ApiClient {
     private static final String TAG = "ApiClient";
     
     // URL de base de l'API
-    private static final String BASE_URL = "https://sweetnarcisse.fr";
+    private static final String BASE_URL = "https://sweet-narcisse.fr";
     
     // Singleton
     private static OkHttpClient client;
