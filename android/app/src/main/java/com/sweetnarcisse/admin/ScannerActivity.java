@@ -158,11 +158,13 @@ public class ScannerActivity extends AppCompatActivity {
                     InputImage image = InputImage.fromMediaImage(mediaImage,
                         imageProxy.getImageInfo().getRotationDegrees());
                     
-                    processImage(image);
+                    processImage(image, imageProxy);
+                } else {
+                    imageProxy.close();
                 }
+            } else {
+                imageProxy.close();
             }
-            
-            imageProxy.close();
         });
         
         // Camera selector (back camera)
@@ -181,7 +183,7 @@ public class ScannerActivity extends AppCompatActivity {
         }
     }
     
-    private void processImage(InputImage image) {
+    private void processImage(InputImage image, androidx.camera.core.ImageProxy imageProxy) {
         Task<List<Barcode>> result = barcodeScanner.process(image);
         
         result.addOnSuccessListener(barcodes -> {
@@ -193,8 +195,10 @@ public class ScannerActivity extends AppCompatActivity {
                     }
                 }
             }
+            imageProxy.close();
         }).addOnFailureListener(e -> {
             Log.e(TAG, "Erreur lors du scan", e);
+            imageProxy.close();
         });
     }
     
