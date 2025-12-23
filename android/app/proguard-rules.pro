@@ -19,3 +19,24 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# ---- Missing classes for R8 ----
+# Java beans classes not available on Android
+-dontwarn java.beans.**
+
+# SLF4J logging
+-dontwarn org.slf4j.**
+
+# Jackson databind
+-dontwarn com.fasterxml.jackson.databind.**
+-keep class com.fasterxml.jackson.** { *; }
+
+# Stripe Terminal SDK
+-keep class com.stripe.stripeterminal.** { *; }
+-dontwarn com.stripe.stripeterminal.**
+
+# OkHttp
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }

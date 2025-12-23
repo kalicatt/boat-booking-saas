@@ -164,7 +164,9 @@ public class PaymentActivity extends AppCompatActivity {
         }
         
         try {
-            double amount = Double.parseDouble(amountStr);
+            // Remplacer la virgule par un point pour la compatibilité locale française
+            String normalizedAmount = amountStr.replace(',', '.');
+            double amount = Double.parseDouble(normalizedAmount);
             amountCents = (int) Math.round(amount * 100);
             
             if (amountCents <= 0) {
