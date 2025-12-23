@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import OptimizedImage from '@/components/OptimizedImage'
 import { authenticate } from '@/lib/actions'
 import { FormEvent, useEffect, useState, startTransition } from 'react'
@@ -13,6 +14,7 @@ const DATE_FORMAT = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: '2-
 const TIME_FORMAT = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
 
 export default function LoginPage() {
+  const router = useRouter()
   const [errorMessage, setErrorMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
@@ -110,8 +112,10 @@ export default function LoginPage() {
     if (result?.error) {
       setErrorMessage(result.error)
       setIsLoading(false)
-    } else {
-      // Si succès, la redirection se fait côté serveur, on ne fait rien
+    } else if (result?.success) {
+      // Redirection côté client pour éviter les boucles 303 sur mobile
+      router.push('/admin')
+      router.refresh()
     }
   }
   const wrapperClasses = isNative

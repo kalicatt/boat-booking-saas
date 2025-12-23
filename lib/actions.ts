@@ -8,8 +8,10 @@ export async function authenticate(formData: FormData) {
     await signIn('credentials', {
         email: formData.get('email'),
         password: formData.get('password'),
-        redirectTo: '/admin', // On redirige vers le planning après succès
+        redirect: false, // Désactiver la redirection serveur pour éviter les boucles 303 sur mobile
     });
+    // Retourner un succès explicite - la redirection sera gérée côté client
+    return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {
