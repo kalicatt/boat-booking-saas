@@ -51,8 +51,7 @@ export async function POST(request: Request) {
     // Logger l'action
     await createLog(
       'MOBILE_MANUAL_PAYMENT',
-      `Manual Tap to Pay: ${amountEur}€, intent: ${paymentIntentId}`,
-      userId
+      `Manual Tap to Pay: ${amountEur}€, intent: ${paymentIntentId}, user: ${userId || 'unknown'}`
     )
 
     return NextResponse.json({
