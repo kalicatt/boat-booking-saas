@@ -223,8 +223,8 @@ public class DashboardActivity extends AppCompatActivity {
     }
     
     private void openSettings() {
-        // TODO: Créer SettingsActivity
-        Log.d(TAG, "Paramètres pas encore implémentés");
+        Intent intent = new Intent(this, SettingsActivity.class);
+        startActivity(intent);
     }
     
     private void logout() {

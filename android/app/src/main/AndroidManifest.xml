@@ -57,6 +57,11 @@
             android:name=".HistoryActivity"
             android:exported="false" />
 
+        <!-- SettingsActivity -->
+        <activity
+            android:name=".SettingsActivity"
+            android:exported="false" />
+
         <!-- PaymentPollingService - Foreground service pour polling sessions -->
         <service
             android:name=".PaymentPollingService"
