@@ -42,6 +42,16 @@ export function WebQrScanner({ isOpen, onScan, onError, onClose }: WebQrScannerP
     setIsStarting(true)
 
     try {
+      // Check if we're in a secure context (HTTPS or localhost)
+      if (typeof window !== 'undefined' && !window.isSecureContext) {
+        throw new Error("Le scanner nécessite une connexion sécurisée (HTTPS). Utilisez l'adresse en https:// ou localhost.")
+      }
+
+      // Check if mediaDevices API is available
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        throw new Error("L'API caméra n'est pas disponible. Vérifiez que vous utilisez HTTPS.")
+      }
+
       // Request camera permission first
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' } 
@@ -88,8 +98,10 @@ export function WebQrScanner({ isOpen, onScan, onError, onClose }: WebQrScannerP
         onError("Autorisez l'accès à la caméra pour scanner les QR codes.")
       } else if (error.name === 'NotFoundError') {
         onError("Aucune caméra détectée sur cet appareil.")
+      } else if (error.message.includes('getUserMedia') || error.message.includes('mediaDevices')) {
+        onError("Le scanner QR nécessite une connexion HTTPS sécurisée.")
       } else {
-        onError("Impossible de démarrer le scanner: " + error.message)
+        onError(error.message)
       }
     } finally {
       if (mountedRef.current) {
