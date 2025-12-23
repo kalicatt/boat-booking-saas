@@ -101,17 +101,45 @@
                 android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
 
+        <!-- Status text -->
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textSize="14sp"
+            android:textColor="?attr/colorPrimary"
+            android:gravity="center"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/amountLayout"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:text="Présentez la carte..."
+            tools:visibility="visible" />
+
+        <!-- Progress bar -->
+        <ProgressBar
+            android:id="@+id/progressBar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"
+            app:layout_constraintTop_toBottomOf="@id/statusText"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            tools:visibility="visible" />
+
         <!-- Bouton collecter paiement -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/collectPaymentButton"
             android:layout_width="0dp"
             android:layout_height="64dp"
-            android:layout_marginTop="32dp"
+            android:layout_marginTop="24dp"
             android:text="Collecter le paiement"
             android:textSize="18sp"
             app:icon="@android:drawable/ic_menu_send"
             app:iconGravity="textStart"
-            app:layout_constraintTop_toBottomOf="@id/amountLayout"
+            app:layout_constraintTop_toBottomOf="@id/progressBar"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             style="@style/Widget.Material3.Button" />
