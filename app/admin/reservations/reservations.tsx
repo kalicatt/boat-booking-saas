@@ -101,12 +101,35 @@ const CHAIN_CAPACITY = 12
 const CHAIN_INTERVAL_MIN = 30
 const CHAIN_DURATION_MIN = 90
 
+type ApiResponse = {
+	data: Booking[]
+	pagination?: {
+		hasMore: boolean
+		nextCursor: string | null
+		limit: number
+		count: number
+	}
+}
+
 const fetcher = async (url: string): Promise<Booking[]> => {
 	const response = await fetch(url, { cache: 'no-store' })
 	if (!response.ok) {
 		throw new Error(`Erreur ${response.status}`)
 	}
-	return response.json() as Promise<Booking[]>
+	const json: unknown = await response.json()
+	
+	// Handle both old array format and new paginated format
+	if (Array.isArray(json)) {
+		return json as Booking[]
+	}
+	
+	// New paginated response format
+	if (json && typeof json === 'object' && 'data' in json) {
+		const apiResponse = json as ApiResponse
+		return Array.isArray(apiResponse.data) ? apiResponse.data : []
+	}
+	
+	return []
 }
 
 const parseContacts = (input: unknown): ContactOption[] => {
