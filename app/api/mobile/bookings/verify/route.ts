@@ -116,12 +116,12 @@ export async function POST(request: NextRequest) {
     // Log l'embarquement
     await createLog(
       'MOBILE_QR_CHECKIN',
-      `Check-in automatique via QR pour ${booking.publicReference} - ${booking.user?.firstName} ${booking.user?.lastName} par ${session.user.id}`
+      `Check-in automatique via QR pour ${booking.publicReference} - ${booking.user?.firstName} ${booking.user?.lastName} par ${user.userId}`
     )
   } else if (alreadyCheckedIn) {
     await createLog(
       'MOBILE_QR_SCAN_ALREADY_CHECKIN',
-      `QR scanné pour ${booking.publicReference} - Déjà embarqué par ${session.user.id}`
+      `QR scanné pour ${booking.publicReference} - Déjà embarqué par ${user.userId}`
     )
   }
 
