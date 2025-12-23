@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
 
@@ -11,19 +11,17 @@ function getStripe() {
   })
 }
 
-const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
-
 /**
  * API mobile: Créer un PaymentIntent Stripe pour Tap to Pay
  * 
  * POST /api/mobile/payments/create-intent
  * Body: { sessionId: string, bookingId: string, amountCents: number }
+ * Headers: Authorization: Bearer <token>
  */
 export async function POST(request: Request) {
-  const session = await auth()
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!STAFF_ROLES.includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const user = await getMobileUser(request)
+  if (!isStaff(user)) {
+    return forbiddenResponse()
   }
 
   try {

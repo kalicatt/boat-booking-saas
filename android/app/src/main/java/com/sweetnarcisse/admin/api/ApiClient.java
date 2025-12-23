@@ -76,12 +76,13 @@ public class ApiClient {
     }
     
     /**
-     * Interceptor pour gérer les cookies de session NextAuth
+     * Interceptor pour ajouter le token JWT Bearer et gérer les cookies
      */
     static class CookieInterceptor implements Interceptor {
         
         private static final String PREFS_NAME = "SweetNarcissePrefs";
         private static final String KEY_SESSION_COOKIE = "session_cookie";
+        private static final String KEY_AUTH_TOKEN = "auth_token";
         
         private final Context context;
         
@@ -92,20 +93,26 @@ public class ApiClient {
         @Override
         public Response intercept(Chain chain) throws IOException {
             Request original = chain.request();
-            
-            // Ajouter le cookie de session si disponible
             SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            String sessionCookie = prefs.getString(KEY_SESSION_COOKIE, null);
             
             Request.Builder requestBuilder = original.newBuilder();
             
-            if (sessionCookie != null && !sessionCookie.isEmpty()) {
-                requestBuilder.header("Cookie", sessionCookie);
-                Log.d(TAG, "Cookie ajouté à la requête");
+            // 1. Ajouter le token JWT Bearer si disponible (prioritaire pour les API mobiles)
+            String authToken = prefs.getString(KEY_AUTH_TOKEN, null);
+            if (authToken != null && !authToken.isEmpty()) {
+                requestBuilder.header("Authorization", "Bearer " + authToken);
+                Log.d(TAG, "Token Bearer ajouté à la requête");
             }
             
-            // Toujours ajouter User-Agent
+            // 2. Ajouter le cookie de session si disponible (pour compatibilité web)
+            String sessionCookie = prefs.getString(KEY_SESSION_COOKIE, null);
+            if (sessionCookie != null && !sessionCookie.isEmpty()) {
+                requestBuilder.header("Cookie", sessionCookie);
+            }
+            
+            // 3. Toujours ajouter User-Agent et Accept
             requestBuilder.header("User-Agent", "SweetNarcisse-Android/2.0");
+            requestBuilder.header("Accept", "application/json");
             
             Request request = requestBuilder.build();
             Response response = chain.proceed(request);

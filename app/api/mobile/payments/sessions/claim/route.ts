@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { claimNextSession } from '@/lib/payments/paymentSessions'
 
 export const runtime = 'nodejs'
-
-const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 /**
  * API mobile: Claim la prochaine session de paiement en attente
  * Polling par l'app Android toutes les 5-10 secondes
  * 
  * GET /api/mobile/payments/sessions/claim?deviceId=xxx
+ * Headers: Authorization: Bearer <token>
  * 
  * Returns:
  * - 200 + session si une session est disponible
@@ -18,10 +17,9 @@ const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
  * - 403 si pas autorisé
  */
 export async function GET(request: Request) {
-  const session = await auth()
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!STAFF_ROLES.includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const user = await getMobileUser(request)
+  if (!isStaff(user)) {
+    return forbiddenResponse()
   }
 
   try {

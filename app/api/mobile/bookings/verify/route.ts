@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import { verifyBookingToken } from '@/lib/bookingToken'
 import { createLog } from '@/lib/logger'
-
-const AUTHORIZED_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 type VerifyPayload = {
   bookingId: string
@@ -13,15 +11,10 @@ type VerifyPayload = {
 }
 
 export async function POST(request: NextRequest) {
-  // Vérifier authentification
-  const session = await auth()
-  const role = (session?.user as { role?: string | null } | null)?.role ?? 'GUEST'
-
-  if (!session?.user || !AUTHORIZED_ROLES.includes(role)) {
-    return NextResponse.json({ 
-      valid: false, 
-      error: 'Accès refusé - Authentification requise' 
-    }, { status: 403 })
+  // Vérifier authentification mobile
+  const user = await getMobileUser(request)
+  if (!isStaff(user)) {
+    return forbiddenResponse()
   }
 
   let body: VerifyPayload

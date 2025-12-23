@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
 import { createLog } from '@/lib/logger'
@@ -12,21 +12,19 @@ function getStripe() {
   })
 }
 
-const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
-
 /**
  * API mobile: Confirmer un paiement réussi et mettre à jour la réservation
  * 
  * POST /api/mobile/payments/confirm
  * Body: { sessionId: string, paymentIntentId: string }
+ * Headers: Authorization: Bearer <token>
  */
 export async function POST(request: Request) {
-  const session = await auth()
-  const userId = session?.user?.id
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!STAFF_ROLES.includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const user = await getMobileUser(request)
+  if (!isStaff(user)) {
+    return forbiddenResponse()
   }
+  const userId = user?.userId
 
   try {
     const body = await request.json()

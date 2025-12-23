@@ -1,26 +1,24 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { updateSessionStatus } from '@/lib/payments/paymentSessions'
 import type { PaymentSessionStatus } from '@prisma/client'
 
 export const runtime = 'nodejs'
-
-const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 /**
  * API mobile: Mettre à jour le status d'une PaymentSession
  * 
  * PATCH /api/mobile/payments/sessions/[id]
  * Body: { status: 'PROCESSING' | 'SUCCEEDED' | 'FAILED', error?: string }
+ * Headers: Authorization: Bearer <token>
  */
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!STAFF_ROLES.includes(role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const user = await getMobileUser(request)
+  if (!isStaff(user)) {
+    return forbiddenResponse()
   }
 
   try {
