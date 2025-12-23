@@ -55,6 +55,7 @@ services:
     init: true
     environment:
       AUTH_TRUST_HOST: "true"
+      AUTH_URL: ${AUTH_URL:-${NEXTAUTH_URL}}
       NODE_ENV: production
       PORT: 3000
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
