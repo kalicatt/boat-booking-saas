@@ -66,35 +66,68 @@
 
 ---
 
-## ⏳ Phase 2: Stripe Terminal Tap to Pay
+## 🔄 Phase 2: Stripe Terminal Tap to Pay
 
-**Objectif:** Implémenter paiement NFC avec Stripe Terminal
+**Objectif:** Implémenter paiement NFC avec Stripe Terminal + intégration QuickBookingModal
 
-**Statut:** Pas commencé
+**Statut:** En cours
+
+### Architecture
+
+**2 modes de paiement:**
+
+1. **Mode Manuel** (depuis app Android)
+   - Employé entre montant manuellement
+   - Crée PaymentIntent direct
+   - Collect payment → Success
+
+2. **Mode Déclenché** (depuis QuickBookingModal web) ⭐ NOUVEAU
+   - Admin web crée réservation avec "paiement par carte"
+   - Backend crée `PaymentSession` (table déjà existante)
+   - App Android **poll** les sessions pending
+   - Auto-ouverture PaymentActivity avec montant pré-rempli
+   - Employé tape carte → Payment collecté
 
 ### Sous-tâches restantes
 
+**Backend (déjà fait ✅):**
+- ✅ API `POST /api/payments/terminal/session` (existe)
+- ✅ Table `PaymentSession` (existe)
+- ✅ `createPaymentSession()` (existe)
+- ✅ `claimNextSession(deviceId)` (existe)
+- ✅ QuickBookingModal trigger (existe)
+
+**Android Phase 2:**
 - [ ] Initialiser StripeTerminal dans SweetNarcisseApp
 - [ ] Créer TerminalEventListener
+- [ ] **Polling Service:**
+  - [ ] PollingService.java (foreground service)
+  - [ ] Poll `/api/mobile/payments/sessions/claim` toutes les 5s
+  - [ ] Si session claimed → broadcast Intent
+  - [ ] DashboardActivity reçoit broadcast → ouvre PaymentActivity
 - [ ] Implémenter PaymentActivity complet:
-  - [ ] Input montant (EditText avec validation)
+  - [ ] Mode 1: Input montant manuel (EditText)
+  - [ ] Mode 2: Montant pré-rempli depuis session
   - [ ] Discover readers (LocalMobile)
   - [ ] Connect reader
-  - [ ] Créer PaymentIntent via API
+  - [ ] Créer PaymentIntent via Stripe
   - [ ] Collect payment method (NFC tap)
   - [ ] Process payment
   - [ ] Confirmation success/failure
+  - [ ] Update PaymentSession status
 - [ ] Créer PaymentService.java (API calls)
 - [ ] Layout activity_payment.xml complet
 - [ ] Animations NFC (lottie ou custom)
 - [ ] Gestion erreurs (timeout, cancelled, declined)
 - [ ] Tests device physique avec NFC
 
-**API à créer:**
+**API Android à créer:**
 ```
+GET  /api/mobile/payments/sessions/claim (device polling)
 POST /api/mobile/payments/create-intent
 POST /api/mobile/payments/confirm
 GET  /api/mobile/payments/:id
+PATCH /api/mobile/payments/sessions/:id/status
 ```
 
 **Dépendances déjà ajoutées:**

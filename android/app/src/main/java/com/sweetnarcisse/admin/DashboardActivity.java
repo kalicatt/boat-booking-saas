@@ -1,12 +1,17 @@
 package com.sweetnarcisse.admin;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -23,6 +28,7 @@ import java.io.IOException;
 /**
  * Dashboard principal de l'application
  * Affiche les statistiques du jour et les actions rapides
+ * Démarre le service de polling des paiements
  */
 public class DashboardActivity extends AppCompatActivity {
     
@@ -37,6 +43,7 @@ public class DashboardActivity extends AppCompatActivity {
     private MaterialButton historyButton;
     
     private AuthService authService;
+    private PaymentSessionReceiver paymentReceiver;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +77,36 @@ public class DashboardActivity extends AppCompatActivity {
         scanQrButton.setOnClickListener(v -> openScanner());
         newPaymentButton.setOnClickListener(v -> openPayment());
         historyButton.setOnClickListener(v -> openHistory());
+        
+        // Démarrer le service de polling des paiements
+        startPaymentPollingService();
+        
+        // Enregistrer le receiver pour les sessions de paiement
+        paymentReceiver = new PaymentSessionReceiver();
+        IntentFilter filter = new IntentFilter("com.sweetnarcisse.PAYMENT_SESSION_CLAIMED");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(paymentReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            registerReceiver(paymentReceiver, filter);
+        }
+    }
+    
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (paymentReceiver != null) {
+            unregisterReceiver(paymentReceiver);
+        }
+    }
+    
+    private void startPaymentPollingService() {
+        Intent serviceIntent = new Intent(this, PaymentPollingService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(serviceIntent);
+        } else {
+            startService(serviceIntent);
+        }
+        Log.d(TAG, "Service de polling démarré");
     }
     
     private void loadUserInfo() {
@@ -164,5 +201,41 @@ public class DashboardActivity extends AppCompatActivity {
             startActivity(intent);
             finish();
         });
+    }
+    
+    /**
+     * BroadcastReceiver pour les sessions de paiement claimed
+     * Ouvre PaymentActivity avec les données pré-remplies
+     */
+    private class PaymentSessionReceiver extends BroadcastReceiver {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String sessionId = intent.getStringExtra("sessionId");
+            String bookingId = intent.getStringExtra("bookingId");
+            int amountCents = intent.getIntExtra("amountCents", 0);
+            String currency = intent.getStringExtra("currency");
+            String customerName = intent.getStringExtra("customerName");
+            String bookingReference = intent.getStringExtra("bookingReference");
+            
+            Log.i(TAG, "Paiement reçu: " + amountCents + " " + currency + " pour " + bookingReference);
+            
+            // Toast notification
+            Toast.makeText(context, 
+                "Nouveau paiement: " + (amountCents / 100.0) + " " + currency,
+                Toast.LENGTH_LONG).show();
+            
+            // Ouvrir PaymentActivity avec les données
+            Intent paymentIntent = new Intent(context, PaymentActivity.class);
+            paymentIntent.putExtra("mode", "triggered"); // Mode déclenché depuis web
+            paymentIntent.putExtra("sessionId", sessionId);
+            paymentIntent.putExtra("bookingId", bookingId);
+            paymentIntent.putExtra("amountCents", amountCents);
+            paymentIntent.putExtra("currency", currency);
+            paymentIntent.putExtra("customerName", customerName);
+            paymentIntent.putExtra("bookingReference", bookingReference);
+            paymentIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            startActivity(paymentIntent);
+        }
     }
 }
