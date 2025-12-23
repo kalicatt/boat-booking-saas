@@ -62,9 +62,12 @@ export function verifyMobileToken(token: string): MobileUser | null {
 export async function getMobileUser(request: Request): Promise<MobileUser | null> {
   // Essayer d'abord le token Bearer
   const authHeader = request.headers.get('Authorization')
+  console.log('[mobile-auth] Authorization header:', authHeader ? `Bearer ${authHeader.substring(7, 20)}...` : 'none')
+  
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7)
     const user = verifyMobileToken(token)
+    console.log('[mobile-auth] Bearer token verified:', user ? `${user.email} (${user.role})` : 'FAILED')
     if (user) return user
   }
 
@@ -93,7 +96,9 @@ export async function getMobileUser(request: Request): Promise<MobileUser | null
  * Helper pour vérifier si l'utilisateur est staff
  */
 export function isStaff(user: MobileUser | null): boolean {
-  return user !== null && STAFF_ROLES.includes(user.role)
+  const result = user !== null && STAFF_ROLES.includes(user.role)
+  console.log('[mobile-auth] isStaff check:', user ? `role=${user.role}, result=${result}` : 'no user')
+  return result
 }
 
 /**
