@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { verifyMobileAuth } from '@/lib/adminAccess'
+import { getAdminAccessContext } from '@/lib/adminAccess'
 
 /**
  * GET /api/mobile/history
@@ -43,9 +43,9 @@ import { verifyMobileAuth } from '@/lib/adminAccess'
  */
 export async function GET(request: NextRequest) {
   try {
-    // Vérifier l'authentification mobile
-    const authResult = await verifyMobileAuth(request)
-    if (!authResult.authorized) {
+    // Vérifier l'authentification (admin ou employee)
+    const adminContext = await getAdminAccessContext()
+    if (!adminContext?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import Stripe from 'stripe'
-import { logAction } from '@/lib/logger'
+import { createLog } from '@/lib/logger'
 
 export const runtime = 'nodejs'
 
@@ -74,17 +74,10 @@ export async function POST(request: Request) {
     })
 
     // Logger l'action
-    await logAction({
-      action: 'MOBILE_PAYMENT_SUCCESS',
-      userId: userId || 'system',
-      bookingId: booking.id,
-      details: {
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        paymentIntentId: paymentIntent.id,
-        sessionId: sessionId
-      }
-    })
+    await createLog(
+      'MOBILE_PAYMENT_SUCCESS',
+      `Booking ${booking.publicReference}, ${paymentIntent.amount / 100}€, intent: ${paymentIntent.id}, session: ${sessionId}`
+    )
 
     return NextResponse.json({
       success: true,
