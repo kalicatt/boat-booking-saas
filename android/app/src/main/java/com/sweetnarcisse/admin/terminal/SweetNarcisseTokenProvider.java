@@ -43,7 +43,7 @@ public class SweetNarcisseTokenProvider implements ConnectionTokenProvider {
     
     @Override
     public void fetchConnectionToken(ConnectionTokenCallback callback) {
-        Log.d(TAG, "Fetching connection token...");
+        Log.d(TAG, "Fetching connection token from " + baseUrl + "/api/payments/terminal/token");
         
         new Thread(() -> {
             try {
@@ -52,6 +52,8 @@ public class SweetNarcisseTokenProvider implements ConnectionTokenProvider {
                     body.put("deviceId", deviceId);
                 }
                 
+                Log.d(TAG, "Request body: " + body.toString());
+                
                 RequestBody requestBody = RequestBody.create(body.toString(), JSON);
                 
                 Request request = new Request.Builder()
@@ -59,20 +61,24 @@ public class SweetNarcisseTokenProvider implements ConnectionTokenProvider {
                     .post(requestBody)
                     .build();
                 
+                Log.d(TAG, "Sending request...");
                 Response response = client.newCall(request).execute();
+                Log.d(TAG, "Response code: " + response.code());
                 
                 if (response.isSuccessful() && response.body() != null) {
                     String responseBody = response.body().string();
+                    Log.d(TAG, "Response body: " + responseBody);
                     JSONObject json = new JSONObject(responseBody);
                     String secret = json.getString("secret");
                     
-                    Log.d(TAG, "Connection token received successfully");
+                    Log.d(TAG, "Connection token received successfully (length=" + secret.length() + ")");
                     callback.onSuccess(secret);
                 } else {
-                    String error = "Failed to fetch token: HTTP " + response.code();
+                    String errorBody = "";
                     if (response.body() != null) {
-                        error += " - " + response.body().string();
+                        errorBody = response.body().string();
                     }
+                    String error = "Failed to fetch token: HTTP " + response.code() + " - " + errorBody;
                     Log.e(TAG, error);
                     callback.onFailure(new ConnectionTokenException(error));
                 }

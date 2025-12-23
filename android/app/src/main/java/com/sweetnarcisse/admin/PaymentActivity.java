@@ -1,5 +1,6 @@
 package com.sweetnarcisse.admin;
 
+import android.app.AlertDialog;
 import android.content.pm.ApplicationInfo;
 import android.os.Bundle;
 import android.os.Handler;
@@ -99,10 +100,19 @@ public class PaymentActivity extends AppCompatActivity {
         
         // Initialiser Stripe Terminal
         try {
+            Log.i(TAG, "Initializing Terminal SDK...");
             terminalManager.initialize();
+            Log.i(TAG, "Terminal initialized successfully, ready=" + terminalManager.isReady());
         } catch (Exception e) {
             Log.e(TAG, "Failed to initialize Terminal", e);
-            Toast.makeText(this, "Erreur initialisation Terminal: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            String errorMsg = "Erreur initialisation Terminal: " + e.getMessage();
+            new AlertDialog.Builder(this)
+                .setTitle("Erreur Terminal")
+                .setMessage(errorMsg)
+                .setPositiveButton("OK", (d, w) -> finish())
+                .setCancelable(false)
+                .show();
+            return; // Ne pas continuer si Terminal échoue
         }
         
         loadIntent();
@@ -183,39 +193,72 @@ public class PaymentActivity extends AppCompatActivity {
         updateStatus("Recherche du terminal...");
         showProgress();
         
+        // Vérifier que Terminal est initialisé
+        if (!terminalManager.isReady()) {
+            Log.e(TAG, "Terminal not ready, attempting initialization...");
+            try {
+                terminalManager.initialize();
+            } catch (Exception e) {
+                Log.e(TAG, "Terminal initialization failed", e);
+                hideProgress();
+                handleError("Terminal non initialisé: " + e.getMessage());
+                return;
+            }
+        }
+        
         // Déterminer si on est en mode debug (simulated)
         boolean isDebuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        Log.d(TAG, "Starting reader discovery, simulated=" + isDebuggable);
         
         DiscoveryConfiguration config = new DiscoveryConfiguration.TapToPayDiscoveryConfiguration(isDebuggable);
         
-        pendingOperation = terminalManager.getTerminal().discoverReaders(
-            config,
-            new DiscoveryListener() {
-                @Override
-                public void onUpdateDiscoveredReaders(List<Reader> readers) {
-                    Log.d(TAG, "Readers discovered: " + readers.size());
-                    if (!readers.isEmpty()) {
-                        // Connecter au premier reader (tap to pay)
-                        connectReader(readers.get(0));
+        try {
+            pendingOperation = terminalManager.getTerminal().discoverReaders(
+                config,
+                new DiscoveryListener() {
+                    @Override
+                    public void onUpdateDiscoveredReaders(List<Reader> readers) {
+                        Log.d(TAG, "Readers discovered: " + readers.size());
+                        if (!readers.isEmpty()) {
+                            // Annuler la découverte et connecter au premier reader
+                            if (pendingOperation != null && !pendingOperation.isCompleted()) {
+                                pendingOperation.cancel(new Callback() {
+                                    @Override
+                                    public void onSuccess() {
+                                        connectReader(readers.get(0));
+                                    }
+                                    @Override
+                                    public void onFailure(TerminalException e) {
+                                        connectReader(readers.get(0));
+                                    }
+                                });
+                            } else {
+                                connectReader(readers.get(0));
+                            }
+                        }
+                    }
+                },
+                new Callback() {
+                    @Override
+                    public void onSuccess() {
+                        Log.d(TAG, "Discovery completed");
+                    }
+                    
+                    @Override
+                    public void onFailure(TerminalException e) {
+                        Log.e(TAG, "Discovery failed: " + e.getErrorCode() + " - " + e.getErrorMessage(), e);
+                        runOnUiThread(() -> {
+                            hideProgress();
+                            handleError("Impossible de trouver le terminal: " + e.getErrorMessage());
+                        });
                     }
                 }
-            },
-            new Callback() {
-                @Override
-                public void onSuccess() {
-                    Log.d(TAG, "Discovery completed");
-                }
-                
-                @Override
-                public void onFailure(TerminalException e) {
-                    Log.e(TAG, "Discovery failed", e);
-                    runOnUiThread(() -> {
-                        hideProgress();
-                        handleError("Impossible de trouver le terminal: " + e.getErrorMessage());
-                    });
-                }
-            }
-        );
+            );
+        } catch (Exception e) {
+            Log.e(TAG, "discoverReaders threw exception", e);
+            hideProgress();
+            handleError("Erreur découverte: " + e.getMessage());
+        }
     }
     
     private void connectReader(Reader reader) {
@@ -412,6 +455,7 @@ public class PaymentActivity extends AppCompatActivity {
     }
     
     private void handleError(String message) {
+        Log.e(TAG, "Payment error: " + message);
         updateStatus("❌ " + message);
         collectPaymentButton.setEnabled(true);
         
@@ -423,7 +467,12 @@ public class PaymentActivity extends AppCompatActivity {
             updateSessionStatus("FAILED", message);
         }
         
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        // Afficher un dialog d'erreur au lieu d'un Toast
+        new AlertDialog.Builder(this)
+            .setTitle("Erreur de paiement")
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show();
     }
     
     private void updateSessionStatus(String status, String error) {

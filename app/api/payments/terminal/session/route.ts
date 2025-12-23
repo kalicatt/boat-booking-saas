@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import { createPaymentSession } from '@/lib/payments/paymentSessions'
 
@@ -8,9 +8,9 @@ export const runtime = 'nodejs'
 const STAFF_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 export async function POST(request: Request) {
-  const session = await auth()
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!STAFF_ROLES.includes(role)) {
+  const user = await getMobileUser(request)
+  const role = user?.role || 'GUEST'
+  if (!user || !STAFF_ROLES.includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       bookingId,
       amount: amountCents,
       currency,
-      createdById: session?.user?.id,
+      createdById: user?.userId,
       methodType: 'card',
       targetDeviceId,
       metadata

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import { completeSessionSuccess, failSession, getSession, updateSessionStatus } from '@/lib/payments/paymentSessions'
 import { cancelTapToPayIntent } from '@/lib/payments/stripeTerminal'
@@ -17,9 +17,9 @@ type PatchPayload = {
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!STAFF_ROLES.includes(role)) {
+  const user = await getMobileUser(request)
+  const role = user?.role || 'GUEST'
+  if (!user || !STAFF_ROLES.includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

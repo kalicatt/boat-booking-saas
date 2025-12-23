@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { getMobileUser } from '@/lib/mobileAuth'
 import { prisma } from '@/lib/prisma'
 import { attachIntentToSession, claimNextSession, failSession } from '@/lib/payments/paymentSessions'
 import { createTapToPayIntent, getTerminalLocation } from '@/lib/payments/stripeTerminal'
@@ -9,9 +9,9 @@ export const runtime = 'nodejs'
 const DEVICE_ROLES = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN', 'EMPLOYEE']
 
 export async function GET(request: Request) {
-  const session = await auth()
-  const role = (session?.user as { role?: string } | undefined)?.role || 'GUEST'
-  if (!DEVICE_ROLES.includes(role)) {
+  const user = await getMobileUser(request)
+  const role = user?.role || 'GUEST'
+  if (!user || !DEVICE_ROLES.includes(role)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
