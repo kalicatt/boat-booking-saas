@@ -252,7 +252,7 @@ public class ScannerActivity extends AppCompatActivity {
     private String computeBookingToken(String bookingId) {
         try {
             // Secret identique au backend (NEXTAUTH_SECRET)
-            String secret = "tu58x4oG9F3N4YmEKHq0eBl3YVx8kDLR1CKtGqwJlmk=";
+            String secret = "d6b59510793ddd090fd4907da4cc25a0f6ef7014c09769ca1f7f3a121869b73b";
             
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(
