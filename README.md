@@ -5,79 +5,208 @@
 <h1 align="center">🚣 Sweet Narcisse</h1>
 
 <p align="center">
-  <strong>Système de réservation de barques pour la Petite Venise de Colmar</strong>
+  <strong>Plateforme complète de réservation - Promenades en barque à Colmar</strong>
 </p>
 
 <p align="center">
-  <a href="#fonctionnalités">Fonctionnalités</a> •
-  <a href="#architecture">Architecture</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#documentation">Documentation</a> •
-  <a href="#licence">Licence</a>
+  <img src="https://img.shields.io/badge/Next.js-16.1.0-black?logo=next.js" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql" alt="PostgreSQL"/>
+  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker" alt="Docker"/>
+  <img src="https://img.shields.io/badge/Stripe-Integrated-635BFF?logo=stripe" alt="Stripe"/>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-1.0.6-blue.svg" alt="Version"/>
-  <img src="https://img.shields.io/badge/Next.js-16.1.0-black.svg" alt="Next.js"/>
-  <img src="https://img.shields.io/badge/TypeScript-5.x-blue.svg" alt="TypeScript"/>
-  <img src="https://img.shields.io/badge/license-Proprietary-red.svg" alt="License"/>
+  <a href="#-présentation">Présentation</a> •
+  <a href="#-compétences-démontrées">Compétences</a> •
+  <a href="#-fonctionnalités">Fonctionnalités</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-captures-décran">Screenshots</a>
 </p>
 
 ---
 
-## 📋 À Propos
+## 👨‍💻 À Propos du Développeur
 
-**Sweet Narcisse** est une plateforme complète de gestion de réservations pour les promenades en barque sur les canaux de la Petite Venise à Colmar, en Alsace. Le système gère l'ensemble du cycle de vie des réservations : de la prise de rendez-vous en ligne jusqu'à l'embarquement, en passant par les paiements sécurisés.
+<table>
+<tr>
+<td width="150">
 
-### 🎯 Cas d'Usage
+**Lucas Servais**
 
-- **Clients** : Réservation en ligne avec choix du créneau, paiement sécurisé (CB, Apple Pay, Google Pay, PayPal)
-- **Employés** : Gestion quotidienne des embarquements, scan QR, encaissement sur place (Tap to Pay)
-- **Administrateurs** : Planning, statistiques, gestion de flotte, comptabilité
+Développeur Full-Stack
+
+</td>
+<td>
+
+📍 Colmar, Alsace, France  
+📧 servaislucas68@gmail.com  
+🔗 [GitHub @kalicatt](https://github.com/kalicatt)
+
+</td>
+</tr>
+</table>
+
+> Ce projet représente **+1 an de développement** et constitue une solution complète en production, utilisée par une entreprise réelle de promenades en barque à Colmar.
+
+---
+
+## 🎯 Présentation
+
+**Sweet Narcisse** est une plateforme SaaS complète de gestion de réservations que j'ai développée de A à Z pour une entreprise locale. Le système couvre l'intégralité du parcours client et des besoins métier :
+
+- 🌐 **Site web** avec réservation en ligne multi-langue
+- 💳 **Paiements sécurisés** (Stripe, PayPal, Apple Pay, Google Pay)
+- 📱 **Application mobile Android** pour les employés (scan QR, encaissement Tap to Pay)
+- 📊 **Back-office complet** (planning, statistiques, comptabilité)
+- 🔐 **Gestion des accès** par rôles (admin, manager, employé)
+
+---
+
+## 🛠️ Compétences Démontrées
+
+### Frontend
+| Technologie | Utilisation |
+|-------------|-------------|
+| **React 19** | Composants fonctionnels, hooks avancés, Server Components |
+| **Next.js 16** | App Router, SSR/SSG, API Routes, Middleware |
+| **TypeScript** | Typage strict, interfaces, génériques |
+| **Tailwind CSS** | Design responsive, dark mode, animations |
+
+### Backend
+| Technologie | Utilisation |
+|-------------|-------------|
+| **Next.js API** | REST API, webhooks, authentification |
+| **Prisma ORM** | Modélisation, migrations, transactions |
+| **PostgreSQL** | Requêtes complexes, index, optimisations |
+| **Redis** | Cache, sessions, rate limiting |
+
+### Intégrations
+| Service | Implémentation |
+|---------|----------------|
+| **Stripe** | Payment Intents, Terminal SDK (Tap to Pay), Webhooks |
+| **PayPal** | SDK intégration, gestion des commandes |
+| **Emails** | Templates React Email, envoi transactionnel (Resend) |
+| **Stockage** | MinIO (S3-compatible), upload sécurisé |
+
+### DevOps & Infrastructure
+| Domaine | Technologies |
+|---------|--------------|
+| **Containerisation** | Docker, Docker Compose |
+| **Reverse Proxy** | Nginx, SSL/TLS |
+| **Monitoring** | Prometheus, Grafana, alertes |
+| **CI/CD** | GitHub Actions, déploiement automatisé |
+| **VPS** | Configuration serveur, sécurité Linux |
+
+### Mobile
+| Technologie | Utilisation |
+|-------------|-------------|
+| **Capacitor** | Bridge natif, plugins customs |
+| **Android/Java** | Intégration Stripe Terminal SDK natif |
+
+### Bonnes Pratiques
+- ✅ Architecture clean et modulaire
+- ✅ Validation des données (Zod)
+- ✅ Gestion d'erreurs centralisée
+- ✅ Logging structuré
+- ✅ Tests automatisés
+- ✅ Documentation complète
+- ✅ Sécurité (CSRF, XSS, rate limiting, RGPD)
 
 ---
 
 ## ✨ Fonctionnalités
 
-### 🌐 Application Web
+### 🌐 Application Web Client
 
-| Module | Description |
-|--------|-------------|
-| **Réservation en ligne** | Widget de réservation multi-étapes avec sélection de date, nombre de passagers, et créneau horaire |
-| **Paiement sécurisé** | Intégration Stripe (CB, Apple Pay, Google Pay) + PayPal |
-| **Multi-langue** | Interface disponible en 🇫🇷 FR, 🇬🇧 EN, 🇩🇪 DE, 🇪🇸 ES, 🇮🇹 IT |
-| **Planning interactif** | Vue calendrier avec drag & drop, gestion des créneaux et de la capacité |
-| **Gestion de flotte** | Suivi des barques, maintenance, disponibilité |
-| **Tableau de bord** | Statistiques temps réel, météo, alertes |
-| **CMS intégré** | Gestion du contenu, images hero, partenaires |
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🏠 Landing Page                                            │
+│  ├── Hero dynamique avec images CMS                        │
+│  ├── Widget de réservation multi-étapes                    │
+│  ├── Galerie photos                                        │
+│  ├── Avis clients (intégration externe)                    │
+│  └── Partenaires                                           │
+├─────────────────────────────────────────────────────────────┤
+│  📅 Réservation                                             │
+│  ├── Sélection date/heure avec disponibilités temps réel   │
+│  ├── Calcul automatique des tarifs                         │
+│  ├── Formulaire client avec validation                     │
+│  ├── Paiement sécurisé (CB, Apple Pay, Google Pay, PayPal) │
+│  └── Confirmation par email avec QR code                   │
+├─────────────────────────────────────────────────────────────┤
+│  🌍 Multi-langue                                            │
+│  └── FR 🇫🇷 | EN 🇬🇧 | DE 🇩🇪 | ES 🇪🇸 | IT 🇮🇹              │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### 📱 Application Mobile (Android)
+### 🔧 Back-Office Administration
 
-| Fonctionnalité | Description |
-|----------------|-------------|
-| **Scan QR** | Validation des réservations par code QR |
-| **Tap to Pay** | Encaissement sans contact via Stripe Terminal SDK |
-| **Mode hors-ligne** | Cache local pour consultation |
-| **Notifications push** | Alertes de nouvelles réservations |
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📊 Dashboard                                               │
+│  ├── KPIs temps réel (CA, réservations, taux remplissage)  │
+│  ├── Météo intégrée                                        │
+│  └── Alertes et notifications                              │
+├─────────────────────────────────────────────────────────────┤
+│  📅 Planning                                                │
+│  ├── Vue calendrier drag & drop                            │
+│  ├── Gestion des créneaux horaires                         │
+│  ├── Capacité par barque                                   │
+│  └── Visualisation PENDING/CONFIRMED                       │
+├─────────────────────────────────────────────────────────────┤
+│  🚣 Gestion Flotte                                          │
+│  ├── CRUD barques                                          │
+│  ├── Statut maintenance                                    │
+│  └── Capacité et caractéristiques                          │
+├─────────────────────────────────────────────────────────────┤
+│  👥 Gestion Utilisateurs                                    │
+│  ├── Rôles : SUPER_ADMIN, ADMIN, MANAGER, EMPLOYEE         │
+│  ├── Permissions granulaires                               │
+│  └── Historique des actions (audit trail)                  │
+├─────────────────────────────────────────────────────────────┤
+│  💰 Comptabilité                                            │
+│  ├── Rapprochement bancaire Stripe/PayPal                  │
+│  ├── Export CSV                                            │
+│  ├── Factures PDF générées automatiquement                 │
+│  └── TVA et déclarations                                   │
+├─────────────────────────────────────────────────────────────┤
+│  🎨 CMS                                                     │
+│  ├── Gestion images hero                                   │
+│  ├── Partenaires                                           │
+│  └── Contenus dynamiques                                   │
+└─────────────────────────────────────────────────────────────┘
+```
 
-### 🔧 Administration
+### 📱 Application Mobile Employés
 
-| Outil | Description |
-|-------|-------------|
-| **Gestion des employés** | Rôles, permissions, horaires |
-| **Comptabilité** | Rapportations, export CSV, rapprochement bancaire |
-| **Logs & Audit** | Traçabilité complète des actions |
-| **Monitoring** | Prometheus + Grafana intégrés |
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📷 Scan QR                                                 │
+│  └── Validation instantanée des réservations               │
+├─────────────────────────────────────────────────────────────┤
+│  💳 Tap to Pay                                              │
+│  ├── Encaissement sans contact (NFC)                       │
+│  ├── Stripe Terminal SDK natif                             │
+│  └── Création réservation + paiement en une action         │
+├─────────────────────────────────────────────────────────────┤
+│  📋 Liste Réservations                                      │
+│  └── Vue journalière avec statuts                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 🏗️ Architecture
 
+### Vue d'Ensemble
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         CLIENTS                                  │
 ├──────────────┬──────────────┬──────────────┬───────────────────┤
-│   Web App    │  Mobile PWA  │ Android App  │   API Externe     │
+│   Web App    │     PWA      │ Android App  │   API Externe     │
 │   (Next.js)  │   (React)    │  (Capacitor) │    (REST)         │
 └──────┬───────┴──────┬───────┴──────┬───────┴────────┬──────────┘
        │              │              │                │
@@ -86,172 +215,184 @@
                     ┌─────────▼─────────┐
                     │   Reverse Proxy   │
                     │      (Nginx)      │
+                    │   SSL/TLS + GZIP  │
                     └─────────┬─────────┘
                               │
                     ┌─────────▼─────────┐
-                    │   Next.js App     │
-                    │  (API + SSR/SSG)  │
+                    │   Next.js 16      │
+                    │  ┌─────────────┐  │
+                    │  │ App Router  │  │
+                    │  │ API Routes  │  │
+                    │  │ Middleware  │  │
+                    │  └─────────────┘  │
                     └─────────┬─────────┘
                               │
        ┌──────────────────────┼──────────────────────┐
        │                      │                      │
 ┌──────▼──────┐       ┌──────▼──────┐       ┌──────▼──────┐
 │ PostgreSQL  │       │    Redis    │       │    MinIO    │
-│  (Prisma)   │       │   (Cache)   │       │  (Storage)  │
-└─────────────┘       └─────────────┘       └─────────────┘
-
-                    Services Externes
-       ┌──────────────────────┼──────────────────────┐
-       │                      │                      │
-┌──────▼──────┐       ┌──────▼──────┐       ┌──────▼──────┐
-│   Stripe    │       │   PayPal    │       │   Resend    │
-│  (Paiement) │       │  (Paiement) │       │   (Email)   │
+│   16        │       │   (Cache)   │       │  (S3)       │
+│  + Prisma   │       │  + Sessions │       │  + Images   │
 └─────────────┘       └─────────────┘       └─────────────┘
 ```
 
-### Stack Technique
+### Stack Technique Complète
 
 | Couche | Technologies |
 |--------|-------------|
-| **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
-| **Backend** | Next.js API Routes, Prisma ORM |
+| **Frontend** | Next.js 16, React 19, TypeScript 5, Tailwind CSS 3 |
+| **State Management** | React Context, Server State |
+| **Backend** | Next.js API Routes, Server Actions |
+| **ORM** | Prisma 6 |
 | **Base de données** | PostgreSQL 16 |
-| **Cache** | Redis (Upstash) |
+| **Cache & Sessions** | Redis (Upstash) |
+| **Authentification** | NextAuth.js v5, JWT, bcrypt |
+| **Validation** | Zod |
 | **Stockage fichiers** | MinIO (S3-compatible) |
-| **Paiements** | Stripe (Terminal SDK, Payment Element), PayPal |
-| **Mobile natif** | Capacitor + Java (Android) |
-| **Infrastructure** | Docker, Docker Compose, Nginx |
-| **Monitoring** | Prometheus, Grafana, Alertmanager |
+| **Paiements** | Stripe (Payment Intents, Terminal SDK), PayPal SDK |
+| **Emails** | React Email + Resend |
+| **PDF** | React-PDF |
+| **QR Codes** | qrcode.react |
+| **Mobile** | Capacitor 6, Android SDK |
+| **Containerisation** | Docker, Docker Compose |
+| **Reverse Proxy** | Nginx |
+| **Monitoring** | Prometheus, Grafana, custom metrics |
 | **CI/CD** | GitHub Actions |
 
 ---
 
-## 🚀 Installation
+## 📁 Structure du Projet
 
-### Prérequis
+```
+sweet-narcisse/
+├── app/                    # Next.js App Router
+│   ├── [lang]/            # Routes internationalisées
+│   │   ├── page.tsx       # Landing page
+│   │   └── ...
+│   ├── admin/             # Back-office
+│   │   ├── dashboard/
+│   │   ├── planning/
+│   │   ├── boats/
+│   │   ├── users/
+│   │   └── ...
+│   └── api/               # API REST
+│       ├── auth/
+│       ├── bookings/
+│       ├── payments/
+│       └── webhooks/
+├── components/            # Composants React
+├── lib/                   # Logique métier
+│   ├── actions.ts         # Server Actions
+│   ├── prisma.ts         # Client Prisma
+│   ├── stripe.ts         # Config Stripe
+│   └── ...
+├── prisma/
+│   ├── schema.prisma     # Modèle de données
+│   └── migrations/       # Migrations SQL
+├── dictionaries/         # Traductions i18n
+├── android/              # App Capacitor Android
+├── docker-compose.yml    # Orchestration containers
+└── docs/                 # Documentation
+```
 
-- Node.js ≥ 22
-- npm ≥ 10
-- Docker ≥ 24
-- PostgreSQL 16 (ou via Docker)
+---
 
-### Installation Rapide (Développement)
+## 📈 Métriques du Projet
+
+| Métrique | Valeur |
+|----------|--------|
+| **Lignes de code** | ~30,000+ |
+| **Composants React** | 50+ |
+| **Endpoints API** | 40+ |
+| **Tables DB** | 15+ |
+| **Temps de développement** | +1 an |
+| **Statut** | ✅ En production |
+
+---
+
+## 📸 Captures d'Écran
+
+> *Les captures d'écran sont disponibles sur demande pour préserver la confidentialité du client.*
+
+### Aperçu des Interfaces
+
+- **Landing Page** : Design moderne, widget réservation intégré
+- **Processus de réservation** : UX fluide en 4 étapes
+- **Planning admin** : Vue calendrier avec drag & drop
+- **Dashboard** : KPIs et graphiques temps réel
+- **App mobile** : Interface native Android
+
+---
+
+## 🔐 Sécurité Implémentée
+
+| Mesure | Implémentation |
+|--------|----------------|
+| **Authentification** | NextAuth.js avec sessions JWT sécurisées |
+| **Autorisation** | RBAC (Role-Based Access Control) |
+| **Validation** | Zod sur toutes les entrées utilisateur |
+| **Protection CSRF** | Tokens automatiques Next.js |
+| **Rate Limiting** | Par IP et par utilisateur |
+| **XSS Prevention** | Sanitization + CSP headers |
+| **SQL Injection** | Prisma ORM (requêtes paramétrées) |
+| **RGPD** | Consentement, droit à l'oubli, export données |
+| **Audit Trail** | Log de toutes les actions sensibles |
+| **HTTPS** | TLS 1.3 obligatoire |
+
+---
+
+## 📚 Documentation Technique
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/ARCHITECTURE.md) | Diagrammes et flux de données |
+| [Guide Utilisateur](docs/user-guide.md) | Manuel complet back-office |
+| [Déploiement](DEPLOYMENT.md) | Guide VPS et Docker |
+| [Sécurité](SECURITY.md) | Politique de sécurité |
+| [Changelog](CHANGELOG.md) | Historique des versions |
+
+---
+
+## 🚀 Exécution Locale
 
 ```bash
-# Cloner le dépôt
+# Cloner le repository
 git clone https://github.com/kalicatt/SweetNarcisse-demo.git
 cd SweetNarcisse-demo
 
 # Installer les dépendances
 npm install --legacy-peer-deps
 
-# Configurer l'environnement
+# Variables d'environnement
 cp .env.example .env.local
-# Éditer .env.local avec vos clés API
 
-# Initialiser la base de données
+# Base de données (Docker)
+docker compose -f docker-compose.db.yml up -d
+
+# Migrations Prisma
 npx prisma migrate dev
 npx prisma db seed
 
-# Lancer le serveur de développement
+# Lancer le serveur
 npm run dev
 ```
-
-### Déploiement Production (Docker)
-
-```bash
-# Créer le réseau Docker
-docker network create sweetnarcisse-net
-
-# Démarrer la base de données
-docker compose -f docker-compose.db.yml up -d
-
-# Construire et démarrer l'application
-docker compose up -d --build
-
-# Appliquer les migrations
-docker compose exec app npx prisma migrate deploy
-```
-
-📖 Voir [DEPLOYMENT.md](DEPLOYMENT.md) pour le guide complet de déploiement VPS.
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [📘 Guide Utilisateur](docs/user-guide.md) | Manuel pour administrateurs et employés |
-| [🔧 Guide Développeur](docs/developer-guide.md) | Architecture, conventions, API |
-| [🏛️ Architecture](docs/ARCHITECTURE.md) | Schémas et diagrammes techniques |
-| [🚀 Déploiement](DEPLOYMENT.md) | Installation VPS, Docker, SSL |
-| [🔐 Sécurité](SECURITY.md) | Politique de sécurité, signalement |
-| [📝 Changelog](CHANGELOG.md) | Historique des versions |
-| [🔌 API Reference](docs/api-reference.md) | Documentation OpenAPI |
-
----
-
-## 🔒 Sécurité
-
-- ✅ Authentification NextAuth avec sessions sécurisées
-- ✅ Validation Zod sur toutes les entrées utilisateur
-- ✅ Protection CSRF intégrée
-- ✅ Rate limiting sur les endpoints sensibles
-- ✅ Chiffrement des données sensibles
-- ✅ Audit trail complet des actions
-
-Pour signaler une vulnérabilité, consultez [SECURITY.md](SECURITY.md).
-
----
-
-## 📊 Statut du Projet
-
-| Composant | Statut |
-|-----------|--------|
-| Application Web | ✅ Production |
-| API REST | ✅ Production |
-| Application Android | ✅ Production |
-| Application iOS | 🚧 En développement |
-| PWA | ✅ Production |
-
----
-
-## 🧪 Tests
-
-```bash
-# Linter
-npm run lint
-
-# Tests unitaires
-npm test
-
-# Build de vérification
-npm run build
-```
-
----
-
-## 👨‍💻 Auteur
-
-**Lucas Servais**
-
-- 📧 Email: servaislucas68@gmail.com
-- 🔗 GitHub: [@kalicatt](https://github.com/kalicatt)
-- 📍 Colmar, Alsace, France
 
 ---
 
 ## 📄 Licence
 
-**Copyright © 2024-2025 Lucas Servais. Tous droits réservés.**
+Ce projet est un développement propriétaire réalisé pour un client commercial. Le code source est présenté à titre de démonstration de compétences dans le cadre d'une recherche d'emploi.
 
-Ce logiciel est la propriété exclusive de Lucas Servais. Toute reproduction, distribution, modification ou utilisation commerciale sans autorisation écrite préalable est strictement interdite.
-
-Voir [LICENSE](LICENSE) pour plus de détails.
+**© 2024-2025 Lucas Servais** - Tous droits réservés
 
 ---
 
 <p align="center">
-  Fait avec ❤️ à Colmar, Alsace 🇫🇷
+  <strong>Développé avec passion à Colmar, Alsace 🇫🇷</strong>
+</p>
+
+<p align="center">
+  <a href="mailto:servaislucas68@gmail.com">📧 Me contacter</a> •
+  <a href="https://github.com/kalicatt">💻 Mon GitHub</a>
 </p>
 

@@ -1,118 +1,40 @@
-MIT License with Proprietary Modifications
+# LICENCE
 
-Copyright (c) 2024-2025 Lucas Servais
-All Rights Reserved.
+**Copyright © 2024-2025 Lucas Servais**
 
-================================================================================
-                          LICENCE PROPRIÉTAIRE
-                           SWEET NARCISSE
-================================================================================
+Tous droits réservés.
 
-AVIS DE DROITS D'AUTEUR
+---
 
-Ce logiciel et la documentation associée ("le Logiciel") sont la propriété 
-exclusive de Lucas Servais ("le Propriétaire").
+## Objet
 
---------------------------------------------------------------------------------
-1. DROITS ACCORDÉS
---------------------------------------------------------------------------------
+Ce dépôt est présenté à titre de **démonstration de compétences techniques** dans le cadre d'une recherche d'emploi. Il constitue un projet portfolio.
 
-Le Propriétaire accorde une licence limitée, non exclusive et non transférable 
-pour :
+## Code Source
 
-   a) CONSULTATION : Visualiser le code source à des fins d'évaluation, 
-      d'apprentissage ou d'audit de sécurité.
+Le code source est la propriété intellectuelle de **Lucas Servais**. Il est rendu public uniquement pour permettre aux recruteurs et professionnels d'évaluer mes compétences en développement logiciel.
 
-   b) CONTRIBUTION : Soumettre des corrections de bugs ou améliorations via 
-      Pull Request, sous réserve d'acceptation par le Propriétaire.
+## Restrictions
 
---------------------------------------------------------------------------------
-2. RESTRICTIONS
---------------------------------------------------------------------------------
+Sans autorisation écrite préalable, il est **interdit** de :
 
-Sans autorisation écrite préalable du Propriétaire, il est INTERDIT de :
+- Copier, reproduire ou dupliquer ce code
+- Modifier ou créer des œuvres dérivées
+- Distribuer, vendre ou utiliser commercialement
+- Utiliser ce code dans d'autres projets
 
-   a) Copier, reproduire ou dupliquer le Logiciel en tout ou partie.
+## Marque
 
-   b) Modifier, adapter ou créer des œuvres dérivées basées sur le Logiciel.
+La marque "**Sweet Narcisse**" et les éléments visuels associés appartiennent à leur propriétaire légitime (le client). Ce dépôt ne confère aucun droit sur cette marque.
 
-   c) Distribuer, publier, vendre, louer ou sous-licencier le Logiciel.
+## Contact
 
-   d) Utiliser le Logiciel à des fins commerciales.
+Pour toute question concernant ce projet ou une demande de collaboration :
 
-   e) Supprimer ou modifier les mentions de droits d'auteur.
+**Lucas Servais**  
+📧 servaislucas68@gmail.com  
+🔗 [github.com/kalicatt](https://github.com/kalicatt)
 
-   f) Décompiler, désassembler ou procéder à de l'ingénierie inverse sur les 
-      parties compilées du Logiciel.
+---
 
---------------------------------------------------------------------------------
-3. CONTRIBUTIONS
---------------------------------------------------------------------------------
-
-Toute contribution soumise au projet (code, documentation, suggestions) devient 
-automatiquement la propriété du Propriétaire. Le contributeur cède l'ensemble 
-de ses droits patrimoniaux sur la contribution et garantit :
-
-   - Être l'auteur original de la contribution
-   - N'avoir violé aucun droit de tiers
-   - Accepter la présente licence pour sa contribution
-
---------------------------------------------------------------------------------
-4. PROPRIÉTÉ INTELLECTUELLE
---------------------------------------------------------------------------------
-
-Le code source, l'architecture logicielle, les composants techniques et toute 
-la documentation associée sont la propriété exclusive de Lucas Servais.
-
-"Sweet Narcisse" est le nom commercial du projet développé par Lucas Servais 
-pour un client. La marque "Sweet Narcisse" appartient au client final. Seul 
-le code source et le logiciel sont la propriété de Lucas Servais jusqu'à 
-cession éventuelle des droits.
-
-L'utilisation du code source sans autorisation écrite est strictement interdite.
-
---------------------------------------------------------------------------------
-5. DONNÉES ET CONFIDENTIALITÉ
---------------------------------------------------------------------------------
-
-Le Logiciel peut traiter des données personnelles. L'utilisateur autorisé 
-s'engage à respecter le RGPD et toutes les réglementations applicables en 
-matière de protection des données.
-
---------------------------------------------------------------------------------
-6. EXCLUSION DE GARANTIE
---------------------------------------------------------------------------------
-
-LE LOGICIEL EST FOURNI "EN L'ÉTAT", SANS GARANTIE D'AUCUNE SORTE, EXPRESSE 
-OU IMPLICITE, Y COMPRIS MAIS SANS S'Y LIMITER LES GARANTIES DE QUALITÉ 
-MARCHANDE, D'ADÉQUATION À UN USAGE PARTICULIER ET D'ABSENCE DE CONTREFAÇON.
-
-EN AUCUN CAS LE PROPRIÉTAIRE NE SERA RESPONSABLE DE TOUT DOMMAGE DIRECT, 
-INDIRECT, ACCESSOIRE, SPÉCIAL, EXEMPLAIRE OU CONSÉCUTIF (Y COMPRIS, MAIS 
-SANS S'Y LIMITER, L'ACQUISITION DE BIENS OU SERVICES DE SUBSTITUTION, LA 
-PERTE D'UTILISATION, DE DONNÉES OU DE PROFITS, OU L'INTERRUPTION D'ACTIVITÉ) 
-QUELLE QU'EN SOIT LA CAUSE ET SELON TOUTE THÉORIE DE RESPONSABILITÉ.
-
---------------------------------------------------------------------------------
-7. LOI APPLICABLE
---------------------------------------------------------------------------------
-
-La présente licence est régie par le droit français. Tout litige relatif à 
-son interprétation ou son exécution sera soumis à la compétence exclusive 
-des tribunaux de Colmar, France.
-
---------------------------------------------------------------------------------
-8. CONTACT
---------------------------------------------------------------------------------
-
-Pour toute demande d'autorisation ou question relative à cette licence :
-
-   Lucas Servais
-   Email : servaislucas68@gmail.com
-   Localisation : Colmar, Alsace, France
-
---------------------------------------------------------------------------------
-
-Dernière mise à jour : Décembre 2025
-
-================================================================================
+*Ce projet démontre mes compétences en développement Full-Stack (Next.js, React, TypeScript, PostgreSQL, Docker, Stripe, etc.) sur une application réelle en production.*
