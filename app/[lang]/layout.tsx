@@ -9,7 +9,6 @@ import {
   type LocaleCode
 } from '@/types/cms'
 import PlausibleAnalytics from '@/components/PlausibleAnalytics'
-import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import ServiceWorkerRegistration from '@/components/ServiceWorkerRegistration'
 
 // 1. Définition du type avec Promise pour params (Spécifique Next.js 15)
@@ -153,7 +152,6 @@ export default async function LangLayout({
         }}
       />
       <PlausibleAnalytics />
-      <PWAInstallPrompt />
       <ServiceWorkerRegistration />
     </div>
   );

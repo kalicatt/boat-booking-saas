@@ -975,29 +975,29 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         onSubmit={handleContactSubmit} 
                         className="form-progressive flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-4"
                     >
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div className="form-field-wrapper">
                                 <label htmlFor="bw-firstName" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_firstname}</label>
-                                <input id="bw-firstName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300" 
+                                <input id="bw-firstName" required className="w-full p-2.5 sm:p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300 text-base" 
                                     value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} />
                             </div>
                             <div className="form-field-wrapper">
                                 <label htmlFor="bw-lastName" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_lastname}</label>
-                                <input id="bw-lastName" required className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300" 
+                                <input id="bw-lastName" required className="w-full p-2.5 sm:p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300 text-base" 
                                     value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} />
                             </div>
                         </div>
                         
                         <div className="form-field-wrapper">
                             <label htmlFor="bw-email" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_email}</label>
-                            <input id="bw-email" required type="email" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300" 
+                            <input id="bw-email" required type="email" className="w-full p-2.5 sm:p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none transition-all duration-300 text-base" 
                                 value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
                         </div>
                         
                                                 <div>
                                                         <label id="bw-phone-label" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_phone}</label>
                                                         <div className="flex gap-2 mt-1 items-start" role="group" aria-labelledby="bw-phone-label">
-                                                            <div className="flex flex-col w-40">
+                                                            <div className="flex flex-col w-24 sm:w-32 flex-shrink-0">
                                                                 <input
                                                                     aria-label="Indicatif téléphonique"
                                                                     list="phoneCodes"
@@ -1016,7 +1016,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                         }
                                                                     }}
                                                                     placeholder="+1"
-                                                                    className={`p-3 border rounded-lg bg-white focus:ring-2 outline-none text-sm ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
+                                                                    className={`p-2.5 sm:p-3 border rounded-lg bg-white focus:ring-2 outline-none text-base ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
                                                                 />
                                                                 <datalist id="phoneCodes">
                                                                     {PHONE_CODES.map(pc => (
@@ -1025,13 +1025,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                 </datalist>
                                                                 {phoneCodeError && <p className="text-[10px] text-red-500 mt-1">{phoneCodeError}</p>}
                                                             </div>
-                                                            <div className="flex-1">
+                                                            <div className="flex-1 min-w-0">
                                                                 <input
                                                                     required
                                                                     type="tel"
                                                                     inputMode="tel"
                                                                     aria-label="Numéro de téléphone"
-                                                                    className={`w-full p-3 border rounded-lg bg-white focus:ring-2 outline-none ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
+                                                                    className={`w-full p-2.5 sm:p-3 border rounded-lg bg-white focus:ring-2 outline-none text-base ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
                                                                     value={formData.phone}
                                                                     onChange={e => {
                                                                         const digits = e.target.value.replace(/[^0-9]/g,'')
@@ -1066,9 +1066,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             </div>
                         )}
 
-                                                <div className="bg-slate-100 p-4 rounded-xl flex justify-center overflow-x-auto">
+                                                <div className="bg-slate-100 p-2 sm:p-4 rounded-xl flex justify-center overflow-hidden">
                                                         {process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ? (
-                                                            <div className="mx-auto scale-[0.9] origin-top sm:scale-100 sm:origin-center">
+                                                            <div className="mx-auto scale-[0.77] sm:scale-100 origin-center transform-gpu">
                                                                 <ReCAPTCHA
                                                                     ref={recaptchaRef}
                                                                     sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
