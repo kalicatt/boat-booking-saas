@@ -1,0 +1,112 @@
+MIT License with Proprietary Modifications
+
+Copyright (c) 2024-2025 Lucas Servais
+All Rights Reserved.
+
+================================================================================
+                          LICENCE PROPRIÉTAIRE
+                           SWEET NARCISSE
+================================================================================
+
+AVIS DE DROITS D'AUTEUR
+
+Ce logiciel et la documentation associée ("le Logiciel") sont la propriété 
+exclusive de Lucas Servais ("le Propriétaire").
+
+--------------------------------------------------------------------------------
+1. DROITS ACCORDÉS
+--------------------------------------------------------------------------------
+
+Le Propriétaire accorde une licence limitée, non exclusive et non transférable 
+pour :
+
+   a) CONSULTATION : Visualiser le code source à des fins d'évaluation, 
+      d'apprentissage ou d'audit de sécurité.
+
+   b) CONTRIBUTION : Soumettre des corrections de bugs ou améliorations via 
+      Pull Request, sous réserve d'acceptation par le Propriétaire.
+
+--------------------------------------------------------------------------------
+2. RESTRICTIONS
+--------------------------------------------------------------------------------
+
+Sans autorisation écrite préalable du Propriétaire, il est INTERDIT de :
+
+   a) Copier, reproduire ou dupliquer le Logiciel en tout ou partie.
+
+   b) Modifier, adapter ou créer des œuvres dérivées basées sur le Logiciel.
+
+   c) Distribuer, publier, vendre, louer ou sous-licencier le Logiciel.
+
+   d) Utiliser le Logiciel à des fins commerciales.
+
+   e) Supprimer ou modifier les mentions de droits d'auteur.
+
+   f) Décompiler, désassembler ou procéder à de l'ingénierie inverse sur les 
+      parties compilées du Logiciel.
+
+--------------------------------------------------------------------------------
+3. CONTRIBUTIONS
+--------------------------------------------------------------------------------
+
+Toute contribution soumise au projet (code, documentation, suggestions) devient 
+automatiquement la propriété du Propriétaire. Le contributeur cède l'ensemble 
+de ses droits patrimoniaux sur la contribution et garantit :
+
+   - Être l'auteur original de la contribution
+   - N'avoir violé aucun droit de tiers
+   - Accepter la présente licence pour sa contribution
+
+--------------------------------------------------------------------------------
+4. MARQUES
+--------------------------------------------------------------------------------
+
+"Sweet Narcisse", le logo et tous les éléments de marque associés sont des 
+marques déposées ou non déposées de Lucas Servais. Leur utilisation est 
+strictement interdite sans autorisation écrite.
+
+--------------------------------------------------------------------------------
+5. DONNÉES ET CONFIDENTIALITÉ
+--------------------------------------------------------------------------------
+
+Le Logiciel peut traiter des données personnelles. L'utilisateur autorisé 
+s'engage à respecter le RGPD et toutes les réglementations applicables en 
+matière de protection des données.
+
+--------------------------------------------------------------------------------
+6. EXCLUSION DE GARANTIE
+--------------------------------------------------------------------------------
+
+LE LOGICIEL EST FOURNI "EN L'ÉTAT", SANS GARANTIE D'AUCUNE SORTE, EXPRESSE 
+OU IMPLICITE, Y COMPRIS MAIS SANS S'Y LIMITER LES GARANTIES DE QUALITÉ 
+MARCHANDE, D'ADÉQUATION À UN USAGE PARTICULIER ET D'ABSENCE DE CONTREFAÇON.
+
+EN AUCUN CAS LE PROPRIÉTAIRE NE SERA RESPONSABLE DE TOUT DOMMAGE DIRECT, 
+INDIRECT, ACCESSOIRE, SPÉCIAL, EXEMPLAIRE OU CONSÉCUTIF (Y COMPRIS, MAIS 
+SANS S'Y LIMITER, L'ACQUISITION DE BIENS OU SERVICES DE SUBSTITUTION, LA 
+PERTE D'UTILISATION, DE DONNÉES OU DE PROFITS, OU L'INTERRUPTION D'ACTIVITÉ) 
+QUELLE QU'EN SOIT LA CAUSE ET SELON TOUTE THÉORIE DE RESPONSABILITÉ.
+
+--------------------------------------------------------------------------------
+7. LOI APPLICABLE
+--------------------------------------------------------------------------------
+
+La présente licence est régie par le droit français. Tout litige relatif à 
+son interprétation ou son exécution sera soumis à la compétence exclusive 
+des tribunaux de Colmar, France.
+
+--------------------------------------------------------------------------------
+8. CONTACT
+--------------------------------------------------------------------------------
+
+Pour toute demande d'autorisation ou question relative à cette licence :
+
+   Lucas Servais
+   Email : servaislucas68@gmail.com
+   Localisation : Colmar, Alsace, France
+
+--------------------------------------------------------------------------------
+
+Dernière mise à jour : Décembre 2025
+
+================================================================================

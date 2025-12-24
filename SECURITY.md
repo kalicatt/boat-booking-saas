@@ -1,82 +1,234 @@
-## Sécurité – Sweet Narcisse
+# Politique de Sécurité – Sweet Narcisse
 
-Ce document résume les protections côté serveur mises en place, la procédure de signalement et les recommandations pour aller plus loin.
-
-### Signalement de vulnérabilité
-- **Contact** : envoyez un email à `servaislucas68@gmail.com` en secours) avec un descriptif détaillé, étapes de reproduction, et tout POC.
-- **Chiffrement** : la clé PGP publique est disponible dans `certs/README.md`; utilisez-la pour les rapports sensibles.
-- **SLA réponse** : accusé de réception sous 2 jours ouvrés, patch correctif sous 14 jours pour les failles critiques (ou contournement documenté).
-- **Divulgation responsable** : merci de ne pas rendre publiques les informations tant qu’un correctif n’est pas déployé. Nous publions ensuite la vulnérabilité et les étapes de mitigation dans `CHANGELOG.md` et `SECURITY.md`.
-
-### Versions supportées
-| Version | Statut | Notes |
-|---------|--------|-------|
-| 1.0.5 (master) | ✅ Supportée | Dernier correctif, docs à jour |
-| < 1.0.5 | ⚠️ Best effort | Mettez à niveau avant de demander une assistance sécurité |
-
-### Validation & Sanitation
-- Zod valide toutes les entrées sensibles (Employés, Blocs, Réservations).
-- Les champs texte sont raccourcis (`cleanString`) et caractères invisibles supprimés.
-- Suppression des balises `<script>` dans `notes`, `message`, `reason` pour réduire l’injection de script côté rendu mail / log.
-- Retour HTTP 422 en cas de schéma invalide avec `issues` détaillées.
-
-### Accès & Rôles
-- Contrôle systématique du rôle avant mutations: seuls `SUPERADMIN`/`ADMIN` (selon action) peuvent créer/modifier/supprimer.
-- Un `ADMIN` ne peut créer que des employés de rôle `EMPLOYEE`.
-- Suppression utilisateur réservée au `SUPERADMIN`, impossible sur un compte `SUPERADMIN`.
-
-### Cohérence Données
-- Dates normalisées en UTC "mur" (suffixe `Z`) pour éviter décalages fuseau.
-- Calculs d’occupation barque protègent contre conflits de réservation.
-- Blocs journée court-circuitent l’API de disponibilités pour éviter surcharges de boucle.
-
-### Atténuation Injection
-- Aucune requête SQL construite manuellement (utilisation Prisma paramétré).
-- Les entrées utilisateur sont filtrées, longueur limitée, typage strict côté serveur.
-- Emails internes override (`isStaffOverride`) générés en sous-domaine local pour éviter collisions.
-
-### Journalisation
-- Toute action critique (création/suppression bloc, création/mise à jour/suppression employé, nouvelle réservation) loggée avec timestamp et utilisateur.
-- Les tentatives invalides renvoient codes 4xx (possibilité d’ajouter une log dédiée si besoin).
-- Les scripts automatisés (`daily-maintenance.ps1`) tracent les opérations de pruning, sauvegarde et appels d’API; conservez les journaux pour 90 jours afin de faciliter l’investigation.
-
-### Recommandations Futures
-1. Rate limiting: intégrer un système (Redis / Upstash) pour limiter POST (ex: 20/min/IP).
-2. CSRF: utiliser token anti-CSRF si endpoints consommés par un navigateur authentifié (NextAuth fournit protections basiques; renforcer si formulaires externes).
-3. Header Policy: configurer `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options` via middleware (voir proposition ci-dessous).
-4. Password strength: vérifier robustesse (zxcvbn) avant création d’employé / changement de mot de passe; l’outil est déjà présent dans `package.json` (`zxcvbn`).
-5. Audit logs externes: exporter les `Log` vers stockage immuable (S3 / Log service) pour non‑répudiation.
-6. Monitoring sécurité: ajouter alertes sur volume anormal de 4xx ou création rapide de comptes (Grafana/Alertmanager déjà provisionnés dans `monitoring/`).
-7. Chiffrement au repos: s’assurer que la base Postgres est sur un volume chiffré (paramètre hosting).
-8. Séparation Permissions: futur passage à RBAC plus granulaires si modules nouveaux (ex: STATISTIQUES lecture seule). La promotion Client → Employé (1.0.5) respecte déjà les roles existants.
-9. File Upload: si ajout futur, valider Mimetype, taille, scanner antivirus (ClamAV) et stocker hors racine.
-10. Secrets: vérifier que clés (RESEND, RECAPTCHA) ne sont jamais exposées dans le client; conserver dans variables d’environnement. Le script `scripts/configure-env.sh` automatise cette vérification.
-
-### Infrastructure & Ops
-- Base de données isolée: `docker-compose.db.yml` exécute Postgres dans un stack dédié (`sweetnarcisse-net`) afin que les déploiements applicatifs ne touchent pas le volume `sweetnarcisse-postgres`. Limiter l’accès réseau à ce bridge uniquement.
-- Gestion des secrets: `scripts/configure-env.sh` génère `.env.production.local` avec toutes les variables (Stripe, PayPal, SMTP, reCAPTCHA, Grafana). Stocker ce fichier hors dépôt git (`chmod 600`) et régénérer après rotation des clés.
-- Snapshots & sauvegardes: utiliser la procédure décrite dans `DEPLOYMENT.md` (dump logique + archive du volume) et chiffrer les exports avant offsite.
-- Tests PayPal sandbox: basculer `PAYPAL_MODE` en `sandbox` via le script, utiliser des identifiants dédiés, puis revenir en `live` dès la recette terminée pour limiter l’exposition des clés.
-
-### Vérification Rapide (Checklist)
-| Domaine | OK | Action Future |
-|---------|----|---------------|
-| Validation schéma | ✅ | Étendre à tous endpoints restants |
-| Sanitation basique | ✅ | Ajouter liste blanche caractères avancés si besoin |
-| Rôles & permissions | ✅ | Ajouter tests automatiques |
-| Logs actions critiques | ✅ | Ajouter logs pour échecs validation |
-| Rate limiting | ✅ | Token bucket `lib/rateLimit.ts` (Upstash Redis) branché sur `/api/*` |
-| CSP/Headers | ✅ | Middleware `middleware.security.ts` applique CSP + headers durcis |
-| Force mot de passe | ✅ | Politique `lib/passwordPolicy.ts` avec zxcvbn > 3 |
-| Monitoring | ✅ | Dashboards Grafana + alerting PROM/Alertmanager |
-
-
-
-### Comment Contribuer
-- Ajouter tout nouveau endpoint avec schéma Zod dans `lib/validation.ts`.
-- Ne jamais faire confiance aux validations du client: toujours revalider côté serveur.
-- Limiter les champs retournés (pas de mot de passe, ni données sensibles inutiles).
-- Documenter les changements sécurité dans `CHANGELOG.md` et avertir `security@sweet-narcisse.fr` avant déploiement.
+Ce document décrit les mesures de sécurité implémentées, la procédure de signalement de vulnérabilités et les recommandations pour maintenir un haut niveau de protection.
 
 ---
-Dernière mise à jour: 2025-12-05 (release v1.0.5).
+
+## 📋 Table des Matières
+
+- [Signalement de Vulnérabilité](#-signalement-de-vulnérabilité)
+- [Versions Supportées](#-versions-supportées)
+- [Mesures de Sécurité](#-mesures-de-sécurité)
+- [Architecture de Sécurité](#-architecture-de-sécurité)
+- [Conformité RGPD](#-conformité-rgpd)
+- [Recommandations](#-recommandations)
+
+---
+
+## 🚨 Signalement de Vulnérabilité
+
+### Contact
+
+Si vous découvrez une faille de sécurité, veuillez nous contacter de manière responsable :
+
+- **Email** : servaislucas68@gmail.com
+- **Objet** : `[SECURITY] Description brève`
+- **Chiffrement** : Clé PGP disponible dans `certs/README.md`
+
+### Informations à Fournir
+
+1. Description détaillée de la vulnérabilité
+2. Étapes de reproduction
+3. Impact potentiel
+4. Proof of Concept (si disponible)
+5. Suggestions de correction (optionnel)
+
+### Délais de Réponse
+
+| Sévérité | Accusé de réception | Correctif |
+|----------|---------------------|-----------|
+| **Critique** | 24 heures | 7 jours |
+| **Haute** | 48 heures | 14 jours |
+| **Moyenne** | 5 jours | 30 jours |
+| **Basse** | 7 jours | 60 jours |
+
+### Divulgation Responsable
+
+- ⏳ Ne divulguez pas publiquement avant le déploiement du correctif
+- 📝 Nous publions les vulnérabilités corrigées dans `CHANGELOG.md`
+- 🏆 Reconnaissance dans `SECURITY.md` pour les signalements validés
+
+---
+
+## ✅ Versions Supportées
+
+| Version | Statut | Support Sécurité |
+|---------|--------|------------------|
+| 1.0.x (master) | ✅ Active | Correctifs prioritaires |
+| < 1.0.0 | ❌ Obsolète | Aucun support |
+
+> **Recommandation** : Maintenez toujours votre installation à jour avec la dernière version stable.
+
+---
+
+## 🔐 Mesures de Sécurité
+
+### Authentification & Autorisation
+
+| Mesure | Implémentation |
+|--------|----------------|
+| **Sessions** | NextAuth.js avec tokens JWT signés |
+| **Mots de passe** | Hashage bcrypt (cost factor 12) |
+| **Rôles** | RBAC (SUPERADMIN, ADMIN, EMPLOYEE, CLIENT) |
+| **Permissions** | Granulaires par fonctionnalité |
+
+```
+Hiérarchie des rôles:
+SUPERADMIN → Accès total, gestion des admins
+    └── ADMIN → Gestion employés, réservations, flotte
+        └── EMPLOYEE → Embarquements, scan QR, encaissement
+            └── CLIENT → Réservations personnelles
+```
+
+### Validation des Entrées
+
+- **Zod** : Schémas de validation sur toutes les API
+- **Sanitization** : Nettoyage des caractères spéciaux
+- **Longueur** : Limites strictes sur tous les champs texte
+- **XSS** : Suppression des balises `<script>` dans les champs libres
+
+### Protection des API
+
+| Protection | Endpoint | Configuration |
+|------------|----------|---------------|
+| Rate Limiting | `/api/*` | 100 req/min/IP |
+| Rate Limiting | `/api/auth/*` | 10 req/min/IP |
+| CORS | Tous | Origines whitelist |
+| CSRF | Mutations | Token automatique NextAuth |
+
+### Sécurité des Paiements
+
+- **Stripe** : PCI DSS Level 1 certifié
+- **PayPal** : Tokenisation sécurisée
+- **Webhooks** : Vérification de signature obligatoire
+- **3D Secure** : Activé par défaut
+
+### Base de Données
+
+| Mesure | Description |
+|--------|-------------|
+| **ORM** | Prisma (requêtes paramétrées, pas d'injection SQL) |
+| **Connexion** | SSL/TLS obligatoire |
+| **Backups** | Quotidiens, rétention 30 jours |
+| **Accès** | Réseau Docker isolé |
+
+### Journalisation & Audit
+
+Toutes les actions critiques sont tracées :
+
+- Création/modification/suppression de réservations
+- Authentifications (succès et échecs)
+- Opérations de paiement
+- Modifications de permissions
+- Actions administratives
+
+---
+
+## 🏛️ Architecture de Sécurité
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     INTERNET                                 │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+              ┌───────────▼───────────┐
+              │      Cloudflare       │  ← DDoS Protection
+              │    (WAF, Rate Limit)  │  ← SSL Termination
+              └───────────┬───────────┘
+                          │
+              ┌───────────▼───────────┐
+              │        Nginx          │  ← Reverse Proxy
+              │   (HTTPS, Headers)    │  ← Security Headers
+              └───────────┬───────────┘
+                          │
+              ┌───────────▼───────────┐
+              │      Next.js App      │  ← Application
+              │  (Auth, Validation)   │  ← Business Logic
+              └───────────┬───────────┘
+                          │
+         ┌────────────────┼────────────────┐
+         │                │                │
+┌────────▼────────┐ ┌─────▼─────┐ ┌───────▼───────┐
+│   PostgreSQL    │ │   Redis   │ │     MinIO     │
+│   (Encrypted)   │ │  (Cache)  │ │   (Storage)   │
+└─────────────────┘ └───────────┘ └───────────────┘
+         │
+         └── Réseau Docker isolé (sweetnarcisse-net)
+```
+
+### Headers de Sécurité Configurés
+
+- `X-Frame-Options: DENY`
+- `X-Content-Type-Options: nosniff`
+- `X-XSS-Protection: 1; mode=block`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Strict-Transport-Security: max-age=31536000`
+
+---
+
+## 🇪🇺 Conformité RGPD
+
+### Données Collectées
+
+| Catégorie | Données | Finalité | Rétention |
+|-----------|---------|----------|-----------|
+| Identité | Nom, prénom | Réservation | 3 ans |
+| Contact | Email, téléphone | Communication | 3 ans |
+| Paiement | Référence transaction | Comptabilité | 10 ans |
+| Technique | IP, User-Agent | Sécurité | 1 an |
+
+### Droits des Utilisateurs
+
+- ✅ **Accès** : Export des données via `/api/user/export`
+- ✅ **Rectification** : Modification via profil utilisateur
+- ✅ **Suppression** : Demande via `/api/user/delete`
+- ✅ **Portabilité** : Export JSON/CSV disponible
+
+### Mesures Techniques
+
+- Chiffrement des données sensibles au repos
+- Pseudonymisation des logs après 90 jours
+- Accès limité aux données personnelles (need-to-know)
+- Contrats de sous-traitance avec Stripe, PayPal, hébergeur
+
+---
+
+## 💡 Recommandations
+
+### Pour les Administrateurs
+
+1. **Mots de passe** : Minimum 12 caractères, complexité requise
+2. **Sessions** : Déconnexion automatique après 30 min d'inactivité
+3. **Audit** : Revue mensuelle des logs d'accès
+
+### Pour les Développeurs
+
+1. **Dépendances** : `npm audit` avant chaque release
+2. **Secrets** : Jamais dans le code, utiliser `.env`
+3. **Code review** : Obligatoire pour toute modification sécurité
+
+### Pour l'Infrastructure
+
+1. **Updates** : Patcher l'OS et Docker mensuellement
+2. **Firewall** : Seuls ports 80/443 exposés
+3. **Backups** : Tester la restauration trimestriellement
+
+---
+
+## 📜 Historique des Vulnérabilités Corrigées
+
+| Date | Sévérité | Description | Version corrigée |
+|------|----------|-------------|------------------|
+| - | - | Aucune vulnérabilité signalée | - |
+
+---
+
+## 🙏 Remerciements
+
+Merci aux chercheurs en sécurité qui ont contribué à améliorer Sweet Narcisse.
+
+---
+
+**Dernière mise à jour** : Décembre 2025  
+**Propriétaire** : Lucas Servais  
+**Contact** : servaislucas68@gmail.com

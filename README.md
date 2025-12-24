@@ -1,142 +1,257 @@
-**SweetNarcisse Demo**
+<p align="center">
+  <img src="public/images/logo.png" alt="Sweet Narcisse Logo" width="200"/>
+</p>
 
-Production-ready Next.js app with booking, payments (Stripe + PayPal), Prisma, and Dockerized deployment for VPS. This README covers local setup, testing, building, Docker workflows, release/versioning, and troubleshooting.
+<h1 align="center">🚣 Sweet Narcisse</h1>
 
-## Prerequisites
-- Node `>= 22`
-- npm `>= 10`
-- Docker `>= 24`
-- OpenSSL-compatible base (Debian/Ubuntu recommended for Prisma)
-- Optional: `git`, `stripe` account, PayPal account
+<p align="center">
+  <strong>Système de réservation de barques pour la Petite Venise de Colmar</strong>
+</p>
 
-## Quick Start (Local Dev)
-- Install dependencies:
-```bash
-npm install --legacy-peer-deps
+<p align="center">
+  <a href="#fonctionnalités">Fonctionnalités</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#installation">Installation</a> •
+  <a href="#documentation">Documentation</a> •
+  <a href="#licence">Licence</a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-1.0.6-blue.svg" alt="Version"/>
+  <img src="https://img.shields.io/badge/Next.js-16.1.0-black.svg" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.x-blue.svg" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/license-Proprietary-red.svg" alt="License"/>
+</p>
+
+---
+
+## 📋 À Propos
+
+**Sweet Narcisse** est une plateforme complète de gestion de réservations pour les promenades en barque sur les canaux de la Petite Venise à Colmar, en Alsace. Le système gère l'ensemble du cycle de vie des réservations : de la prise de rendez-vous en ligne jusqu'à l'embarquement, en passant par les paiements sécurisés.
+
+### 🎯 Cas d'Usage
+
+- **Clients** : Réservation en ligne avec choix du créneau, paiement sécurisé (CB, Apple Pay, Google Pay, PayPal)
+- **Employés** : Gestion quotidienne des embarquements, scan QR, encaissement sur place (Tap to Pay)
+- **Administrateurs** : Planning, statistiques, gestion de flotte, comptabilité
+
+---
+
+## ✨ Fonctionnalités
+
+### 🌐 Application Web
+
+| Module | Description |
+|--------|-------------|
+| **Réservation en ligne** | Widget de réservation multi-étapes avec sélection de date, nombre de passagers, et créneau horaire |
+| **Paiement sécurisé** | Intégration Stripe (CB, Apple Pay, Google Pay) + PayPal |
+| **Multi-langue** | Interface disponible en 🇫🇷 FR, 🇬🇧 EN, 🇩🇪 DE, 🇪🇸 ES, 🇮🇹 IT |
+| **Planning interactif** | Vue calendrier avec drag & drop, gestion des créneaux et de la capacité |
+| **Gestion de flotte** | Suivi des barques, maintenance, disponibilité |
+| **Tableau de bord** | Statistiques temps réel, météo, alertes |
+| **CMS intégré** | Gestion du contenu, images hero, partenaires |
+
+### 📱 Application Mobile (Android)
+
+| Fonctionnalité | Description |
+|----------------|-------------|
+| **Scan QR** | Validation des réservations par code QR |
+| **Tap to Pay** | Encaissement sans contact via Stripe Terminal SDK |
+| **Mode hors-ligne** | Cache local pour consultation |
+| **Notifications push** | Alertes de nouvelles réservations |
+
+### 🔧 Administration
+
+| Outil | Description |
+|-------|-------------|
+| **Gestion des employés** | Rôles, permissions, horaires |
+| **Comptabilité** | Rapportations, export CSV, rapprochement bancaire |
+| **Logs & Audit** | Traçabilité complète des actions |
+| **Monitoring** | Prometheus + Grafana intégrés |
+
+---
+
+## 🏗️ Architecture
+
 ```
-- Configure environment: copy `.env.example` to `.env.local` and fill values. See `DEPLOYMENT.md` for variable descriptions.
-- Run dev server:
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENTS                                  │
+├──────────────┬──────────────┬──────────────┬───────────────────┤
+│   Web App    │  Mobile PWA  │ Android App  │   API Externe     │
+│   (Next.js)  │   (React)    │  (Capacitor) │    (REST)         │
+└──────┬───────┴──────┬───────┴──────┬───────┴────────┬──────────┘
+       │              │              │                │
+       └──────────────┴──────────────┴────────────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   Reverse Proxy   │
+                    │      (Nginx)      │
+                    └─────────┬─────────┘
+                              │
+                    ┌─────────▼─────────┐
+                    │   Next.js App     │
+                    │  (API + SSR/SSG)  │
+                    └─────────┬─────────┘
+                              │
+       ┌──────────────────────┼──────────────────────┐
+       │                      │                      │
+┌──────▼──────┐       ┌──────▼──────┐       ┌──────▼──────┐
+│ PostgreSQL  │       │    Redis    │       │    MinIO    │
+│  (Prisma)   │       │   (Cache)   │       │  (Storage)  │
+└─────────────┘       └─────────────┘       └─────────────┘
+
+                    Services Externes
+       ┌──────────────────────┼──────────────────────┐
+       │                      │                      │
+┌──────▼──────┐       ┌──────▼──────┐       ┌──────▼──────┐
+│   Stripe    │       │   PayPal    │       │   Resend    │
+│  (Paiement) │       │  (Paiement) │       │   (Email)   │
+└─────────────┘       └─────────────┘       └─────────────┘
+```
+
+### Stack Technique
+
+| Couche | Technologies |
+|--------|-------------|
+| **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS |
+| **Backend** | Next.js API Routes, Prisma ORM |
+| **Base de données** | PostgreSQL 16 |
+| **Cache** | Redis (Upstash) |
+| **Stockage fichiers** | MinIO (S3-compatible) |
+| **Paiements** | Stripe (Terminal SDK, Payment Element), PayPal |
+| **Mobile natif** | Capacitor + Java (Android) |
+| **Infrastructure** | Docker, Docker Compose, Nginx |
+| **Monitoring** | Prometheus, Grafana, Alertmanager |
+| **CI/CD** | GitHub Actions |
+
+---
+
+## 🚀 Installation
+
+### Prérequis
+
+- Node.js ≥ 22
+- npm ≥ 10
+- Docker ≥ 24
+- PostgreSQL 16 (ou via Docker)
+
+### Installation Rapide (Développement)
+
 ```bash
+# Cloner le dépôt
+git clone https://github.com/kalicatt/SweetNarcisse-demo.git
+cd SweetNarcisse-demo
+
+# Installer les dépendances
+npm install --legacy-peer-deps
+
+# Configurer l'environnement
+cp .env.example .env.local
+# Éditer .env.local avec vos clés API
+
+# Initialiser la base de données
+npx prisma migrate dev
+npx prisma db seed
+
+# Lancer le serveur de développement
 npm run dev
 ```
-Open `http://localhost:3000`.
 
-### HTTPS Dev over LAN
-Stripe (and most wallet SDKs) require a secure origin when you access the app from another device (e.g., `https://192.168.1.80:3000`). Use the provided helper to create trusted certificates:
+### Déploiement Production (Docker)
 
-1. Install [`mkcert`](https://github.com/FiloSottile/mkcert) (e.g., `choco install mkcert` on Windows) and run trust setup once: `mkcert -install`.
-2. Generate certs that cover both `sweet.local` and your LAN IP:
-	```powershell
-	pwsh scripts/setup-dev-https.ps1 -Hostname sweet.local -LanAddress 192.168.1.80
-	```
-	This writes `certs/dev-cert.pem` and `certs/dev-key.pem` (ignored by git).
-3. Add a hosts entry pointing `sweet.local` to `192.168.1.80` on every device you plan to test.
-4. Start the secure dev server:
-	```bash
-	npm run dev:https
-	```
-5. Open `https://sweet.local:3000` (or the LAN IP) from mobile/desktop—Stripe’s Payment Element will now load.
-
-## Testing
-- Unit tests (Vitest):
 ```bash
+# Créer le réseau Docker
+docker network create sweetnarcisse-net
+
+# Démarrer la base de données
+docker compose -f docker-compose.db.yml up -d
+
+# Construire et démarrer l'application
+docker compose up -d --build
+
+# Appliquer les migrations
+docker compose exec app npx prisma migrate deploy
+```
+
+📖 Voir [DEPLOYMENT.md](DEPLOYMENT.md) pour le guide complet de déploiement VPS.
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [📘 Guide Utilisateur](docs/user-guide.md) | Manuel pour administrateurs et employés |
+| [🔧 Guide Développeur](docs/developer-guide.md) | Architecture, conventions, API |
+| [🏛️ Architecture](docs/ARCHITECTURE.md) | Schémas et diagrammes techniques |
+| [🚀 Déploiement](DEPLOYMENT.md) | Installation VPS, Docker, SSL |
+| [🔐 Sécurité](SECURITY.md) | Politique de sécurité, signalement |
+| [📝 Changelog](CHANGELOG.md) | Historique des versions |
+| [🔌 API Reference](docs/api-reference.md) | Documentation OpenAPI |
+
+---
+
+## 🔒 Sécurité
+
+- ✅ Authentification NextAuth avec sessions sécurisées
+- ✅ Validation Zod sur toutes les entrées utilisateur
+- ✅ Protection CSRF intégrée
+- ✅ Rate limiting sur les endpoints sensibles
+- ✅ Chiffrement des données sensibles
+- ✅ Audit trail complet des actions
+
+Pour signaler une vulnérabilité, consultez [SECURITY.md](SECURITY.md).
+
+---
+
+## 📊 Statut du Projet
+
+| Composant | Statut |
+|-----------|--------|
+| Application Web | ✅ Production |
+| API REST | ✅ Production |
+| Application Android | ✅ Production |
+| Application iOS | 🚧 En développement |
+| PWA | ✅ Production |
+
+---
+
+## 🧪 Tests
+
+```bash
+# Linter
+npm run lint
+
+# Tests unitaires
 npm test
-```
 
-## Build (Production)
-```bash
+# Build de vérification
 npm run build
-npm run start
-```
-Notes:
-- PostCSS/Tailwind plugin may be disabled in `next.config.ts` for compatibility; re-enable when your environment supports it.
-
-## Docker (Local)
-Build multi-stage image and run:
-```bash
-docker build -t sweetnarcisse:local .
-docker run -p 3000:3000 --env-file .env.production --name sweetnarcisse sweetnarcisse:local
-```
-Save image to tar for transfer (do NOT commit tars):
-```bash
-docker save sweetnarcisse:local -o sweetnarcisse-image.tar
 ```
 
-## Deployment (VPS)
-`DEPLOYMENT.md` now walks through a Debian 25 setup end-to-end, including Docker installation, persistent Postgres, TLS, monitoring, and an optional hardening helper (`scripts/harden-vps.sh`).
+---
 
-Key commands (see the guide for full context):
-- `./scripts/configure-env.sh` prompts for every production variable (SMTP, Stripe, PayPal live/sandbox, reCAPTCHA, Grafana, etc.) and writes `.env.production.local`.
-- `docker compose -f docker-compose.db.yml --env-file .env.production.local up -d` keeps Postgres isolated and persistent.
-- `docker compose --env-file .env.production.local up -d --build` deploys the app stack.
+## 👨‍💻 Auteur
 
-Reverse proxy, systemd service files, and TLS scripts remain under `systemd/` and `scripts/`.
+**Lucas Servais**
 
-### Persistent Postgres Stack
-Run the database container via the dedicated compose file so deployments of the web stack do not wipe data:
-```bash
-docker network create sweetnarcisse-net                # once
-docker compose -f docker-compose.db.yml --env-file .env.production.local up -d
-docker compose up -d                                   # app stack
-```
-See `DEPLOYMENT.md` for snapshot/backup automation, PayPal sandbox testing workflow, mobile packaging, and the hardening checklist.
+- 📧 Email: servaislucas68@gmail.com
+- 🔗 GitHub: [@kalicatt](https://github.com/kalicatt)
+- 📍 Colmar, Alsace, France
 
-## Payments
-- Stripe: Cards + Apple Pay + Google Pay via Payment Request. Webhook finalizes server state; `daily-maintenance.ps1` cleans stale pending bookings.
-- PayPal: Standard button integration for alternative checkout. Set both `PAYPAL_CLIENT_ID` (server) and `NEXT_PUBLIC_PAYPAL_CLIENT_ID` (client-exposed) in your env; the helper script fills both automatically.
+---
 
-Apple Pay domain association:
-- Add domain in Stripe; download `apple-developer-merchantid-domain-association` and place at `public/.well-known/apple-developer-merchantid-domain-association`.
+## 📄 Licence
 
-## Versioning & Releases
-- Semantic versioning: `MAJOR.MINOR.PATCH` (e.g., `1.0.0`).
-- Bump version and update changelog:
-```bash
-npm run release
-```
-- Tag the release and push:
-```bash
-git tag v1.0.5
-git push origin v1.0.5
-```
-- Optional CI: build/push images only on tags.
+**Copyright © 2024-2025 Lucas Servais. Tous droits réservés.**
 
-## Repository Hygiene
-- `.gitignore` includes `*.tar`; do not commit Docker image tar files.
-- History was rewritten to remove large tar; force-push completed. If you previously cloned, re-clone or reset to `origin/master`.
-- Consider branch protection on `master` to disallow force pushes and require PRs.
+Ce logiciel est la propriété exclusive de Lucas Servais. Toute reproduction, distribution, modification ou utilisation commerciale sans autorisation écrite préalable est strictement interdite.
 
-## Troubleshooting
-- Prisma/OpenSSL errors in Alpine: use Debian/Ubuntu base or Node `bookworm` images.
-- Missing `RESEND_API_KEY`: email routes are guarded; set the key or rely on Nodemailer fallback.
-- Stripe API version literal: repository pins a tested version for type safety.
-- Turbopack build complaints: ensure Next 16 route handler signatures match `NextRequest` and promise-based params.
+Voir [LICENSE](LICENSE) pour plus de détails.
 
-## Maintenance & Fleet Automation
-- Run `pwsh .\daily-maintenance.ps1` on your server (or schedule via Task Scheduler/systemd). Step 5 now calls `/api/admin/fleet/check-status` to list batteries to charge, mechanical thresholds, and boats already in maintenance.
-- The endpoint accepts either an authenticated admin session or a shared secret so headless scripts can call it without a browser session.
+---
 
-Environment variables:
-- `MAINTENANCE_FLEET_SECRET`: secret stored on the app/server side; when set, `/api/admin/fleet/check-status` requires the matching header.
-- `FLEET_STATUS_ENDPOINT`: optional override used by the PowerShell script (defaults to `http://localhost:3000/api/admin/fleet/check-status`). Use it if the script runs from another host or behind nginx.
-- `FLEET_MAINTENANCE_KEY`: value injected in the script’s `x-maintenance-key` header—set it to the same string as `MAINTENANCE_FLEET_SECRET` for mutual trust.
-
-## Weather & Safety Alerts
-- The admin dashboard now surfaces real-time weather and three-hour projections (wind, rafales, pluie) using OpenWeatherMap One Call 3.0.
-- Required env vars (add them to `.env.local` / production files, never commit real keys):
-	- `WEATHER_API_KEY`: your OpenWeatherMap key (One Call 3.0 access enabled).
-	- `WEATHER_LAT` / `WEATHER_LON`: decimal coordinates for the base (default values point to Strasbourg; update to your dock).
-	- `NEXT_PUBLIC_WIND_ALERT_THRESHOLD`: km/h limit that turns the widget red (default 25).
-- The backend proxy caches responses for 15 minutes; hitting `/api/admin/weather` from the UI will reuse the cached payload to keep calls under the free quota.
-- If the API key is missing or invalid, the widget/badge clearly indicates “Météo HS” so staff know data is offline.
-
-## Docs
-- `DEPLOYMENT.md`: VPS setup, registry vs tar, reverse proxy, TLS.
-- `RELEASE.md`: Release workflow, pre-commit hook to block `*.tar`.
-- `SECURITY.md`: Security practices and contact.
-- `docs/developer-guide.md`: Architecture, workflows, monitoring, troubleshooting.
-- `docs/user-guide.md`: Admin/staff walkthrough for bookings, payments, and fleet tasks.
-
-## License
-Proprietary demo; redistribution restricted. Contact the owner for usage.
+<p align="center">
+  Fait avec ❤️ à Colmar, Alsace 🇫🇷
+</p>
 
