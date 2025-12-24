@@ -7,6 +7,8 @@ export async function GET(request: Request) {
   const startParam = searchParams.get('start');
   const endParam = searchParams.get('end');
 
+  console.log('[all-bookings] GET called with start:', startParam, 'end:', endParam);
+
   if (!startParam || !endParam) {
     return NextResponse.json({ error: "Missing date range parameters" }, { status: 400 });
   }
@@ -19,6 +21,8 @@ export async function GET(request: Request) {
     // sans problème de fuseau horaire, nous allons définir la limite supérieure 
     // comme étant le début du jour suivant (lt: <)
     const exclusiveEndDate = addDays(startOfDay(endDateRaw), 1); 
+
+    console.log('[all-bookings] Parsed dates - start:', startDate.toISOString(), 'exclusiveEnd:', exclusiveEndDate.toISOString());
 
     // Vérification stricte des dates
     if (isNaN(startDate.getTime()) || isNaN(exclusiveEndDate.getTime())) {
@@ -53,6 +57,8 @@ export async function GET(request: Request) {
         startTime: 'asc',
       }
     });
+
+    console.log('[all-bookings] Found', bookings.length, 'bookings');
 
     return NextResponse.json(bookings);
 
