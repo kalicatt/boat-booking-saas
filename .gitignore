@@ -48,4 +48,45 @@ next-env.d.ts
 
 sweetnarcisse-image.tar
 
+# ===========================================
+# FICHIERS SENSIBLES - NE JAMAIS COMMIT
+# ===========================================
+
+# Fichiers de secrets et credentials
+*.secret
+*.secrets
+*credentials*
+*password*
+mail*.txt
+"mail SN.txt"
+.cookies.txt
+
+# Logs (peuvent contenir des infos sensibles)
+logs/
+*.log
+
+# Fichiers locaux Android
+android/local.properties
+android/app/google-services.json
+android/app/release/
+
+# Certificats et clés
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+certs/*.pem
+certs/*.key
+!certs/README.md
+
+# IDE et éditeurs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Fichiers de configuration locaux
+*.local
+*.local.*
 *.tar
