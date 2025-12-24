@@ -379,11 +379,20 @@ npm run dev
 
 ---
 
-## 📄 Licence
+## 📄 Licence & Acquisition
 
-Ce projet est un développement propriétaire réalisé pour un client commercial. Le code source est présenté à titre de démonstration de compétences dans le cadre d'une recherche d'emploi.
+Ce logiciel est un **développement propriétaire** réalisé par Lucas Servais.
 
-**© 2024-2025 Lucas Servais** - Tous droits réservés
+### 🎯 Portfolio
+Ce dépôt est public pour démontrer mes compétences techniques auprès des recruteurs.
+
+### 💼 Disponible à la Vente
+Ce projet complet (code source, documentation, architecture) est **disponible à l'acquisition** ou sous licence commerciale. La marque "Sweet Narcisse" n'est pas incluse.
+
+**Intéressé ?** Contactez-moi pour discuter des conditions.
+
+**© 2024-2025 Lucas Servais** - Tous droits réservés  
+Voir [LICENSE](LICENSE) pour plus de détails.
 
 ---
 

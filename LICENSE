@@ -1,4 +1,4 @@
-# LICENCE
+# LICENCE PROPRIÉTAIRE
 
 **Copyright © 2024-2025 Lucas Servais**
 
@@ -6,35 +6,57 @@ Tous droits réservés.
 
 ---
 
-## Objet
+## Propriété Intellectuelle
 
-Ce dépôt est présenté à titre de **démonstration de compétences techniques** dans le cadre d'une recherche d'emploi. Il constitue un projet portfolio.
+### Code Source
+Le code source de ce logiciel est la **propriété exclusive de Lucas Servais**, développeur indépendant. 
 
-## Code Source
-
-Le code source est la propriété intellectuelle de **Lucas Servais**. Il est rendu public uniquement pour permettre aux recruteurs et professionnels d'évaluer mes compétences en développement logiciel.
-
-## Restrictions
-
-Sans autorisation écrite préalable, il est **interdit** de :
-
-- Copier, reproduire ou dupliquer ce code
-- Modifier ou créer des œuvres dérivées
-- Distribuer, vendre ou utiliser commercialement
-- Utiliser ce code dans d'autres projets
-
-## Marque
-
-La marque "**Sweet Narcisse**" et les éléments visuels associés appartiennent à leur propriétaire légitime (le client). Ce dépôt ne confère aucun droit sur cette marque.
-
-## Contact
-
-Pour toute question concernant ce projet ou une demande de collaboration :
-
-**Lucas Servais**  
-📧 servaislucas68@gmail.com  
-🔗 [github.com/kalicatt](https://github.com/kalicatt)
+### Marque et Identité Visuelle
+La marque "**Sweet Narcisse**", le logo et les éléments visuels associés sont la propriété de l'entreprise cliente et restent sa propriété exclusive.
 
 ---
 
-*Ce projet démontre mes compétences en développement Full-Stack (Next.js, React, TypeScript, PostgreSQL, Docker, Stripe, etc.) sur une application réelle en production.*
+## Droits et Restrictions
+
+### Utilisation Autorisée
+Ce dépôt public est destiné à :
+- **Évaluation technique** par des recruteurs ou partenaires potentiels
+- **Démonstration** des compétences du développeur
+- **Due diligence** dans le cadre d'une acquisition
+
+### Restrictions
+Sans autorisation écrite préalable de Lucas Servais, il est **strictement interdit** de :
+- Copier, reproduire ou cloner ce code
+- Modifier ou créer des œuvres dérivées
+- Distribuer, vendre ou sous-licencier
+- Utiliser dans un autre projet commercial ou personnel
+- Héberger ou déployer ce logiciel
+
+---
+
+## Acquisition / Licence Commerciale
+
+Ce logiciel est **disponible à la vente** ou sous licence commerciale.
+
+Une acquisition inclut :
+- ✅ Transfert complet des droits sur le code source
+- ✅ Documentation technique complète
+- ✅ Support à la transition
+- ✅ Formation si nécessaire
+
+**La marque "Sweet Narcisse" n'est PAS incluse** et reste la propriété du client actuel.
+
+---
+
+## Contact
+
+**Lucas Servais**  
+Développeur Full-Stack  
+
+📧 servaislucas68@gmail.com  
+🔗 [github.com/kalicatt](https://github.com/kalicatt)  
+📍 Colmar, Alsace, France
+
+---
+
+*Dernière mise à jour : Décembre 2024*
