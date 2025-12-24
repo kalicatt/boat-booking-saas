@@ -111,22 +111,37 @@ export function PlanningClientPage({ boats, bookings: initialBookings }: Plannin
       return initialBookings
     }
     
-    return apiBookings.map((b): Booking => ({
-      id: b.id,
-      startTime: new Date(b.startTime),
-      endTime: new Date(b.endTime),
-      customerName: `${b.user?.firstName || ''} ${b.user?.lastName || ''}`.trim() || 'Client',
-      guests: b.numberOfPeople || 0,
-      adults: b.adults || 0,
-      children: b.children || 0,
-      babies: b.babies || 0,
-      status: (b.checkinStatus || b.status || 'CONFIRMED') as Booking['status'],
-      boatId: b.boatId ? b.boatId.toString() : null,
-      publicReference: b.publicReference,
-      email: b.user?.email || null,
-      phone: b.user?.phone || null,
-      language: b.language || 'FR'
-    }))
+    return apiBookings.map((b): Booking => {
+      // Déterminer le statut : 
+      // - Si status est PENDING, garder PENDING (en attente de paiement)
+      // - Sinon, utiliser checkinStatus s'il existe (embarqué, no-show, etc.)
+      // - Sinon fallback sur status ou CONFIRMED
+      let displayStatus: Booking['status'] = 'CONFIRMED'
+      if (b.status === 'PENDING') {
+        displayStatus = 'PENDING'
+      } else if (b.checkinStatus) {
+        displayStatus = b.checkinStatus as Booking['status']
+      } else if (b.status) {
+        displayStatus = b.status as Booking['status']
+      }
+      
+      return {
+        id: b.id,
+        startTime: new Date(b.startTime),
+        endTime: new Date(b.endTime),
+        customerName: `${b.user?.firstName || ''} ${b.user?.lastName || ''}`.trim() || 'Client',
+        guests: b.numberOfPeople || 0,
+        adults: b.adults || 0,
+        children: b.children || 0,
+        babies: b.babies || 0,
+        status: displayStatus,
+        boatId: b.boatId ? b.boatId.toString() : null,
+        publicReference: b.publicReference,
+        email: b.user?.email || null,
+        phone: b.user?.phone || null,
+        language: b.language || 'FR'
+      }
+    })
   }, [hasMounted, apiBookings, initialBookings])
 
   // Set initial values after mount to avoid hydration mismatch

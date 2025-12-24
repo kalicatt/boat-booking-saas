@@ -33,6 +33,15 @@ export async function POST(req: Request) {
     case 'payment_intent.payment_failed': {
       const pi = event.data.object as Stripe.PaymentIntent
       await prisma.payment.updateMany({ where: { intentId: pi.id }, data: { status: 'failed' } })
+      // Annuler la réservation si le paiement échoue et qu'elle est encore PENDING
+      const bookingId = pi.metadata?.bookingId
+      if (bookingId) {
+        const booking = await prisma.booking.findUnique({ where: { id: bookingId } })
+        if (booking && booking.status === 'PENDING' && !booking.isPaid) {
+          await prisma.booking.update({ where: { id: bookingId }, data: { status: 'CANCELLED' } })
+          console.log(`[stripe-webhook] Booking ${bookingId} cancelled due to payment failure`)
+        }
+      }
       break
     }
     case 'charge.refunded': {

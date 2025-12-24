@@ -83,7 +83,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         }
       })
       if (sessionRecord.bookingId) {
-        await prisma.booking.update({ where: { id: sessionRecord.bookingId }, data: { isPaid: true } })
+        await prisma.booking.update({ 
+          where: { id: sessionRecord.bookingId }, 
+          data: { isPaid: true, status: 'CONFIRMED' } 
+        })
       }
       return NextResponse.json({ status: 'SUCCEEDED' })
     }
@@ -98,6 +101,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           rawPayload: payload.payload ?? undefined
         }
       })
+      // Annuler la réservation si elle est encore PENDING
+      if (sessionRecord.bookingId) {
+        const booking = await prisma.booking.findUnique({ where: { id: sessionRecord.bookingId } })
+        if (booking && booking.status === 'PENDING' && !booking.isPaid) {
+          await prisma.booking.update({ where: { id: sessionRecord.bookingId }, data: { status: 'CANCELLED' } })
+          console.log(`[terminal/session] Booking ${sessionRecord.bookingId} cancelled due to payment failure`)
+        }
+      }
       return NextResponse.json({ status: 'FAILED', message: errorMessage })
     }
 

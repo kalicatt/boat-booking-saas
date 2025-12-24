@@ -77,12 +77,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }
     })
 
-    // Marquer la réservation comme payée
+    // Marquer la réservation comme payée et CONFIRMED
     if (sessionRecord.bookingId) {
       await prisma.booking.update({ 
         where: { id: sessionRecord.bookingId }, 
         data: { 
-          isPaid: true
+          isPaid: true,
+          status: 'CONFIRMED'
         } 
       })
     }
