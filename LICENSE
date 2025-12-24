@@ -58,12 +58,18 @@ de ses droits patrimoniaux sur la contribution et garantit :
    - Accepter la présente licence pour sa contribution
 
 --------------------------------------------------------------------------------
-4. MARQUES
+4. PROPRIÉTÉ INTELLECTUELLE
 --------------------------------------------------------------------------------
 
-"Sweet Narcisse", le logo et tous les éléments de marque associés sont des 
-marques déposées ou non déposées de Lucas Servais. Leur utilisation est 
-strictement interdite sans autorisation écrite.
+Le code source, l'architecture logicielle, les composants techniques et toute 
+la documentation associée sont la propriété exclusive de Lucas Servais.
+
+"Sweet Narcisse" est le nom commercial du projet développé par Lucas Servais 
+pour un client. La marque "Sweet Narcisse" appartient au client final. Seul 
+le code source et le logiciel sont la propriété de Lucas Servais jusqu'à 
+cession éventuelle des droits.
+
+L'utilisation du code source sans autorisation écrite est strictement interdite.
 
 --------------------------------------------------------------------------------
 5. DONNÉES ET CONFIDENTIALITÉ
