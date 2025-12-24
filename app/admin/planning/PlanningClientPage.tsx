@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import useSWR from 'swr'
 import { DayView } from './_components/DayView'
 import QuickBookingModal from '@/components/QuickBookingModal'
 import { QuickEditModal } from './_components/QuickEditModal'
-import { addDays, format, isSameDay } from 'date-fns'
+import { addDays, format, isSameDay, startOfDay, endOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
+
+const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 interface Boat {
   id: number
@@ -32,6 +35,27 @@ interface Booking {
   language?: string | null
 }
 
+interface ApiBooking {
+  id: string
+  startTime: string
+  endTime: string
+  numberOfPeople: number
+  adults: number | null
+  children: number | null
+  babies: number | null
+  status: string
+  checkinStatus: string | null
+  boatId: number | null
+  publicReference?: string | null
+  language?: string | null
+  user?: {
+    firstName?: string | null
+    lastName?: string | null
+    email?: string | null
+    phone?: string | null
+  } | null
+}
+
 interface TimeSlot {
   hour: number
   minute: number
@@ -43,7 +67,7 @@ interface PlanningClientPageProps {
   bookings: Booking[]
 }
 
-export function PlanningClientPage({ boats, bookings }: PlanningClientPageProps) {
+export function PlanningClientPage({ boats, bookings: initialBookings }: PlanningClientPageProps) {
   const router = useRouter()
   const [currentDate, setCurrentDate] = useState(new Date())
   const [showQuickForm, setShowQuickForm] = useState(false)
@@ -61,6 +85,49 @@ export function PlanningClientPage({ boats, bookings }: PlanningClientPageProps)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [isLive, setIsLive] = useState(false)
   const [hasMounted, setHasMounted] = useState(false)
+
+  // API URL pour charger les réservations du jour sélectionné
+  const apiUrl = useMemo(() => {
+    const start = startOfDay(currentDate)
+    const end = endOfDay(currentDate)
+    return `/api/admin/all-bookings?start=${start.toISOString()}&end=${end.toISOString()}`
+  }, [currentDate])
+
+  // Charger les réservations via SWR quand la date change
+  const { data: apiBookings, mutate: mutateBookings } = useSWR<ApiBooking[]>(
+    hasMounted ? apiUrl : null,
+    fetcher,
+    {
+      refreshInterval: 10000,
+      revalidateOnFocus: true,
+      fallbackData: undefined
+    }
+  )
+
+  // Transformer les données API en format Booking
+  const bookings = useMemo<Booking[]>(() => {
+    // Si pas encore monté ou pas de données API, utiliser les données initiales
+    if (!hasMounted || !apiBookings) {
+      return initialBookings
+    }
+    
+    return apiBookings.map((b): Booking => ({
+      id: b.id,
+      startTime: new Date(b.startTime),
+      endTime: new Date(b.endTime),
+      customerName: `${b.user?.firstName || ''} ${b.user?.lastName || ''}`.trim() || 'Client',
+      guests: b.numberOfPeople || 0,
+      adults: b.adults || 0,
+      children: b.children || 0,
+      babies: b.babies || 0,
+      status: (b.checkinStatus || b.status || 'CONFIRMED') as Booking['status'],
+      boatId: b.boatId ? b.boatId.toString() : null,
+      publicReference: b.publicReference,
+      email: b.user?.email || null,
+      phone: b.user?.phone || null,
+      language: b.language || 'FR'
+    }))
+  }, [hasMounted, apiBookings, initialBookings])
 
   // Set initial values after mount to avoid hydration mismatch
   useEffect(() => {
@@ -85,6 +152,7 @@ export function PlanningClientPage({ boats, bookings }: PlanningClientPageProps)
         console.log('📡 Mise à jour reçue:', event.data)
         // Ne pas rafraîchir si un modal est ouvert
         if (!showQuickForm && !selectedBooking) {
+          mutateBookings()
           router.refresh()
           setLastRefresh(new Date())
         }
@@ -104,13 +172,14 @@ export function PlanningClientPage({ boats, bookings }: PlanningClientPageProps)
       eventSource?.close()
       if (reconnectTimeout) clearTimeout(reconnectTimeout)
     }
-  }, [router, showQuickForm, selectedBooking])
+  }, [router, showQuickForm, selectedBooking, mutateBookings])
 
   // Rafraîchissement manuel
   const handleManualRefresh = useCallback(() => {
+    mutateBookings()
     router.refresh()
     setLastRefresh(new Date())
-  }, [router])
+  }, [router, mutateBookings])
 
   const handleDaySlotClick = (date: Date, timeSlot: TimeSlot, boatId: number) => {
     console.log('📅 handleDaySlotClick called:', { date, timeSlot, boatId })
