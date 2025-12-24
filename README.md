@@ -1,11 +1,8 @@
-<p align="center">
-  <img src="public/images/logo.png" alt="Sweet Narcisse Logo" width="200"/>
-</p>
-
-<h1 align="center">🚣 Sweet Narcisse</h1>
+<h1 align="center">🚣 Boat Booking SaaS</h1>
 
 <p align="center">
-  <strong>Plateforme complète de réservation - Promenades en barque à Colmar</strong>
+  <strong>Plateforme complète de réservation pour activités nautiques</strong><br/>
+  <em>Projet réel en production - Démonstration de compétences Full-Stack</em>
 </p>
 
 <p align="center">
@@ -291,8 +288,13 @@ sweet-narcisse/
 │   └── migrations/       # Migrations SQL
 ├── dictionaries/         # Traductions i18n
 ├── android/              # App Capacitor Android
+├── scripts/              # Scripts utilitaires
 ├── docker-compose.yml    # Orchestration containers
-└── docs/                 # Documentation
+└── docs/                 # Documentation complète
+    ├── ARCHITECTURE.md
+    ├── DEPLOYMENT.md
+    ├── user-guide.md
+    └── ...
 ```
 
 ---
@@ -347,9 +349,10 @@ sweet-narcisse/
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | Diagrammes et flux de données |
 | [Guide Utilisateur](docs/user-guide.md) | Manuel complet back-office |
-| [Déploiement](DEPLOYMENT.md) | Guide VPS et Docker |
+| [Déploiement](docs/DEPLOYMENT.md) | Guide VPS et Docker |
 | [Sécurité](SECURITY.md) | Politique de sécurité |
 | [Changelog](CHANGELOG.md) | Historique des versions |
+| [Roadmap](docs/ROADMAP.md) | Évolutions prévues |
 
 ---
 
@@ -357,8 +360,8 @@ sweet-narcisse/
 
 ```bash
 # Cloner le repository
-git clone https://github.com/kalicatt/SweetNarcisse-demo.git
-cd SweetNarcisse-demo
+git clone https://github.com/kalicatt/boat-booking-saas.git
+cd boat-booking-saas
 
 # Installer les dépendances
 npm install --legacy-peer-deps
