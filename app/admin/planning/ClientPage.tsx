@@ -323,10 +323,21 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
 
   const apiUrl = `/api/admin/all-bookings?start=${currentRange.start.toISOString()}&end=${currentRange.end.toISOString()}`
 
+  // Debug: log API URL and response
+  useEffect(() => {
+    console.log('[Planning] apiUrl:', apiUrl)
+  }, [apiUrl])
+
   const { data: rawBookings, error, mutate } = useSWR<AdminBookingDto[]>(apiUrl, jsonFetcher, {
     refreshInterval: 10000,
     revalidateOnFocus: true,
-    keepPreviousData: true
+    keepPreviousData: true,
+    onSuccess: (data) => {
+      console.log('[Planning] rawBookings received:', data?.length, 'bookings')
+    },
+    onError: (err) => {
+      console.error('[Planning] SWR error:', err)
+    }
   })
   const { data: closures } = useSWR<ClosureSummary[]>(
     canOverrideLockedDays ? null : '/api/admin/closures',
