@@ -102,7 +102,8 @@ export async function POST() {
       await prisma.$transaction(operations)
     }
 
-    await revalidateTag('cms:published')
+    // Compatible with Next.js versions where revalidateTag signature differs
+    ;(revalidateTag as unknown as (...args: any[]) => unknown)('cms:published', 'max')
 
     await log('info', 'CMS publish triggered', {
       route: '/api/admin/cms/publish',
