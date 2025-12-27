@@ -2,12 +2,27 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { withCache, CACHE_TTL } from '@/lib/cache'
 import { computeAvailability } from '@/lib/availability'
+import { enhancedRateLimit } from '@/lib/rateLimit'
 
 type AvailabilityPayload = { date: string; availableSlots: string[]; blockedReason?: string }
 
 // Logic moved to lib/availability.ts
 
 export async function GET(request: Request) {
+  // SECURITY: Enhanced rate limiting with fingerprinting to prevent scraping (VUL-005, VUL-006)
+  const rl = await enhancedRateLimit({ 
+    key: 'availability', 
+    limit: 30, 
+    windowMs: 60_000,
+    headers: request.headers
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Trop de requêtes', retryAfter: rl.retryAfter },
+      { status: 429 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const dateParam = searchParams.get('date')
   const adults = parseInt(searchParams.get('adults') || '0')

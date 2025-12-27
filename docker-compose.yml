@@ -110,6 +110,9 @@ services:
       UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL}
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN}
       
+      # --- SECURITY: Monitoring API Key (VUL-004) ---
+      MONITORING_API_KEY: ${MONITORING_API_KEY}
+      
     depends_on:
       db:
         condition: service_healthy
@@ -161,7 +164,7 @@ services:
     depends_on:
       - app
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"  # SECURITY: Bind to localhost only - not publicly accessible
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
@@ -180,7 +183,7 @@ services:
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
     ports:
-      - "9093:9093"
+      - "127.0.0.1:9093:9093"  # SECURITY: Bind to localhost only
     volumes:
       - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager_data:/alertmanager
@@ -197,7 +200,7 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
       GF_PATHS_PROVISIONING: /etc/grafana/provisioning
     ports:
-      - "3001:3000"
+      - "127.0.0.1:3001:3000"  # SECURITY: Bind to localhost only
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro

@@ -61,6 +61,26 @@ const APP_VERSION = process.env.npm_package_version || '1.0.5'
 const startTime = Date.now()
 
 /**
+ * SECURITY: Check if request is authorized for detailed health info (VUL-004)
+ */
+function isAuthorizedHealthRequest(request: Request): boolean {
+  // Check API key
+  const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '')
+  if (process.env.MONITORING_API_KEY && apiKey === process.env.MONITORING_API_KEY) {
+    return true
+  }
+  
+  // Check if request is from internal network (docker network, localhost)
+  const forwarded = request.headers.get('x-forwarded-for')
+  const realIp = request.headers.get('x-real-ip')
+  const ip = forwarded?.split(',')[0]?.trim() || realIp || ''
+  
+  // Allow internal IPs
+  const internalPatterns = ['127.0.0.1', '::1', '10.', '172.16.', '172.17.', '172.18.', '172.19.', '172.20.', '172.21.', '172.22.', '172.23.', '172.24.', '172.25.', '172.26.', '172.27.', '172.28.', '172.29.', '172.30.', '172.31.', '192.168.']
+  return internalPatterns.some(pattern => ip.startsWith(pattern))
+}
+
+/**
  * Check Database (PostgreSQL)
  */
 async function checkDatabase(): Promise<ServiceCheck> {
@@ -218,6 +238,22 @@ function calculateOverallStatus(services: HealthResponse['services']): HealthSta
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const verbose = searchParams.get('verbose') === 'true'
+  
+  // SECURITY: Check if authorized for detailed info (VUL-004)
+  const isAuthorized = isAuthorizedHealthRequest(request)
+  
+  // For public requests, return minimal health status only
+  if (!isAuthorized) {
+    const database = await checkDatabase()
+    return NextResponse.json({
+      status: database.status === 'unhealthy' ? 'unhealthy' : 'operational'
+    }, {
+      status: database.status === 'unhealthy' ? 503 : 200,
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
+      }
+    })
+  }
   
   // Exécuter tous les checks en parallèle
   const [database, redisCheck, storage] = await Promise.all([

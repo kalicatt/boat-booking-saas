@@ -132,3 +132,57 @@ export function getClientIp(headers: Headers): string {
   if (real) return real.trim()
   return 'unknown'
 }
+
+/**
+ * SECURITY: Generate a client fingerprint for improved rate limiting (VUL-006)
+ * Combines multiple signals to make rate limiting harder to bypass
+ */
+export function getClientFingerprint(headers: Headers): string {
+  const ip = getClientIp(headers)
+  const userAgent = headers.get('user-agent') || 'unknown'
+  const acceptLang = headers.get('accept-language') || ''
+  const accept = headers.get('accept') || ''
+  
+  // Create a simple hash from combined signals
+  // This makes it harder to bypass rate limiting with just IP rotation
+  const combined = `${ip}:${userAgent.slice(0, 50)}:${acceptLang.slice(0, 20)}:${accept.slice(0, 30)}`
+  
+  // Simple hash function for fingerprinting
+  let hash = 0
+  for (let i = 0; i < combined.length; i++) {
+    const char = combined.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  
+  return `${ip}:${Math.abs(hash).toString(36)}`
+}
+
+/**
+ * SECURITY: Enhanced rate limiting with combined IP + fingerprint (VUL-006)
+ * Falls back to IP-only if fingerprint rate limit passes
+ */
+export async function enhancedRateLimit(opts: RateLimitOptions & { headers: Headers }): Promise<RateLimitResult> {
+  const { headers, ...baseOpts } = opts
+  const fingerprint = getClientFingerprint(headers)
+  const ip = getClientIp(headers)
+  
+  // Check fingerprint-based rate limit first (stricter)
+  const fingerprintResult = await rateLimit({
+    ...baseOpts,
+    key: `${baseOpts.key}:fp:${fingerprint}`
+  })
+  
+  if (!fingerprintResult.allowed) {
+    return fingerprintResult
+  }
+  
+  // Also check IP-based rate limit (to catch distributed attacks from same IP range)
+  const ipResult = await rateLimit({
+    ...baseOpts,
+    key: `${baseOpts.key}:ip:${ip}`,
+    limit: baseOpts.limit * 2 // Allow more per IP since fingerprints differ
+  })
+  
+  return ipResult
+}

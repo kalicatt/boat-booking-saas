@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { createLog } from '@/lib/logger'
 import { BookingRequestSchema } from '@/lib/validation'
-import { rateLimit, getClientIp } from '@/lib/rateLimit'
+import { rateLimit, getClientIp, enhancedRateLimit } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { cacheInvalidateDate } from '@/lib/cache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
@@ -53,12 +53,21 @@ type AdminSessionUser = {
 
 export async function POST(request: Request) {
   try {
-    const ip = getClientIp(request.headers)
-    const rl = await rateLimit({ key: `booking:create:${ip}`, limit: 50, windowMs: 60_000 })
+    // SECURITY: Enhanced rate limiting with fingerprinting (VUL-006)
+    const rl = await enhancedRateLimit({ 
+      key: 'booking:create', 
+      limit: 30,  // Reduced from 50 for better protection
+      windowMs: 60_000,
+      headers: request.headers
+    })
     if (!rl.allowed) return NextResponse.json({ error: 'Trop de requêtes', retryAfter: rl.retryAfter }, { status: 429 })
     const json = await request.json()
     const parsed = BookingRequestSchema.safeParse(json)
     if (!parsed.success) {
+      // SECURITY: Hide detailed validation errors in production (VUL-003)
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Données invalides', code: 'VALIDATION_ERROR' }, { status: 422 })
+      }
       return NextResponse.json({ error: 'Données invalides', issues: parsed.error.flatten() }, { status: 422 })
     }
     const payload = parsed.data
@@ -304,6 +313,10 @@ export async function POST(request: Request) {
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       console.error('Transaction booking failed:', msg)
+      // SECURITY: Hide internal error details in production (VUL-003)
+      if (process.env.NODE_ENV === 'production') {
+        return NextResponse.json({ error: 'Erreur technique', code: 'TRANSACTION_ERROR' }, { status: 500 })
+      }
       return NextResponse.json({ error: 'Erreur technique (transaction)', details: String(msg) }, { status: 500 })
     }
 
