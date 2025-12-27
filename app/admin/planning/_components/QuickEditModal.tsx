@@ -187,7 +187,7 @@ export function QuickEditModal({ booking, onClose, onUpdate, onDelete }: QuickEd
 
             {/* Statut */}
             <section className="bg-white rounded-lg border border-slate-200 p-5">
-              <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">Statut d'embarquement</h3>
+              <h3 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-3">Statut d&apos;embarquement</h3>
               <div className="grid grid-cols-3 gap-2">
                 {CHECKIN_STATUSES.map((statusKey) => {
                   const config = STATUS_CONFIG[statusKey]

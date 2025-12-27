@@ -17,14 +17,11 @@ const isAdminRole = (role: string | null | undefined) =>
 type SearchParamInput = URLSearchParams | Record<string, string | string[] | undefined>
 
 type PageProps = {
-  searchParams?: SearchParamInput
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-const resolveLangParam = (params?: SearchParamInput): string | null => {
+const resolveLangParam = (params?: Record<string, string | string[] | undefined>): string | null => {
   if (!params) return null
-  if (params instanceof URLSearchParams) {
-    return params.get('lang')
-  }
   const value = params.lang
   if (Array.isArray(value)) {
     return value[0] ?? null
@@ -35,6 +32,7 @@ const resolveLangParam = (params?: SearchParamInput): string | null => {
 const DEFAULT_PREVIEW_LANG: SupportedLocale = 'fr'
 
 export default async function CmsPreviewPage({ searchParams }: PageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
   const session = await auth()
   const user = session?.user ?? null
 
@@ -53,7 +51,7 @@ export default async function CmsPreviewPage({ searchParams }: PageProps) {
     redirect('/admin')
   }
 
-  const requestedLocale = resolveLangParam(searchParams)
+  const requestedLocale = resolveLangParam(resolvedSearchParams)
   const initialLocale = SUPPORTED_LOCALES.includes(requestedLocale as LocaleCode)
     ? (requestedLocale as LocaleCode)
     : DEFAULT_LOCALE

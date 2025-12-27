@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
-import { getLastPlanningUpdate, notifyPlanningUpdate } from '@/lib/planningNotify'
+import { getLastPlanningUpdate } from '@/lib/planningNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -68,6 +68,3 @@ export async function GET(req: NextRequest) {
 
   return new Response(stream, { headers })
 }
-
-// Re-export pour compatibilité avec les imports existants
-export { notifyPlanningUpdate }

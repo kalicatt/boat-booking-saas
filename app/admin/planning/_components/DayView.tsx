@@ -806,7 +806,7 @@ export function DayView({
               {format(date, 'EEEE d MMMM yyyy', { locale: fr })}
             </h3>
             <p className="text-sm text-slate-600 mt-1">
-              Cliquez sur l'heure pour bloquer • Glissez une réservation pour la déplacer
+              Cliquez sur l&apos;heure pour bloquer • Glissez une réservation pour la déplacer
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -839,7 +839,7 @@ export function DayView({
             </div>
             {isToday && (
               <span className="px-3 py-1 bg-sky-100 text-sky-800 text-sm font-semibold rounded-full">
-                Aujourd'hui
+                Aujourd&apos;hui
               </span>
             )}
           </div>

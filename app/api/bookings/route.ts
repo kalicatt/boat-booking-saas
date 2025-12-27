@@ -354,8 +354,8 @@ export async function POST(request: Request) {
         let remainingForSlot = Math.min(referenceBoat.capacity, groupChain - i * referenceBoat.capacity)
 
         // Conflict check for each chained slot - chercher un bateau libre
-        let chainBoat = referenceBoat
-        let conflicting = await prisma.booking.findFirst({
+        const chainBoat = referenceBoat
+        const conflicting = await prisma.booking.findFirst({
           where: {
             boatId: chainBoat.id,
             date: new Date(`${date}T00:00:00.000Z`),

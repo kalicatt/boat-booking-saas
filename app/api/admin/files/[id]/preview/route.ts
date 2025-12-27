@@ -7,10 +7,7 @@ import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../../_access'
 import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
 
-type RouteParams = { id?: string | string[] }
-
-const isPromise = (value: unknown): value is Promise<RouteParams> =>
-  typeof value === 'object' && value !== null && 'then' in (value as Record<string, unknown>)
+type RouteParams = { id: string | string[] }
 
 const pickId = (raw?: string | string[]) => {
   if (!raw) return null
@@ -46,13 +43,11 @@ function toWebStream(body: Awaited<ReturnType<typeof getObjectStream>>['body']) 
   throw new Error('Type de flux non supporté')
 }
 
-async function resolveDocumentId(req: NextRequest, params?: RouteParams | Promise<RouteParams>) {
-  if (params) {
-    const resolved = isPromise(params) ? await params : params
-    const fromParams = pickId(resolved?.id)
-    if (fromParams) {
-      return fromParams
-    }
+async function resolveDocumentId(req: NextRequest, params: Promise<RouteParams>) {
+  const resolved = await params
+  const fromParams = pickId(resolved?.id)
+  if (fromParams) {
+    return fromParams
   }
 
   const segments = req.nextUrl.pathname.split('/').filter(Boolean)
@@ -63,11 +58,11 @@ async function resolveDocumentId(req: NextRequest, params?: RouteParams | Promis
   return null
 }
 
-export async function GET(req: NextRequest, context: { params?: RouteParams | Promise<RouteParams> }) {
+export async function GET(req: NextRequest, context: { params: Promise<RouteParams> }) {
   const access = await ensureDocumentAdminAccess()
   if ('error' in access) return access.error
 
-  const documentId = await resolveDocumentId(req, context?.params)
+  const documentId = await resolveDocumentId(req, context.params)
   if (!documentId) {
     return NextResponse.json({ error: 'Identifiant manquant' }, { status: 400 })
   }

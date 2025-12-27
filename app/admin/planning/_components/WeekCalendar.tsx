@@ -113,7 +113,7 @@ export function WeekCalendar({ boats, bookings, onSlotClick, onBookingClick }: W
             onClick={goToToday}
             className="px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition"
           >
-            Aujourd'hui
+            Aujourd&apos;hui
           </button>
           <div className="flex items-center gap-1">
             <button

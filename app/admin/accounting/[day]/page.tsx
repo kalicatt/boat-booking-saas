@@ -1,6 +1,6 @@
 "use client"
 import useSWR from 'swr'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, use } from 'react'
 import { format } from 'date-fns'
 import { business } from '@/lib/business'
 
@@ -94,8 +94,8 @@ const joinWithEt = (items: string[]) => {
 
 const PRIMARY_PROVIDERS = ['stripe_terminal', 'card', 'cash', 'voucher', 'check']
 
-export default function ClosureDetailPage({ params }: { params: { day: string } }){
-  const dayParam = params.day // expected format yyyy-MM-dd
+export default function ClosureDetailPage({ params }: { params: Promise<{ day: string }> }){
+  const { day: dayParam } = use(params) // expected format yyyy-MM-dd
   const { data: closures } = useSWR('/api/admin/closures', fetcher)
   const { data: ledger } = useSWR('/api/admin/ledger', fetcher)
 

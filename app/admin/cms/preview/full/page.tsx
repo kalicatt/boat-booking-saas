@@ -29,14 +29,11 @@ const FALLBACK_LOCALE: SupportedLocale = 'fr'
 type SearchParamInput = URLSearchParams | Record<string, string | string[] | undefined>
 
 type PageProps = {
-  searchParams?: SearchParamInput
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
-const resolveLangParam = (params?: SearchParamInput): string | null => {
+const resolveLangParam = (params?: Record<string, string | string[] | undefined>): string | null => {
   if (!params) return null
-  if (params instanceof URLSearchParams) {
-    return params.get('lang')
-  }
   const value = params.lang
   if (Array.isArray(value)) {
     return value[0] ?? null
@@ -45,6 +42,7 @@ const resolveLangParam = (params?: SearchParamInput): string | null => {
 }
 
 export default async function CmsFullPreviewPage({ searchParams }: PageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
   const session = await auth()
   const user = session?.user ?? null
 
@@ -63,7 +61,7 @@ export default async function CmsFullPreviewPage({ searchParams }: PageProps) {
     redirect('/admin')
   }
 
-  const requestedLocale = resolveLangParam(searchParams)
+  const requestedLocale = resolveLangParam(resolvedSearchParams)
   const safeLocale: SupportedLocale =
     requestedLocale && PUBLIC_SUPPORTED_LOCALES.includes(requestedLocale as SupportedLocale)
       ? (requestedLocale as SupportedLocale)

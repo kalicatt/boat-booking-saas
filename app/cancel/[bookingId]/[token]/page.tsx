@@ -99,12 +99,13 @@ function parseStatus(searchParams: Record<string, string | string[] | undefined>
 }
 
 interface CancelPageProps {
-  params: Record<string, string | string[]> | Promise<Record<string, string | string[]>>
-  searchParams?: Record<string, string | string[] | undefined>
+  params: Promise<Record<string, string | string[]>>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 }
 
 export default async function CancelPage({ params, searchParams }: CancelPageProps) {
-  const resolvedParams = await Promise.resolve(params)
+  const resolvedParams = await params
+  const resolvedSearchParams = searchParams ? await searchParams : undefined
   const bookingIdParam = resolvedParams?.bookingId
   const tokenParam = resolvedParams?.token
   const bookingId = Array.isArray(bookingIdParam) ? bookingIdParam[0] : bookingIdParam
@@ -112,7 +113,7 @@ export default async function CancelPage({ params, searchParams }: CancelPagePro
   if (!bookingId || !token) {
     notFound()
   }
-  const statusFromQuery = parseStatus(searchParams)
+  const statusFromQuery = parseStatus(resolvedSearchParams)
 
   type LoadedBooking = Awaited<ReturnType<typeof getBookingForToken>>
   let booking: LoadedBooking | null = null

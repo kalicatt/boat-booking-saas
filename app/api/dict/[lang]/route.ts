@@ -4,19 +4,15 @@ import { getDictionary, SUPPORTED_LOCALES, type SupportedLocale } from '@/lib/ge
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// Use NextRequest and allow context.params to be Promise-based for compatibility with Next's inferred types
-export async function GET(req: NextRequest, context: { params: Promise<{ lang: string }> | { lang: string } }) {
-  let langValue: string | undefined
+export async function GET(req: NextRequest, context: { params: Promise<{ lang: string }> }) {
+  let langValue = 'en'
   try {
-    if (context.params instanceof Promise) {
-      const resolved = await context.params
-      langValue = resolved.lang
-    } else {
-      langValue = context.params.lang
-    }
+    const resolved = await context.params
+    if (resolved?.lang) langValue = resolved.lang
   } catch {
-    langValue = 'en'
+    // ignore
   }
+
   const raw = langValue || 'en'
   const locale: SupportedLocale = SUPPORTED_LOCALES.includes(raw as SupportedLocale)
     ? (raw as SupportedLocale)

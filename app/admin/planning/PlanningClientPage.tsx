@@ -328,7 +328,7 @@ export function PlanningClientPage({ boats, bookings: initialBookings }: Plannin
               onClick={goToToday}
               className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg transition"
             >
-              Aujourd'hui
+              Aujourd&apos;hui
             </button>
             <div className="flex items-center gap-1 border border-slate-200 rounded-lg">
               <button

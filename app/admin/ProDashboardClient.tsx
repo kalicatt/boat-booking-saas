@@ -104,7 +104,7 @@ export function ProDashboardClient({ stats, upcomingBookings }: ProDashboardClie
         <div className="flex items-center justify-between p-4 border-b border-slate-200">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Prochains départs</h2>
-            <p className="text-sm text-slate-600">Réservations à venir aujourd'hui</p>
+            <p className="text-sm text-slate-600">Réservations à venir aujourd&apos;hui</p>
           </div>
           <Link
             href="/admin/planning"

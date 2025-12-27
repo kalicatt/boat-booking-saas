@@ -102,7 +102,7 @@ export async function POST() {
       await prisma.$transaction(operations)
     }
 
-    await revalidateTag('cms:published', 'max')
+    await revalidateTag('cms:published')
 
     await log('info', 'CMS publish triggered', {
       route: '/api/admin/cms/publish',

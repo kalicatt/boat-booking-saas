@@ -6,22 +6,16 @@ import { createLog } from '@/lib/logger'
 import { ensureDocumentAdminAccess } from '../_access'
 import { extractRequestContext, logDocumentAction } from '@/lib/documentAudit'
 
-type RouteParams = { id?: string | string[] }
-
-const isPromise = (value: unknown): value is Promise<RouteParams> =>
-  typeof value === 'object' && value !== null && 'then' in (value as Record<string, unknown>)
+type RouteParams = { id: string | string[] }
 
 const pickId = (raw?: string | string[]) => {
   if (!raw) return null
   return Array.isArray(raw) ? raw[0] : raw
 }
 
-async function resolveDocumentId(req: NextRequest, params?: RouteParams | Promise<RouteParams>) {
-  let candidate: string | string[] | undefined
-  if (params) {
-    const resolved = isPromise(params) ? await params : params
-    candidate = resolved?.id
-  }
+async function resolveDocumentId(req: NextRequest, params: Promise<RouteParams>) {
+  const resolved = await params
+  const candidate = resolved?.id
 
   const direct = pickId(candidate)
   if (direct) return direct
@@ -31,11 +25,11 @@ async function resolveDocumentId(req: NextRequest, params?: RouteParams | Promis
   return last ?? null
 }
 
-export async function DELETE(req: NextRequest, context: { params?: RouteParams | Promise<RouteParams> }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<RouteParams> }) {
   const access = await ensureDocumentAdminAccess()
   if ('error' in access) return access.error
 
-  const documentId = await resolveDocumentId(req, context?.params)
+  const documentId = await resolveDocumentId(req, context.params)
   if (!documentId) {
     return NextResponse.json({ error: 'Identifiant manquant' }, { status: 400 })
   }
