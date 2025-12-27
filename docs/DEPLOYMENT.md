@@ -33,7 +33,7 @@ Practical checklist to prepare, configure, and operate the production stack on a
 sudo mkdir -p /opt/sweetnarcisse
 sudo chown $USER: /opt/sweetnarcisse
 cd /opt/sweetnarcisse
-git clone https://github.com/kalicatt/SweetNarcisse-demo.git .
+git clone https://github.com/kalicatt/boat-booking-saas .
 ```
 Keep the repository under version control to simplify upgrades.
 
