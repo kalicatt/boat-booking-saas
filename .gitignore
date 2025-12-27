@@ -90,3 +90,4 @@ certs/*.key
 *.local
 *.local.*
 *.tar
+pentest_report.md
