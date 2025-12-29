@@ -10,6 +10,14 @@ import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
 
+function getGroupContactRecipient() {
+  const explicit = (process.env.GROUP_CONTACT_EMAIL || '').trim()
+  if (explicit) return explicit
+  const admin = (process.env.ADMIN_EMAIL || '').trim()
+  if (admin) return admin
+  return EMAIL_ROLES.reservations
+}
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request.headers)
@@ -76,9 +84,10 @@ export async function POST(request: Request) {
     if (!resend) {
       return NextResponse.json({ error: 'Email service non configuré' }, { status: 500 })
     }
+    const to = getGroupContactRecipient()
     const { error } = await resend.emails.send({
       from: EMAIL_FROM.notifications,
-      to: [process.env.ADMIN_EMAIL || EMAIL_ROLES.notifications],
+      to: [to],
       subject: `Demande de Groupe - ${firstName} ${lastName}`,
       replyTo: email, // Pour répondre directement au client en cliquant sur "Répondre"
       // 👇 FIX : Ajout de 'await' ici aussi

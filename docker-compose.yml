@@ -112,6 +112,11 @@ services:
       
       # --- SECURITY: Monitoring API Key (VUL-004) ---
       MONITORING_API_KEY: ${MONITORING_API_KEY}
+
+      # --- EMAIL ROUTING ---
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      GROUP_CONTACT_EMAIL: ${GROUP_CONTACT_EMAIL}
+      PRIVATE_CONTACT_EMAIL: ${PRIVATE_CONTACT_EMAIL}
       
     depends_on:
       db:

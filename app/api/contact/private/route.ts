@@ -10,6 +10,14 @@ import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
 
+function getPrivateContactRecipient() {
+  const explicit = (process.env.PRIVATE_CONTACT_EMAIL || '').trim()
+  if (explicit) return explicit
+  const admin = (process.env.ADMIN_EMAIL || '').trim()
+  if (admin) return admin
+  return EMAIL_ROLES.reservations
+}
+
 export async function POST(request: Request) {
   try {
     const ip = getClientIp(request.headers)
@@ -83,7 +91,7 @@ export async function POST(request: Request) {
     if (!rlEmail.allowed) return NextResponse.json({ error: 'Trop de demandes pour cet email', retryAfter: rlEmail.retryAfter }, { status: 429 })
 
     // Email addresses
-    const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim() || EMAIL_ROLES.notifications
+    const ADMIN_EMAIL = getPrivateContactRecipient()
     if (!process.env.RESEND_API_KEY) {
       console.warn('RESEND_API_KEY is not set')
     }
