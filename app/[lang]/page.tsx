@@ -6,6 +6,7 @@ import {
     SUPPORTED_LOCALES as CMS_SUPPORTED_LOCALES,
     type LocaleCode
 } from '@/types/cms'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -24,5 +25,9 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
     const cmsLocale: LocaleCode = CMS_SUPPORTED_LOCALES.includes(safeLang as LocaleCode)
         ? (safeLang as LocaleCode)
         : CMS_DEFAULT_LOCALE
-    return <LandingClient dict={dict} lang={safeLang} cmsContent={cmsPayload} initialCmsLocale={cmsLocale} />
+
+    const session = await auth()
+    const userRole = typeof session?.user?.role === 'string' ? session.user.role : undefined
+
+    return <LandingClient dict={dict} lang={safeLang} cmsContent={cmsPayload} initialCmsLocale={cmsLocale} userRole={userRole} />
 }

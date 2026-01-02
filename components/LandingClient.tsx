@@ -9,6 +9,8 @@ import { usePathname } from 'next/navigation'
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import ScrollReveal, { ParallaxImage } from '@/components/ScrollReveal'
 import FlagIcon from '@/components/FlagIcon'
+import { CmsProvider } from '@/components/cms/CmsContext'
+import EditableText from '@/components/cms/EditableText'
 
 import type { CmsPayload } from '@/lib/cms/contentSelectors'
 import {
@@ -98,9 +100,10 @@ type LandingClientProps = {
   lang: SupportedLang
   cmsContent?: CmsPayload | null
   initialCmsLocale: LocaleCode
+  userRole?: string
 }
 
-export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale }: LandingClientProps) {
+export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale, userRole }: LandingClientProps) {
   const [scrolled, setScrolled] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -138,6 +141,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   const heroEyebrow = getCmsCopy('home.hero.eyebrow')
   const heroCtaCopy = getCmsCopy('home.hero.cta') || liveDict.hero?.cta || 'Book now'
   const storyParagraphOverride = getCmsCopy('home.story.paragraph')
+  const footerContactLine = getCmsCopy('footer.contact.line')
   const heroIndexSafe = heroSlides.length ? activeHeroIndex % heroSlides.length : 0
   const heroSlide = heroSlides[heroIndexSafe] ?? null
   const heroTitle = heroSlide
@@ -265,6 +269,7 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   },[currentLang])
 
   return (
+    <CmsProvider initialRole={userRole}>
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 selection:bg-sky-200 selection:text-sky-900">
       <motion.div
         className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-400 to-blue-600 origin-left z-[60]"
@@ -448,31 +453,48 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
           className="relative z-10 mx-auto max-w-5xl px-4 text-center"
         >
           {heroEyebrow && (
-             <motion.p
+             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
               className="mb-4 text-xs md:text-sm font-bold uppercase tracking-[0.4em] text-sky-200"
             >
-              {heroEyebrow}
-            </motion.p>
+              <EditableText
+                 initialValue={heroEyebrow}
+                 cmsKey="home.hero.eyebrow"
+                 locale={activeCmsLocale}
+                 as="span"
+              />
+            </motion.div>
           )}
-          <motion.h1
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4, duration: 0.8, ease: "easeOut" }}
             className="text-5xl md:text-7xl lg:text-8xl font-serif font-bold leading-tight text-white drop-shadow-lg mb-6"
           >
-            {heroTitle}
-          </motion.h1>
-          <motion.p
+            <EditableText
+              initialValue={heroTitle}
+              cmsId={heroSlide?.id}
+              cmsField="title"
+              locale={activeCmsLocale}
+              as="h1"
+            />
+          </motion.div>
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
             className="mx-auto mb-10 max-w-2xl text-lg md:text-xl font-light leading-relaxed text-slate-100"
           >
-            {heroSubtitle}
-          </motion.p>
+            <EditableText
+              initialValue={heroSubtitle}
+              cmsId={heroSlide?.id}
+              cmsField="subtitle"
+              locale={activeCmsLocale}
+              as="p"
+            />
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -484,7 +506,14 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               href="#reservation"
               className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-slate-900 bg-sky-400 rounded-full overflow-hidden shadow-xl transition-transform hover:scale-105 hover:shadow-2xl active:scale-95"
             >
-              <span className="relative z-10">{heroCtaCopy}</span>
+              <span className="relative z-10">
+                <EditableText
+                  initialValue={heroCtaCopy}
+                  cmsKey="home.hero.cta"
+                  locale={activeCmsLocale}
+                  as="span"
+                />
+              </span>
               <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
             </a>
             <Link
@@ -522,7 +551,14 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
                 <h4 className="text-sky-500 font-bold tracking-widest text-xs uppercase mb-2">Sweet Narcisse</h4>
                 <h2 className="text-4xl md:text-5xl font-serif font-bold text-slate-900">{liveDict.presentation?.title ?? ''}</h2>
               </div>
-              <p className="text-slate-600 leading-relaxed text-lg text-justify">{storyParagraph}</p>
+              <div className="text-slate-600 leading-relaxed text-lg text-justify">
+                <EditableText
+                  initialValue={storyParagraph}
+                  cmsKey="home.story.paragraph"
+                  locale={activeCmsLocale}
+                  as="p"
+                />
+              </div>
               <ul className="space-y-4">
                 {(liveDict.presentation?.points ?? []).map((item: string, i: number) => (
                   <ScrollReveal key={item} delay={i * 0.1} direction="up" distance={20} className="flex items-center gap-4 text-slate-700 font-medium">
@@ -698,6 +734,16 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
 
           <div>
             <h5 className="text-white font-serif font-bold text-lg mb-6">{liveDict.footer?.infos ?? 'Infos'}</h5>
+            {footerContactLine && (
+              <div className="mb-4 text-slate-400 text-sm">
+                <EditableText
+                  initialValue={footerContactLine}
+                  cmsKey="footer.contact.line"
+                  locale={activeCmsLocale}
+                  as="p"
+                />
+              </div>
+            )}
             <ul className="space-y-3">
                {[
                  { href: `/${currentLang}/legal`, label: liveDict.footer?.legal ?? 'Legal' },
@@ -729,5 +775,6 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
         </div>
       </footer>
     </div>
+    </CmsProvider>
   )
 }
