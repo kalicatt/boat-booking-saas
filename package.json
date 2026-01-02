@@ -56,6 +56,7 @@
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.23.26",
     "html5-qrcode": "^2.3.8",
     "idb-keyval": "^6.2.2",
     "konsta": "^5.0.6",
