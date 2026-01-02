@@ -5,6 +5,13 @@ import Negotiator from 'negotiator'
 import { auth } from '@/auth'
 import { recordHttpRequest } from '@/lib/metrics'
 
+const ADMIN_SESSION_COOKIE = 'sn_admin_session_start'
+// Enforce a fixed 12h max session for /admin. The cookie itself must live longer than 12h,
+// otherwise it can disappear client-side and get re-initialized (effectively bypassing expiry).
+const ADMIN_SESSION_MAX_AGE_SECONDS = 60 * 60 * 12 // 12h fixed enforcement
+const ADMIN_SESSION_MAX_AGE_MS = ADMIN_SESSION_MAX_AGE_SECONDS * 1000
+const ADMIN_SESSION_COOKIE_TTL_SECONDS = 60 * 60 * 24 * 30 // keep start timestamp for 30 days
+
 const DEFAULT_CONNECT_SOURCES = [
   "'self'",
   'https://www.google.com',
@@ -167,10 +174,12 @@ export const proxy = auth((req) => {
   const userAgent = req.headers.get('user-agent') || ''
   const isNativeApp = /(Capacitor|SweetNarcisseApp)/i.test(userAgent) || /;\s?wv\)/i.test(userAgent)
 
+  type ProxyAuth = { auth?: { user?: { role?: string | null } } }
+  const authUser = (req as unknown as ProxyAuth).auth?.user
+  const authRole = authUser?.role ?? null
+
   if (originalPath.startsWith('/admin/employees')) {
-    type ProxyAuth = { auth?: { user?: { role?: string | null } } }
-    const user = (req as unknown as ProxyAuth).auth?.user
-    if (!user) {
+    if (!authUser) {
       const url = req.nextUrl.clone()
       url.pathname = '/login'
       return applySecurityHeaders(NextResponse.redirect(url))
@@ -184,6 +193,57 @@ export const proxy = auth((req) => {
     originalPath.startsWith('/cancel') ||
     originalPath.includes('.')
   ) {
+    // Admin backoffice: require auth and enforce a fixed 12h session.
+    if (originalPath === '/admin' || originalPath.startsWith('/admin/')) {
+      if (!authUser) {
+        const url = req.nextUrl.clone()
+        url.pathname = '/login'
+        url.search = ''
+        const response = applySecurityHeaders(NextResponse.redirect(url))
+        trackRequestMetrics(method, route, response.status, startTime)
+        return response
+      }
+
+      // Only backoffice roles should have access.
+      if (!authRole || authRole === 'CLIENT') {
+        const url = req.nextUrl.clone()
+        url.pathname = '/login'
+        url.search = ''
+        const response = applySecurityHeaders(NextResponse.redirect(url))
+        trackRequestMetrics(method, route, response.status, startTime)
+        return response
+      }
+
+      const now = Date.now()
+      const cookieRaw = req.cookies.get(ADMIN_SESSION_COOKIE)?.value
+      const startedAt = cookieRaw ? Number(cookieRaw) : NaN
+      const hasValidStart = Number.isFinite(startedAt) && startedAt > 0
+
+      if (hasValidStart && now - startedAt > ADMIN_SESSION_MAX_AGE_MS) {
+        const url = req.nextUrl.clone()
+        url.pathname = '/login'
+        url.search = 'reason=expired'
+        const response = applySecurityHeaders(NextResponse.redirect(url))
+        response.cookies.delete({ name: ADMIN_SESSION_COOKIE, path: '/admin' })
+        trackRequestMetrics(method, route, response.status, startTime)
+        return response
+      }
+
+      const response = applySecurityHeaders(NextResponse.next())
+      // If cookie is missing (existing sessions), initialize it once.
+      if (!hasValidStart) {
+        response.cookies.set(ADMIN_SESSION_COOKIE, String(now), {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: req.nextUrl.protocol === 'https:',
+          path: '/admin',
+          maxAge: ADMIN_SESSION_COOKIE_TTL_SECONDS
+        })
+      }
+      trackRequestMetrics(method, route, response.status, startTime)
+      return response
+    }
+
     const response = applySecurityHeaders(NextResponse.next())
     trackRequestMetrics(method, route, response.status, startTime)
     return response

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
 import Image from 'next/image'
-import { logout } from '@/lib/actions'
+import { signOut } from 'next-auth/react'
 
 export default function ProfilePage() {
   // --- ÉTATS ---
@@ -46,7 +46,7 @@ export default function ProfilePage() {
       })
       if (res.ok) {
         alert("Photo mise à jour ! Déconnexion nécessaire pour voir le changement.")
-        await logout() // On force la reco pour mettre à jour la session
+        await signOut({ callbackUrl: '/login' }) // On force la reco pour mettre à jour la session
       }
     } catch { alert("Erreur technique") } 
     finally { setLoadingImage(false) }
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       const data = await res.json()
       if (res.ok) {
         alert("Mot de passe modifié ! Déconnexion...")
-        await logout()
+        await signOut({ callbackUrl: '/login' })
       } else {
         alert("Erreur : " + data.error)
       }

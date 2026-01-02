@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useDeviceType } from '@/lib/useDeviceType'
+import { SignOutButton } from './SignOutButton'
 
 const TABS = [
   { href: '/admin/today', label: "Aujourd'hui", icon: 'calendar' },
@@ -87,6 +88,10 @@ export default function MobileAdminLayout({ children }: { children: ReactNode })
               {networkOnline ? 'Connecté' : 'Hors ligne'}
             </span>
             <span className="sn-native-chip text-[10px]">Sync {lastSyncLabel}</span>
+
+            <SignOutButton className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.25em] text-rose-700 transition hover:border-rose-300 hover:bg-rose-100">
+              Déconnexion
+            </SignOutButton>
           </div>
         </div>
       </header>

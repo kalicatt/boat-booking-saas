@@ -7,7 +7,7 @@ import type { ResourceHeaderProps } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { format, parse, startOfWeek, getDay, startOfDay, endOfDay, isSameMinute, addDays, parseISO, subMinutes, isSameDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { logout } from '@/lib/actions'
+import { signOut } from 'next-auth/react'
 import QuickBookingModal from '@/components/QuickBookingModal'
 import useSWR from 'swr'
 import { AdminPageShell } from '../_components/AdminPageShell'
@@ -15,6 +15,7 @@ import { MobileTimeline, type MobileTimelineGroup } from '../_components/MobileT
 import { getBoatTheme } from '../_components/boatThemes'
 import { useIsMobileOnly } from '@/lib/useDeviceType'
 import { BookingDetailsModal } from '../_components/BookingDetailsModal'
+import { SignOutButton } from '../_components/SignOutButton'
 import { parseParisWallDate } from '@/lib/time'
 import {
   STATUS_THEME,
@@ -946,7 +947,7 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
     const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
     if (res.status === 401) {
       alert('Session expirée.')
-      await logout()
+      await signOut({ callbackUrl: '/login' })
       return
     }
     if (res.ok) {
@@ -1618,12 +1619,9 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
             >
               Actualiser
             </button>
-            <button
-              onClick={() => logout()}
-              className="rounded-full bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-600 shadow-sm"
-            >
+            <SignOutButton className="rounded-full bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-600 shadow-sm">
               Déconnexion
-            </button>
+            </SignOutButton>
           </div>
         }
         footerNote="Données mises à jour automatiquement."
@@ -1795,12 +1793,9 @@ export default function ClientPlanningPage({ canOverrideLockedDays }: { canOverr
           >
             Actualiser 🔄
           </button>
-          <button
-            onClick={() => logout()}
-            className="px-4 py-2 bg-red-50 border border-red-100 shadow-sm rounded hover:bg-red-100 text-sm font-bold text-red-600 transition flex items-center gap-2"
-          >
+          <SignOutButton className="px-4 py-2 bg-red-50 border border-red-100 shadow-sm rounded hover:bg-red-100 text-sm font-bold text-red-600 transition flex items-center gap-2">
             Déconnexion 🚪
-          </button>
+          </SignOutButton>
         </div>
       }
       footerNote="Mises à jour automatiques toutes les 10 secondes."

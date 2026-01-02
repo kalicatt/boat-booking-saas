@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
-import { logout } from '@/lib/actions'
+import { SignOutButton } from '../_components/SignOutButton'
 
 const formatter = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long' })
 
@@ -86,11 +86,9 @@ export default async function AccountDisabledPage() {
           </div>
 
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-300">
-            <form action={logout}>
-              <button type="submit" className="rounded-full border border-white/20 px-4 py-2 font-semibold text-white transition hover:border-white/60">
-                Retour à la connexion
-              </button>
-            </form>
+            <SignOutButton className="rounded-full border border-white/20 px-4 py-2 font-semibold text-white transition hover:border-white/60">
+              Retour à la connexion
+            </SignOutButton>
             <Link href="/" className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400 transition hover:text-white">
               Consulter le site public →
             </Link>

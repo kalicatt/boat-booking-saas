@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { WeatherBadge } from './WeatherBadge'
+import { SignOutButton } from './SignOutButton'
 
 export function ProTopbar() {
   return (
@@ -18,6 +19,10 @@ export function ProTopbar() {
           <Link href="/admin/weather" className="inline-flex">
             <WeatherBadge className="cursor-pointer transition hover:scale-[1.02]" />
           </Link>
+
+          <SignOutButton className="px-3 py-2 text-sm font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition">
+            Déconnexion
+          </SignOutButton>
 
           {/* Notifications placeholder */}
           <button className="p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition">

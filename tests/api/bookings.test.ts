@@ -178,13 +178,16 @@ describe('POST /api/bookings', () => {
         babies: 0,
         pendingOnly: true,
         language: 'en',
+        // Use staff override + forced boat to keep the test deterministic
+        // even if the local dev DB contains existing bookings.
+        isStaffOverride: true,
+        forcedBoatId: testBoat.id,
         userDetails: {
           email,
           firstName: 'John',
           lastName: 'Doe',
           phone: '+33612345678'
-        },
-        captchaToken: 'test-token'
+        }
       })
     })
 
