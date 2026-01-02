@@ -1,68 +1,55 @@
 import { NextResponse } from 'next/server'
-import { promises as fs } from 'fs'
-import path from 'path'
-import { randomUUID } from 'crypto'
 import { auth } from '@/auth'
-import { log } from '@/lib/logger'
+import { writeFile, mkdir } from 'fs/promises'
+import { join } from 'path'
+import { randomUUID } from 'crypto'
 
-const allowedRoles = ['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN']
-const allowedMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
-const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads')
+export const runtime = 'nodejs' // Use Node runtime for fs
 
-export const runtime = 'nodejs'
-
-const ensureAdmin = async () => {
-  const session = await auth()
-  const role = typeof session?.user?.role === 'string' ? session.user.role : 'GUEST'
-  if (!session || !allowedRoles.includes(role)) {
-    return { session: null, role, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
-  }
-  return { session, role }
-}
-
-const getExtensionFromName = (name: string | undefined | null) => {
-  if (!name) return null
-  const parts = name.split('.')
-  if (parts.length < 2) return null
-  return parts.pop()?.toLowerCase() ?? null
-}
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
 export async function POST(req: Request) {
-  const { session, role, error } = await ensureAdmin()
-  if (!session) return error
+  const session = await auth()
+  const role = typeof session?.user?.role === 'string' ? session.user.role : 'GUEST'
+  if (!['ADMIN', 'SUPERADMIN', 'SUPER_ADMIN'].includes(role)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   try {
     const formData = await req.formData()
-    const file = formData.get('file')
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    const file = formData.get('file') as File | null
+
+    if (!file) {
+      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
     }
 
-    if (!allowedMimeTypes.has(file.type)) {
-      return NextResponse.json({ error: 'Unsupported file type' }, { status: 415 })
+    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        return NextResponse.json({ error: 'Invalid file type. Only images allowed.' }, { status: 400 })
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      return NextResponse.json({ error: 'File too large (max 5 MB)' }, { status: 413 })
+    if (file.size > MAX_FILE_SIZE) {
+        return NextResponse.json({ error: 'File too large (max 5MB).' }, { status: 400 })
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
-    const extension = getExtensionFromName(file.name) ?? (file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg')
-    const filename = `${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID()}.${extension}`
-    await fs.mkdir(UPLOADS_DIR, { recursive: true })
-    const filePath = path.join(UPLOADS_DIR, filename)
-    await fs.writeFile(filePath, buffer)
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
 
-    const url = `/uploads/${filename}`
-    await log('info', 'Admin image uploaded', { route: '/api/admin/upload', role, filename })
-    return NextResponse.json({ url })
-  } catch (err) {
-    await log('error', 'Admin upload failed', {
-      route: '/api/admin/upload',
-      role,
-      error: err instanceof Error ? err.message : String(err)
-    })
+    // Save to public/uploads
+    const name = file.name || 'image.jpg'
+    const ext = name.split('.').pop() || 'jpg'
+    const filename = `${randomUUID()}.${ext}`
+
+    // Ensure public/uploads exists
+    const uploadDir = join(process.cwd(), 'public', 'uploads')
+    await mkdir(uploadDir, { recursive: true })
+
+    const path = join(uploadDir, filename)
+    await writeFile(path, buffer)
+
+    return NextResponse.json({ url: `/uploads/${filename}` })
+  } catch (error) {
+    console.error('Upload error:', error)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
 }
