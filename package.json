@@ -40,6 +40,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@formatjs/intl-localematcher": "^0.6.2",
+    "@headlessui/react": "^2.2.9",
     "@paypal/react-paypal-js": "^8.9.2",
     "@prisma/client": "^5.17.0",
     "@react-email/components": "^1.0.1",

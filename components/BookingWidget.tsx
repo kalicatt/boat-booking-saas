@@ -1,18 +1,21 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { PHONE_CODES } from '@/lib/phoneData'
-import { localToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
+import { PHONE_CODES, type PhoneCodeEntry } from '@/lib/phoneData'
+import { inputToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
 import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
 import dynamic from 'next/dynamic'
 import type { Lang } from '@/lib/contactClient'
 import { useFunnelTracking } from '@/lib/funnelTracking'
+import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
+import { Combobox } from '@headlessui/react'
 const ContactModal = dynamic(() => import('@/components/ContactModal'), { ssr: false })
 import PaymentElementWrapper from '@/components/PaymentElementWrapper'
 import StripeWalletButton from '@/components/StripeWalletButton'
 import PayPalButton from '@/components/PayPalButton'
 import PaymentCountdown from '@/components/PaymentCountdown'
+import FlagIcon from '@/components/FlagIcon'
 
 type BookingWidgetCopy = {
     captcha_required?: string
@@ -131,8 +134,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // Contact & Formulaires
     const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', phone: '', message: '' })
     const [phoneCode, setPhoneCode] = useState('+33')
-    const [phoneCodeInput, setPhoneCodeInput] = useState('+33') // manual input value
-    const [phoneCodeError, setPhoneCodeError] = useState<string | null>(null)
+    const [phoneCodeTouched, setPhoneCodeTouched] = useState(false)
+    const [phoneCodeQuery, setPhoneCodeQuery] = useState('')
     const [phoneError, setPhoneError] = useState<string | null>(null)
 
     const [pendingBookingId, setPendingBookingId] = useState<string | null>(null)
@@ -155,23 +158,75 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const expirationHandledRef = useRef(false)
     const initializingStripeRef = useRef(false)
 
-    const validateLocalPhone = (digits: string) => {
-        if (!digits) return 'Numéro requis'
+    const validatePhoneInput = (value: string) => {
+        const raw = (value || '').trim()
+        if (!raw) return 'Numéro requis'
+
+        // If user typed an international number, validate it as-is.
+        const compact = raw.replace(/[\s\u00A0\-().]/g, '')
+        if (compact.startsWith('+') || compact.startsWith('00')) {
+            const e164 = inputToE164(phoneCode, raw)
+            return isValidE164(e164) ? null : 'Format international invalide'
+        }
+
+        // Otherwise validate the national part by length, then validate E.164.
+        const digits = raw.replace(/[^0-9]/g, '')
         if (!isPossibleLocalDigits(digits)) {
             if (digits.length < 6) return 'Trop court'
             return 'Trop long'
         }
-        return null
+        const e164 = inputToE164(phoneCode, digits)
+        return isValidE164(e164) ? null : 'Format international invalide'
     }
 
-    const sanitizePhoneCode = (raw: string) => {
-        if (!raw) return ''
-        let v = raw.replace(/[^+0-9]/g,'')
-        if (!v.startsWith('+')) v = '+' + v.replace(/^\+/, '')
-        return v
-    }
+    const syncPhoneCodeFromPhoneInput = useCallback((value: string) => {
+        const raw = (value || '').trim()
+        if (!raw) return
+        const compact = raw.replace(/[\s\u00A0\-().]/g, '')
+        const asInternational = compact.startsWith('+')
+            ? compact
+            : (compact.startsWith('00') ? `+${compact.slice(2)}` : null)
 
-    const buildE164 = useCallback(() => localToE164(phoneCode, formData.phone), [phoneCode, formData.phone])
+        if (!asInternational) return
+
+        const pn = parsePhoneNumberFromString(asInternational)
+        if (!pn || !pn.countryCallingCode) return
+
+        const nextCode = `+${pn.countryCallingCode}`
+        // Keep the left selector in sync when user enters/pastes an international number.
+        setPhoneCode(nextCode)
+        setPhoneCodeTouched(true)
+    }, [])
+
+    const filteredPhoneCodes = useMemo(() => {
+        const qRaw = phoneCodeQuery.trim().toLowerCase()
+        if (!qRaw) return PHONE_CODES
+
+        const q = qRaw.replace(/[^a-z0-9+]/g, '')
+        const qDigits = q.replace(/^\+/, '')
+
+        const list = PHONE_CODES.filter((pc) => {
+            const codeDigits = pc.code.replace(/^\+/, '')
+            return (
+                pc.code.includes(q) ||
+                codeDigits.includes(qDigits)
+            )
+        })
+
+        // Ensure current selection remains present even if query filters it out.
+        if (!list.some((pc) => pc.code === phoneCode)) {
+            const current = PHONE_CODES.find((pc) => pc.code === phoneCode)
+            return current ? [current, ...list] : [{ code: phoneCode, country: '', iso2: '' }, ...list]
+        }
+        return list
+    }, [phoneCodeQuery, phoneCode])
+
+    const selectedPhoneCodeEntry = useMemo<PhoneCodeEntry>(() => {
+        const found = PHONE_CODES.find((pc) => pc.code === phoneCode)
+        return found ?? { code: phoneCode, country: '', iso2: '' }
+    }, [phoneCode])
+
+    const buildE164 = useCallback(() => inputToE164(phoneCode, formData.phone), [phoneCode, formData.phone])
     const getFormattedPhone = useCallback(() => formatInternational(buildE164()), [buildE164])
     const releasePendingBooking = useCallback(async (bookingId: string) => {
         try {
@@ -328,20 +383,18 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     setAvailableSlots([])
   }, [date, adults, children, babies])
 
-    // Auto-detect country calling code once (if user hasn't modified input manually)
+    // Auto-detect country calling code once (if user hasn't modified it manually)
     useEffect(() => {
         let aborted = false
         const detect = async () => {
             try {
-                // Skip if user already changed code manually
-                if (phoneCodeInput !== '+33') return
+                if (phoneCodeTouched) return
                 const res = await fetch('/api/geo/phone-code')
                 if (!res.ok) return
                 const data = await res.json()
                 if (aborted) return
-                if (data?.dialCode && /^\+[1-9]\d{1,3}$/.test(data.dialCode)) {
+                if (data?.dialCode && /^\+[1-9]\d{0,2}$/.test(data.dialCode)) {
                     setPhoneCode(data.dialCode)
-                    setPhoneCodeInput(data.dialCode)
                 }
             } catch {
                 // Silent failure
@@ -349,7 +402,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         }
         detect()
         return () => { aborted = true }
-    }, [phoneCodeInput])
+    }, [phoneCodeTouched])
 
     useEffect(() => {
         if (step === STEPS.PAYMENT) {
@@ -498,7 +551,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         e.preventDefault()
         if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
         if (!selectedSlot) { setGlobalErrors([widgetCopy.slot_required || 'Veuillez sélectionner un créneau.']); return }
-        if (phoneError || phoneCodeError) { setGlobalErrors(['Veuillez corriger le numéro de téléphone.']); return }
+        if (phoneError) { setGlobalErrors(['Veuillez corriger le numéro de téléphone.']); return }
 
         // Track form completion
         funnel.formFilled({
@@ -814,7 +867,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                 {/* BLOC 2 : HORAIRE */}
                 {selectedSlot && !isGroup && !isPrivate && (
-                    <div className={`p-4 rounded-xl border transition-all animate-in fade-in slide-in-from-left-4 ${step === STEPS.SLOTS ? 'border-[#0ea5e9] bg-slate-800' : 'border-slate-700'}`}>
+                    <div className={`p-4 rounded-xl border transition-all ${step === STEPS.SLOTS ? 'border-[#0ea5e9] bg-slate-800' : 'border-slate-700'}`}>
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-xs uppercase font-bold text-slate-400">{widgetCopy.summary_departure}</span>
                             {step > STEPS.SLOTS && step < STEPS.SUCCESS && <button onClick={() => setStep(STEPS.SLOTS)} className="text-[10px] text-[#0ea5e9] underline hover:text-white">{widgetCopy.modify_btn}</button>}
@@ -843,7 +896,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             
             {/* --- ÉTAPE 1 : CRITÈRES --- */}
             {step === STEPS.CRITERIA && (
-                <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+                <div className="h-full flex flex-col">
                     <h2 className="text-2xl font-bold text-slate-800 mb-2">{widgetCopy.step_criteria_title}</h2>
                     <p className="text-slate-500 mb-6 text-sm">{bookingDict.subtitle}</p>
                     
@@ -893,7 +946,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                     <button key={lang} onClick={() => setLanguage(lang)}
                                         aria-pressed={language === lang}
                                         className={`flex-1 py-2 rounded-lg font-bold border transition-all text-sm ${language === lang ? 'border-[#0ea5e9] bg-sky-50 text-slate-900 shadow-sm' : 'border-slate-200 bg-white text-slate-400 hover:bg-slate-50'}`}>
-                                        {lang === 'FR' ? '🇫🇷' : lang === 'EN' ? '🇬🇧' : '🇩🇪'} {lang}
+                                        <span className="mr-1 inline-flex align-middle" aria-hidden="true">
+                                            <FlagIcon
+                                                code={(lang === 'EN' ? 'GB' : lang) as 'FR' | 'GB' | 'DE'}
+                                                className="w-4 h-4 text-slate-900/60"
+                                            />
+                                        </span>
+                                        <span className="align-middle">{lang}</span>
                                     </button>
                                 ))}
                             </div>
@@ -912,7 +971,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
             {/* --- ÉTAPE 2 : HORAIRES --- */}
             {step === STEPS.SLOTS && (
-                <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+                <div className="h-full flex flex-col">
                     <button onClick={() => setStep(STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || "Retour"}</button>
                     <h2 className="text-2xl font-bold text-slate-800 mb-2">{widgetCopy.step_slots_title}</h2>
                     <p className="text-slate-500 mb-6 text-sm">{widgetCopy.slots_subtitle} {(() => { const [y,m,d] = date.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)).toLocaleDateString(); })()}.</p>
@@ -959,7 +1018,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
             {/* --- ÉTAPE 3 / CONTACT --- */}
             {(step === STEPS.CONTACT) && (
-                <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+                <div className="h-full flex flex-col">
                     <button onClick={() => setStep(step === STEPS.CONTACT ? STEPS.SLOTS : STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || "Retour"}</button>
                     
                     <h2 className="text-2xl font-bold text-slate-800 mb-1">
@@ -997,33 +1056,59 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                 <div>
                                                         <label id="bw-phone-label" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.placeholder_phone}</label>
                                                         <div className="flex gap-2 mt-1 items-start" role="group" aria-labelledby="bw-phone-label">
-                                                            <div className="flex flex-col w-24 sm:w-32 flex-shrink-0">
-                                                                <input
-                                                                    aria-label="Indicatif téléphonique"
-                                                                    list="phoneCodes"
-                                                                    value={phoneCodeInput}
-                                                                    onChange={e => {
-                                                                        const raw = e.target.value
-                                                                        setPhoneCodeInput(raw)
-                                                                        const sanitized = sanitizePhoneCode(raw)
-                                                                        // if matches known code pick its canonical formatting
-                                                                        const match = PHONE_CODES.find(pc => pc.code === sanitized)
-                                                                        setPhoneCode(match ? match.code : sanitized)
-                                                                        if (!/^\+[1-9]\d{1,3}$/.test(sanitized)) {
-                                                                            setPhoneCodeError('Indicatif invalide')
-                                                                        } else {
-                                                                            setPhoneCodeError(null)
-                                                                        }
+                                                            <div className="w-28 sm:w-44 flex-shrink-0">
+                                                                <Combobox
+                                                                    value={selectedPhoneCodeEntry}
+                                                                    onChange={(pc) => {
+                                                                        if (!pc) return
+                                                                        setPhoneCode(pc.code)
+                                                                        setPhoneCodeTouched(true)
+                                                                        setPhoneCodeQuery('')
                                                                     }}
-                                                                    placeholder="+1"
-                                                                    className={`p-2.5 sm:p-3 border rounded-lg bg-white focus:ring-2 outline-none text-base ${phoneCodeError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
-                                                                />
-                                                                <datalist id="phoneCodes">
-                                                                    {PHONE_CODES.map(pc => (
-                                                                        <option key={pc.code} value={pc.code}>{pc.country}</option>
-                                                                    ))}
-                                                                </datalist>
-                                                                {phoneCodeError && <p className="text-[10px] text-red-500 mt-1">{phoneCodeError}</p>}
+                                                                >
+                                                                    <div className="relative">
+                                                                        <Combobox.Input
+                                                                            aria-label="Indicatif téléphonique"
+                                                                            placeholder="Indicatif… (+49)"
+                                                                            className="w-full p-2.5 sm:p-3 border rounded-lg bg-white focus:ring-2 outline-none text-base border-slate-200 focus:ring-[#0ea5e9] pr-9"
+                                                                            displayValue={(pc: PhoneCodeEntry) => pc.code}
+                                                                            onChange={(e) => {
+                                                                                setPhoneCodeQuery(e.target.value)
+                                                                                setPhoneCodeTouched(true)
+                                                                            }}
+                                                                            onBlur={() => {
+                                                                                setPhoneCodeQuery('')
+                                                                            }}
+                                                                        />
+                                                                        <Combobox.Button
+                                                                            aria-label="Ouvrir la liste des indicatifs"
+                                                                            className="absolute inset-y-0 right-0 flex items-center px-2 text-slate-400"
+                                                                        >
+                                                                            ▾
+                                                                        </Combobox.Button>
+                                                                        <Combobox.Options className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-lg bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+                                                                            {filteredPhoneCodes.length === 0 ? (
+                                                                                <div className="px-3 py-2 text-slate-500">Aucun résultat</div>
+                                                                            ) : (
+                                                                                filteredPhoneCodes.map((pc) => (
+                                                                                    <Combobox.Option
+                                                                                        key={pc.code}
+                                                                                        value={pc}
+                                                                                        className={({ active }) =>
+                                                                                            `cursor-pointer select-none px-3 py-2 ${active ? 'bg-slate-100' : ''}`
+                                                                                        }
+                                                                                    >
+                                                                                        {({ selected }) => (
+                                                                                            <span className={selected ? 'font-semibold text-slate-900' : 'text-slate-700'}>
+                                                                                                {pc.code}
+                                                                                            </span>
+                                                                                        )}
+                                                                                    </Combobox.Option>
+                                                                                ))
+                                                                            )}
+                                                                        </Combobox.Options>
+                                                                    </div>
+                                                                </Combobox>
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <input
@@ -1034,19 +1119,14 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                     className={`w-full p-2.5 sm:p-3 border rounded-lg bg-white focus:ring-2 outline-none text-base ${phoneError ? 'border-red-400 focus:ring-red-300' : 'border-slate-200 focus:ring-[#0ea5e9]'}`}
                                                                     value={formData.phone}
                                                                     onChange={e => {
-                                                                        const digits = e.target.value.replace(/[^0-9]/g,'')
-                                                                        setFormData({ ...formData, phone: digits })
-                                                                        const localErr = validateLocalPhone(digits)
-                                                                        // library validation if basic passes
-                                                                        if (localErr) { setPhoneError(localErr); return }
-                                                                        const e164 = localToE164(phoneCode, digits)
-                                                                        setPhoneError(isValidE164(e164) ? null : 'Format international invalide')
+                                                                        const v = e.target.value
+                                                                        setFormData({ ...formData, phone: v })
+                                                                        syncPhoneCodeFromPhoneInput(v)
+                                                                        setPhoneError(validatePhoneInput(v))
                                                                     }}
                                                                     onBlur={() => {
-                                                                        const localErr = validateLocalPhone(formData.phone)
-                                                                        if (localErr) return setPhoneError(localErr)
-                                                                        const e164 = buildE164()
-                                                                        setPhoneError(isValidE164(e164) ? null : 'Format international invalide')
+                                                                        syncPhoneCodeFromPhoneInput(formData.phone)
+                                                                        setPhoneError(validatePhoneInput(formData.phone))
                                                                     }}
                                                                 />
                                                                 <div className="flex justify-between mt-1">
@@ -1080,7 +1160,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                         )}
                                                 </div>
                         
-                        <button type="submit" disabled={isSubmitting || !!phoneError || !!phoneCodeError} 
+                        <button type="submit" disabled={isSubmitting || !!phoneError} 
                             className="btn-interactive btn-haptic w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg mt-4">
                             {isSubmitting ? widgetCopy.submitting : (widgetCopy.btn_go_to_payment || 'Continuer vers le paiement')}
                         </button>
@@ -1090,7 +1170,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
             {/* --- ÉTAPE 4 : PAIEMENT --- */}
             {step === STEPS.PAYMENT && (
-                <div className="h-full flex flex-col animate-in fade-in slide-in-from-right-4">
+                <div className="h-full flex flex-col">
                     <button onClick={handlePaymentBack} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || 'Retour'}</button>
 
                     <h2 className="text-2xl font-bold text-slate-800 mb-1">{widgetCopy.payment_step_title || 'Paiement sécurisé'}</h2>

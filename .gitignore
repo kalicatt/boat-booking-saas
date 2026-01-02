@@ -48,6 +48,9 @@ next-env.d.ts
 
 sweetnarcisse-image.tar
 
+# Local dev storage (MinIO)
+minio-data/
+
 # ===========================================
 # FICHIERS SENSIBLES - NE JAMAIS COMMIT
 # ===========================================

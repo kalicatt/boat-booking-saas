@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import ScrollReveal, { ParallaxImage } from '@/components/ScrollReveal'
+import FlagIcon from '@/components/FlagIcon'
 
 import type { CmsPayload } from '@/lib/cms/contentSelectors'
 import {
@@ -390,7 +391,13 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                             }`}
                          >
-                            <span className="mr-1">{opt.flag}</span> {opt.code.toUpperCase()}
+                            <span className="mr-1 inline-flex align-middle">
+                              <FlagIcon
+                                code={(opt.code === 'en' ? 'GB' : opt.code.toUpperCase()) as 'FR' | 'GB' | 'DE' | 'ES' | 'IT'}
+                                className="w-4 h-4 text-slate-900/60"
+                              />
+                            </span>
+                            <span className="align-middle">{opt.code.toUpperCase()}</span>
                          </Link>
                       ))}
                     </div>

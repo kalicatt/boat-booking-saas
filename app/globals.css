@@ -938,6 +938,12 @@ html {
 }
 body, p, span, li { font-family: var(--font-body), system-ui, sans-serif; }
 
+/* Emoji/flags: keep OS emoji font fallback (Windows/Android/iOS) */
+.sn-emoji {
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", "Segoe UI Symbol", sans-serif;
+  line-height: 1;
+}
+
 /* Reusable card + button styles for consistency */
 .sn-card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow: 0 8px 24px rgba(13,27,42,0.08); }
 .sn-card-header { padding:16px 20px; border-bottom:1px solid #eef2f7; }

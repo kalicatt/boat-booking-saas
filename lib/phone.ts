@@ -9,6 +9,31 @@ export function localToE164(countryCode: string, localDigits: string): string {
   return countryCode + stripped
 }
 
+// Accepts either a national number (to be combined with the selected country calling code)
+// or an already-international number (starting with + or 00). Returns an E.164 string.
+export function inputToE164(countryCode: string, input: string): string {
+  const raw = (input || '').trim()
+  if (!raw) return ''
+
+  // If user pasted an international number, validate/normalize it directly.
+  const compact = raw.replace(/[\s\u00A0\-().]/g, '')
+  const asInternational = compact.startsWith('+')
+    ? compact
+    : compact.startsWith('00')
+      ? `+${compact.slice(2)}`
+      : null
+
+  if (asInternational) {
+    const pn = parsePhoneNumberFromString(asInternational)
+    return pn ? pn.number : asInternational
+  }
+
+  // Otherwise treat it as a national number under the selected calling code.
+  const e164 = localToE164(countryCode, raw)
+  const pn = parsePhoneNumberFromString(e164)
+  return pn ? pn.number : e164
+}
+
 export function isPossibleLocalDigits(localDigits: string): boolean {
   const d = (localDigits || '').replace(/[^0-9]/g,'')
   return d.length >= 6 && d.length <= 14
