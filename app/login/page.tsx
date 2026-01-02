@@ -1,6 +1,5 @@
 'use client'
 
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import OptimizedImage from '@/components/OptimizedImage'
 import { authenticate } from '@/lib/actions'

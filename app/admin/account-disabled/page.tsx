@@ -1,4 +1,3 @@
-import Image from 'next/image'
 import OptimizedImage from '@/components/OptimizedImage'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'

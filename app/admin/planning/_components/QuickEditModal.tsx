@@ -94,8 +94,6 @@ export function QuickEditModal({ booking, onClose, onUpdate, onDelete }: QuickEd
 
   if (!mounted) return null
 
-  const currentStatusConfig = STATUS_CONFIG[status] || STATUS_CONFIG.CONFIRMED
-
   const modalContent = (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4"

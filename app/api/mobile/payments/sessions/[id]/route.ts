@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
 import { updateSessionStatus } from '@/lib/payments/paymentSessions'
-import type { PaymentSessionStatus } from '@prisma/client'
+import type { PaymentSessionStatus, Prisma } from '@prisma/client'
 
 export const runtime = 'nodejs'
 
@@ -35,7 +35,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    const updateData: any = {}
+    const updateData: Prisma.PaymentSessionUpdateInput = {}
     if (status === 'FAILED' && body?.error) {
       updateData.lastError = String(body.error)
     }

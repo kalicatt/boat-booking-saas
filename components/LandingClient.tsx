@@ -131,7 +131,6 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
   }, [cmsContent])
   const [currentHash, setCurrentHash] = useState('')
   const [currentSearch, setCurrentSearch] = useState('')
-  const currentLangOption = LANGUAGE_OPTIONS.find(option => option.code === currentLang) || LANGUAGE_OPTIONS[0]
   const getCmsCopy = (key: string): string => {
     const raw = cmsSiteConfigMap.get(key)
     return resolveCmsField(raw, activeCmsLocale)

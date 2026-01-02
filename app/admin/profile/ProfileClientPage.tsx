@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import type { ChangeEvent, FormEvent } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import { logout } from '@/lib/actions'
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getMobileUser, isStaff, forbiddenResponse } from '@/lib/mobileAuth'
+import type { Prisma, CheckinStatus } from '@prisma/client'
 
 /**
  * GET /api/mobile/history
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
       : defaultDateTo
 
     // Construire le where clause
-    const where: any = {
+    const where: Prisma.BookingWhereInput = {
       date: {
         gte: dateFrom,
         lte: dateTo
@@ -84,11 +85,11 @@ export async function GET(request: NextRequest) {
     }
     
     if (status) {
-      where.checkinStatus = status
+      where.checkinStatus = status as CheckinStatus
     }
     
     if (boat) {
-      where.boat = boat
+      where.boat = { is: { name: boat } }
     }
 
     // Récupérer les bookings

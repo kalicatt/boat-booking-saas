@@ -8,7 +8,13 @@ import { rateLimit, getClientIp } from '@/lib/rateLimit'
 import { normalizeIncoming } from '@/lib/phone'
 import { EMAIL_FROM, EMAIL_ROLES } from '@/lib/emailAddresses'
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null as unknown as Resend
+let resendClient: Resend | null | undefined
+function getResendClient(): Resend | null {
+  if (resendClient !== undefined) return resendClient
+  const key = (process.env.RESEND_API_KEY || '').trim()
+  resendClient = key ? new Resend(key) : null
+  return resendClient
+}
 
 function getGroupContactRecipient() {
   const explicit = (process.env.GROUP_CONTACT_EMAIL || '').trim()
@@ -81,6 +87,7 @@ export async function POST(request: Request) {
 
     // 2. ENVOI DE L'EMAIL
     // On envoie cet email À L'ADMINISTRATEUR (vous)
+    const resend = getResendClient()
     if (!resend) {
       return NextResponse.json({ error: 'Email service non configuré' }, { status: 500 })
     }

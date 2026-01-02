@@ -1,11 +1,10 @@
-import { NextRequest } from 'next/server'
 import { auth } from '@/auth'
 import { getLastPlanningUpdate } from '@/lib/planningNotify'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Vérifier l'authentification
   const session = await auth()
   if (!session?.user) {

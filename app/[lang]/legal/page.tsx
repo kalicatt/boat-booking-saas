@@ -1,4 +1,3 @@
-import Image from "next/image"
 import OptimizedImage from '@/components/OptimizedImage'
 
 export const dynamic = 'force-dynamic'

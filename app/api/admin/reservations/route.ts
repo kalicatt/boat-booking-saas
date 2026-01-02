@@ -124,7 +124,7 @@ export async function GET(request: Request) {
     })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error)
-    logger.error({ error, route: '/api/admin/reservations' }, 'Failed to fetch reservations')
+    logger.error({ error, msg, route: '/api/admin/reservations' }, 'Failed to fetch reservations')
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

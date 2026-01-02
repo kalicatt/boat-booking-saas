@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { withCache, CACHE_TTL } from '@/lib/cache'
 import { computeAvailability } from '@/lib/availability'
 import { enhancedRateLimit } from '@/lib/rateLimit'
-
-type AvailabilityPayload = { date: string; availableSlots: string[]; blockedReason?: string }
 
 // Logic moved to lib/availability.ts
 
@@ -33,7 +30,6 @@ export async function GET(request: Request) {
     return v === '1' || v === 'true' || v === 'yes'
   })()
 
-// Memo cache is provided by '@/lib/memoCache'
   const langParam = searchParams.get('lang')
 
   if (!dateParam || !langParam) {

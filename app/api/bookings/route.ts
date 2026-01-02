@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { addMinutes, areIntervalsOverlapping, isSameMinute } from 'date-fns'
 import { createLog } from '@/lib/logger'
 import { BookingRequestSchema } from '@/lib/validation'
-import { rateLimit, getClientIp, enhancedRateLimit } from '@/lib/rateLimit'
+import { enhancedRateLimit } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { cacheInvalidateDate } from '@/lib/cache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
@@ -18,7 +18,6 @@ import { notifyPlanningUpdate } from '@/lib/planningNotify'
 // --- CONFIGURATION ---
 const TOUR_DURATION = 25
 const BUFFER_TIME = 5
-const OPEN_TIME = "10:00" // <--- 10h00
 const INTERVAL = 10
 const PRICE_ADULT = 9
 const PRICE_CHILD = 4
@@ -152,6 +151,11 @@ export async function POST(request: Request) {
     // 3. CHARGEMENT BARQUES
     const boats = await prisma.boat.findMany({ where: { status: 'ACTIVE' }, orderBy: { id: 'asc' } })
     if (boats.length === 0) return NextResponse.json({ error: "Aucune barque active" }, { status: 500 })
+
+    const maxCapacity = boats.reduce((max, boat) => Math.max(max, boat.capacity), 0)
+    if (people > maxCapacity && !isStaffOverride) {
+      return NextResponse.json({ error: `Capacité dépassée (max ${maxCapacity})` }, { status: 400 })
+    }
     
     // 4. SÉLECTION DU BATEAU
     // On ne fait plus de rotation par index - on cherche un bateau disponible
@@ -227,7 +231,7 @@ export async function POST(request: Request) {
           } else {
           const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
           const isSameLang = realConflicts.every(b => b.language?.toUpperCase() === normalizedLang)
-          const totalSeats = realConflicts.reduce((sum, b) => sum + ((b as any).reservedSeats ?? b.numberOfPeople), 0)
+          const totalSeats = realConflicts.reduce((sum, b) => sum + (b.reservedSeats ?? b.numberOfPeople), 0)
           if ((isExactStart && isSameLang && (totalSeats + people <= selectedBoat.capacity)) || isStaffOverride === true) {
             canBook = true
           }
@@ -243,8 +247,8 @@ export async function POST(request: Request) {
         })
 
         if (exactStartConflicts.length === 0) {
-          // Aucune réservation à cette heure - prendre le premier bateau libre
-          selectedBoat = boats[0]
+          // Aucune réservation à cette heure - prendre un bateau capable d'accueillir le groupe
+          selectedBoat = boats.find((boat) => boat.capacity >= people) ?? boats[0]
           canBook = true
         } else {
           if (isPrivate) {
@@ -262,7 +266,7 @@ export async function POST(request: Request) {
               if (!boat) continue
               
               const boatBookings = exactStartConflicts.filter(b => b.boatId === boat.id)
-              const currentSeats = boatBookings.reduce((sum, b) => sum + ((b as any).reservedSeats ?? b.numberOfPeople), 0)
+              const currentSeats = boatBookings.reduce((sum, b) => sum + (b.reservedSeats ?? b.numberOfPeople), 0)
               
               if (currentSeats + people <= boat.capacity) {
                 selectedBoat = boat

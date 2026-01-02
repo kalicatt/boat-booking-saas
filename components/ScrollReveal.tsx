@@ -55,7 +55,7 @@ export default function ScrollReveal({
   )
 }
 
-export function ParallaxImage({ src, alt, className, speed = 0.5 }: { src: string, alt: string, className?: string, speed?: number }) {
+export function ParallaxImage({ src, alt, className }: { src: string, alt: string, className?: string }) {
   const ref = useRef(null)
   const { scrollYProgress } = useScroll({
     target: ref,

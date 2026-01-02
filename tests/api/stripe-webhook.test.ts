@@ -5,26 +5,20 @@ import type { User, Boat } from '@prisma/client'
 
 // Mock Stripe
 vi.mock('stripe', () => {
-  return {
-    default: vi.fn(() => ({
-      webhooks: {
-        constructEvent: vi.fn((body, sig, secret) => {
-          // Simuler un événement Stripe valide
-          return {
-            type: 'payment_intent.succeeded',
-            data: {
-              object: {
-                id: 'pi_test_123',
-                metadata: {
-                  bookingId: 'test-booking-id'
-                }
-              }
-            }
-          }
-        })
-      }
-    }))
+  class Stripe {
+    public webhooks = {
+      constructEvent: vi.fn((body: string) => {
+        // Return the event encoded in the raw webhook payload
+        return JSON.parse(body)
+      })
+    }
+
+    constructor(...args: unknown[]) {
+      void args
+    }
   }
+
+  return { default: Stripe }
 })
 
 describe('POST /api/payments/stripe/webhook', () => {
@@ -34,6 +28,7 @@ describe('POST /api/payments/stripe/webhook', () => {
   
   beforeAll(async () => {
     process.env.STRIPE_WEBHOOK_SECRET = STRIPE_WEBHOOK_SECRET
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
 
     // Créer un utilisateur de test
     testUser = await prisma.user.upsert({

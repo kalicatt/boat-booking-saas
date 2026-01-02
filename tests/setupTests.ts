@@ -1,9 +1,18 @@
 import '@testing-library/jest-dom/vitest'
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
+import { cleanup } from '@testing-library/react'
+
+vi.mock('@/auth', () => ({
+  auth: vi.fn(async () => null)
+}))
+
+afterEach(() => {
+  cleanup()
+})
 
 // Mock global fetch for reCAPTCHA and other external API calls
 const originalFetch = global.fetch
-global.fetch = vi.fn((url: string | URL | Request, init?: RequestInit) => {
+const mockedFetch = vi.fn((url: string | URL | Request, init?: RequestInit) => {
   const urlString = url.toString()
   
   // Mock reCAPTCHA verification
@@ -18,4 +27,6 @@ global.fetch = vi.fn((url: string | URL | Request, init?: RequestInit) => {
   
   // For all other requests, use the original fetch
   return originalFetch(url, init)
-}) as any
+}) as unknown as typeof fetch
+
+global.fetch = mockedFetch

@@ -24,7 +24,6 @@ export async function POST(request: Request) {
   if (!isStaff(user)) {
     return forbiddenResponse()
   }
-  const userId = user?.userId
 
   try {
     const body = await request.json()

@@ -65,11 +65,15 @@ describe('EmployeeDirectory filters', () => {
     })
 
     it('updates the URL and view when toggling filters', () => {
-        render(<EmployeeDirectory employees={employeesFixture} loading={false} />)
+        const view = render(<EmployeeDirectory employees={employeesFixture} loading={false} />)
 
         fireEvent.click(screen.getByText(/Archivés/))
 
         expect(mockReplace).toHaveBeenCalledWith('/admin/employees?teamFilter=inactive', { scroll: false })
+
+        // Simuler la navigation: mise à jour des query params + rerender
+        setSearchParams('teamFilter=inactive')
+        view.rerender(<EmployeeDirectory employees={employeesFixture} loading={false} />)
         expect(screen.getByText('Bob Martin')).toBeInTheDocument()
     })
 })

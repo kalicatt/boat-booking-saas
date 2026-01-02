@@ -17,16 +17,33 @@ export async function POST(req: Request){
   if(!stripeKey || !webhookSecret){
     return NextResponse.json({ error: 'Stripe webhook not configured' }, { status: 500 })
   }
+  if (!sig) {
+    return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 })
+  }
   const stripe = new Stripe(stripeKey, { apiVersion: '2025-11-17.clover' })
   let rawBody: string
   try { rawBody = await req.text() } catch { return NextResponse.json({ error: 'Raw body read failed' }, { status: 400 }) }
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig || '', webhookSecret)
+    event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret)
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e)
     await log('warn','Stripe signature verification failed',{ route:'/api/payments/stripe/webhook', error: msg })
     return NextResponse.json({ error: 'Signature verification failed' }, { status: 400 })
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const intent = event.data.object as Stripe.PaymentIntent
+    const bookingId = intent.metadata?.bookingId
+    if (!bookingId) return NextResponse.json({ received: true })
+    try {
+      await prisma.booking.update({ where: { id: bookingId }, data: { isPaid: true, status: 'CONFIRMED' } })
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      await log('error','Stripe payment_intent handling failed',{ route:'/api/payments/stripe/webhook', bookingId, error: msg })
+      return NextResponse.json({ error: 'Processing failed' }, { status: 500 })
+    }
+    return NextResponse.json({ received: true })
   }
 
   if(event.type === 'checkout.session.completed'){

@@ -55,7 +55,7 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, is
   const activeOffsets = BOAT_DEPARTURE_OFFSETS_MINUTES.slice(0, Math.max(1, Math.min(boats.length, BOAT_DEPARTURE_OFFSETS_MINUTES.length)))
   const normalizedRequestedLang = requestedLang.toUpperCase()
 
-  for (let minutesTotal = openMins; minutesTotal <= closeMins; minutesTotal += DEPARTURE_INTERVAL_MINUTES) {
+  for (let minutesTotal = openMins; minutesTotal < closeMins; minutesTotal += DEPARTURE_INTERVAL_MINUTES) {
     const isMorning = (minutesTotal >= 600 && minutesTotal <= 705)
     const isAfternoon = (minutesTotal >= 810 && minutesTotal <= 1080)
     if (!isMorning && !isAfternoon) continue

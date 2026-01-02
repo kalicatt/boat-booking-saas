@@ -19,7 +19,6 @@ import {
   isSameDay
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import Link from 'next/link'
 import { Capacitor } from '@capacitor/core'
 import { BarcodeScanner, BarcodeFormat } from '@capacitor-mlkit/barcode-scanning'
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'

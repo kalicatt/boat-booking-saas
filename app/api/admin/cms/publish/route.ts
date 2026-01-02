@@ -103,7 +103,7 @@ export async function POST() {
     }
 
     // Compatible with Next.js versions where revalidateTag signature differs
-    ;(revalidateTag as unknown as (...args: any[]) => unknown)('cms:published', 'max')
+    ;(revalidateTag as unknown as (...args: unknown[]) => unknown)('cms:published', 'max')
 
     await log('info', 'CMS publish triggered', {
       route: '/api/admin/cms/publish',

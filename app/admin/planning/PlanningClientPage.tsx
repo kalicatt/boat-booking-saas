@@ -7,7 +7,6 @@ import { DayView } from './_components/DayView'
 import QuickBookingModal from '@/components/QuickBookingModal'
 import { QuickEditModal } from './_components/QuickEditModal'
 import { addDays, format, isSameDay, startOfDay, endOfDay } from 'date-fns'
-import { fr } from 'date-fns/locale'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
@@ -218,19 +217,6 @@ export function PlanningClientPage({ boats, bookings: initialBookings }: Plannin
     }
   }
 
-  const handleWeekSlotClick = (date: Date, hour: number, boatId: number) => {
-    const boat = boats.find(b => b.id === boatId)
-    if (boat) {
-      setSelectedSlot({ 
-        date, 
-        hour, 
-        minute: 0, 
-        boatId, 
-        boatName: boat.name 
-      })
-      setShowQuickForm(true)
-    }
-  }
 
   const handleBookingClick = (booking: Booking) => {
     console.log('📖 Booking clicked, opening edit modal:', booking)
@@ -240,7 +226,7 @@ export function PlanningClientPage({ boats, bookings: initialBookings }: Plannin
   const handleBookingUpdate = async (id: string, updates: Partial<Booking>) => {
     try {
       // Transformer les updates pour correspondre à l'API
-      const payload: Record<string, any> = {}
+      const payload: Record<string, unknown> = {}
       if (updates.status !== undefined) {
         // Tous les statuts vont dans newCheckinStatus
         payload.newCheckinStatus = updates.status
@@ -281,19 +267,6 @@ export function PlanningClientPage({ boats, bookings: initialBookings }: Plannin
       console.error('Error deleting booking:', error)
       throw error
     }
-  }
-
-  const handleQuickBookingSubmit = async (formData: any) => {
-    // TODO: Appeler API pour créer la réservation
-    console.log('Creating booking:', formData, selectedSlot)
-    
-    // Simuler appel API
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    setShowQuickForm(false)
-    setSelectedSlot(null)
-    
-    // TODO: Recharger les données
   }
 
   const goToPreviousDay = () => {

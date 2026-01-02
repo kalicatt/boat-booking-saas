@@ -95,7 +95,6 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     const bookingDict = useMemo(() => (dict.booking ?? {}) as BookingWidgetDict, [dict])
     const widgetCopy = useMemo(() => (bookingDict.widget ?? {}) as BookingWidgetCopy, [bookingDict])
     const groupFormCopy = useMemo(() => (dict.group_form ?? {}) as GroupFormCopy, [dict])
-    const privateFormCopy = useMemo(() => (dict.private_form ?? {}) as PrivateFormCopy, [dict])
     const countdownHelperText = useMemo(() => {
         const template = widgetCopy.payment_countdown_helper || 'Vos places sont bloquées pendant {minutes} min à partir de cette étape.'
         return template.replace('{minutes}', String(PAYMENT_TIMEOUT_MINUTES))
@@ -121,7 +120,6 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [babies, setBabies] = useState(0)
         const [isPrivate, setIsPrivate] = useState(false) // Option barque privative
     const [contactOpen, setContactOpen] = useState(false)
-    const [contactMode, setContactMode] = useState<'group'|'private'>('group')
   
   // API & Slots
   const [availableSlots, setAvailableSlots] = useState<string[]>([])
@@ -750,6 +748,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     }
   }
 
+    const handleBookingSubmitRef = useRef(handleBookingSubmit)
+    handleBookingSubmitRef.current = handleBookingSubmit
+
   // Auto-confirm après paiement réussi
   useEffect(() => {
     if (
@@ -763,7 +764,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
       autoConfirmTriggered.current = true
       // Petit délai pour laisser l'UI se mettre à jour
       const timer = setTimeout(() => {
-        handleBookingSubmit()
+                void handleBookingSubmitRef.current()
       }, 500)
       return () => clearTimeout(timer)
     }
@@ -771,7 +772,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     if (!paymentSucceeded || pendingExpired) {
       autoConfirmTriggered.current = false
     }
-  }, [paymentSucceeded, pendingBookingId, pendingExpired, isSubmitting, step])
+    }, [paymentSucceeded, pendingBookingId, pendingExpired, isSubmitting, step])
 
   // Composant Spinner de chargement
   const LoadingSpinner = ({ text }: { text?: string }) => (
@@ -781,13 +782,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     </div>
   )
 
-  // Composant Compteur
-        type CounterProps = { label?: string; value: number; setter: (n: number) => void; price?: string }
-    const Counter = ({ label, value, setter, price }: CounterProps) => (
+    // Composant Compteur
+                type CounterProps = { label?: string; value: number; setter: (n: number) => void; price?: string }
+        const Counter = ({ label, value, setter, price }: CounterProps) => (
     <div className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
       <div>
                 <span className="block text-sm font-bold text-slate-700">{label || ''}</span>
-                <span className="text-xs text-slate-400">{price || ''}</span>
+                                {price ? <span className="text-xs text-slate-400">{price}</span> : null}
       </div>
       <div className="flex items-center bg-slate-100 rounded-lg">
         <button onClick={() => setter(Math.max(0, value - 1))} className="w-8 h-8 flex items-center justify-center text-slate-600 hover:bg-slate-200 rounded-l-lg font-bold transition">-</button>
@@ -927,7 +928,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                             <div className="space-y-1" role="group" aria-labelledby="bw-passengers-label">
                                 <Counter
                                     label={widgetCopy.adults}
-                                    price={`${PRICES.ADULT}€`}
+                                    price={isPrivate ? undefined : `${PRICES.ADULT}€`}
                                     value={adults}
                                     setter={(n) => {
                                         const delta = n - adults
@@ -937,7 +938,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                 />
                                 <Counter
                                     label={widgetCopy.children}
-                                    price={`${PRICES.CHILD}€`}
+                                    price={isPrivate ? undefined : `${PRICES.CHILD}€`}
                                     value={children}
                                     setter={(n) => {
                                         const delta = n - children
@@ -947,7 +948,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                 />
                                 <Counter
                                     label={widgetCopy.babies}
-                                    price={widgetCopy.free}
+                                    price={isPrivate ? undefined : widgetCopy.free}
                                     value={babies}
                                     setter={(n) => {
                                         const delta = n - babies
@@ -967,7 +968,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                     <button
                                                         type="button"
                                                         className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
-                                                        onClick={() => { setContactMode('group'); setContactOpen(true) }}
+                                                        onClick={() => { setContactOpen(true) }}
                                                     >
                                                         👥 {widgetCopy.group_badge}
                                                     </button>
@@ -1187,7 +1188,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
                         {(step === STEPS.GROUP_CONTACT) && (
                              <div>
-                                <label htmlFor="bw-message" className="text-xs font-bold uppercase text-slate-500">{privateFormCopy.message_label || "Message"}</label>
+                                <label htmlFor="bw-message" className="text-xs font-bold uppercase text-slate-500">{groupFormCopy.message_label || "Message"}</label>
                                 <textarea id="bw-message" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none h-20" 
                                     placeholder={groupFormCopy.placeholder_message}
                                     value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
@@ -1442,8 +1443,9 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                  </div>
             )}
                 {/* Modal for contact forms */}
-                <ContactModal open={contactOpen} mode={contactMode} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang} />
+                {/* Modal for contact forms */}
+                <ContactModal open={contactOpen} onClose={()=>setContactOpen(false)} dict={dict} lang={initialLang} />
                 </div>
-        </div>
+            </div>
     )
 }

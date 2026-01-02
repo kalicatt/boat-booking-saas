@@ -26,8 +26,6 @@ const isAdminRole = (role: string | null | undefined) =>
 
 const FALLBACK_LOCALE: SupportedLocale = 'fr'
 
-type SearchParamInput = URLSearchParams | Record<string, string | string[] | undefined>
-
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }

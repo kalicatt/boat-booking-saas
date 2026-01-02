@@ -9,7 +9,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { withCache, CACHE_TTL } from '@/lib/cache'
-import type { Boat, Booking } from '@prisma/client'
+import type { Boat } from '@prisma/client'
 
 // --- Configuration ---
 const OPEN_TIME = '10:00'

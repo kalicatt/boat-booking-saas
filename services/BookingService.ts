@@ -18,7 +18,7 @@ import { parseParisWallDate, getParisTodayISO, getParisNowParts } from '@/lib/ti
 import { MIN_BOOKING_DELAY_MINUTES } from '@/lib/config'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
 import { FleetService } from './FleetService'
-import type { Booking, Boat, Prisma } from '@prisma/client'
+import type { Booking, Boat } from '@prisma/client'
 
 // --- Configuration ---
 const TOUR_DURATION = 25 // minutes

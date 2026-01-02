@@ -48,7 +48,7 @@ export function AdminPageShell({
           className="inline-flex items-center gap-2 text-slate-500 transition hover:text-slate-800"
         >
           <span aria-hidden="true">↩</span>
-          Retour à l&apos;accueil admin
+          {backLabel}
         </Link>
       </footer>
     </div>

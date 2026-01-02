@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { POST as bookingsPost } from '@/app/api/bookings/route'
 import { prisma } from '@/lib/prisma'
-import type { Boat, User } from '@prisma/client'
+import type { Boat } from '@prisma/client'
 
 // Mock la session
 vi.mock('@/auth', () => ({
@@ -11,6 +11,7 @@ vi.mock('@/auth', () => ({
 // Mock le rate limiter
 vi.mock('@/lib/rateLimit', () => ({
   rateLimit: vi.fn(() => Promise.resolve({ allowed: true, remaining: 10 })),
+  enhancedRateLimit: vi.fn(() => Promise.resolve({ allowed: true, remaining: 10 })),
   getClientIp: vi.fn(() => '127.0.0.1')
 }))
 
@@ -32,21 +33,8 @@ vi.mock('@/lib/metrics', () => ({
 
 describe('POST /api/bookings', () => {
   let testBoat: Boat
-  let testUser: User
 
   beforeAll(async () => {
-    // Créer un utilisateur de test
-    testUser = await prisma.user.upsert({
-      where: { email: 'test-integration@sweetnarcisse.com' },
-      update: {},
-      create: {
-        email: 'test-integration@sweetnarcisse.com',
-        firstName: 'Test',
-        lastName: 'User',
-        role: 'CLIENT'
-      }
-    })
-
     // Créer un bateau de test (ou récupérer un existant)
     const existingBoat = await prisma.boat.findFirst({
       where: { name: 'Test Boat Integration' }
@@ -188,6 +176,7 @@ describe('POST /api/bookings', () => {
         adults: 2,
         children: 2,
         babies: 0,
+        pendingOnly: true,
         language: 'en',
         userDetails: {
           email,
@@ -203,7 +192,8 @@ describe('POST /api/bookings', () => {
     expect(response.status).toBe(200)
     
     const data = await response.json()
-    expect(data).toHaveProperty('publicReference')
+    expect(data).toHaveProperty('booking')
+    expect(data.booking).toHaveProperty('publicReference')
     expect(data.status).toBe('PENDING')
 
     // Vérifier en DB - chercher par l'utilisateur créé
@@ -251,8 +241,9 @@ describe('POST /api/bookings', () => {
       data: {
         publicReference: 'REF-FIRST-' + Date.now(),
         date: futureDate,
-        startTime: new Date(`${dateStr}T14:00:00Z`),
-        endTime: new Date(`${dateStr}T14:25:00Z`),
+        // 14:00 Paris (winter) == 13:00Z
+        startTime: new Date(`${dateStr}T13:00:00Z`),
+        endTime: new Date(`${dateStr}T13:25:00Z`),
         numberOfPeople: 10,
         adults: 10,
         children: 0,
@@ -287,7 +278,7 @@ describe('POST /api/bookings', () => {
     })
 
     const response = await bookingsPost(request)
-    expect(response.status).toBe(400)
+    expect(response.status).toBe(409)
     
     const data = await response.json()
     expect(data.error).toBeTruthy()

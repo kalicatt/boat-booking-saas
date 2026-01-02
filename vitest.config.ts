@@ -12,8 +12,10 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname),
       'next-auth/lib/env': path.resolve(__dirname, 'tests/mocks/next-auth-env.ts'),
+      'next-auth/lib/env.js': path.resolve(__dirname, 'tests/mocks/next-auth-env.ts'),
       '@react-email/render': path.resolve(__dirname, 'tests/mocks/react-email-render.ts'),
       'next/server': path.resolve(__dirname, 'tests/mocks/next-server.ts'),
+      'next/server.js': path.resolve(__dirname, 'tests/mocks/next-server.ts'),
     },
   },
 });

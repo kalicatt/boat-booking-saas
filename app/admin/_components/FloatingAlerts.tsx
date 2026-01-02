@@ -2,13 +2,6 @@
 
 import { useState } from 'react'
 
-type AlertType = {
-  title: string
-  icon: string
-  items: string[]
-  tone: 'info' | 'warning'
-}
-
 interface FloatingAlertsProps {
   startAlerts: string[]
   endAlerts: string[]

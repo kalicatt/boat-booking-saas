@@ -1,8 +1,4 @@
-﻿import Image from 'next/image'
-import Link from 'next/link'
-import { BoatStatus } from '@prisma/client'
-
-import { logout } from '@/lib/actions'
+﻿import { BoatStatus } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { computeBatteryAlert } from '@/lib/maintenance'
 import { ensureAdminPageAccess, canAccessAdminPage } from '@/lib/adminAccess'
@@ -166,48 +162,11 @@ const DASHBOARD_TILES = [
 
 type TileAccessMap = Record<DashboardTile['key'], boolean>
 
-type RoleStyles = {
-  avatar: string
-  badge: string
-  ring: string
-}
-
-const getRoleStyles = (role: string | null | undefined): RoleStyles => {
-  switch (role) {
-    case 'SUPERADMIN':
-      return {
-        avatar: 'bg-yellow-500',
-        badge: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-        ring: 'ring-yellow-100'
-      }
-    case 'ADMIN':
-      return {
-        avatar: 'bg-purple-600',
-        badge: 'bg-purple-100 text-purple-800 border-purple-200',
-        ring: 'ring-purple-100'
-      }
-    default:
-      return {
-        avatar: 'bg-blue-600',
-        badge: 'bg-blue-100 text-blue-800 border-blue-200',
-        ring: 'ring-blue-100'
-      }
-  }
-}
-
 export default async function AdminDashboard() {
-  const { user, role, permissions } = await ensureAdminPageAccess({
+  const { role, permissions } = await ensureAdminPageAccess({
     page: 'dashboard',
     auditEvent: 'UNAUTHORIZED_DASHBOARD'
   })
-
-  const initials =
-    `${user?.firstName?.[0] ?? ''}${user?.lastName?.[0] ?? ''}`.toUpperCase() ||
-    user?.name?.[0]?.toUpperCase() ||
-    user?.email?.[0]?.toUpperCase() ||
-    '?'
-  const displayName = `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim() || user?.name || user?.email || 'Compte Sweet Narcisse'
-  const styles = getRoleStyles(role)
 
   const now = new Date()
   const normalizedDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
@@ -271,7 +230,6 @@ export default async function AdminDashboard() {
     acc[tile.key] = canAccessAdminPage(role, permissions, tile.key)
     return acc
   }, {} as TileAccessMap)
-  const hasAnyTile = Object.values(pageAccess).some(Boolean)
 
   return (
     <>

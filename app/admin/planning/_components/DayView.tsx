@@ -583,7 +583,7 @@ export function DayView({
     e.preventDefault() // Prevent scrolling while dragging
   }, [touchDragBooking, startAutoScroll])
 
-  const handleTouchDragEnd = useCallback((e: React.TouchEvent) => {
+  const handleTouchDragEnd = useCallback(() => {
     // Clear long press timer
     if (touchDragRef.current && (touchDragRef.current as typeof touchDragRef.current & { timer?: NodeJS.Timeout }).timer) {
       clearTimeout((touchDragRef.current as typeof touchDragRef.current & { timer?: NodeJS.Timeout }).timer)

@@ -19,7 +19,7 @@ interface DataTableProps<T> {
   loading?: boolean
 }
 
-export function DataTable<T extends Record<string, any>>({ 
+export function DataTable<T extends Record<string, unknown>>({ 
   columns, 
   data, 
   onRowClick, 
@@ -82,7 +82,13 @@ export function DataTable<T extends Record<string, any>>({
               >
                 {columns.map((col) => (
                   <td key={col.key} className="px-4 py-3 text-sm text-slate-900">
-                    {col.render ? col.render(row) : row[col.key]}
+                    {(() => {
+                      if (col.render) return col.render(row)
+                      const value = (row as Record<string, unknown>)[col.key]
+                      if (value == null) return ''
+                      if (typeof value === 'string' || typeof value === 'number') return value
+                      return String(value)
+                    })()}
                   </td>
                 ))}
                 {actions && (

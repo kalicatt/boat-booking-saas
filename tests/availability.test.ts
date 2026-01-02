@@ -3,10 +3,14 @@ import { computeAvailability } from '@/lib/availability'
 import type { Boat, Booking, BlockedInterval } from '@prisma/client'
 
 // Mock time utilities
-vi.mock('@/lib/time', () => ({
-  getParisTodayISO: () => '2025-12-22',
-  getParisNowMinutes: () => 600 // 10:00
-}))
+vi.mock('@/lib/time', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/time')>()
+  return {
+    ...actual,
+    getParisTodayISO: () => '2025-12-22',
+    getParisNowMinutes: () => 600 // 10:00
+  }
+})
 
 describe('computeAvailability', () => {
   const mockBoat: Pick<Boat, 'id' | 'capacity'> = {
@@ -94,8 +98,9 @@ describe('computeAvailability', () => {
     it('should exclude slots with existing bookings', () => {
       const existingBooking: Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'> = {
         boatId: 1,
-        startTime: new Date('2025-12-23T10:00:00.000Z'),
-        endTime: new Date('2025-12-23T10:25:00.000Z'),
+        // 10:00 Paris (winter) == 09:00Z
+        startTime: new Date('2025-12-23T09:00:00.000Z'),
+        endTime: new Date('2025-12-23T09:25:00.000Z'),
         language: 'en', // Different language to block
         numberOfPeople: 4
       }
@@ -115,8 +120,9 @@ describe('computeAvailability', () => {
     it('should allow same-time booking if same language and capacity available', () => {
       const existingBooking: Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'> = {
         boatId: 1,
-        startTime: new Date('2025-12-23T10:00:00.000Z'),
-        endTime: new Date('2025-12-23T10:25:00.000Z'),
+        // 10:00 Paris (winter) == 09:00Z
+        startTime: new Date('2025-12-23T09:00:00.000Z'),
+        endTime: new Date('2025-12-23T09:25:00.000Z'),
         language: 'fr',
         numberOfPeople: 2
       }
@@ -136,8 +142,9 @@ describe('computeAvailability', () => {
     it('should reject same-time booking if capacity exceeded', () => {
       const existingBooking: Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'> = {
         boatId: 1,
-        startTime: new Date('2025-12-23T10:00:00.000Z'),
-        endTime: new Date('2025-12-23T10:25:00.000Z'),
+        // 10:00 Paris (winter) == 09:00Z
+        startTime: new Date('2025-12-23T09:00:00.000Z'),
+        endTime: new Date('2025-12-23T09:25:00.000Z'),
         language: 'fr',
         numberOfPeople: 5
       }
@@ -157,8 +164,9 @@ describe('computeAvailability', () => {
     it('should reject same-time booking if different language', () => {
       const existingBooking: Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'> = {
         boatId: 1,
-        startTime: new Date('2025-12-23T10:00:00.000Z'),
-        endTime: new Date('2025-12-23T10:25:00.000Z'),
+        // 10:00 Paris (winter) == 09:00Z
+        startTime: new Date('2025-12-23T09:00:00.000Z'),
+        endTime: new Date('2025-12-23T09:25:00.000Z'),
         language: 'en',
         numberOfPeople: 2
       }
@@ -201,8 +209,9 @@ describe('computeAvailability', () => {
     it('should exclude slots overlapping with time blocks', () => {
       const timeBlock: Pick<BlockedInterval, 'scope' | 'start' | 'end' | 'reason'> = {
         scope: 'time',
-        start: new Date('2025-12-23T10:00:00.000Z'),
-        end: new Date('2025-12-23T11:00:00.000Z'),
+        // Block 10:00-11:00 Paris (winter) == 09:00-10:00Z
+        start: new Date('2025-12-23T09:00:00.000Z'),
+        end: new Date('2025-12-23T10:00:00.000Z'),
         reason: 'Private event'
       }
 
@@ -249,8 +258,9 @@ describe('computeAvailability', () => {
     it('should handle booking on specific boat', () => {
       const boat1Booking: Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'> = {
         boatId: 1,
-        startTime: new Date('2025-12-23T10:00:00.000Z'),
-        endTime: new Date('2025-12-23T10:25:00.000Z'),
+        // 10:00 Paris (winter) == 09:00Z
+        startTime: new Date('2025-12-23T09:00:00.000Z'),
+        endTime: new Date('2025-12-23T09:25:00.000Z'),
         language: 'fr',
         numberOfPeople: 6
       }

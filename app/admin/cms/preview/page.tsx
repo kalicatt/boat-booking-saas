@@ -14,8 +14,6 @@ import {
 const isAdminRole = (role: string | null | undefined) =>
   role === 'ADMIN' || role === 'SUPERADMIN' || role === 'SUPER_ADMIN'
 
-type SearchParamInput = URLSearchParams | Record<string, string | string[] | undefined>
-
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }

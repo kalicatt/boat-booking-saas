@@ -238,7 +238,7 @@ describe('passwordPolicy', () => {
       })
 
       it('should filter out null/undefined userInputs', () => {
-        const result = evaluatePassword('MyStr0ng!P@ss', ['valid', '', null as any, undefined as any])
+        const result = evaluatePassword('MyStr0ng!P@ss', ['valid', '', null as unknown as string, undefined as unknown as string])
         
         expect(result.valid).toBe(true)
       })

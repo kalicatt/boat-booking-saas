@@ -22,6 +22,7 @@ interface QuickBookingFormProps {
 }
 
 export function QuickBookingForm({ date, hour, boatId, boatName, onSubmit, onCancel }: QuickBookingFormProps) {
+  void boatId
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<BookingFormData>({
     customerName: '',
