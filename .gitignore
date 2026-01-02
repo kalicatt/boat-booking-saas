@@ -91,3 +91,6 @@ certs/*.key
 *.local.*
 *.tar
 pentest_report.md
+docs/commercial/devis-provisoire-saas-sweet-narcisse.md
+docs/commercial/facture-acompte-saas-sweet-narcisse.md
+docs/commercial/mail-envoi-devis-acompte-marc.md
