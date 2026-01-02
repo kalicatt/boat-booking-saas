@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useCms } from './CmsContext'
-import { updateSiteConfigAction, updateHeroSlideAction } from '@/lib/actions/cms'
 
 type EditableTextProps = {
   initialValue: string
@@ -12,7 +11,7 @@ type EditableTextProps = {
   locale: string
   as?: React.ElementType
   className?: string
-  children?: React.ReactNode // Fallback if initialValue is empty (though usually we pass text)
+  children?: React.ReactNode
 }
 
 export default function EditableText({
@@ -21,67 +20,76 @@ export default function EditableText({
   cmsId,
   cmsField,
   locale,
-  as: Component = 'div', // Default to div, can be h1, p, span
+  as: Component = 'div',
   className,
   children
 }: EditableTextProps) {
-  const { isEditMode } = useCms()
+  const { isEditMode, registerChange } = useCms()
   const [text, setText] = useState(initialValue)
-  const [isSaving, setIsSaving] = useState(false)
   const ref = useRef<HTMLElement>(null)
 
-  // Sync if initialValue changes (e.g. language switch)
+  // Sync if initialValue changes (e.g. language switch), ONLY if we are not editing locally
   useEffect(() => {
     setText(initialValue)
+    if (ref.current) ref.current.innerText = initialValue
   }, [initialValue])
 
-  const handleBlur = async () => {
+  const handleBlur = () => {
     if (!ref.current) return
-    const newValue = ref.current.innerText // Use innerText to get plain text
+    const newValue = ref.current.innerText
 
-    // Optimistic update local state (already done by DOM, but sync React state)
     if (newValue === text) return // No change
 
+    // Optimistically update local state
     setText(newValue)
-    setIsSaving(true)
 
-    try {
-        let res
-        if (cmsKey) {
-            res = await updateSiteConfigAction(cmsKey, newValue, locale)
-        } else if (cmsId && cmsField) {
-            res = await updateHeroSlideAction(cmsId, cmsField, newValue, locale)
-        }
+    // Construct unique key for the change map
+    let key = ''
+    let type: 'site-config' | 'hero-slide' = 'site-config'
+    let idOrKey = ''
 
-        if (res && !res.success) {
-            console.error('Failed to save CMS', res.error)
-            alert('Error saving change: ' + res.error)
-            // Revert?
-            setText(initialValue)
-            if(ref.current) ref.current.innerText = initialValue
-        }
-    } catch (e) {
-        console.error(e)
-    } finally {
-        setIsSaving(false)
+    if (cmsKey) {
+        key = `site-config:${cmsKey}`
+        type = 'site-config'
+        idOrKey = cmsKey
+    } else if (cmsId && cmsField) {
+        key = `hero-slide:${cmsId}:${cmsField}`
+        type = 'hero-slide'
+        idOrKey = cmsId
+    }
+
+    if (key) {
+        registerChange({
+            key,
+            type,
+            idOrKey,
+            field: cmsField,
+            value: newValue,
+            locale
+        })
     }
   }
 
+  // If not in edit mode, just render clean text
   if (!isEditMode) {
-    // Normal render
-    // If component is void element or complex, handle carefully.
-    // Usually used for text wrappers.
     return <Component className={className}>{text || children}</Component>
   }
 
+  // In Edit Mode, use contentEditable
+  // We use suppressContentEditableWarning because React complains, but we manage it manually via ref for updates
   return (
     <Component
       ref={ref}
       contentEditable
       suppressContentEditableWarning
       onBlur={handleBlur}
-      className={`${className || ''} outline-dashed outline-2 outline-sky-400 rounded cursor-text min-w-[20px] transition-colors hover:bg-sky-50 focus:bg-white focus:outline-sky-600 focus:z-50 relative`}
-      style={{ opacity: isSaving ? 0.5 : 1 }}
+      className={`
+        ${className || ''}
+        relative cursor-text rounded transition-all duration-200
+        outline outline-2 outline-transparent hover:outline-sky-300/50 hover:bg-sky-50/10
+        focus:outline-sky-500 focus:bg-white focus:shadow-lg focus:z-50 focus:text-slate-900
+        empty:before:content-['Empty...'] empty:before:text-slate-300 empty:before:italic
+      `}
     >
       {text || children}
     </Component>

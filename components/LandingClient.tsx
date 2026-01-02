@@ -11,6 +11,7 @@ import ScrollReveal, { ParallaxImage } from '@/components/ScrollReveal'
 import FlagIcon from '@/components/FlagIcon'
 import { CmsProvider } from '@/components/cms/CmsContext'
 import EditableText from '@/components/cms/EditableText'
+import EditableImage from '@/components/cms/EditableImage'
 
 import type { CmsPayload } from '@/lib/cms/contentSelectors'
 import {
@@ -427,22 +428,32 @@ export default function LandingClient({ dict, lang, cmsContent, initialCmsLocale
               transition={{ duration: 1.5 }}
               className="absolute inset-0"
             >
-               <Image
-                src={heroDesktopImage}
-                alt={heroTitle}
-                fill
-                priority
-                sizes="100vw"
-                className="hidden object-cover sm:block"
-              />
-              <Image
-                src={heroMobileImage}
-                alt={heroTitle}
-                fill
-                priority
-                sizes="100vw"
-                className="object-cover sm:hidden"
-              />
+              <div className="hidden sm:block absolute inset-0">
+                 <EditableImage
+                    initialSrc={heroDesktopImage}
+                    cmsId={heroSlide?.id}
+                    cmsField="imageDesktop"
+                    locale={activeCmsLocale}
+                    alt={heroTitle}
+                    fill
+                    priority
+                    sizes="100vw"
+                    className="object-cover"
+                 />
+              </div>
+              <div className="sm:hidden absolute inset-0">
+                 <EditableImage
+                    initialSrc={heroMobileImage}
+                    cmsId={heroSlide?.id}
+                    cmsField="imageMobile"
+                    locale={activeCmsLocale}
+                    alt={heroTitle}
+                    fill
+                    priority
+                    sizes="100vw"
+                    className="object-cover"
+                 />
+              </div>
             </motion.div>
           </AnimatePresence>
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
