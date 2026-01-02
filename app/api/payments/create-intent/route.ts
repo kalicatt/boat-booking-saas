@@ -12,7 +12,34 @@ export async function POST(req: Request) {
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
     const stripeSecret = process.env.STRIPE_SECRET_KEY
-    if (!stripeSecret) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
+    if (!stripeSecret) {
+      return NextResponse.json(
+        {
+          error: 'Stripe not configured',
+          code: 'STRIPE_NOT_CONFIGURED',
+          ...(process.env.NODE_ENV === 'production'
+            ? {}
+            : {
+                hint:
+                  'Set STRIPE_SECRET_KEY (sk_test_... / sk_live_...) in your environment and restart the dev server.'
+              })
+        },
+        { status: 500 }
+      )
+    }
+
+    if (stripeSecret.startsWith('pk_')) {
+      return NextResponse.json(
+        {
+          error: 'Stripe secret key looks like a publishable key (pk_...).',
+          code: 'STRIPE_SECRET_INVALID',
+          ...(process.env.NODE_ENV === 'production'
+            ? {}
+            : { hint: 'Use STRIPE_SECRET_KEY=sk_test_... (server-side key), not a pk_ key.' })
+        },
+        { status: 500 }
+      )
+    }
 
     const stripe = new Stripe(stripeSecret)
 
@@ -41,6 +68,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ clientSecret: intent.client_secret })
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : String(e)
-    return NextResponse.json({ error: message || 'Server error' }, { status: 500 })
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[create-intent] Error:', e)
+    }
+    return NextResponse.json(
+      {
+        error: message || 'Server error',
+        ...(process.env.NODE_ENV === 'production'
+          ? {}
+          : { hint: 'Check STRIPE_SECRET_KEY and your database Payment schema.' })
+      },
+      { status: 500 }
+    )
   }
 }

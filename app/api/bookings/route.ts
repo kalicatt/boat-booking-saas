@@ -93,12 +93,57 @@ export async function POST(request: Request) {
 
     const adminSession = isStaffOverride ? await auth() : null
     // 1. CAPTCHA
-    if (!isStaffOverride) {
-        if (!captchaToken) return NextResponse.json({ error: "Captcha requis" }, { status: 400 })
-        const verifyUrl = `https://www.google.com/recaptcha/api/siteverify?secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${captchaToken}`
-        const captchaRes = await fetch(verifyUrl, { method: 'POST' })
-        const captchaData = await captchaRes.json()
-        if (!captchaData.success) return NextResponse.json({ error: "Captcha invalide" }, { status: 400 })
+    const isDevCaptchaBypassEnabled =
+      process.env.NODE_ENV !== 'production' &&
+      ['1', 'true', 'yes'].includes(String(process.env.DISABLE_RECAPTCHA || '').toLowerCase())
+
+    if (!isStaffOverride && !isDevCaptchaBypassEnabled) {
+      if (!captchaToken) return NextResponse.json({ error: 'Captcha requis' }, { status: 400 })
+
+      const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY
+      if (!recaptchaSecret) {
+        return NextResponse.json(
+          {
+            error: 'Captcha indisponible: configuration serveur manquante',
+            ...(process.env.NODE_ENV === 'production'
+              ? {}
+              : { details: 'Missing env RECAPTCHA_SECRET_KEY' })
+          },
+          { status: 500 }
+        )
+      }
+
+      const verifyBody = new URLSearchParams({
+        secret: recaptchaSecret,
+        response: captchaToken
+      })
+      const captchaRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: verifyBody
+      })
+      const captchaData = (await captchaRes.json()) as {
+        success?: boolean
+        'error-codes'?: string[]
+        hostname?: string
+      }
+
+      if (!captchaData.success) {
+        return NextResponse.json(
+          {
+            error: 'Captcha invalide',
+            ...(process.env.NODE_ENV === 'production'
+              ? {}
+              : {
+                  details: {
+                    errorCodes: captchaData['error-codes'] ?? [],
+                    hostname: captchaData.hostname ?? null
+                  }
+                })
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // 2. DATES (CONSTRUCTION UTC STRICTE)

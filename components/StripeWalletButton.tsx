@@ -158,7 +158,7 @@ function InnerPRB({ amount, currency, country = 'FR', label = 'Sweet Narcisse', 
 }
 
 export default function StripeWalletButton(props: Props) {
-  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_KEY
   const [stripeInstance, setStripeInstance] = useState<Stripe | null>(null)
   const loadingRef = useRef(false)
   

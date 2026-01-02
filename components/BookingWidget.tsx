@@ -292,6 +292,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         setPendingExpired(false)
         setPendingSecondsLeft(null)
         expirationHandledRef.current = false
+
+        // reCAPTCHA token is effectively single-use; avoid accidental reuse.
+        setCaptchaToken(null)
+        recaptchaRef.current?.reset()
         return newId
     }, [adults, babies, buildE164, captchaToken, children, date, formData, isPrivate, language, pendingBookingId, pendingExpiresAt, releasePendingBooking, selectedSlot, widgetCopy])
 
@@ -459,7 +463,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
 
     useEffect(() => {
         if (!pendingBookingId || !pendingSignature) return
-        const currentSignature = selectedSlot ? `${date}|${selectedSlot}|${adults}|${children}|${babies}` : null
+        const currentSignature = selectedSlot ? `${date}|${selectedSlot}|${adults}|${children}|${babies}|${isPrivate ? 'private' : 'standard'}` : null
         if (currentSignature && currentSignature === pendingSignature) return
         let cancelled = false
         const release = async () => {
@@ -483,7 +487,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         return () => {
             cancelled = true
         }
-    }, [adults, babies, children, date, pendingBookingId, pendingSignature, releasePendingBooking, selectedSlot])
+    }, [adults, babies, children, date, isPrivate, pendingBookingId, pendingSignature, releasePendingBooking, selectedSlot])
 
     // Auto-confirm ref (will be used in effect after handleBookingSubmit is defined)
     const autoConfirmTriggered = useRef(false)
@@ -595,7 +599,12 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
     // VALIDATION STANDARD (confirmation finale)
     const handleBookingSubmit = async (e?: React.FormEvent) => {
         if (e) e.preventDefault()
-                                if (!captchaToken) { setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."]); return }
+                                // Captcha is required only for creating a booking.
+                                // When a pending booking already exists, the final step is a confirmation/linking step.
+                                if (!pendingBookingId && !captchaToken) {
+                                    setGlobalErrors(["Veuillez cocher la case 'Je ne suis pas un robot'."])
+                                    return
+                                }
                                 if (!paymentSucceeded) { setGlobalErrors(["Veuillez finaliser le paiement avant confirmation."]); return }
                                 if (pendingExpired) {
                                     setGlobalErrors([widgetCopy.payment_countdown_expired || 'La réservation temporaire a expiré. Relancez le paiement.'])
@@ -738,6 +747,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             const err = await res.json().catch(()=>({error:'Erreur inconnue'}))
             setGlobalErrors(["Erreur: " + err.error])
             recaptchaRef.current?.reset()
+            setCaptchaToken(null)
         }
     } catch (error: unknown) {
         const msg = error instanceof Error ? error.message : String(error)
@@ -1202,6 +1212,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                                     ref={recaptchaRef}
                                                                     sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
                                                                     onChange={(token) => setCaptchaToken(token)}
+                                                                    onExpired={() => setCaptchaToken(null)}
                                                                 />
                                                             </div>
                                                         ) : (

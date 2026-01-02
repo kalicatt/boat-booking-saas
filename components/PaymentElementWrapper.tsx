@@ -54,7 +54,7 @@ const InnerPayment = memo(function InnerPayment({ onSuccess }: { onSuccess: (int
 })
 
 export default function PaymentElementWrapper({ clientSecret, onSuccess }: { clientSecret: string, onSuccess: (intentId: string) => void }) {
-  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  const pk = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_KEY
   const [stripeInstance, setStripeInstance] = useState<Stripe | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
