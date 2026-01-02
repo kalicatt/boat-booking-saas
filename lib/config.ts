@@ -5,6 +5,9 @@ export const PRICES = {
   BABY: 0,
 };
 
+// Fixed-price private boat booking
+export const PRIVATE_BOAT_PRICE = 100
+
 export const GROUP_THRESHOLD = 12; // >12 triggers group flow
 export const TOUR_DURATION_MINUTES = 25;
 export const TOUR_BUFFER_MINUTES = 5;

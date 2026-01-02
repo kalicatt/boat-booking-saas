@@ -4,13 +4,17 @@ import { TOUR_DURATION_MINUTES, TOUR_BUFFER_MINUTES, DEPARTURE_INTERVAL_MINUTES,
 import type { Boat, Booking, BlockedInterval } from '@prisma/client'
 
 type AvailabilityBoat = Pick<Boat, 'id' | 'capacity'>
-type AvailabilityBooking = Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'>
+type AvailabilityBooking = Pick<Booking, 'boatId' | 'startTime' | 'endTime' | 'language' | 'numberOfPeople'> & {
+  reservedSeats?: number | null
+  isPrivate?: boolean | null
+}
 type AvailabilityBlock = Pick<BlockedInterval, 'scope' | 'start' | 'end' | 'reason'>
 
 interface AvailabilityParams {
   dateParam: string
   requestedLang: string
   peopleNeeded: number
+  isPrivateRequest?: boolean
   boats: AvailabilityBoat[]
   bookings: AvailabilityBooking[]
   blocks: AvailabilityBlock[]
@@ -19,7 +23,7 @@ interface AvailabilityParams {
 const OPEN_TIME = '10:00'
 const CLOSE_TIME = '18:00'
 
-export function computeAvailability({ dateParam, requestedLang, peopleNeeded, boats, bookings, blocks }: AvailabilityParams) {
+export function computeAvailability({ dateParam, requestedLang, peopleNeeded, isPrivateRequest, boats, bookings, blocks }: AvailabilityParams) {
   if (boats.length === 0) return { date: dateParam, availableSlots: [] }
 
   const dayStartUtc = new Date(`${dateParam}T00:00:00.000Z`)
@@ -88,6 +92,10 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
       // Aucune réservation à cette heure exacte - créneau libre
       isSlotAvailable = true
     } else {
+      // Cas privatisation côté client: créneau uniquement si vide (exclusif)
+      if (isPrivateRequest) {
+        isSlotAvailable = false
+      } else {
       // Il y a des réservations à cette heure exacte
       // Vérifier si elles sont TOUTES dans la même langue demandée
       const isSameLang = exactStartConflicts.every(booking => booking.language?.toUpperCase() === normalizedRequestedLang)
@@ -115,9 +123,13 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
           if (!boat) continue
           
           const boatBookings = exactStartConflicts.filter(b => b.boatId === boatId)
-          const currentPeople = boatBookings.reduce((sum, b) => sum + b.numberOfPeople, 0)
+          const currentSeats = boatBookings.reduce((sum, b) => sum + (b.reservedSeats ?? b.numberOfPeople), 0)
+
+          // Une réservation privative bloque totalement ce bateau sur ce créneau
+          const hasPrivate = boatBookings.some((b) => Boolean(b.isPrivate))
+          if (hasPrivate) continue
           
-          if (currentPeople + peopleNeeded <= boat.capacity) {
+          if (currentSeats + peopleNeeded <= boat.capacity) {
             canJoin = true
             break
           }
@@ -126,6 +138,7 @@ export function computeAvailability({ dateParam, requestedLang, peopleNeeded, bo
         isSlotAvailable = canJoin
       }
       // Si langue différente, le créneau n'est PAS disponible (isSlotAvailable reste false)
+      }
     }
 
     if (isSlotAvailable) {

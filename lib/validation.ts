@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { parsePhoneNumberFromString } from 'libphonenumber-js/min'
 import { normalizeIncoming } from './phone'
 import { resolveAdminPermissions } from '@/types/adminPermissions'
+import { DEFAULT_BOAT_CAPACITY } from '@/lib/config'
 
 // Basic reusable sanitization – trim & remove zero-width/invisible chars
 export function cleanString(input: unknown, maxLength = 255) {
@@ -208,7 +209,18 @@ export const BookingRequestSchema = z.object({
   groupChain: z.number().int().min(0).optional(),
   inheritPaymentForChain: z.boolean().optional(),
   private: z.boolean().optional()
-}).refine(v => (v.adults + v.children + v.babies) > 0, { message: 'Au moins une personne requise' })
+})
+  .refine(v => (v.adults + v.children + v.babies) > 0, { message: 'Au moins une personne requise' })
+  .superRefine((value, ctx) => {
+    const total = value.adults + value.children + value.babies
+    if (value.private && total > DEFAULT_BOAT_CAPACITY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Capacité max ${DEFAULT_BOAT_CAPACITY} personnes pour une privatisation`,
+        path: ['adults']
+      })
+    }
+  })
 
 // Simple helper to safely parse numbers
 export function toNumber(value: unknown) {

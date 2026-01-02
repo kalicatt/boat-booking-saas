@@ -24,6 +24,7 @@ interface Booking {
   endTime: Date
   customerName: string
   guests: number
+  isPrivate?: boolean
   adults: number
   children: number
   babies: number
@@ -40,6 +41,7 @@ interface ApiBooking {
   startTime: string
   endTime: string
   numberOfPeople: number
+  isPrivate?: boolean
   adults: number | null
   children: number | null
   babies: number | null
@@ -131,6 +133,7 @@ export function PlanningClientPage({ boats, bookings: initialBookings }: Plannin
         endTime: new Date(b.endTime),
         customerName: `${b.user?.firstName || ''} ${b.user?.lastName || ''}`.trim() || 'Client',
         guests: b.numberOfPeople || 0,
+        isPrivate: Boolean(b.isPrivate),
         adults: b.adults || 0,
         children: b.children || 0,
         babies: b.babies || 0,

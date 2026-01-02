@@ -10,6 +10,7 @@ interface Booking {
   endTime: Date
   customerName: string
   guests: number
+  isPrivate?: boolean
   adults: number
   children: number
   babies: number
@@ -216,13 +217,20 @@ export function WeekCalendar({ boats, bookings, onSlotClick, onBookingClick }: W
                                         onBookingClick(booking)
                                       }}
                                       className={`w-full p-2 rounded border text-left text-xs transition hover:shadow-md ${
-                                        getStatusColor(booking.status)
+                                        booking.isPrivate
+                                          ? 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100'
+                                          : getStatusColor(booking.status)
                                       }`}
                                     >
                                       <div className="font-semibold truncate flex items-center gap-1">
                                         {booking.language && (
                                           <span title={booking.language}>
                                             {LANGUAGE_FLAGS[booking.language.toUpperCase()] || booking.language}
+                                          </span>
+                                        )}
+                                        {booking.isPrivate && (
+                                          <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800" title="Privatisation">
+                                            Privé
                                           </span>
                                         )}
                                         <span>{format(new Date(booking.startTime), 'HH:mm')}</span>
@@ -252,6 +260,10 @@ export function WeekCalendar({ boats, bookings, onSlotClick, onBookingClick }: W
 
       {/* Légende */}
       <div className="flex items-center gap-6 p-4 border-t border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-violet-100 border border-violet-400"></div>
+          <span className="text-sm text-slate-700">Privatisation</span>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded bg-emerald-100 border border-emerald-400"></div>
           <span className="text-sm text-slate-700">Confirmé</span>

@@ -98,6 +98,12 @@ model Booking {
   adults         Int     @default(0) // <--- NOUVEAU
   children       Int     @default(0) // <--- NOUVEAU (4-10 ans)
   babies         Int     @default(0) // <--- NOUVEAU (0-3 ans)
+
+  // PRIVATISATION
+  // - isPrivate: indique une réservation privative
+  // - reservedSeats: nombre de places consommées pour la capacité (ex: capacity totale si privatif)
+  isPrivate     Boolean @default(false)
+  reservedSeats Int?
   message        String?
   invoiceEmail   String?
 

@@ -45,6 +45,7 @@ type Booking = {
 	babies?: number | null
 	language?: string | null
 	isPaid?: boolean | null
+	isPrivate?: boolean | null
 	user?: BookingUser | null
 	payments?: BookingPayment[]
 }
@@ -435,13 +436,14 @@ export default function ReservationsAdminPage() {
 			pushToast({ type: 'warning', message: 'Aucune réservation à exporter.' })
 			return
 		}
-		const headers = ['Date', 'Heure', 'Référence', 'Client', 'Email', 'Pax', 'Langue', 'Paiement', 'Statut Paiement']
+		const headers = ['Date', 'Heure', 'Référence', 'Privé', 'Client', 'Email', 'Pax', 'Langue', 'Paiement', 'Statut Paiement']
 		const rows = bookings.map((booking) => {
 			const wall = toWall(new Date(booking.startTime))
 			return [
 				format(wall, 'yyyy-MM-dd'),
 				format(wall, 'HH:mm'),
 				booking.publicReference ?? '',
+				booking.isPrivate ? 'oui' : 'non',
 				`${booking.user?.firstName ?? ''} ${booking.user?.lastName ?? ''}`.trim(),
 				booking.user?.email ?? '',
 				String(booking.numberOfPeople ?? 0),
@@ -959,6 +961,11 @@ export default function ReservationsAdminPage() {
 													</td>
 													<td className="px-4 py-4 align-top">
 														<p className="text-xs text-slate-600">{formatPeopleLabel(booking)}</p>
+														{booking.isPrivate ? (
+															<span className="mt-1 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[11px] font-semibold text-violet-800" title="Privatisation">
+																Privé
+															</span>
+														) : null}
 														{booking.language && (
 															<span className="mt-1 sn-pill sn-pill--ghost">
 																<span className="sn-pill__dot" aria-hidden="true" />

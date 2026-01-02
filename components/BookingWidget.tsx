@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { PHONE_CODES, type PhoneCodeEntry } from '@/lib/phoneData'
 import { inputToE164, isPossibleLocalDigits, isValidE164, formatInternational } from '@/lib/phone'
-import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES } from '@/lib/config'
+import { PRICES, GROUP_THRESHOLD, MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES, PRIVATE_BOAT_PRICE, DEFAULT_BOAT_CAPACITY } from '@/lib/config'
 import ReCAPTCHA from 'react-google-recaptcha'
 import dynamic from 'next/dynamic'
 import type { Lang } from '@/lib/contactClient'
@@ -85,9 +85,7 @@ const STEPS = {
     PAYMENT: 4,       // Étape paiement
     SUCCESS: 5,       // Confirmation
     GROUP_CONTACT: 6, // Formulaire spécial groupe (>12)
-    GROUP_SUCCESS: 7, // Confirmation groupe
-    PRIVATE_CONTACT: 8, // Formulaire spécial privatisation
-    PRIVATE_SUCCESS: 9  // Confirmation privatisation
+    GROUP_SUCCESS: 7 // Confirmation groupe
 }
 
 export default function BookingWizard({ dict, initialLang }: WizardProps) {
@@ -121,7 +119,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   const [adults, setAdults] = useState(2)
   const [children, setChildren] = useState(0)
   const [babies, setBabies] = useState(0)
-    const [isPrivate] = useState(false) // Option barque privative
+        const [isPrivate, setIsPrivate] = useState(false) // Option barque privative
     const [contactOpen, setContactOpen] = useState(false)
     const [contactMode, setContactMode] = useState<'group'|'private'>('group')
   
@@ -265,7 +263,8 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 language,
                 userDetails: { ...formData, phone: buildE164() },
                 captchaToken,
-                pendingOnly: true
+                pendingOnly: true,
+                private: isPrivate
             })
         })
         const payload = await response.json()
@@ -290,13 +289,13 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 ? new Date(new Date(payload.booking.createdAt).getTime() + (PAYMENT_TIMEOUT_MINUTES * 60 * 1000)).toISOString()
                 : null)
         setPendingBookingId(newId)
-        setPendingSignature(`${date}|${selectedSlot || ''}|${adults}|${children}|${babies}`)
+        setPendingSignature(`${date}|${selectedSlot || ''}|${adults}|${children}|${babies}|${isPrivate ? 'private' : 'standard'}`)
         setPendingExpiresAt(expiresAtIso)
         setPendingExpired(false)
         setPendingSecondsLeft(null)
         expirationHandledRef.current = false
         return newId
-    }, [adults, babies, buildE164, captchaToken, children, date, formData, language, pendingBookingId, pendingExpiresAt, releasePendingBooking, selectedSlot, widgetCopy])
+    }, [adults, babies, buildE164, captchaToken, children, date, formData, isPrivate, language, pendingBookingId, pendingExpiresAt, releasePendingBooking, selectedSlot, widgetCopy])
 
     const initializeStripeIntent = useCallback(async () => {
         if (initializingStripeRef.current) return
@@ -359,7 +358,16 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // Calculs
   const totalPeople = adults + children + babies
     const isGroup = totalPeople > GROUP_THRESHOLD // Bascule automatiquement en mode Groupe
-    const totalPrice = (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
+    const totalPrice = isPrivate
+        ? PRIVATE_BOAT_PRICE
+        : (adults * PRICES.ADULT) + (children * PRICES.CHILD) + (babies * PRICES.BABY)
+
+    // Si on dépasse la capacité, on désactive la privatisation automatiquement
+    useEffect(() => {
+        if (isPrivate && totalPeople > DEFAULT_BOAT_CAPACITY) {
+            setIsPrivate(false)
+        }
+    }, [isPrivate, totalPeople])
                 const countdownTotalSeconds = PAYMENT_TIMEOUT_MINUTES * 60
         const progressSegments = [
             { id: STEPS.CRITERIA, label: widgetCopy.step_criteria_short || widgetCopy.step_criteria_title || 'Critères' },
@@ -505,16 +513,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
         return
     }
 
-    // Si demande de privatisation, direction formulaire privatif
-    if (isPrivate) {
-        setStep(STEPS.PRIVATE_CONTACT)
-        return
-    }
-
     // Sinon, recherche classique de créneaux
     setLoading(true)
         try {
-                const res = await fetch(`/api/availability?date=${date}&adults=${adults}&children=${children}&babies=${babies}&lang=${language}`)
+                const res = await fetch(`/api/availability?date=${date}&adults=${adults}&children=${children}&babies=${babies}&lang=${language}${isPrivate ? '&private=1' : ''}`)
                 const data = await res.json()
 
                 // Filtre côté client: si la date recherchée est aujourd'hui (local),
@@ -693,6 +695,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 language,
                 userDetails: { ...formData, phone: buildE164() },
                 captchaToken,
+                private: isPrivate,
                 isPaid: true,
                 payment: { provider: paymentProvider || 'stripe', method: paymentProvider === 'paypal' ? 'paypal_button' : 'payment_element', intentId: stripeIntentId || undefined, orderId: paypalOrderId || undefined }
             })
@@ -797,7 +800,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
   // TITRES DYNAMIQUES
   const getMainTitle = () => {
     if (isGroup) return groupFormCopy.title?.replace('{people}', String(totalPeople))
-    if (isPrivate) return privateFormCopy.title
+        if (isPrivate) return widgetCopy.private_toggle_title || widgetCopy.private_badge || (widgetCopy.summary_title_standard || bookingDict.title)
         return widgetCopy.summary_title_standard || bookingDict.title
   }
 
@@ -856,9 +859,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         {totalPeople} pers. <span className="text-slate-500 mx-1">•</span> {language}
                     </div>
                     
-                    {!isGroup && !isPrivate ? (
+                    {!isGroup && (
                         <div className="text-[#38bdf8] font-bold text-xl mt-2">{totalPrice},00 €</div>
-                    ) : (
+                    )}
+                    {(isPrivate || isGroup) && (
                         <div className="mt-2 inline-block px-2 py-1 rounded bg-blue-900/50 text-blue-200 text-xs font-bold border border-blue-500/30">
                             {isPrivate ? "✨ " + widgetCopy.private_badge : "👥 " + widgetCopy.group_badge}
                         </div>
@@ -866,7 +870,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                 </div>
 
                 {/* BLOC 2 : HORAIRE */}
-                {selectedSlot && !isGroup && !isPrivate && (
+                {selectedSlot && !isGroup && (
                     <div className={`p-4 rounded-xl border transition-all ${step === STEPS.SLOTS ? 'border-[#0ea5e9] bg-slate-800' : 'border-slate-700'}`}>
                         <div className="flex justify-between items-start mb-1">
                             <span className="text-xs uppercase font-bold text-slate-400">{widgetCopy.summary_departure}</span>
@@ -921,21 +925,67 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <div>
                             <span id="bw-passengers-label" className="block text-xs font-bold uppercase text-slate-500 mb-2">{widgetCopy.passengers}</span>
                             <div className="space-y-1" role="group" aria-labelledby="bw-passengers-label">
-                                <Counter label={widgetCopy.adults} price={`${PRICES.ADULT}€`} value={adults} setter={setAdults} />
-                                <Counter label={widgetCopy.children} price={`${PRICES.CHILD}€`} value={children} setter={setChildren} />
-                                <Counter label={widgetCopy.babies} price={widgetCopy.free} value={babies} setter={setBabies} />
+                                <Counter
+                                    label={widgetCopy.adults}
+                                    price={`${PRICES.ADULT}€`}
+                                    value={adults}
+                                    setter={(n) => {
+                                        const delta = n - adults
+                                        if (isPrivate && delta > 0 && (totalPeople + delta) > DEFAULT_BOAT_CAPACITY) return
+                                        setAdults(n)
+                                    }}
+                                />
+                                <Counter
+                                    label={widgetCopy.children}
+                                    price={`${PRICES.CHILD}€`}
+                                    value={children}
+                                    setter={(n) => {
+                                        const delta = n - children
+                                        if (isPrivate && delta > 0 && (totalPeople + delta) > DEFAULT_BOAT_CAPACITY) return
+                                        setChildren(n)
+                                    }}
+                                />
+                                <Counter
+                                    label={widgetCopy.babies}
+                                    price={widgetCopy.free}
+                                    value={babies}
+                                    setter={(n) => {
+                                        const delta = n - babies
+                                        if (isPrivate && delta > 0 && (totalPeople + delta) > DEFAULT_BOAT_CAPACITY) return
+                                        setBabies(n)
+                                    }}
+                                />
                             </div>
+                            {isPrivate && (
+                                <p className="mt-2 text-xs text-slate-500">
+                                    Capacité max {DEFAULT_BOAT_CAPACITY} • Prix fixe {PRIVATE_BOAT_PRICE}€
+                                </p>
+                            )}
                         </div>
 
-                                                {/* Replace inline private toggle with modal triggers */}
                                                 <div className="flex gap-3 justify-center mt-2">
-                                                    <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
-                                                        onClick={()=>{ setContactMode('group'); setContactOpen(true) }}>
+                                                    <button
+                                                        type="button"
+                                                        className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
+                                                        onClick={() => { setContactMode('group'); setContactOpen(true) }}
+                                                    >
                                                         👥 {widgetCopy.group_badge}
                                                     </button>
-                                                    <button type="button" className="px-3 py-2 text-sm rounded border border-slate-200 hover:bg-slate-50"
-                                                        onClick={()=>{ setContactMode('private'); setContactOpen(true) }}>
-                                                        ✨ {widgetCopy.private_toggle_title}
+                                                    <button
+                                                        type="button"
+                                                        aria-pressed={isPrivate}
+                                                        disabled={isGroup}
+                                                        className={`px-3 py-2 text-sm rounded border transition ${isPrivate ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 hover:bg-slate-50'} ${isGroup ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                        onClick={() => {
+                                                            if (isGroup) return
+                                                            if (totalPeople > DEFAULT_BOAT_CAPACITY) {
+                                                                setGlobalErrors([`Capacité max ${DEFAULT_BOAT_CAPACITY} pour une privatisation.`])
+                                                                return
+                                                            }
+                                                            setIsPrivate((v) => !v)
+                                                        }}
+                                                    >
+                                                        ✨ {widgetCopy.private_toggle_title} ({PRIVATE_BOAT_PRICE}€)
                                                     </button>
                                                 </div>
 
@@ -963,7 +1013,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         <button onClick={handleSearch} disabled={loading} 
                             className="btn-interactive btn-haptic w-full bg-[#0ea5e9] text-[#0f172a] py-4 rounded-xl font-bold text-lg hover:bg-sky-400 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-70">
                             {loading && <div className="w-5 h-5 border-2 border-slate-800/30 border-t-slate-800 rounded-full animate-spin"></div>}
-                            {loading ? (widgetCopy.loading || 'Recherche...') : isGroup ? widgetCopy.btn_continue_group : isPrivate ? widgetCopy.btn_continue_private : widgetCopy.btn_search}
+                            {loading ? (widgetCopy.loading || 'Recherche...') : isGroup ? widgetCopy.btn_continue_group : widgetCopy.btn_search}
                         </button>
                     </div>
                 </div>
@@ -1022,12 +1072,10 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                     <button onClick={() => setStep(step === STEPS.CONTACT ? STEPS.SLOTS : STEPS.CRITERIA)} className="text-sm text-slate-400 hover:text-slate-600 mb-4 flex items-center gap-1 w-fit">← {widgetCopy.back_btn || "Retour"}</button>
                     
                     <h2 className="text-2xl font-bold text-slate-800 mb-1">
-                        {step === STEPS.PRIVATE_CONTACT ? privateFormCopy.title : widgetCopy.form_title}
+                        {widgetCopy.form_title}
                     </h2>
                     <p className="text-slate-500 mb-6 text-sm">
-                        {step === STEPS.PRIVATE_CONTACT 
-                            ? privateFormCopy.subtitle 
-                            : widgetCopy.form_subtitle || "Complete your details"}
+                        {widgetCopy.form_subtitle || "Complete your details"}
                     </p>
                     
                     <form 
@@ -1137,11 +1185,11 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                                                         </div>
                                                 </div>
 
-                        {(step === STEPS.GROUP_CONTACT || step === STEPS.PRIVATE_CONTACT) && (
+                        {(step === STEPS.GROUP_CONTACT) && (
                              <div>
                                 <label htmlFor="bw-message" className="text-xs font-bold uppercase text-slate-500">{privateFormCopy.message_label || "Message"}</label>
                                 <textarea id="bw-message" className="w-full p-3 mt-1 border rounded-lg bg-white focus:ring-2 focus:ring-[#0ea5e9] outline-none h-20" 
-                                    placeholder={step === STEPS.PRIVATE_CONTACT ? privateFormCopy.placeholder_message : groupFormCopy.placeholder_message}
+                                    placeholder={groupFormCopy.placeholder_message}
                                     value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} />
                             </div>
                         )}
@@ -1359,7 +1407,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
             )}
 
             {/* --- ÉTAPE 4 : SUCCÈS --- */}
-            {(step === STEPS.SUCCESS || step === STEPS.GROUP_SUCCESS || step === STEPS.PRIVATE_SUCCESS) && (
+              {(step === STEPS.SUCCESS || step === STEPS.GROUP_SUCCESS) && (
                  <div className="h-full flex flex-col items-center justify-center text-center animate-in zoom-in duration-300">
                     <div className={`w-24 h-24 rounded-full flex items-center justify-center text-5xl mb-6 shadow-sm ${step === STEPS.SUCCESS ? 'bg-green-100' : 'bg-blue-100'}`}>
                         {step === STEPS.SUCCESS ? '🎟️' : '📨'}
@@ -1374,7 +1422,7 @@ export default function BookingWizard({ dict, initialLang }: WizardProps) {
                         }
                     </p>
                     {(
-                        step === STEPS.SUCCESS || step === STEPS.GROUP_SUCCESS || step === STEPS.PRIVATE_SUCCESS
+                        step === STEPS.SUCCESS || step === STEPS.GROUP_SUCCESS
                     ) && (
                         <div className="text-[11px] text-slate-500 mb-6 max-w-md">
                             {(() => {

@@ -11,6 +11,7 @@ interface Booking {
   endTime: Date
   customerName: string
   guests: number
+  isPrivate?: boolean
   adults: number
   children: number
   babies: number
@@ -1001,7 +1002,9 @@ export function DayView({
                               onTouchEnd={handleTouchDragEnd}
                               onClick={() => onBookingClick(booking)}
                               className={`inline-flex flex-col p-2 rounded border-l-4 text-left transition cursor-grab active:cursor-grabbing hover:shadow-md touch-none ${
-                                getStatusColor(booking.status)
+                                booking.isPrivate
+                                  ? 'bg-violet-50 border-violet-300 text-violet-900 hover:bg-violet-100'
+                                  : getStatusColor(booking.status)
                               } ${draggedBooking?.id === booking.id ? 'opacity-50' : ''} min-w-[180px]`}
                             >
                               <div className="flex items-center justify-between gap-2 mb-1">
@@ -1009,6 +1012,11 @@ export function DayView({
                                   <span className="text-xs font-bold">
                                     {format(new Date(booking.startTime), 'HH:mm')}
                                   </span>
+                                  {booking.isPrivate && (
+                                    <span className="ml-1 inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800" title="Privatisation">
+                                      Privé
+                                    </span>
+                                  )}
                                   {booking.language && (
                                     <span className="text-sm" title={booking.language}>
                                       {LANGUAGE_FLAGS[booking.language.toUpperCase()] || booking.language}
@@ -1071,6 +1079,10 @@ export function DayView({
 
       {/* Footer légende */}
       <div className="flex flex-wrap items-center gap-4 p-4 border-t border-slate-200 bg-slate-50">
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-violet-100 border border-violet-400"></div>
+          <span className="text-sm text-slate-700">Privatisation</span>
+        </div>
         <div className="flex items-center gap-2">
           <div className="w-4 h-4 rounded bg-emerald-100 border border-emerald-400"></div>
           <span className="text-sm text-slate-700">Confirmé</span>

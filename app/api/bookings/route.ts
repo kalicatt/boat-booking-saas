@@ -7,7 +7,7 @@ import { rateLimit, getClientIp, enhancedRateLimit } from '@/lib/rateLimit'
 import { nanoid } from 'nanoid'
 import { cacheInvalidateDate } from '@/lib/cache'
 import { getParisTodayISO, getParisNowParts, parseParisWallDate } from '@/lib/time'
-import { MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES } from '@/lib/config'
+import { MIN_BOOKING_DELAY_MINUTES, PAYMENT_TIMEOUT_MINUTES, PRIVATE_BOAT_PRICE } from '@/lib/config'
 import { auth } from '@/auth'
 import type { Booking, Prisma } from '@prisma/client'
 import { generateSeasonalBookingReference } from '@/lib/bookingReference'
@@ -222,11 +222,15 @@ export async function POST(request: Request) {
         if (realConflicts.length === 0) {
           canBook = true
         } else {
+          if (isPrivate) {
+            canBook = false
+          } else {
           const isExactStart = realConflicts.every(b => isSameMinute(b.startTime, myStart))
           const isSameLang = realConflicts.every(b => b.language?.toUpperCase() === normalizedLang)
-          const totalPeople = realConflicts.reduce((sum, b) => sum + b.numberOfPeople, 0)
-          if ((isExactStart && isSameLang && (totalPeople + people <= selectedBoat.capacity)) || isStaffOverride === true) {
+          const totalSeats = realConflicts.reduce((sum, b) => sum + ((b as any).reservedSeats ?? b.numberOfPeople), 0)
+          if ((isExactStart && isSameLang && (totalSeats + people <= selectedBoat.capacity)) || isStaffOverride === true) {
             canBook = true
+          }
           }
         }
       } else {
@@ -243,6 +247,10 @@ export async function POST(request: Request) {
           selectedBoat = boats[0]
           canBook = true
         } else {
+          if (isPrivate) {
+            canBook = false
+            // NOTE: privatisation = créneau exclusif, refus si déjà un départ à cette heure
+          } else {
           // Il y a des réservations à cette heure exacte
           // Vérifier si elles sont TOUTES dans la même langue demandée
           const isSameLang = exactStartConflicts.every(b => b.language?.toUpperCase() === normalizedLang)
@@ -254,9 +262,9 @@ export async function POST(request: Request) {
               if (!boat) continue
               
               const boatBookings = exactStartConflicts.filter(b => b.boatId === boat.id)
-              const currentPeople = boatBookings.reduce((sum, b) => sum + b.numberOfPeople, 0)
+              const currentSeats = boatBookings.reduce((sum, b) => sum + ((b as any).reservedSeats ?? b.numberOfPeople), 0)
               
-              if (currentPeople + people <= boat.capacity) {
+              if (currentSeats + people <= boat.capacity) {
                 selectedBoat = boat
                 canBook = true
                 break
@@ -264,6 +272,7 @@ export async function POST(request: Request) {
             }
           }
           // Si langue différente, canBook reste false
+          }
         }
       }
 
@@ -271,12 +280,16 @@ export async function POST(request: Request) {
         return { ok: false as const, conflict: true as const }
       }
 
-      // Création (privatisation remplit la capacité pour fermer le créneau)
-      const paxAdults = isPrivate ? selectedBoat.capacity : adults
-      const paxChildren = isPrivate ? 0 : children
-      const paxBabies = isPrivate ? 0 : babies
+      // Création
+      // - privatisation: conserve le nombre réel de passagers mais consomme toute la capacité du bateau
+      const paxAdults = adults
+      const paxChildren = children
+      const paxBabies = babies
       const paxTotal = paxAdults + paxChildren + paxBabies
-      const priceTotal = (paxAdults * PRICE_ADULT) + (paxChildren * PRICE_CHILD) + (paxBabies * PRICE_BABY)
+      const reservedSeats = isPrivate ? selectedBoat.capacity : paxTotal
+      const priceTotal = isPrivate
+        ? PRIVATE_BOAT_PRICE
+        : (paxAdults * PRICE_ADULT) + (paxChildren * PRICE_CHILD) + (paxBabies * PRICE_BABY)
       const publicReference = await generateSeasonalBookingReference(tx, myStart)
 
       const booking = await tx.booking.create({
@@ -286,6 +299,8 @@ export async function POST(request: Request) {
           endTime: myEnd,
           numberOfPeople: paxTotal,
           adults: paxAdults, children: paxChildren, babies: paxBabies,
+          isPrivate,
+          reservedSeats,
           language,
           totalPrice: priceTotal,
           status: pendingOnly ? 'PENDING' : 'CONFIRMED',

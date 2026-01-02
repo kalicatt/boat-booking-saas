@@ -28,6 +28,10 @@ export async function GET(request: Request) {
   const adults = parseInt(searchParams.get('adults') || '0')
   const children = parseInt(searchParams.get('children') || '0')
   const babies = parseInt(searchParams.get('babies') || '0')
+  const isPrivateRequest = (() => {
+    const v = (searchParams.get('private') || '').toLowerCase()
+    return v === '1' || v === 'true' || v === 'yes'
+  })()
 
 // Memo cache is provided by '@/lib/memoCache'
   const langParam = searchParams.get('lang')
@@ -98,6 +102,7 @@ export async function GET(request: Request) {
       dateParam,
       requestedLang,
       peopleNeeded,
+      isPrivateRequest,
       boats,
       bookings,
       blocks
