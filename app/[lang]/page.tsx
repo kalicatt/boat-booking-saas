@@ -6,8 +6,6 @@ import {
     SUPPORTED_LOCALES as CMS_SUPPORTED_LOCALES,
     type LocaleCode
 } from '@/types/cms'
-import { auth } from '@/auth'
-
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const runtime = 'nodejs'
@@ -26,8 +24,6 @@ export default async function LandingPage({ params }: { params: Promise<{ lang: 
         ? (safeLang as LocaleCode)
         : CMS_DEFAULT_LOCALE
 
-    const session = await auth()
-    const userRole = typeof session?.user?.role === 'string' ? session.user.role : undefined
-
-    return <LandingClient dict={dict} lang={safeLang} cmsContent={cmsPayload} initialCmsLocale={cmsLocale} userRole={userRole} />
+    // Public view: no edit role passed
+    return <LandingClient dict={dict} lang={safeLang} cmsContent={cmsPayload} initialCmsLocale={cmsLocale} />
 }
